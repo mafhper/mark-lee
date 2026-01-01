@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Mark-Lee",
   "version": "1.0.0",
-  "identifier": "com.marklee.app",
+  "identifier": "com.mafhper.marklee",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -16,11 +16,28 @@
         "width": 1200,
         "height": 800,
         "minWidth": 600,
-        "minHeight": 400
+        "minHeight": 400,
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {
       "csp": null
+    }
+  },
+  "plugins": {
+    "cli": {
+      "description": "Mark-Lee - Elegant Markdown Editor",
+      "args": [
+        {
+          "name": "file",
+          "index": 1,
+          "takesValue": true,
+          "required": false,
+          "short": "f",
+          "description": "Path to the markdown file to open"
+        }
+      ]
     }
   },
   "bundle": {
@@ -43,6 +60,14 @@
         "description": "Markdown Document",
         "role": "Editor"
       }
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/icon.png",
+        "sidebarImage": "icons/icon.png",
+        "installMode": "currentUser"
+      }
+    }
   }
 }

@@ -2,18 +2,35 @@
   "name": "mark-lee-desktop",
   "private": true,
   "version": "0.1.0",
+  "description": "An elegant, high-performance Markdown editor built with React, Tauri, and Rust.",
+  "author": "mafhper",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafhper/mark-lee.git"
+  },
   "type": "module",
   "scripts": {
+    "predev": "node scripts/welcome.js",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "static-serve": "npx serve dist",
+    "static-build": "npm run build && echo \"Build completo. Acesse os arquivos estáticos em dist/ ou use 'npm run static-serve'\"",
+    "static-preview": "npm run build && npx serve dist",
+    "tauri": "tauri",
+    "release": "node scripts/release.js",
+    "setup": "node scripts/setup.js",
+    "icons": "node scripts/generate-icons.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-cli": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "clsx": "^2.1.1",
+    "highlight.js": "^11.11.1",
     "lucide-react": "^0.556.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -29,6 +46,7 @@
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.22",
     "postcss": "^8.5.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.18",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"

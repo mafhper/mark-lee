@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="contributing.title">Como Contribuir - Mark-Lee</title>
+  <link rel="icon" type="image/png" href="/img/logo.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+  <header>
+    <div class="nav-content">
+      <a href="home.html" class="nav-logo">
+        <img src="/img/logo.png" alt="Logo">
+        Mark-Lee
+      </a>
+      <nav class="nav-links">
+        <a href="home.html" data-i18n="nav.product">Produto</a>
+        <a href="gallery.html" data-i18n="nav.gallery">Galeria</a>
+        <a href="development.html" data-i18n="nav.engineering">Engenharia</a>
+        <a href="contributing.html" class="active" data-i18n="nav.contribute">Contribuir</a>
+        <a href="index.html" class="web-app-link" data-i18n="nav.webapp">Web App <i class="ph ph-arrow-right"></i></a>
+
+        <div class="lang-switcher">
+          <button class="lang-switcher-btn active" data-lang="pt-BR">PT</button>
+          <button class="lang-switcher-btn" data-lang="en-US">EN</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    
+    <div class="section-padding-sm">
+      <h1><span data-i18n="contributing.hero_h1_part1">Como</span> <span class="text-gradient" data-i18n="contributing.hero_h1_part2">Contribuir</span>.</h1>
+      <p class="lead" data-i18n="contributing.hero_lead_text">
+        O Mark-Lee é um projeto open-source e agradece a sua contribuição.
+      </p>
+    </div>
+
+    <section>
+        <div class="bento-grid">
+            <div class="card">
+                <h3><span data-i18n="contributing.bugs_title">Reporte Bugs</span></h3>
+                <p data-i18n="contributing.bugs_desc" style="margin-top: 12px;">Encontrou um erro? Ajude-nos reportando-o no GitHub. Seja o mais detalhado possível.</p>
+                <div style="margin-top: 24px;">
+                    <a href="https://github.com/mafhper/mark-lee/issues" class="btn btn-secondary" data-i18n="contributing.bugs_btn">Reportar no GitHub <i class="ph ph-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="card">
+                <h3><span data-i18n="contributing.features_title">Sugira Features</span></h3>
+                <p data-i18n="contributing.features_desc" style="margin-top: 12px;">Tem uma ideia para melhorar o Mark-Lee? Abra uma issue ou discussão com sua sugestão.</p>
+                <div style="margin-top: 24px;">
+                    <a href="https://github.com/mafhper/mark-lee/issues" class="btn btn-secondary" data-i18n="contributing.features_btn">Sugerir no GitHub <i class="ph ph-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="card">
+                <h3><span data-i18n="contributing.prs_title">Envie Pull Requests</span></h3>
+                <p data-i18n="contributing.prs_desc" style="margin-top: 12px;">Se você é desenvolvedor, sinta-se à vontade para enviar um PR com melhorias ou novas funcionalidades.</p>
+                <div style="margin-top: 24px;">
+                    <a href="https://github.com/mafhper/mark-lee/pulls" class="btn btn-secondary" data-i18n="contributing.prs_btn">Enviar PR no GitHub <i class="ph ph-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="border-top: 1px solid var(--border-subtle); margin-top: 60px; padding-top: 60px;">
+        <h2 data-i18n="contributing.guide_h2">Guia de Contribuição</h2>
+        <p class="lead" data-i18n="contributing.guide_lead_text" style="margin-top: 24px; max-width: 800px;">
+            Para garantir um processo de contribuição suave e eficaz, siga estas diretrizes:
+        </p>
+        <div style="margin-top: 40px; display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: flex; gap: 24px; align-items: flex-start;">
+                <div class="card-icon" style="background: var(--text-primary); color: var(--bg-body);"><i class="ph ph-code-simple"></i></div>
+                <div>
+                    <h3 data-i18n="contributing.guide_setup_title">Setup do Ambiente</h3>
+                    <p data-i18n="contributing.guide_setup_desc">Siga o guia de "Getting Started" no README do projeto para configurar seu ambiente de desenvolvimento.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 24px; align-items: flex-start;">
+                <div class="card-icon" style="background: var(--text-primary); color: var(--bg-body);"><i class="ph ph-git-branch"></i></div>
+                <div>
+                    <h3 data-i18n="contributing.guide_git_title">Fluxo de Trabalho Git</h3>
+                    <p data-i18n="contributing.guide_git_desc">Crie um branch separado para suas alterações (e.g., `feature/nova-feature` ou `fix/nome-do-bug`). Faça commits atômicos com mensagens claras.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 24px; align-items: flex-start;">
+                <div class="card-icon" style="background: var(--text-primary); color: var(--bg-body);"><i class="ph ph-file-code"></i></div>
+                <div>
+                    <h3 data-i18n="contributing.guide_code_title">Padrões de Código</h3>
+                    <p data-i18n="contributing.guide_code_desc">Mantenha a consistência com o estilo de código existente. Se for uma nova funcionalidade, inclua testes, se aplicável.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="nav-content footer-content">
+      <span data-i18n="footer.copyright">Mark-Lee v1.0 • © 2025</span>
+      <span data-i18n="footer.license">Open Source (MIT License)</span>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="tech.react_title">Tecnologia: React 19 & TypeScript - Mark-Lee</title>
+  <link rel="icon" type="image/png" href="../img/logo.png">
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+  <header>
+    <div class="nav-content">
+      <a href="../home.html" class="nav-logo">
+        <img src="../img/logo.png" alt="Logo">
+        Mark-Lee
+      </a>
+      <nav class="nav-links">
+        <a href="../home.html" data-i18n="nav.product">Produto</a>
+        <a href="../gallery.html" data-i18n="nav.gallery">Galeria</a>
+        <a href="../development.html" class="active" data-i18n="nav.engineering">Engenharia</a>
+        <a href="../contributing.html" data-i18n="nav.contribute">Contribuir</a>
+        <a href="../index.html" class="web-app-link" data-i18n="nav.webapp">Web App <i class="ph ph-arrow-right"></i></a>
+
+        <div class="lang-switcher">
+          <button class="lang-switcher-btn active" data-lang="pt-BR">PT</button>
+          <button class="lang-switcher-btn" data-lang="en-US">EN</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    <div class="section-padding-sm">
+      <h1><span data-i18n="tech.react_title">React 19 & TypeScript: A</span> <span class="text-gradient" data-i18n="tech.react_title_gradient">Interface</span>.</h1>
+      <p class="lead" data-i18n="tech.react_lead_text">
+        Uma experiência de usuário fluida e reativa, construída sobre a robustez e escalabilidade do React com TypeScript.
+      </p>
+    </div>
+
+    <section style="display: flex; flex-direction: column; gap: 40px;">
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.react_why_react_title">React 19</h3>
+            <p data-i18n="tech.react_why_react_desc" style="margin-top: 16px;">React é uma biblioteca JavaScript para construir interfaces de usuário. Ele permite desenvolver componentes de forma declarativa, onde cada componente gerencia seu próprio estado, tornando a construção de UIs complexas mais simples e fácil de manter. No Mark-Lee, o React é a base para o editor de Markdown, o preview em tempo real, menus e modais. **Aplicação no Mark-Lee:** React é fundamental para a modularidade do editor. Cada parte da interface, como a barra de ferramentas, o editor de texto, o painel de visualização e os modais de configurações, é um componente React. Isso facilita a manutenção, a adição de novos recursos e a garantia de uma UI responsiva e atualizada em tempo real.</p>
+        </div>
+
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.react_why_ts_title">TypeScript</h3>
+            <p data-i18n="tech.react_why_ts_desc" style="margin-top: 16px;">TypeScript é um superconjunto tipado de JavaScript que compila para JavaScript puro. Ele adiciona tipagem estática opcional ao código, o que ajuda a detectar erros durante o desenvolvimento, melhora a legibilidade e facilita a refatoração, especialmente em projetos grandes como o Mark-Lee. A tipagem forte garante que as interações entre o frontend (React) e o backend (Tauri/Rust) sejam seguras e bem definidas. **Aplicação no Mark-Lee:** TypeScript é crucial para a qualidade do código. Ele nos permite definir contratos claros para as propriedades dos componentes React, os estados da aplicação e as estruturas de dados trocadas com o backend Rust. Isso minimiza bugs, melhora a colaboração e torna o desenvolvimento de novas funcionalidades mais rápido e seguro.</p>
+        </div>
+
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.react_code_example_title">Exemplo de Código (React Componente com TypeScript)</h3>
+            <p data-i18n="tech.react_code_example_desc" style="margin-top: 16px; margin-bottom: 16px;">Um componente funcional que lida com a entrada de texto do editor Mark-Lee:</p>
+            <pre><code>// src/components/MarkdownEditor.tsx
+import React, { useState } from 'react';
+
+interface MarkdownEditorProps {
+  initialContent: string;
+  onContentChange: (newContent: string) => void;
+}
+
+const MarkdownEditor: React.FC&lt;MarkdownEditorProps> = ({ initialContent, onContentChange }) => {
+  const [content, setContent] = useState(initialContent);
+
+  const handleChange = (event: React.ChangeEvent&lt;HTMLTextAreaElement>) => {
+    const newContent = event.target.value;
+    setContent(newContent);
+    onContentChange(newContent);
+  };
+
+  return (
+    &lt;textarea
+      value={content}
+      onChange={handleChange}
+      placeholder="Comece a escrever seu Markdown aqui..."
+      className="editor-textarea"
+    />
+  );
+};
+
+export default MarkdownEditor;
+</code></pre>
+            <p style="margin-top: 16px;">Este exemplo mostra um componente React (tipado com TypeScript) para o editor, destacando como o estado e as propriedades são gerenciados de forma clara e segura para uma experiência de edição fluida.</p>
+        </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="nav-content footer-content">
+      <span data-i18n="footer.copyright">Mark-Lee v1.0 • © 2025</span>
+      <span data-i18n="footer.license">Open Source (MIT License)</span>
+    </div>
+  </footer>
+
+  <script src="../js/i18n.js"></script>
+</body>
+</html>

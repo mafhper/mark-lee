@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="tech.rust_title">Tecnologia: Rust & Tauri - Mark-Lee</title>
+  <link rel="icon" type="image/png" href="../img/logo.png">
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+  <header>
+    <div class="nav-content">
+      <a href="../home.html" class="nav-logo">
+        <img src="../img/logo.png" alt="Logo">
+        Mark-Lee
+      </a>
+      <nav class="nav-links">
+        <a href="../home.html" data-i18n="nav.product">Produto</a>
+        <a href="../gallery.html" data-i18n="nav.gallery">Galeria</a>
+        <a href="../development.html" class="active" data-i18n="nav.engineering">Engenharia</a>
+        <a href="../contributing.html" data-i18n="nav.contribute">Contribuir</a>
+        <a href="../index.html" class="web-app-link" data-i18n="nav.webapp">Web App <i class="ph ph-arrow-right"></i></a>
+
+        <div class="lang-switcher">
+          <button class="lang-switcher-btn active" data-lang="pt-BR">PT</button>
+          <button class="lang-switcher-btn" data-lang="en-US">EN</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    <div class="section-padding-sm">
+      <h1><span data-i18n="tech.rust_title">Rust & Tauri: Poder e</span> <span class="text-gradient" data-i18n="tech.rust_title_gradient">Leveza</span>.</h1>
+      <p class="lead" data-i18n="tech.rust_lead_text">
+        O coração do Mark-Lee pulsa com a performance e a segurança que só Rust pode oferecer, empacotado para o desktop com a eficiência de Tauri.
+      </p>
+    </div>
+
+    <section style="display: flex; flex-direction: column; gap: 40px;">
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.rust_why_rust_title">Por que Rust?</h3>
+            <p data-i18n="tech.rust_why_rust_desc" style="margin-top: 16px;">Rust é uma linguagem de programação focada em performance e segurança de memória. Ela nos permite construir um backend para o Mark-Lee que é rápido, confiável e evita classes inteiras de bugs comuns em outras linguagens. Sua promessa de "zero-cost abstractions" significa que você não paga pelo que não usa. **Aplicação no Mark-Lee:** Rust é usado para todas as operações críticas do sistema, como acesso direto ao sistema de arquivos (ler/escrever documentos), gerenciamento de janelas e comunicação com o frontend React, garantindo que o editor responda instantaneamente e de forma robusta.</p>
+        </div>
+
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.rust_why_tauri_title">Por que Tauri?</h3>
+            <p data-i18n="tech.rust_why_tauri_desc" style="margin-top: 16px;">Tauri é um framework para construir aplicativos desktop multiplataforma usando tecnologias web (HTML, CSS, JavaScript) para a interface do usuário, mas com um backend em Rust. Ao contrário de alternativas como Electron, Tauri utiliza o WebView nativo do sistema operacional (WebView2 no Windows, WebKit no macOS/Linux), resultando em binários significativamente menores e um consumo de RAM muito mais baixo. Para o Mark-Lee, isso significa um instalador de apenas ~3MB e uma experiência mais ágil para o usuário. **Aplicação no Mark-Lee:** Tauri permite que a interface rica do React seja executada em um ambiente nativo, com acesso a APIs do sistema operacional que um aplicativo web comum não teria, como a abertura de diálogos de arquivo nativos ou a gestão de janelas sem bordas.</p>
+        </div>
+
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-highlight);">
+            <h3 data-i18n="tech.rust_code_example_title">Exemplo de Código (Rust + Tauri)</h3>
+            <p data-i18n="tech.rust_code_example_desc" style="margin-top: 16px; margin-bottom: 16px;">Como o frontend (React) invoca uma função Rust para salvar um arquivo:</p>
+            <pre><code>// Rust (src-tauri/src/main.rs)
+#[tauri::command]
+async fn save_document(path: String, content: String) -> Result&lt;(), String> {
+    std::fs::write(&path, &content).map_err(|e| e.to_string())
+}
+
+// TypeScript (frontend - src/services/filesystem.ts)
+import { invoke } from '@tauri-apps/api/tauri';
+
+export async function saveFile(path: string, content: string): Promise&lt;void> {
+    await invoke('save_document', { path, content });
+}
+
+// React Component (src/App.tsx)
+// No Mark-Lee, invokamos 'saveFile' quando o usuário salva
+const handleSave = async () => {
+    // ... lógica para obter path e content ...
+    await saveFile(currentPath, markdown);
+};
+</code></pre>
+            <p style="margin-top: 16px;">Este exemplo mostra como o frontend em React invoca uma função Rust (`save_document`) via Tauri para realizar operações no sistema de arquivos de forma segura e eficiente, uma integração vital para um editor desktop.</p>
+        </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="nav-content footer-content">
+      <span data-i18n="footer.copyright">Mark-Lee v1.0 • © 2025</span>
+      <span data-i18n="footer.license">Open Source (MIT License)</span>
+    </div>
+  </footer>
+
+  <script src="../js/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="development.title">Engenharia - Mark-Lee</title>
+  <link rel="icon" type="image/png" href="/img/logo.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+  <div class="page-overlay-graphic" style="background-image: url('/img/backgrounds/svg/AuraWall-1765213455154.svg');"></div>
+  <header>
+    <div class="nav-content">
+      <a href="home.html" class="nav-logo">
+        <img src="/img/logo.png" alt="Logo">
+        Mark-Lee
+      </a>
+      <nav class="nav-links">
+        <a href="home.html" data-i18n="nav.product">Produto</a>
+        <a href="gallery.html" data-i18n="nav.gallery">Galeria</a>
+        <a href="development.html" class="active" data-i18n="nav.engineering">Engenharia</a>
+        <a href="contributing.html" data-i18n="nav.contribute">Contribuir</a>
+        <a href="index.html" class="web-app-link" data-i18n="nav.webapp">Web App <i class="ph ph-arrow-right"></i></a>
+
+        <div class="lang-switcher">
+          <button class="lang-switcher-btn active" data-lang="pt-BR">PT</button>
+          <button class="lang-switcher-btn" data-lang="en-US">EN</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    
+    <div class="section-padding-sm">
+      <h1><span data-i18n="development.hero_h1_part1">Arquitetura para a</span> <span class="text-gradient" data-i18n="development.hero_h1_part2">excelência</span>.</h1>
+      <p class="lead" data-i18n="development.hero_lead_text">
+        Desvendamos os princípios por trás do Mark-Lee: performance, minimalismo e segurança.
+      </p>
+    </div>
+
+    <!-- Core Technologies -->
+    <section>
+      <h2 style="margin-bottom: 40px;"><span data-i18n="development.tech_h2_part1">Tecnologias que</span> <span class="text-gradient" data-i18n="development.tech_h2_part2">impulsionam</span>.</h2>
+      <div class="bento-grid">
+        
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-icon"><i class="ph ph-code"></i></div>
+          <h3 data-i18n="development.rust_tauri_title">Rust & Tauri</h3>
+          <p data-i18n="development.rust_tauri_desc" style="margin-top: 16px;">O coração nativo do Mark-Lee pulsa com Rust, uma linguagem que oferece performance incomparável e segurança de memória, enquanto Tauri nos permite construir um aplicativo desktop leve e eficiente, utilizando o WebView do sistema operacional. Isso resulta em binários pequenos e baixo consumo de recursos.</p>
+          <div style="margin-top: 24px;">
+            <a href="tech/rust.html" class="btn btn-secondary">Saiba Mais <i class="ph ph-arrow-right"></i></a>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-react-logo"></i></div>
+          <h3 data-i18n="development.react_ts_title">React 19 & TypeScript</h3>
+          <p data-i18n="development.react_ts_desc" style="margin-top: 16px;">A interface do usuário é construída com a última versão do React e TypeScript. React oferece uma experiência de UI fluida e reativa, enquanto TypeScript garante a robustez e escalabilidade do código frontend com tipagem forte.</p>
+          <div style="margin-top: 24px;">
+            <a href="tech/react.html" class="btn btn-secondary">Saiba Mais <i class="ph ph-arrow-right"></i></a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-lightning"></i></div>
+          <h3 data-i18n="development.vite_tailwind_title">Vite & TailwindCSS</h3>
+          <p data-i18n="development.vite_tailwind_desc" style="margin-top: 16px;">Para o ambiente de desenvolvimento, usamos Vite para HMR (Hot Module Replacement) ultra-rápido. O TailwindCSS nos permite construir a interface de forma eficiente e modular, com um design consistente e otimizado.</p>
+          <div style="margin-top: 24px;">
+            <a href="tech/vite.html" class="btn btn-secondary">Saiba Mais <i class="ph ph-arrow-right"></i></a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-microsoft-word"></i></div>
+          <h3 data-i18n="development.webview2_title">WebView2</h3>
+          <p data-i18n="development.webview2_desc" style="margin-top: 16px;">Componente da Microsoft que renderiza o conteúdo web (interface do Mark-Lee) usando o motor nativo do Edge (Chromium), garantindo performance e integração sem empacotar um navegador inteiro.</p>
+          <div style="margin-top: 24px;">
+            <a href="tech/webview2.html" class="btn btn-secondary">Saiba Mais <i class="ph ph-arrow-right"></i></a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Roadmap Section -->
+    <section class="section-padding-sm" style="border-top: 1px solid var(--border-subtle); margin-top: 60px;">
+      <h2 style="margin-bottom: 40px;"><span data-i18n="development.roadmap_h2_part1">Evolução Contínua: Nosso</span> <span class="text-gradient" data-i18n="development.roadmap_h2_part2">Roadmap</span>.</h2>
+      
+      <div style="display: flex; flex-direction: column; gap: 40px;">
+        
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="background: var(--text-primary); color: var(--bg-body);"><i class="ph ph-check-square"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_v100_title" style="margin-bottom: 8px;">v1.0.0 - Lançamento Oficial (2025/12/07)</h3>
+            <p data-i18n="development.roadmap_v100_desc">
+              **Novos Temas**: Nord, Synthwave, Forest, Coffee.<br>
+              **Exportação PDF Profissional**: Layout A4, quebras de página e tipografia limpa.<br>
+              **Modos de Foco**: Foco (overlay), Imersivo (F11).<br>
+              **Atalhos Customizáveis**: Defina qualquer tecla para ações.<br>
+              **Gerenciador de Snippets**: Inserção rápida de tabelas, blocos de código.<br>
+              **Melhorias de UI/UX**: Arraste de janelas, indicação de modificação, auto-hide de scrollbar e menu bar, auto-save e tempo de leitura.
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-highlight);"><i class="ph ph-arrow-arc-right"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_v050_title" style="margin-bottom: 8px;">v0.5.0 - Produtividade (2025/12/07)</h3>
+            <p data-i18n="development.roadmap_v050_desc">
+              **Melhorias no Editor**: Contador de seleção (palavras/caracteres), Modo Foco (spotlight).<br>
+              **Mais Recursos**: Exportação HTML, Indicador de modificação.<br>
+              **UX Aprimorada**: Auto-save configurável, Tempo de Leitura, Traduções.
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-highlight);"><i class="ph ph-gear"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_v040_title" style="margin-bottom: 8px;">v0.4.0 - Base e Persistência (2025/12/07)</h3>
+            <p data-i18n="development.roadmap_v040_desc">
+              **Novas Funcionalidades**: Persistência de configurações, Arquivos recentes, Suporte a múltiplos formatos de arquivo.<br>
+              **Melhorias de UI/Core**: Tema Terminal, Auto-hide de menu bar e scrollbar, Transparência de janela, Confirmação de mudanças não salvas, Modo de janela única.
+            </p>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-highlight);"><i class="ph ph-wrench"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_v030_title" style="margin-bottom: 8px;">v0.3.0 - Correções e Base (2025/12/07)</h3>
+            <p data-i18n="development.roadmap_v030_desc">
+              **Melhorias UI**: Arrastar janela, ajuste de título, indicadores de modo de visualização.<br>
+              **Associação de Arquivos**: Correção para abertura via associação de arquivos no Windows.
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-highlight);"><i class="ph ph-flag"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_v010_title" style="margin-bottom: 8px;">v0.1.0 - Início do Projeto (2025/12/06)</h3>
+            <p data-i18n="development.roadmap_v010_desc">
+              **Renomeação**: Projeto "Taurim" para "Mark-Lee".
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="opacity: 0.5;"><i class="ph ph-circles-three"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_next_title" style="margin-bottom: 8px;">Próxima Fase - Extensibilidade (v1.2.0)</h3>
+            <p data-i18n="development.roadmap_next_desc">Implementação de um sistema de plugins robusto para permitir que a comunidade estenda as funcionalidades do Mark-Lee com recursos customizados e integrações externas.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div class="card-icon" style="opacity: 0.5;"><i class="ph ph-cloud"></i></div>
+          <div>
+            <h3 data-i18n="development.roadmap_future_title" style="margin-bottom: 8px;">Visão Futura - Colaboração (v2.0.0)</h3>
+            <p data-i18n="development.roadmap_future_desc">Exploração de recursos de sincronização P2P e colaboração em tempo real, com foco em segurança e privacidade dos seus documentos.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="nav-content footer-content">
+      <span data-i18n="footer.copyright">Mark-Lee v1.0 • © 2025</span>
+      <span data-i18n="footer.license">Open Source (MIT License)</span>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+</body>
+</html>

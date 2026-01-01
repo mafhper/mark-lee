@@ -19,14 +19,34 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
+        protocol: "ws",
+        host,
+        port: 1421,
+      }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    // Copy public HTML files to dist during build
+    copyPublicDir: true, // This ensures public directory is copied
+    // Optimize for production
+    minify: 'esbuild',
+    cssMinify: true,
+    target: 'esnext',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'markdown': ['react-markdown', 'remark-gfm'],
+          'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-cli', '@tauri-apps/plugin-process'],
+          'icons': ['lucide-react'],
+        }
+      }
+    }
+  },
 }));
+

@@ -2,13 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/img/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mark-Lee</title>
+    <style>
+      html, body { background-color: transparent; color: #e5e7eb; overflow: hidden; margin: 0; padding: 0; }
+      #root { min-height: 100vh; background-color: rgba(30, 30, 30, 0.95); }
+      .loading-fallback { display: flex; align-items: center; justify-content: center; height: 100vh; background: rgba(30, 30, 30, 0.95); }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="loading-fallback"></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

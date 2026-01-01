@@ -7,10 +7,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Internal Development
+@development/
+
+# Exceptions
+!docs/plan/change.log
+
 node_modules
 dist
 dist-ssr
 *.local
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +32,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/_development
+/docs

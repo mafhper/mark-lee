@@ -3,19 +3,118 @@
 @tailwind utilities;
 
 @layer base {
-  /* Custom scrollbar matching the prototype */
+  html, body {
+    background-color: transparent;
+    /* Transparent by default - App.tsx controls actual background */
+    color: #e5e7eb;
+  }
+
+  /* Auto-hide scrollbar: hidden by default, shows only during scrolling */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
-    background: rgba(156, 163, 175, 0.5);
+    background: transparent;
     border-radius: 3px;
+    transition: background 0.3s ease;
   }
-  ::-webkit-scrollbar-thumb:hover {
+
+  /* Show scrollbar when scrolling - controlled via .is-scrolling class */
+  .is-scrolling::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+  }
+
+  .is-scrolling::-webkit-scrollbar-thumb:hover {
     background: rgba(107, 114, 128, 0.8);
+  }
+}
+
+/* Focus Mode: full-screen spotlight overlay */
+.focus-mode-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+
+  background: radial-gradient(ellipse 100% 25% at 50% 50%,
+      transparent 0%,
+      transparent 35%,
+      rgba(0, 0, 0, 0.5) 100%);
+  transition: opacity 0.3s ease;
+}
+
+/* Immersive Mode: hide UI elements when in fullscreen */
+.immersive-mode .focus-mode-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+/* Clean PDF/Print output - hide browser headers/footers */
+@media print {
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* Typography improvements for print */
+  .prose {
+    font-size: 11pt;
+    /* Slightly smaller for professional look */
+    line-height: 1.5;
+    max-width: none !important;
+    color: black !important;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4 {
+    color: black !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .prose p,
+  .prose ul,
+  .prose ol,
+  .prose li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .prose blockquote {
+    border-left-color: #000 !important;
+    font-style: italic;
+  }
+
+  pre,
+  code,
+  img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #ddd;
+    /* Light border for containment */
+  }
+
+  /* Hide unwanted elements */
+  .focus-mode-overlay,
+  .toolbar-container,
+  .menubar-container,
+  .statusbar-container {
+    display: none !important;
   }
 }
