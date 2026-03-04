@@ -1,62 +1,78 @@
-/**
- * CodePreview Component
- * 
- * Displays code files with syntax highlighting using Highlight.js (local)
- * Works completely offline!
- * 
- * Features:
- * - Syntax highlighting via local Highlight.js
- * - Line numbers
- * - Copy to clipboard button
- * - VS Code-like dark theme
- */
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import hljs from "highlight.js/lib/core";
+import plaintext from "highlight.js/lib/languages/plaintext";
+import "highlight.js/styles/vs2015.css";
+import { ThemeConfig } from "../types";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/vs2015.css';
-import { ThemeConfig } from '../types';
-
-// Map file extensions to Highlight.js language identifiers
 const LANGUAGE_MAP: Record<string, string> = {
-  'js': 'javascript',
-  'jsx': 'javascript',
-  'ts': 'typescript',
-  'tsx': 'typescript',
-  'json': 'json',
-  'jsonc': 'json',
-  'html': 'html',
-  'htm': 'html',
-  'xml': 'xml',
-  'svg': 'xml',
-  'css': 'css',
-  'scss': 'scss',
-  'sass': 'scss',
-  'less': 'less',
-  'md': 'markdown',
-  'markdown': 'markdown',
-  'py': 'python',
-  'rb': 'ruby',
-  'java': 'java',
-  'c': 'c',
-  'cpp': 'cpp',
-  'cs': 'csharp',
-  'php': 'php',
-  'go': 'go',
-  'rs': 'rust',
-  'sql': 'sql',
-  'sh': 'bash',
-  'bash': 'bash',
-  'ps1': 'powershell',
-  'yaml': 'yaml',
-  'yml': 'yaml',
-  'toml': 'ini',
-  'ini': 'ini',
-  'cfg': 'ini',
-  'conf': 'ini',
-  'env': 'bash',
-  'txt': 'plaintext',
-  'log': 'plaintext',
+  js: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  json: "json",
+  jsonc: "json",
+  html: "xml",
+  htm: "xml",
+  xml: "xml",
+  svg: "xml",
+  css: "css",
+  scss: "scss",
+  sass: "scss",
+  less: "less",
+  md: "markdown",
+  markdown: "markdown",
+  py: "python",
+  rb: "ruby",
+  java: "java",
+  c: "c",
+  cpp: "cpp",
+  cs: "csharp",
+  php: "php",
+  go: "go",
+  rs: "rust",
+  sql: "sql",
+  sh: "bash",
+  bash: "bash",
+  ps1: "powershell",
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "ini",
+  ini: "ini",
+  cfg: "ini",
+  conf: "ini",
+  env: "bash",
+  txt: "plaintext",
+  log: "plaintext",
 };
+
+const LANGUAGE_LOADERS: Record<string, () => Promise<{ default: any }>> = {
+    javascript: () => import("highlight.js/lib/languages/javascript"),
+    typescript: () => import("highlight.js/lib/languages/typescript"),
+    json: () => import("highlight.js/lib/languages/json"),
+    xml: () => import("highlight.js/lib/languages/xml"),
+    css: () => import("highlight.js/lib/languages/css"),
+    scss: () => import("highlight.js/lib/languages/scss"),
+    less: () => import("highlight.js/lib/languages/less"),
+    markdown: () => import("highlight.js/lib/languages/markdown"),
+    python: () => import("highlight.js/lib/languages/python"),
+    ruby: () => import("highlight.js/lib/languages/ruby"),
+    java: () => import("highlight.js/lib/languages/java"),
+    c: () => import("highlight.js/lib/languages/c"),
+    cpp: () => import("highlight.js/lib/languages/cpp"),
+    csharp: () => import("highlight.js/lib/languages/csharp"),
+    php: () => import("highlight.js/lib/languages/php"),
+    go: () => import("highlight.js/lib/languages/go"),
+    rust: () => import("highlight.js/lib/languages/rust"),
+    sql: () => import("highlight.js/lib/languages/sql"),
+    bash: () => import("highlight.js/lib/languages/bash"),
+    powershell: () => import("highlight.js/lib/languages/powershell"),
+    yaml: () => import("highlight.js/lib/languages/yaml"),
+    ini: () => import("highlight.js/lib/languages/ini"),
+  };
+
+const registeredLanguages = new Set<string>();
+hljs.registerLanguage("plaintext", plaintext);
+registeredLanguages.add("plaintext");
 
 interface CodePreviewProps {
   content: string;
@@ -65,111 +81,112 @@ interface CodePreviewProps {
   showLineNumbers?: boolean;
 }
 
-const CodePreview: React.FC<CodePreviewProps> = ({ 
-  content, 
-  fileName, 
+function escapeHtml(content: string) {
+  return content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function ensureLanguage(language: string) {
+  if (registeredLanguages.has(language)) return;
+  const loader = LANGUAGE_LOADERS[language];
+  if (!loader) return;
+  const module = await loader();
+  hljs.registerLanguage(language, module.default as any);
+  registeredLanguages.add(language);
+}
+
+const CodePreview: React.FC<CodePreviewProps> = ({
+  content,
+  fileName,
   tConfig,
-  showLineNumbers = true
+  showLineNumbers = true,
 }) => {
-  const [highlightedCode, setHighlightedCode] = useState<string>('');
+  const [highlightedCode, setHighlightedCode] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLDivElement>(null);
 
-  // Determine language from file extension
-  const fileExtension = fileName.split('.').pop()?.toLowerCase() || 'txt';
-  const language = LANGUAGE_MAP[fileExtension] || 'plaintext';
+  const fileExtension = fileName.split(".").pop()?.toLowerCase() || "txt";
+  const language = LANGUAGE_MAP[fileExtension] || "plaintext";
 
-  // Apply syntax highlighting when content or language changes
   useEffect(() => {
-    if (!content) {
-      setHighlightedCode('');
-      return;
-    }
+    let disposed = false;
 
-    try {
-      // Apply highlighting
-      let result;
+    const run = async () => {
+      if (!content) {
+        if (!disposed) setHighlightedCode("");
+        return;
+      }
+
       try {
-        result = hljs.highlight(content, { language, ignoreIllegals: true });
-      } catch {
-        // Fallback to auto-detection
-        result = hljs.highlightAuto(content);
-      }
+        await ensureLanguage(language);
+        const result = hljs.highlight(content, {
+          language: hljs.getLanguage(language) ? language : "plaintext",
+          ignoreIllegals: true,
+        });
 
-      // Add line numbers if enabled
-      if (showLineNumbers) {
-        const lines = result.value.split('\n');
-        const numberedCode = lines.map((line, i) => 
-          `<span class="code-line"><span class="line-num">${i + 1}</span><span class="line-content">${line || ' '}</span></span>`
-        ).join('\n');
-        setHighlightedCode(numberedCode);
-      } else {
-        setHighlightedCode(result.value);
+        if (!showLineNumbers) {
+          if (!disposed) setHighlightedCode(result.value);
+          return;
+        }
+
+        const lines = result.value.split("\n");
+        const numberedCode = lines
+          .map(
+            (line, index) =>
+              `<span class="code-line"><span class="line-num">${index + 1}</span><span class="line-content">${
+                line || " "
+              }</span></span>`
+          )
+          .join("\n");
+        if (!disposed) setHighlightedCode(numberedCode);
+      } catch {
+        if (!disposed) setHighlightedCode(escapeHtml(content));
       }
-    } catch (error) {
-      console.warn('Highlighting failed, using raw content:', error);
-      // Escape HTML and show raw
-      const escaped = content
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      setHighlightedCode(escaped);
-    }
+    };
+
+    run();
+    return () => {
+      disposed = true;
+    };
   }, [content, language, showLineNumbers]);
 
-  // Copy to clipboard
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (error) {
+      console.error("Failed to copy:", error);
     }
   };
 
-  // File type icon based on extension
-  const fileIcon = useMemo(() => {
-    const icons: Record<string, string> = {
-      'js': '📜', 'jsx': '⚛️', 'ts': '🔷', 'tsx': '⚛️',
-      'json': '📋', 'html': '🌐', 'htm': '🌐', 'xml': '📄',
-      'css': '🎨', 'scss': '🎨', 'sass': '🎨', 'less': '🎨',
-      'py': '🐍', 'rb': '💎', 'java': '☕', 'go': '🐹',
-      'rs': '🦀', 'php': '🐘', 'sql': '🗃️', 'sh': '🖥️',
-      'yaml': '⚙️', 'yml': '⚙️', 'md': '📝', 'txt': '📄',
-    };
-    return icons[fileExtension] || '📄';
-  }, [fileExtension]);
+  const lineCount = useMemo(() => content.split("\n").length, [content]);
 
   return (
     <div className="code-preview-container h-full flex flex-col">
-      {/* Header bar */}
       <div className={`code-header flex-shrink-0 flex justify-between items-center px-4 py-2 ${tConfig.ui} border-b ${tConfig.uiBorder}`}>
         <div className="flex items-center gap-3">
-          <span className="text-base">{fileIcon}</span>
           <span className={`font-semibold text-sm ${tConfig.fg}`}>{fileName}</span>
-          <span className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-2 py-0.5 rounded text-[10px] font-bold tracking-wide">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ml-btn-primary">
             {language.toUpperCase()}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs opacity-60">{content.split('\n').length} lines</span>
-          <button 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-all hover:-translate-y-px"
+          <span className="text-xs font-semibold">{lineCount} lines</span>
+          <button
+            className="ml-btn-primary px-3 py-1 rounded text-xs font-medium transition-all"
             onClick={handleCopy}
             title="Copy to clipboard"
           >
-            {copied ? '✓ Copied' : '📋 Copy'}
+            {copied ? "Copied" : "Copy"}
           </button>
         </div>
       </div>
 
-      {/* Code content */}
-      <div className="code-content flex-1 overflow-auto bg-[#1e1e1e]" ref={codeRef}>
+      <div className="code-content flex-1 overflow-auto bg-[#0b1020]" ref={codeRef}>
         <pre className="m-0 p-4 bg-transparent text-[13px] leading-relaxed min-h-full">
-          <code 
-            className={`block text-[#d4d4d4] font-mono language-${language}`}
-            dangerouslySetInnerHTML={{ __html: highlightedCode || content }}
+          <code
+            className={`block text-[#e2e8f0] font-mono language-${language}`}
+            dangerouslySetInnerHTML={{ __html: highlightedCode || escapeHtml(content) }}
           />
         </pre>
       </div>
@@ -180,37 +197,40 @@ const CodePreview: React.FC<CodePreviewProps> = ({
           height: 10px;
         }
         .code-content::-webkit-scrollbar-track {
-          background: #1e1e1e;
+          background: #0b1020;
         }
         .code-content::-webkit-scrollbar-thumb {
-          background: #424242;
+          background: #475569;
           border-radius: 5px;
         }
         .code-content::-webkit-scrollbar-thumb:hover {
-          background: #4e4e4e;
+          background: #64748b;
         }
         .code-line {
           display: block;
           min-height: 1.5em;
         }
         .code-line:hover {
-          background: rgba(255,255,255,0.03);
+          background: rgba(255, 255, 255, 0.08);
         }
         .line-num {
           display: inline-block;
           width: 40px;
           text-align: right;
           margin-right: 16px;
-          color: #5a5a5a;
+          color: #dbe4f0;
           user-select: none;
           font-size: 12px;
         }
         .line-content {
           display: inline;
         }
-        /* Override highlight.js background */
         .hljs {
           background: transparent !important;
+          color: #e2e8f0 !important;
+        }
+        .hljs * {
+          color: #e2e8f0 !important;
         }
       `}</style>
     </div>

@@ -6,11 +6,7 @@
 
 <p align="center">
   <a href="README.md">English</a> |
-  <a href="README.pt-BR.md">Portugues</a> |
-  <a href="README.fr.md">Francais</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.zh.md">中文</a> |
-  <a href="README.ja.md">日本語</a>
+  <a href="README.pt-BR.md">Portugues</a>
 </p>
 
 Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concentracion, uniendo tecnologias web modernas con capacidades nativas del sistema operativo a traves del framework Tauri. Ofrece un entorno de escritura sin distracciones con renderizado de vista previa en tiempo real y gestion robusta de archivos.

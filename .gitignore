@@ -17,6 +17,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.turbo
+.cache
+coverage
 
 # Rust / Tauri
 src-tauri/target/
@@ -34,3 +37,7 @@ src-tauri/gen/
 *.sw?
 /_development
 /docs
+/.gemini
+GEMINI.md
+.dev/
+_dev/

@@ -1,285 +1,589 @@
-/**
- * config.ts
- * 
- * Configurações centralizadas do Mark-Lee Editor
- * Define temas, configurações padrão e snippets de Markdown
- * 
- * @version 1.0
- * @author Mark-Lee Team
- */
+import {
+  AppSettings,
+  PublicationPreset,
+  Snippet,
+  TextPreset,
+  Theme,
+  ThemeConfig,
+} from "./types";
 
-import { Theme, ThemeConfig, AppSettings } from './types';
-
-// Helper to convert hex to RGBA is handled in App logic or by providing Hex codes here
-// We provide hex codes for background to allow opacity manipulation
 export const THEMES: Record<Theme, ThemeConfig> = {
+  [Theme.Coffee]: {
+    bg: "bg-[#2b231f]",
+    bgHex: "#2b231f",
+    fg: "text-[#f8f1e8]",
+    fgHex: "#f8f1e8",
+    ui: "bg-[#3a2f29]",
+    uiHex: "#3a2f29",
+    uiBorder: "border-[#6a5448]",
+    editorBg: "bg-[#2b231f]",
+    editorBgHex: "#2b231f",
+    editorFg: "text-[#f8f1e8]",
+    editorFgHex: "#f8f1e8",
+    accent: "text-[#f4c68f]",
+    prose: "prose-invert prose-stone",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'JetBrains Mono', 'Fira Code', monospace",
+  },
   [Theme.Light]: {
-    bg: 'bg-white',
-    bgHex: '#ffffff',
-    fg: 'text-slate-800',
-    ui: 'bg-gray-50',
-    uiBorder: 'border-gray-200',
-    editorBg: 'bg-white',
-    editorBgHex: '#ffffff',
-    editorFg: 'text-slate-800',
-    accent: 'text-indigo-600',
-    prose: 'prose-slate',
+    bg: "bg-white",
+    bgHex: "#ffffff",
+    fg: "text-slate-900",
+    fgHex: "#0f172a",
+    ui: "bg-gray-50",
+    uiHex: "#f9fafb",
+    uiBorder: "border-gray-200",
+    editorBg: "bg-white",
+    editorBgHex: "#ffffff",
+    editorFg: "text-slate-900",
+    editorFgHex: "#0f172a",
+    accent: "text-indigo-600",
+    prose: "prose-slate",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'Fira Code', 'JetBrains Mono', monospace",
   },
   [Theme.Dark]: {
-    bg: 'bg-[#18181b]',
-    bgHex: '#18181b',
-    fg: 'text-zinc-300',
-    ui: 'bg-[#18181b]',
-    uiBorder: 'border-zinc-800',
-    editorBg: 'bg-[#18181b]',
-    editorBgHex: '#18181b',
-    editorFg: 'text-zinc-300',
-    accent: 'text-blue-400',
-    prose: 'prose-invert',
-  },
-  [Theme.Midnight]: {
-    bg: 'bg-[#0f172a]',
-    bgHex: '#0f172a',
-    fg: 'text-slate-200',
-    ui: 'bg-[#020617]',
-    uiBorder: 'border-[#1e293b]',
-    editorBg: 'bg-[#0f172a]',
-    editorBgHex: '#0f172a',
-    editorFg: 'text-slate-200',
-    accent: 'text-indigo-400',
-    prose: 'prose-invert prose-indigo',
-  },
-  [Theme.Sepia]: {
-    bg: 'bg-[#fbf1c7]',
-    bgHex: '#fbf1c7',
-    fg: 'text-[#3c3836]',
-    ui: 'bg-[#ebdbb2]',
-    uiBorder: 'border-[#d5c4a1]',
-    editorBg: 'bg-[#fbf1c7]',
-    editorBgHex: '#fbf1c7',
-    editorFg: 'text-[#3c3836]',
-    accent: 'text-[#8f5e10]',
-    prose: 'prose-stone',
-  },
-  [Theme.Terminal]: {
-    bg: 'bg-[#000000]',
-    bgHex: '#000000',
-    fg: 'text-[#00ff41]',
-    ui: 'bg-[#0d0d0d]',
-    uiBorder: 'border-[#1a1a1a]',
-    editorBg: 'bg-[#000000]',
-    editorBgHex: '#000000',
-    editorFg: 'text-[#00ff41]',
-    accent: 'text-[#00ff41]',
-    prose: 'prose-invert prose-green',
-  },
-  [Theme.Nord]: {
-    bg: 'bg-[#2E3440]',
-    bgHex: '#2E3440',
-    fg: 'text-[#ECEFF4]',
-    ui: 'bg-[#3B4252]',
-    uiBorder: 'border-[#434C5E]',
-    editorBg: 'bg-[#2E3440]',
-    editorBgHex: '#2E3440',
-    editorFg: 'text-[#ECEFF4]',
-    accent: 'text-[#88C0D0]',
-    prose: 'prose-invert prose-blue',
-  },
-  [Theme.Synthwave]: {
-    bg: 'bg-[#2b213a]',
-    bgHex: '#2b213a',
-    fg: 'text-[#fff]',
-    ui: 'bg-[#1a1a2e]',
-    uiBorder: 'border-[#ff00ff]',
-    editorBg: 'bg-[#2b213a]',
-    editorBgHex: '#2b213a',
-    editorFg: 'text-[#fff]',
-    accent: 'text-[#f92aad]',
-    prose: 'prose-invert prose-pink',
+    bg: "bg-[#16191e]",
+    bgHex: "#16191e",
+    fg: "text-zinc-100",
+    fgHex: "#f4f4f5",
+    ui: "bg-[#1d2229]",
+    uiHex: "#1d2229",
+    uiBorder: "border-[#2c3440]",
+    editorBg: "bg-[#16191e]",
+    editorBgHex: "#16191e",
+    editorFg: "text-zinc-100",
+    editorFgHex: "#f4f4f5",
+    accent: "text-sky-300",
+    prose: "prose-invert",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Forest]: {
-    bg: 'bg-[#1b261b]',
-    bgHex: '#1b261b',
-    fg: 'text-[#e8f5e9]',
-    ui: 'bg-[#2d3b2d]',
-    uiBorder: 'border-[#4caf50]',
-    editorBg: 'bg-[#1b261b]',
-    editorBgHex: '#1b261b',
-    editorFg: 'text-[#e8f5e9]',
-    accent: 'text-[#66bb6a]',
-    prose: 'prose-invert prose-green',
+    bg: "bg-[#17241b]",
+    bgHex: "#17241b",
+    fg: "text-[#e8fbe9]",
+    fgHex: "#e8fbe9",
+    ui: "bg-[#203124]",
+    uiHex: "#203124",
+    uiBorder: "border-[#3c6b48]",
+    editorBg: "bg-[#17241b]",
+    editorBgHex: "#17241b",
+    editorFg: "text-[#e8fbe9]",
+    editorFgHex: "#e8fbe9",
+    accent: "text-[#90f0a8]",
+    prose: "prose-invert prose-green",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'Cascadia Code', 'JetBrains Mono', monospace",
   },
-  [Theme.Coffee]: {
-    bg: 'bg-[#2d241e]',
-    bgHex: '#2d241e',
-    fg: 'text-[#ede0d4]',
-    ui: 'bg-[#3e3229]',
-    uiBorder: 'border-[#5d4037]',
-    editorBg: 'bg-[#2d241e]',
-    editorBgHex: '#2d241e',
-    editorFg: 'text-[#ede0d4]',
-    accent: 'text-[#d7ccc8]',
-    prose: 'prose-invert prose-stone', // Added prose-invert
-  }
+  [Theme.Golden]: {
+    bg: "bg-[#f4d49a]",
+    bgHex: "#f4d49a",
+    fg: "text-[#1e1308]",
+    fgHex: "#1e1308",
+    ui: "bg-[#e7be73]",
+    uiHex: "#e7be73",
+    uiBorder: "border-[#6b4b16]",
+    editorBg: "bg-[#f4d49a]",
+    editorBgHex: "#f4d49a",
+    editorFg: "text-[#1e1308]",
+    editorFgHex: "#1e1308",
+    accent: "text-[#2a1808]",
+    prose: "prose-amber",
+    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+  },
+  [Theme.Midnight]: {
+    bg: "bg-[#111827]",
+    bgHex: "#111827",
+    fg: "text-[#eef2ff]",
+    fgHex: "#eef2ff",
+    ui: "bg-[#0b1220]",
+    uiHex: "#0b1220",
+    uiBorder: "border-[#24344e]",
+    editorBg: "bg-[#111827]",
+    editorBgHex: "#111827",
+    editorFg: "text-[#eef2ff]",
+    editorFgHex: "#eef2ff",
+    accent: "text-[#8fb5ff]",
+    prose: "prose-invert prose-indigo",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  [Theme.Neomatrix]: {
+    bg: "bg-[#040b04]",
+    bgHex: "#040b04",
+    fg: "text-[#8afcc7]",
+    fgHex: "#8afcc7",
+    ui: "bg-[#061207]",
+    uiHex: "#061207",
+    uiBorder: "border-[#1b5a33]",
+    editorBg: "bg-[#040b04]",
+    editorBgHex: "#040b04",
+    editorFg: "text-[#8afcc7]",
+    editorFgHex: "#8afcc7",
+    accent: "text-[#57ff9e]",
+    prose: "prose-invert prose-green",
+    uiFont: "'Chakra Petch', 'Segoe UI', sans-serif",
+    editorFont: "'Share Tech Mono', 'Cascadia Code', monospace",
+  },
+  [Theme.Nord]: {
+    bg: "bg-[#2E3440]",
+    bgHex: "#2E3440",
+    fg: "text-[#ECEFF4]",
+    fgHex: "#ECEFF4",
+    ui: "bg-[#262f40]",
+    uiHex: "#262f40",
+    uiBorder: "border-[#425066]",
+    editorBg: "bg-[#2E3440]",
+    editorBgHex: "#2E3440",
+    editorFg: "text-[#ECEFF4]",
+    editorFgHex: "#ECEFF4",
+    accent: "text-[#88C0D0]",
+    prose: "prose-invert prose-blue",
+    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    editorFont: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  [Theme.Sepia]: {
+    bg: "bg-[#f2e6c5]",
+    bgHex: "#f2e6c5",
+    fg: "text-[#2d2417]",
+    fgHex: "#2d2417",
+    ui: "bg-[#e8d7ad]",
+    uiHex: "#e8d7ad",
+    uiBorder: "border-[#b99f63]",
+    editorBg: "bg-[#f2e6c5]",
+    editorBgHex: "#f2e6c5",
+    editorFg: "text-[#2d2417]",
+    editorFgHex: "#2d2417",
+    accent: "text-[#8d5f12]",
+    prose: "prose-stone",
+    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+  },
+  [Theme.Synthwave]: {
+    bg: "bg-[#221833]",
+    bgHex: "#221833",
+    fg: "text-[#fef3ff]",
+    fgHex: "#fef3ff",
+    ui: "bg-[#2e1f45]",
+    uiHex: "#2e1f45",
+    uiBorder: "border-[#8a39d3]",
+    editorBg: "bg-[#221833]",
+    editorBgHex: "#221833",
+    editorFg: "text-[#fef3ff]",
+    editorFgHex: "#fef3ff",
+    accent: "text-[#ff89cf]",
+    prose: "prose-invert prose-pink",
+    uiFont: "'Exo 2', 'Segoe UI', sans-serif",
+    editorFont: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  [Theme.Terminal]: {
+    bg: "bg-[#000000]",
+    bgHex: "#000000",
+    fg: "text-[#87ffa5]",
+    fgHex: "#87ffa5",
+    ui: "bg-[#050505]",
+    uiHex: "#050505",
+    uiBorder: "border-[#1c4728]",
+    editorBg: "bg-[#000000]",
+    editorBgHex: "#000000",
+    editorFg: "text-[#87ffa5]",
+    editorFgHex: "#87ffa5",
+    accent: "text-[#5bffa0]",
+    prose: "prose-invert prose-green",
+    uiFont: "'Chakra Petch', 'Segoe UI', sans-serif",
+    editorFont: "'Share Tech Mono', 'Cascadia Code', monospace",
+  },
+  [Theme.Firenight]: {
+    bg: "bg-[#1b0f0d]",
+    bgHex: "#1b0f0d",
+    fg: "text-[#ffe1bf]",
+    fgHex: "#ffe1bf",
+    ui: "bg-[#2a1713]",
+    uiHex: "#2a1713",
+    uiBorder: "border-[#8a4c31]",
+    editorBg: "bg-[#1b0f0d]",
+    editorBgHex: "#1b0f0d",
+    editorFg: "text-[#ffe1bf]",
+    editorFgHex: "#ffe1bf",
+    accent: "text-[#ffb86c]",
+    prose: "prose-invert prose-amber",
+    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+  },
 };
 
 export const DEFAULT_SHORTCUTS: Record<string, string> = {
-  'file-new': 'Ctrl+N',
-  'file-open': 'Ctrl+O',
-  'file-save': 'Ctrl+S',
-  'file-save-as': 'Ctrl+Shift+S',
-  'file-export-pdf': 'Ctrl+E',
-  'file-print': 'Ctrl+P',
-  'edit-undo': 'Ctrl+Z',
-  'edit-redo': 'Ctrl+Y',
-  'edit-find': 'Ctrl+F',
-  'edit-replace': 'Ctrl+H',
-  'view-zen': 'F10',
-  'view-toolbar': 'Ctrl+T',
+  "file-new": "Ctrl+N",
+  "file-open": "Ctrl+O",
+  "file-save": "Ctrl+S",
+  "file-save-as": "Ctrl+Shift+S",
+  "file-export": "Ctrl+E",
+  "file-print": "Ctrl+P",
+  "edit-undo": "Ctrl+Z",
+  "edit-redo": "Ctrl+Y",
+  "edit-find": "Ctrl+F",
+  "edit-replace": "Ctrl+H",
+  "view-zen": "F10",
+  "view-toolbar": "Ctrl+T",
+  "view-sidebar": "Ctrl+B",
 };
-
-// Text Styling Presets
-import { TextPreset } from './types';
 
 export const TEXT_PRESETS: Record<string, TextPreset> = {
-  'minimalist': {
-    id: 'minimalist',
-    name: 'Minimalist',
-    description: 'Clean, sans-serif, modern. Standard web look.',
-    fontFamily: 'sans',
-    proseClass: 'prose-slate',
+  minimalist: {
+    id: "minimalist",
+    name: "Minimalist",
+    description: "Clean sans-serif reading style.",
+    fontFamily: "sans",
+    proseClass: "prose-slate",
     lineHeight: 1.6,
     components: {
-      h1: 'font-sans font-bold tracking-tight',
-      h2: 'font-sans font-semibold tracking-tight',
-      p: 'font-sans leading-relaxed',
-      img: 'rounded-xl shadow-sm',
-      blockquote: 'border-l-2 border-slate-300 pl-4 italic',
-      code: 'rounded-md',
-      link: 'underline decoration-1 underline-offset-2'
-    }
+      h1: "font-sans font-bold tracking-tight",
+      h2: "font-sans font-semibold tracking-tight",
+      p: "font-sans leading-relaxed",
+      img: "rounded-xl shadow-sm",
+      blockquote: "border-l-2 border-slate-300 pl-4 italic",
+      code: "rounded-md",
+      link: "underline decoration-1 underline-offset-2",
+    },
   },
-  'editorial': {
-    id: 'editorial',
-    name: 'Editorial',
-    description: 'Serif fonts, elegant, book-like reading experience.',
-    fontFamily: 'serif',
-    proseClass: 'prose-stone',
+  editorial: {
+    id: "editorial",
+    name: "Editorial",
+    description: "Serif-focused long-form layout.",
+    fontFamily: "serif",
+    proseClass: "prose-stone",
     lineHeight: 1.8,
     components: {
-      h1: 'font-serif font-bold italic tracking-wide',
-      h2: 'font-serif font-medium',
-      p: 'font-serif text-lg leading-loose',
-      img: 'rounded-sm shadow-md',
-      blockquote: 'border-l-4 border-stone-400 pl-6 italic font-serif text-xl',
-      code: 'rounded',
-      link: 'decoration-2 underline-offset-4'
-    }
+      h1: "font-serif font-bold italic tracking-wide",
+      h2: "font-serif font-medium",
+      p: "font-serif text-lg leading-loose",
+      img: "rounded-sm shadow-md",
+      blockquote: "border-l-4 border-stone-400 pl-6 italic font-serif text-xl",
+      code: "rounded",
+      link: "decoration-2 underline-offset-4",
+    },
   },
-  'technical': {
-    id: 'technical',
-    name: 'Technical',
-    description: 'Monospace headers, high contrast, documentation style.',
-    fontFamily: 'mono',
-    proseClass: 'prose-neutral',
+  technical: {
+    id: "technical",
+    name: "Technical",
+    description: "Documentation-first technical style.",
+    fontFamily: "mono",
+    proseClass: "prose-neutral",
     lineHeight: 1.5,
     components: {
-      h1: 'font-mono font-bold uppercase tracking-tighter',
-      h2: 'font-mono font-bold border-b pb-2',
-      p: 'font-sans text-base',
-      img: 'rounded-none border-2 border-gray-200',
-      blockquote: 'bg-gray-100 dark:bg-gray-800 p-4 border-l-4 border-gray-500 not-italic font-mono text-sm',
-      code: 'rounded-sm border border-gray-200 dark:border-gray-700',
-      link: 'text-blue-600 dark:text-blue-400 hover:underline'
-    }
+      h1: "font-mono font-bold uppercase tracking-tighter",
+      h2: "font-mono font-bold border-b pb-2",
+      p: "font-sans text-base",
+      img: "rounded-none border-2 border-gray-200",
+      blockquote:
+        "bg-gray-100 dark:bg-gray-800 p-4 border-l-4 border-gray-500 not-italic font-mono text-sm",
+      code: "rounded-sm border border-gray-200 dark:border-gray-700",
+      link: "text-blue-600 dark:text-blue-400 hover:underline",
+    },
   },
-  'creative': {
-    id: 'creative',
-    name: 'Creative',
-    description: 'Expressive, playful, unique markers.',
-    fontFamily: 'sans',
-    proseClass: 'prose-pink',
+  creative: {
+    id: "creative",
+    name: "Creative",
+    description: "Expressive display style.",
+    fontFamily: "sans",
+    proseClass: "prose-pink",
     lineHeight: 1.7,
     components: {
-      h1: 'font-black uppercase tracking-widest decoration-wavy decoration-pink-500 underline',
-      h2: 'font-bold tracking-wide text-pink-600 dark:text-pink-400',
-      p: 'font-medium',
-      img: 'rounded-[2rem] shadow-xl rotate-1 hover:rotate-0 transition-transform',
-      blockquote: 'border-l-8 border-pink-400 pl-6 font-bold text-lg bg-pink-50 dark:bg-pink-900/20 py-2 rounded-r-xl',
-      code: 'rounded-xl shadow-inner',
-      link: 'font-bold hover:text-pink-500 transition-colors'
-    }
-  }
+      h1: "font-black uppercase tracking-widest decoration-wavy decoration-pink-500 underline",
+      h2: "font-bold tracking-wide text-pink-600 dark:text-pink-400",
+      p: "font-medium",
+      img: "rounded-[2rem] shadow-xl rotate-1 hover:rotate-0 transition-transform",
+      blockquote:
+        "border-l-8 border-pink-400 pl-6 font-bold text-lg bg-pink-50 dark:bg-pink-900/20 py-2 rounded-r-xl",
+      code: "rounded-xl shadow-inner",
+      link: "font-bold hover:text-pink-500 transition-colors",
+    },
+  },
 };
 
+export const PUBLICATION_PRESET_DEFAULTS: PublicationPreset[] = [
+  {
+    id: "modern",
+    name: "Modern",
+    description: "Layout limpo de produto com alto contraste.",
+    palette: {
+      bg: "#f8fafc",
+      text: "#111827",
+      accent: "#172554",
+      muted: "#334155",
+    },
+    typography: {
+      fontFamily: "'Source Sans 3', 'Segoe UI', sans-serif",
+      lineHeight: 1.65,
+    },
+  },
+  {
+    id: "paper",
+    name: "Paper",
+    description: "Leitura longa com tom editorial clássico.",
+    palette: {
+      bg: "#f6edda",
+      text: "#2f2418",
+      accent: "#3b2410",
+      muted: "#5a4631",
+    },
+    typography: {
+      fontFamily: "'Merriweather', Georgia, serif",
+      lineHeight: 1.9,
+    },
+  },
+  {
+    id: "night",
+    name: "Night",
+    description: "Modo noturno para leitura técnica intensa.",
+    palette: {
+      bg: "#030712",
+      text: "#e2e8f0",
+      accent: "#bae6fd",
+      muted: "#94a3b8",
+    },
+    typography: {
+      fontFamily: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+      lineHeight: 1.72,
+    },
+  },
+  {
+    id: "magazine",
+    name: "Magazine",
+    description: "Visual de revista com hierarquia forte.",
+    palette: {
+      bg: "#fff7ed",
+      text: "#1f1b4b",
+      accent: "#312e81",
+      muted: "#4338ca",
+    },
+    typography: {
+      fontFamily: "'Merriweather Sans', 'Segoe UI', sans-serif",
+      lineHeight: 1.58,
+    },
+  },
+];
+
 export const DEFAULT_SETTINGS: AppSettings = {
-  language: 'pt-BR',
+  language: "pt-BR",
   fontSize: 16,
   lineHeight: 1.6,
-  fontFamily: 'mono',
+  fontFamily: "mono",
   wordWrap: true,
   typewriterMode: false,
   spellCheck: true,
-  transparency: 1.0,
-  singleInstance: false, // false = multiple windows (default), true = single window
-  autoSave: false, // disabled by default
-  autoSaveInterval: 60, // 60 seconds default
-  focusMode: false, // disabled by default
+  transparency: 1,
+  singleInstance: true,
+  autoSave: true,
+  autoSaveInterval: 60,
+  focusMode: false,
   customShortcuts: DEFAULT_SHORTCUTS,
-  presetId: 'minimalist',
-  toolbarPosition: 'bottom',
-  theme: Theme.Sepia,
-  viewMode: 'edit',
+  presetId: "minimalist",
+  publicationPresetId: "modern",
+  toolbarPosition: "bottom",
+  theme: Theme.Golden,
+  viewMode: "edit",
+  chromeMode: "unified",
+  tabsEnabled: true,
+  sidebarEnabled: true,
+  sidebarWidth: 300,
+  floatingToolbarAnchor: "bottom",
+  toolbarDisplayMode: "icon_only",
+  toolbarSections: {
+    files: true,
+    system: true,
+    editing: true,
+  },
+  toolbarItems: {
+    fileNew: false,
+    fileOpen: true,
+    fileOpenFolder: true,
+    fileSave: true,
+    fileExport: true,
+    sysFind: true,
+    sysSnippets: true,
+    sysTheme: true,
+    sysSidebar: true,
+    sysEdit: true,
+    sysSplit: true,
+    sysPreview: true,
+    sysZen: true,
+    sysSettings: true,
+    editBold: true,
+    editItalic: true,
+    editCode: true,
+    editLink: true,
+    editImage: true,
+    editUL: true,
+    editOL: true,
+    editTask: true,
+  },
+  accordionState: {
+    interface: true,
+    themes: true,
+    toolbar: true,
+    behavior: true,
+    typography: true,
+    shortcuts: false,
+    presets: false,
+  },
+  findReplace: {
+    caseSensitive: false,
+    wholeWord: false,
+    useRegex: false,
+  },
 };
 
-export const INITIAL_MARKDOWN = `# Mark-Lee v1.0
+export const INITIAL_MARKDOWN = `# Mark-Lee
 
-Um editor Markdown robusto e focado, projetado para **Windows**.
+Bem-vindo ao Mark-Lee. Este editor foi atualizado para fluxo com abas, workspace e exportação unificada.
 
-## Recursos da Interface
-O Mark-Lee fornece um ambiente puro e livre de distrações:
-1. **Modo Zen**: A interface desaparece quando você para de mover o mouse.
-2. **Rolagem Sincronizada**: O editor e a visualização se movem juntos.
-3. **Exportação PDF**: Transforme seus textos em documentos formatados.
-4. **Temas**: Claro, Escuro, Meia-noite e Sépia.
+## Comece por aqui
 
-## Exemplos de Formatação
-
-### Tipografia
-Você pode escrever em **negrito**, *itálico*, ou \`código inline\`.
-
-> "A simplicidade é o último grau de sofisticação."
-> — Leonardo da Vinci
-
-### Blocos de Código
-Perfeito para desenvolvedores.
-
-\`\`\`javascript
-function saudacao(nome) {
-  return \`Olá, \${nome}!\`;
-}
-console.log(saudacao("Usuário Mark-Lee"));
-\`\`\`
-
-### Listas de Tarefas
-- [x] Instalar Mark-Lee
-- [x] Desfrutar da escrita sem distrações
-- [x] Exportar para PDF
+- Abra uma pasta no sidebar para navegar no projeto
+- Use \`Ctrl+F\` para buscar/substituir com mais opções
+- Exporte seu conteúdo pelo menu único de exportação
 `;
 
-// Markdown Snippets for quick insertion
-export interface Snippet {
-  id: string;
-  name: string;
-  icon: string;
-  content: string;
-}
-
 export const SNIPPETS: Snippet[] = [
-  { id: 'table', name: 'Table', icon: '📊', content: "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |" },
-  { id: 'code', name: 'Code Block', icon: '💻', content: "```\n// Your code here\n```" },
-  { id: 'task', name: 'Task List', icon: '✅', content: "- [ ] Task 1\n- [ ] Task 2\n- [x] Done" },
-  { id: 'callout', name: 'Callout', icon: '💡', content: "> **Note:** Important information here." },
-  { id: 'image', name: 'Image', icon: '🖼️', content: "![Alt text](https://example.com/image.png)" },
-  { id: 'link', name: 'Link', icon: '🔗', content: "[Link text](https://example.com)" }
+  {
+    id: "dev-table",
+    name: "Tabela Markdown",
+    category: "dev",
+    trigger: "tabela",
+    icon: "TB",
+    content: "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |",
+  },
+  {
+    id: "dev-code",
+    name: "Bloco TypeScript",
+    category: "dev",
+    trigger: "codigo_ts",
+    icon: "CD",
+    content: "```ts\n// your code\n```",
+  },
+  {
+    id: "frontend-react-card",
+    name: "Componente React Card",
+    category: "frontend",
+    trigger: "react_card",
+    icon: "FE",
+    content:
+      "```tsx\ntype CardProps = { title: string; body: string };\n\nexport function Card({ title, body }: CardProps) {\n  return (\n    <article className=\"rounded-xl border p-4 shadow-sm\">\n      <h2 className=\"text-lg font-semibold\">{title}</h2>\n      <p className=\"mt-2 text-sm\">{body}</p>\n    </article>\n  );\n}\n```",
+  },
+  {
+    id: "backend-node-endpoint",
+    name: "Endpoint Node/Express",
+    category: "backend",
+    trigger: "endpoint_node",
+    icon: "BE",
+    content:
+      "```ts\nimport { Router } from \"express\";\n\nconst router = Router();\n\nrouter.get(\"/health\", (_req, res) => {\n  res.json({ ok: true, ts: Date.now() });\n});\n\nexport default router;\n```",
+  },
+  {
+    id: "macro-meeting-notes",
+    name: "Macro Reuniao",
+    category: "macro",
+    trigger: "reuniao",
+    icon: "MC",
+    content:
+      "## Reuniao - {{data}}\n\n### Participantes\n- \n\n### Decisoes\n- \n\n### Proximos passos\n- [ ] \n",
+  },
+  {
+    id: "php-class",
+    name: "Classe PHP",
+    category: "php",
+    trigger: "php_classe",
+    icon: "PH",
+    content:
+      "```php\n<?php\n\ndeclare(strict_types=1);\n\nfinal class UserService\n{\n    public function findById(int $id): array\n    {\n        return ['id' => $id, 'name' => 'Mark'];\n    }\n}\n```",
+  },
+  {
+    id: "java-service",
+    name: "Service Java",
+    category: "java",
+    trigger: "java_service",
+    icon: "JV",
+    content:
+      "```java\npublic class UserService {\n  public String health() {\n    return \"ok\";\n  }\n}\n```",
+  },
+  {
+    id: "python-dataclass",
+    name: "Dataclass Python",
+    category: "python",
+    trigger: "python_dataclass",
+    icon: "PY",
+    content:
+      "```python\nfrom dataclasses import dataclass\n\n@dataclass(slots=True)\nclass Person:\n    name: str\n    email: str\n```",
+  },
+  {
+    id: "editorial-article-structure",
+    name: "Estrutura Editorial",
+    category: "editorial",
+    trigger: "editorial_artigo",
+    icon: "ED",
+    content:
+      "# Titulo\n\n## Gancho\n\n## Contexto\n\n## Argumento principal\n\n## Fechamento\n",
+  },
+  {
+    id: "shopping-list",
+    name: "Lista de Compras",
+    category: "lista_compras",
+    trigger: "lista_compras",
+    icon: "LC",
+    content:
+      "## Lista de compras\n\n- [ ] Arroz\n- [ ] Feijao\n- [ ] Cafe\n- [ ] Leite\n- [ ] Frutas\n",
+  },
+  {
+    id: "dados-pessoais",
+    name: "Dados Pessoais",
+    category: "dados_pessoais",
+    trigger: "dados_pessoais",
+    icon: "DP",
+    content:
+      "Nome completo: \nData de nascimento: \nCPF: \nRG: \nEndereco: \nCidade/UF: \nCEP: \n",
+  },
+  {
+    id: "contato-card",
+    name: "Contato",
+    category: "contato",
+    trigger: "contato",
+    icon: "CT",
+    content:
+      "Nome: \nEmpresa: \nCargo: \nEmail: \nTelefone: \nLinkedIn: \n",
+  },
+  {
+    id: "task",
+    name: "Task List",
+    category: "dev",
+    trigger: "tarefas",
+    icon: "TS",
+    content: "- [ ] Task 1\n- [ ] Task 2\n- [x] Done",
+  },
+  {
+    id: "callout",
+    name: "Callout",
+    category: "editorial",
+    trigger: "chamada",
+    icon: "NT",
+    content: "> **Note:** Important information here.",
+  },
+  {
+    id: "image",
+    name: "Image",
+    category: "frontend",
+    trigger: "imagem_md",
+    icon: "IM",
+    content: "![Alt text](./image.png)",
+  },
+  {
+    id: "link",
+    name: "Link",
+    category: "dev",
+    trigger: "link_md",
+    icon: "LK",
+    content: "[Link text](https://example.com)",
+  },
 ];

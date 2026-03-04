@@ -25,21 +25,38 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Web
-        run: npm run build
+          cache: npm
+          cache-dependency-path: apps/site/package-lock.json
 
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v5
+
+      - name: Resolve site base
+        shell: bash
+        run: |
+          if [ "${{ github.event.repository.name }}" = "${{ github.repository_owner }}.github.io" ]; then
+            echo "SITE_BASE=/" >> "$GITHUB_ENV"
+          else
+            echo "SITE_BASE=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install site dependencies
+        run: npm ci
+        working-directory: apps/site
+
+      - name: Build promo site
+        run: npm run build
+        working-directory: apps/site
+        env:
+          SITE_GITHUB_OWNER: ${{ vars.SITE_GITHUB_OWNER || github.repository_owner }}
+          SITE_GITHUB_REPO: ${{ vars.SITE_GITHUB_REPO || github.event.repository.name }}
+          SITE_GITHUB_TOKEN: ${{ secrets.SITE_GITHUB_TOKEN }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: "./apps/site/dist"
 
   deploy:
     environment: github-pages

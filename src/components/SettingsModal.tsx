@@ -31,10 +31,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
     { code: 'pt-BR', label: 'Português (Brasil)' },
     { code: 'en-US', label: 'English (US)' },
     { code: 'es-ES', label: 'Español' },
-    { code: 'fr-FR', label: 'Français' },
-    { code: 'it-IT', label: 'Italiano' },
-    { code: 'zh-CN', label: '简体中文' },
-    { code: 'ja-JP', label: '日本語' },
   ];
 
   const shortcutActions = [

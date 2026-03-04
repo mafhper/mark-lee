@@ -1,36 +1,87 @@
-import { invoke } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { invoke } from "@tauri-apps/api/core";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { WorkspaceNode } from "../types";
+import { isTauriRuntime } from "./runtime";
+
+const USER_DATA_PREFIX = "mark-lee-user-data:";
+
+function requireTauri(action: string) {
+  if (!isTauriRuntime()) {
+    throw new Error(`${action} is only available in desktop mode.`);
+  }
+}
 
 export async function readFile(path: string): Promise<string> {
-  return await invoke('read_file', { path });
+  requireTauri("Read file");
+  return invoke("read_file", { path });
 }
 
 export async function writeFile(path: string, content: string): Promise<void> {
-  return await invoke('write_file', { path, content });
+  requireTauri("Write file");
+  await invoke("write_file", { path, content });
 }
 
 export async function listDir(path: string): Promise<string[]> {
-  return await invoke('list_dir', { path });
+  requireTauri("List directory");
+  return invoke("list_dir", { path });
 }
 
-// Supported file extensions
-const TEXT_FILE_EXTENSIONS = [
-  'md', 'markdown',           // Markdown
-  'txt', 'text',              // Plain text
-  'log',                      // Log files
-  'json', 'jsonc',            // JSON
-  'yaml', 'yml',              // YAML
-  'xml',                      // XML
-  'html', 'htm',              // HTML
-  'css', 'scss', 'sass',      // Stylesheets
-  'js', 'jsx', 'ts', 'tsx',   // JavaScript/TypeScript
-  'py',                       // Python
-  'sh', 'bash',               // Shell scripts
-  'ini', 'cfg', 'conf',       // Config files
-  'env',                      // Environment files
-];
+export async function readWorkspaceTree(path: string): Promise<WorkspaceNode> {
+  requireTauri("Read workspace tree");
+  return invoke("read_workspace_tree", { path });
+}
 
-// Define simple interface to avoid importing heavy types if not needed, or use OpenDialogOptions
+export async function createWorkspaceFile(path: string): Promise<void> {
+  requireTauri("Create workspace file");
+  await invoke("create_workspace_file", { path });
+}
+
+export async function createWorkspaceDirectory(path: string): Promise<void> {
+  requireTauri("Create workspace directory");
+  await invoke("create_workspace_directory", { path });
+}
+
+export async function renameWorkspacePath(oldPath: string, newPath: string): Promise<void> {
+  requireTauri("Rename workspace path");
+  await invoke("rename_workspace_path", { oldPath, newPath });
+}
+
+export async function deleteWorkspacePath(path: string): Promise<void> {
+  requireTauri("Delete workspace path");
+  await invoke("delete_workspace_path", { path });
+}
+
+export async function revealInFileManager(path: string): Promise<void> {
+  requireTauri("Reveal in file manager");
+  await invoke("reveal_in_file_manager", { path });
+}
+
+export async function getUserDataPath(): Promise<string> {
+  if (!isTauriRuntime()) return "browser://localStorage";
+  return invoke("get_user_data_path");
+}
+
+export async function readUserDataFile(fileName: string): Promise<string | null> {
+  if (!isTauriRuntime()) return localStorage.getItem(`${USER_DATA_PREFIX}${fileName}`);
+  return invoke("read_user_data_file", { fileName });
+}
+
+export async function writeUserDataFile(fileName: string, content: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    localStorage.setItem(`${USER_DATA_PREFIX}${fileName}`, content);
+    return;
+  }
+  await invoke("write_user_data_file", { fileName, content });
+}
+
+export async function copyImageToDocumentDir(
+  imagePath: string,
+  documentPath: string
+): Promise<string> {
+  requireTauri("Copy image");
+  return invoke("copy_image_to_document_dir", { imagePath, documentPath });
+}
+
 export interface FileDialogOptions {
   title?: string;
   defaultPath?: string;
@@ -39,80 +90,86 @@ export interface FileDialogOptions {
   directory?: boolean;
 }
 
+const TEXT_FILE_EXTENSIONS = [
+  "md",
+  "markdown",
+  "txt",
+  "text",
+  "log",
+  "json",
+  "jsonc",
+  "yaml",
+  "yml",
+  "xml",
+  "html",
+  "htm",
+  "css",
+  "scss",
+  "sass",
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "py",
+  "sh",
+  "bash",
+  "ini",
+  "cfg",
+  "conf",
+  "env",
+];
+
 export async function openFileDialog(options?: FileDialogOptions): Promise<string | string[] | null> {
-  const defaultFilters = [
-    {
-      name: 'All Supported',
-      extensions: TEXT_FILE_EXTENSIONS
-    },
-    {
-      name: 'Markdown',
-      extensions: ['md', 'markdown']
-    },
-    {
-      name: 'Text Files',
-      extensions: ['txt', 'text', 'log']
-    },
-    {
-      name: 'Data Files',
-      extensions: ['json', 'jsonc', 'yaml', 'yml', 'xml']
-    },
-    {
-      name: 'Code Files',
-      extensions: ['js', 'jsx', 'ts', 'tsx', 'py', 'html', 'css']
-    }
-  ];
-
-  // If options with filters are passed, use them. Otherwise use defaults.
-  const filters = options?.filters ? options.filters : defaultFilters;
-
+  if (!isTauriRuntime()) return null;
   const selected = await open({
     multiple: options?.multiple ?? false,
     directory: options?.directory ?? false,
     defaultPath: options?.defaultPath,
     title: options?.title,
-    filters: filters
+    filters:
+      options?.filters ??
+      [
+        { name: "All Supported", extensions: TEXT_FILE_EXTENSIONS },
+        { name: "Markdown", extensions: ["md", "markdown"] },
+      ],
   });
 
   if (Array.isArray(selected)) {
-    return selected.map(s => (s as any).path || s);
+    return selected.map((entry) => ((entry as any).path || entry) as string);
   }
-  return selected ? (selected as any).path || selected : null;
+  return selected ? (((selected as any).path || selected) as string) : null;
+}
+
+function ensureDefaultMd(name: string) {
+  if (!name) return "Untitled.md";
+  return /\.[a-z0-9]+$/i.test(name) ? name : `${name}.md`;
 }
 
 export async function saveFileDialog(currentName?: string): Promise<string | null> {
-  // Detect extension from current name
-  const ext = currentName?.split('.').pop()?.toLowerCase() || 'md';
-
-  // Determine primary filter based on extension
-  const primaryFilter = (() => {
-    if (['md', 'markdown'].includes(ext)) return { name: 'Markdown', extensions: ['md', 'markdown'] };
-    if (['txt', 'text', 'log'].includes(ext)) return { name: 'Text', extensions: ['txt', 'text', 'log'] };
-    if (ext === 'json') return { name: 'JSON', extensions: ['json'] };
-    if (['html', 'htm'].includes(ext)) return { name: 'HTML', extensions: ['html', 'htm'] };
-    if (['js', 'jsx'].includes(ext)) return { name: 'JavaScript', extensions: ['js', 'jsx'] };
-    if (['ts', 'tsx'].includes(ext)) return { name: 'TypeScript', extensions: ['ts', 'tsx'] };
-    if (ext === 'css') return { name: 'CSS', extensions: ['css'] };
-    if (['yaml', 'yml'].includes(ext)) return { name: 'YAML', extensions: ['yaml', 'yml'] };
-    return { name: 'File', extensions: [ext] };
-  })();
+  if (!isTauriRuntime()) return null;
+  const preparedName = ensureDefaultMd(currentName ?? "Untitled.md");
+  const ext = preparedName.split(".").pop()?.toLowerCase() || "md";
+  const primaryFilter =
+    ext === "pdf"
+      ? { name: "PDF", extensions: ["pdf"] }
+      : ext === "html" || ext === "htm"
+      ? { name: "HTML", extensions: ["html", "htm"] }
+      : { name: "Markdown", extensions: ["md", "markdown"] };
 
   const selected = await save({
-    defaultPath: currentName,
+    defaultPath: preparedName,
     filters: [
       primaryFilter,
-      { name: 'Markdown', extensions: ['md', 'markdown'] },
-      { name: 'Text', extensions: ['txt', 'text', 'log'] },
-      { name: 'JSON', extensions: ['json'] },
-      { name: 'HTML', extensions: ['html', 'htm'] },
-      { name: 'JavaScript', extensions: ['js', 'jsx'] },
-      { name: 'TypeScript', extensions: ['ts', 'tsx'] },
-      { name: 'CSS', extensions: ['css', 'scss', 'sass'] },
-      { name: 'YAML', extensions: ['yaml', 'yml'] },
-      { name: 'Python', extensions: ['py'] },
-      { name: 'All Supported', extensions: TEXT_FILE_EXTENSIONS },
-      { name: 'All Files', extensions: ['*'] }
-    ]
+      { name: "Markdown", extensions: ["md", "markdown"] },
+      { name: "HTML", extensions: ["html", "htm"] },
+      { name: "PDF", extensions: ["pdf"] },
+      { name: "Text", extensions: ["txt", "text", "log"] },
+      { name: "JSON", extensions: ["json"] },
+      { name: "TypeScript", extensions: ["ts", "tsx"] },
+      { name: "JavaScript", extensions: ["js", "jsx"] },
+      { name: "All Supported", extensions: TEXT_FILE_EXTENSIONS },
+      { name: "All Files", extensions: ["*"] },
+    ],
   });
-  return selected ? (selected as any).path || selected : null;
+  return selected ? (((selected as any).path || selected) as string) : null;
 }

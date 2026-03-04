@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Problemas Comuns - Mark-Lee</title>
-  <link rel="icon" type="image/png" href="/img/logo.png">
-  <link rel="stylesheet" href="/css/style.css">
+  <title data-i18n="faq.title">Problemas Comuns - Mark-Lee</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="css/style.css">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
@@ -13,15 +13,15 @@
   <header>
     <div class="nav-content">
       <a href="home.html" class="nav-logo">
-        <img src="/img/logo.png" alt="Logo">
+        <img src="img/logo.png" alt="Logo">
         Mark-Lee
       </a>
       <nav class="nav-links">
-        <a href="home.html">Produto</a>
-        <a href="gallery.html">Galeria</a>
-        <a href="development.html">Engenharia</a>
-        <a href="faq.html" class="active">FAQ</a>
-        <a href="index.html" class="web-app-link">Web App <i class="ph ph-arrow-right"></i></a>
+        <a href="home.html" data-i18n="nav.product">Produto</a>
+        <a href="gallery.html" data-i18n="nav.gallery">Galeria</a>
+        <a href="development.html" data-i18n="nav.engineering">Engenharia</a>
+        <a href="faq.html" class="active" data-i18n="nav.faq">FAQ</a>
+        <a href="index.html" class="web-app-link" data-i18n="nav.webapp">Web App <i class="ph ph-arrow-right"></i></a>
       </nav>
     </div>
   </header>
@@ -142,10 +142,11 @@
 
   <footer>
     <div class="nav-content footer-content">
-      <span>Mark-Lee v1.0 • © 2025</span>
-      <span>Open Source (MIT License)</span>
+      <span data-i18n="footer.copyright">Mark-Lee v1.0 • © 2025</span>
+      <span data-i18n="footer.license">Open Source (MIT License)</span>
     </div>
   </footer>
 
+  <script src="js/i18n.js"></script>
 </body>
 </html>

@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
+const tauriHost = process.env.TAURI_DEV_HOST || "127.0.0.1";
+const devPort = Number(process.env.TAURI_DEV_PORT || "5173");
+const hmrPort = Number(process.env.TAURI_HMR_PORT || String(devPort + 1));
+const isTauriRuntime = Boolean(process.env.TAURI_DEV_HOST);
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -14,15 +16,15 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
-    strictPort: true,
-    host: host || false,
-    hmr: host
+    port: devPort,
+    strictPort: isTauriRuntime,
+    host: tauriHost,
+    hmr: isTauriRuntime
       ? {
-        protocol: "ws",
-        host,
-        port: 1421,
-      }
+          protocol: "ws",
+          host: tauriHost,
+          port: hmrPort,
+        }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
@@ -37,16 +39,7 @@ export default defineConfig(async () => ({
     cssMinify: true,
     target: 'esnext',
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'markdown': ['react-markdown', 'remark-gfm'],
-          'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-cli', '@tauri-apps/plugin-process'],
-          'icons': ['lucide-react'],
-        }
-      }
-    }
+    rollupOptions: {}
   },
 }));
 

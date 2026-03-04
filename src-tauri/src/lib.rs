@@ -18,6 +18,16 @@ pub fn run() {
             commands::filesystem::read_file,
             commands::filesystem::write_file,
             commands::filesystem::list_dir,
+            commands::filesystem::read_workspace_tree,
+            commands::filesystem::create_workspace_file,
+            commands::filesystem::create_workspace_directory,
+            commands::filesystem::rename_workspace_path,
+            commands::filesystem::delete_workspace_path,
+            commands::filesystem::reveal_in_file_manager,
+            commands::filesystem::get_user_data_path,
+            commands::filesystem::read_user_data_file,
+            commands::filesystem::write_user_data_file,
+            commands::filesystem::copy_image_to_document_dir,
             commands::image_loader::load_image
         ])
         .run(tauri::generate_context!())

@@ -1,31 +1,33 @@
 {
-  "name": "My App",
-  "short_name": "App",
+  "name": "Mark-Lee",
+  "short_name": "IconCore",
+  "description": "Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with real-time preview rendering and robust file management.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eeeded",
-  "theme_color": "#eeeded",
+  "background_color": "#d2d1d1",
+  "theme_color": "#d2d1d1",
+  "orientation": "any",
   "icons": [
     {
-      "src": "pwa-192x192.png",
+      "src": "icons/light/pwa-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "pwa-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "pwa-maskable-192x192.png",
+      "src": "icons/light/pwa-maskable-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "pwa-maskable-512x512.png",
+      "src": "icons/light/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/light/pwa-maskable-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

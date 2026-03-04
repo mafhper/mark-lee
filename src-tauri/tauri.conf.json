@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Mark-Lee",
-  "version": "1.0.0",
+  "version": "0.2.2",
   "identifier": "com.mafhper.marklee",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://127.0.0.1:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -18,7 +18,7 @@
         "minWidth": 600,
         "minHeight": 400,
         "decorations": false,
-        "transparent": true
+        "transparent": false
       }
     ],
     "security": {
@@ -64,8 +64,6 @@
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "headerImage": "icons/icon.png",
-        "sidebarImage": "icons/icon.png",
         "installMode": "currentUser"
       }
     }

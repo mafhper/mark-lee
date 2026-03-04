@@ -1,138 +1,103 @@
-// public/js/i18n.js
-
-(function() {
-  const defaultLang = 'pt-BR';
+(function () {
+  const SUPPORTED_LANGS = ["pt-BR", "en-US", "es-ES"];
+  const DEFAULT_LANG = "en-US";
   let translations = {};
 
-  // Helper to get query parameter
-  function getQueryParam(name) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(name);
+  function normalizeLang(lang) {
+    if (!lang) return DEFAULT_LANG;
+    const lower = lang.toLowerCase();
+    if (lower.startsWith("pt")) return "pt-BR";
+    if (lower.startsWith("es")) return "es-ES";
+    if (lower.startsWith("en")) return "en-US";
+    return DEFAULT_LANG;
   }
 
-  // Helper to set query parameter without reloading
-  function setQueryParam(name, value) {
-    const url = new URL(window.location);
-    url.searchParams.set(name, value);
-    window.history.pushState({}, '', url);
+  function resolveScriptBaseUrl() {
+    const script =
+      document.currentScript ||
+      document.querySelector('script[src$="/js/i18n.js"], script[src$="js/i18n.js"], script[src$="../js/i18n.js"]');
+
+    if (script instanceof HTMLScriptElement && script.src) {
+      return new URL(".", script.src);
+    }
+
+    return new URL(".", window.location.href);
   }
 
-  // Load translations JSON file
+  function localeUrlFor(lang) {
+    const scriptBase = resolveScriptBaseUrl();
+    return new URL(`../locales/${lang}.json`, scriptBase);
+  }
+
+  function translate(key, fallback) {
+    return translations[key] ?? fallback;
+  }
+
+  function applyTranslations(lang) {
+    document.querySelectorAll("[data-i18n]").forEach((element) => {
+      const key = element.getAttribute("data-i18n");
+      if (!key) return;
+      element.textContent = translate(key, element.textContent || "");
+    });
+
+    document.querySelectorAll("[data-i18n-html]").forEach((element) => {
+      const key = element.getAttribute("data-i18n-html");
+      if (!key) return;
+      element.innerHTML = translate(key, element.innerHTML || "");
+    });
+
+    document.querySelectorAll("[data-i18n-meta]").forEach((element) => {
+      const key = element.getAttribute("data-i18n-meta");
+      if (!key) return;
+      element.setAttribute("content", translate(key, element.getAttribute("content") || ""));
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+      const key = element.getAttribute("data-i18n-placeholder");
+      if (!key) return;
+      element.setAttribute("placeholder", translate(key, element.getAttribute("placeholder") || ""));
+    });
+
+    const title = document.querySelector("title[data-i18n]");
+    if (title) {
+      const key = title.getAttribute("data-i18n");
+      if (key) title.textContent = translate(key, title.textContent || "");
+    }
+
+    document.documentElement.lang = lang;
+  }
+
   async function loadTranslations(lang) {
     try {
-      const response = await fetch(`locales/${lang}.json`);
+      const response = await fetch(localeUrlFor(lang));
       if (!response.ok) {
-        throw new Error(`Failed to load translations for ${lang}`);
+        throw new Error(`locale load failed: ${response.status}`);
       }
+
       translations = await response.json();
-      applyTranslations();
+      applyTranslations(lang);
     } catch (error) {
-      console.error('Error loading translations:', error);
-      // Fallback to default language if loading fails
-      if (lang !== defaultLang) {
-        loadTranslations(defaultLang);
+      if (lang !== DEFAULT_LANG) {
+        await loadTranslations(DEFAULT_LANG);
+      } else {
+        console.error("Translation loading error:", error);
       }
     }
   }
 
-  // Apply translations to the DOM
-  function applyTranslations() {
-    document.querySelectorAll('[data-i18n]').forEach(element => {
-      const key = element.getAttribute('data-i18n');
-      if (translations[key]) {
-        element.textContent = translations[key];
+  function resolveInitialLanguage() {
+    if (Array.isArray(navigator.languages)) {
+      for (const candidate of navigator.languages) {
+        const normalized = normalizeLang(candidate);
+        if (SUPPORTED_LANGS.includes(normalized)) return normalized;
       }
-    });
-
-    document.querySelectorAll('[data-i18n-html]').forEach(element => {
-      const key = element.getAttribute('data-i18n-html');
-      if (translations[key]) {
-        element.innerHTML = translations[key]; // Use innerHTML for rich text
-      }
-    });
-
-    document.querySelectorAll('[data-i18n-meta]').forEach(element => {
-        const key = element.getAttribute('data-i18n-meta');
-        if (translations[key]) {
-            element.setAttribute('content', translations[key]); // Update content for meta tags
-        }
-    });
-
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-      const key = element.getAttribute('data-i18n-placeholder');
-      if (translations[key]) {
-        element.placeholder = translations[key];
-      }
-    });
-
-    document.querySelectorAll('[data-i18n-title]').forEach(element => {
-      const key = element.getAttribute('data-i18n-title');
-      if (translations[key]) {
-        element.title = translations[key];
-      }
-    });
-    
-    // Update HTML lang attribute
-    document.documentElement.lang = getQueryParam('lang') || defaultLang;
-
-    // Update page title
-    const titleElement = document.querySelector('title');
-    if (titleElement && titleElement.hasAttribute('data-i18n')) {
-        titleElement.textContent = translations[titleElement.getAttribute('data-i18n')] || titleElement.textContent;
     }
+
+    return normalizeLang(navigator.language);
   }
 
-  // Language switcher event handler
-  function handleLanguageChange(event) {
-    const newLang = event.target.dataset.lang;
-    if (newLang) {
-      setQueryParam('lang', newLang);
-      loadTranslations(newLang);
-
-      // Update active state of language switcher buttons
-      document.querySelectorAll('.lang-switcher-btn').forEach(button => {
-        if (button.dataset.lang === newLang) {
-          button.classList.add('active');
-        } else {
-          button.classList.remove('active');
-        }
-      });
-    }
-  }
-
-  // Initialize i18n
-  document.addEventListener('DOMContentLoaded', () => {
-    const userLang = getQueryParam('lang') || navigator.language; // Use full navigator.language
-    const availableLangs = ['pt-BR', 'en-US', 'es-ES', 'fr-FR', 'it-IT', 'zh-CN', 'ja-JP']; // All supported languages
-    
-    let langToLoad = defaultLang;
-    // Check for exact match first
-    if (availableLangs.includes(userLang)) {
-        langToLoad = userLang;
-    } else {
-        // Check for base language match (e.g., 'pt' -> 'pt-BR')
-        const baseLang = userLang.split('-')[0].toLowerCase();
-        const foundLang = availableLangs.find(lang => lang.startsWith(baseLang));
-        if (foundLang) {
-            langToLoad = foundLang;
-        }
-    }
-    
-    // Ensure the language switcher has the correct initial active state
-    document.querySelectorAll('.lang-switcher-btn').forEach(button => {
-        if (button.dataset.lang === langToLoad) {
-            button.classList.add('active');
-        } else {
-            button.classList.remove('active');
-        }
-    });
-
-    loadTranslations(langToLoad);
-
-    // Attach event listeners to language switcher buttons
-    document.querySelectorAll('.lang-switcher-btn').forEach(button => {
-      button.addEventListener('click', handleLanguageChange);
-    });
+  document.addEventListener("DOMContentLoaded", () => {
+    const lang = resolveInitialLanguage();
+    loadTranslations(lang);
   });
-
 })();
