@@ -50,7 +50,7 @@ jobs:
         working-directory: apps/site
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Check site types
         run: npm run site:check
@@ -69,11 +69,12 @@ jobs:
           SITE_GITHUB_TOKEN: ${{ secrets.SITE_GITHUB_TOKEN }}
 
       - name: Smoke test site
+        timeout-minutes: 8
         run: node scripts/smoke-site.mjs
 
   rust:
     name: Rust Check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,7 +85,7 @@ jobs:
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Cache Cargo
         uses: swatinem/rust-cache@v2
