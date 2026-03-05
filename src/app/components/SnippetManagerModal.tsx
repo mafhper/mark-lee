@@ -102,15 +102,14 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
             </select>
           </div>
 
-          <div className="flex-1 overflow-auto p-2 space-y-1">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
             {filteredSnippets.map((snippet) => (
               <button
                 key={snippet.id}
-                className={`w-full text-left px-2 py-2 rounded border text-xs ${
-                  editingSnippet?.id === snippet.id
+                className={`w-full text-left px-2 py-2 rounded border text-xs ${editingSnippet?.id === snippet.id
                     ? "ml-btn-active"
                     : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
-                }`}
+                  }`}
                 onClick={() => setEditingId(snippet.id)}
                 type="button"
               >

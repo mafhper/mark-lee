@@ -97,15 +97,21 @@ export const ptBRCopy: SiteCopy = {
             highlights: ["Presets visuais prontos", "CRUD de presets para seu fluxo"],
           },
           {
-            label: "Publicar",
-            title: "Publicação flexível",
+            label: "Exportar",
+            title: "Exportação flexível",
             description: "Exporte para Markdown, HTML e PDF.",
-            highlights: ["Snippets para acelerar padrões", "Busca avançada com substituição"],
+            highlights: ["Interface simples", "Busca avançada com substituição"],
+          },
+          {
+            label: "Snippets",
+            title: "Modelos reutilizáveis",
+            description: "Acelere padrões de escrita.",
+            highlights: ["Crie atalhos", "Organize no workspace"],
           },
         ],
       },
       ctaSection: {
-        title: "Quer escrever com menos fricção?",
+        title: "Quer escrever do seu jeito?",
         description: "Baixe a versão atual e comece no seu workspace.",
         primaryCta: "Baixar",
         secondaryCta: "Repositório",
@@ -155,13 +161,13 @@ export const ptBRCopy: SiteCopy = {
         ],
       },
       previewSection: {
-        label: "Preview",
-        title: "Uso real do app",
-        description: "Cada bloco mostra um cenário real.",
+        label: "Customize",
+        title: "Encontre a sua maneira de usar a aplicação",
+        description: "Cada bloco mostra um cenário claro.",
         items: [
           {
             label: "Presets",
-            title: "Preview com presets e CRUD",
+            title: "Presets - Ajuste a pré-visualização",
             description: "Use presets, crie novos e ajuste o fluxo.",
             visual: "preview",
           },

@@ -9,10 +9,16 @@ lerna-debug.log*
 
 # Internal Development
 @development/
+.dev/
+_dev/
+/_development
+/docs
+/.gemini
+GEMINI.md
+/performance-reports
 
 # Exceptions
 !docs/plan/change.log
-
 node_modules
 dist
 dist-ssr
@@ -35,9 +41,5 @@ src-tauri/gen/
 *.njsproj
 *.sln
 *.sw?
-/_development
-/docs
-/.gemini
-GEMINI.md
-.dev/
-_dev/
+
+

@@ -97,15 +97,21 @@ export const enUSCopy: SiteCopy = {
             highlights: ["Built-in preview presets", "Preset CRUD for custom workflows"],
           },
           {
-            label: "Publish",
-            title: "Flexible publishing",
+            label: "Export",
+            title: "Flexible exporting",
             description: "Export safely to Markdown, HTML, and PDF.",
-            highlights: ["Reusable snippets", "Advanced search and replace"],
+            highlights: ["Simple interface", "Advanced search and replace"],
+          },
+          {
+            label: "Snippets",
+            title: "Reusable templates",
+            description: "Speed up your writing patterns.",
+            highlights: ["Create shortcuts", "Organize in workspace"],
           },
         ],
       },
       ctaSection: {
-        title: "Need a smoother writing flow?",
+        title: "Want to write your way?",
         description: "Get the latest build and start inside your own workspace.",
         primaryCta: "Download",
         secondaryCta: "Repository",
@@ -155,13 +161,13 @@ export const enUSCopy: SiteCopy = {
         ],
       },
       previewSection: {
-        label: "Preview",
-        title: "Real app usage",
+        label: "Customize",
+        title: "Find your way to use the app",
         description: "No generic showcase. Each block explains a concrete interaction.",
         items: [
           {
             label: "Presets",
-            title: "Preview with preset CRUD",
+            title: "Presets - Tune the preview",
             description: "Use existing presets, create new ones, and tune output to your workflow.",
             visual: "preview",
           },

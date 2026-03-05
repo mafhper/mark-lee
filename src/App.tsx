@@ -14,8 +14,10 @@ import {
   getRecentFiles,
   loadLastTabs,
   loadSettings,
+  loadWorkspacePath,
   saveLastTabs,
   saveSettings,
+  saveWorkspacePath,
 } from "./services/storage";
 import {
   copyImageToDocumentDir,
@@ -37,7 +39,7 @@ import {
   saveSnippets,
 } from "./services/user-content";
 import { isTauriRuntime } from "./services/runtime";
-import { DEFAULT_SETTINGS, INITIAL_MARKDOWN, THEMES } from "./constants";
+import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
 import {
   AppSettings,
   DocumentTab,
@@ -50,6 +52,7 @@ import { TRANSLATIONS } from "./translations";
 import Sidebar from "./app/components/Sidebar";
 import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
+import WindowTitleBar from "./app/components/WindowTitleBar";
 import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
@@ -292,6 +295,23 @@ function publicationVariantFor(presetId: string | null | undefined) {
   return "modern";
 }
 
+function parseFrontmatter(content: string): { meta: Record<string, string>; body: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  if (!match) return { meta: {}, body: content };
+  const raw = match[1];
+  const meta: Record<string, string> = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+    value = value.replace(/^["']|["']$/g, "");
+    if (key) meta[key] = value;
+  }
+  const body = content.slice(match[0].length);
+  return { meta, body };
+}
+
 function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [tabs, setTabs] = useState<DocumentTab[]>(() => {
@@ -313,11 +333,18 @@ function App() {
   const [showSnippets, setShowSnippets] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [viewMode, setViewMode] = useState(settings.viewMode);
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [viewportWidth, setViewportWidth] = useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 1280
+  );
+  const hasWindowControls =
+    isTauriRuntime() ||
+    (typeof window !== "undefined" && Boolean((window as { DEBUG_SHOW_TITLEBAR?: boolean }).DEBUG_SHOW_TITLEBAR));
   const t = TRANSLATIONS[settings.language] ?? TRANSLATIONS["en-US"];
   const tConfig = THEMES[settings.theme] ?? THEMES[Theme.Sepia];
   const editorFontFamily = resolveEditorFontFamily(settings.fontFamily, tConfig.editorFont);
@@ -325,6 +352,9 @@ function App() {
     () => Object.values(Theme).slice().sort((a, b) => a.localeCompare(b)),
     []
   );
+  const isNarrowViewport = viewportWidth < 980;
+  const isTinyViewport = viewportWidth < 560;
+  const dynamicSidebarMax = Math.max(220, Math.min(520, Math.floor(viewportWidth * 0.45)));
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null,
@@ -353,7 +383,7 @@ function App() {
   const previewSurfaceStyle = useMemo(() => {
     const preset = activePublicationPreset;
     if (!preset) return undefined;
-    const resolvedText = ensureAccessibleColor(preset.palette.text, preset.palette.bg, 10);
+    const resolvedText = ensureAccessibleColor(preset.palette.text, preset.palette.bg, 4.5);
     const resolvedAccent = ensureAccessibleColor(preset.palette.accent, preset.palette.bg, 10);
     return {
       backgroundColor: preset.palette.bg,
@@ -371,26 +401,27 @@ function App() {
   const activeContent = activeTab?.content ?? "";
   const isCodeDocument = activeTab ? isCodeFile(activeTab.name) : false;
   const editorExtensions = useMemo(() => {
-    const snippetCommandExtension = keymap.of([
-      {
-        key: "Enter",
-        run: (view) => {
-          const selection = view.state.selection.main;
-          if (!selection.empty) return false;
-          const line = view.state.doc.lineAt(selection.from);
-          const match = line.text.trim().match(/^>snip:([a-z0-9_\- ]+)$/i);
-          if (!match) return false;
-          const trigger = normalizeSnippetKey(match[1] || "");
-          const snippet = snippetMap.get(trigger);
-          if (!snippet) return false;
+    const tryExpandSnippet = (view: EditorView) => {
+      const selection = view.state.selection.main;
+      if (!selection.empty) return false;
+      const line = view.state.doc.lineAt(selection.from);
+      const text = line.text.trim();
+      const match = text.match(/^(?:>?\s*snip:|\/snip\s+)([a-z0-9_\- ]+)$/i);
+      if (!match) return false;
+      const trigger = normalizeSnippetKey(match[1] || "");
+      const snippet = snippetMap.get(trigger);
+      if (!snippet) return false;
 
-          view.dispatch({
-            changes: { from: line.from, to: line.to, insert: snippet.content },
-            selection: EditorSelection.cursor(line.from + snippet.content.length),
-          });
-          return true;
-        },
-      },
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: snippet.content },
+        selection: EditorSelection.cursor(line.from + snippet.content.length),
+      });
+      return true;
+    };
+
+    const snippetCommandExtension = keymap.of([
+      { key: "Enter", run: tryExpandSnippet },
+      { key: "Tab", run: tryExpandSnippet },
     ]);
 
     const core = [
@@ -407,8 +438,13 @@ function App() {
 
   const { width: sidebarWidth, isResizing, feedbackWidth, handleProps } = useSidebarResize({
     initialWidth: settings.sidebarWidth,
+    minWidth: 180,
+    maxWidth: dynamicSidebarMax,
     onResizeEnd: (width) => updateSettings({ sidebarWidth: width }),
   });
+  const clampedSidebarWidth = Math.min(sidebarWidth, dynamicSidebarMax);
+  const effectiveViewMode: "edit" | "split" | "preview" =
+    isNarrowViewport && viewMode === "split" ? "edit" : viewMode;
 
   const updateSettings = (patch: Partial<AppSettings>) => {
     setSettings((previous) => {
@@ -417,6 +453,18 @@ function App() {
       return next;
     });
   };
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (settings.sidebarWidth > dynamicSidebarMax) {
+      updateSettings({ sidebarWidth: dynamicSidebarMax });
+    }
+  }, [dynamicSidebarMax, settings.sidebarWidth]);
 
   const cycleTheme = () => {
     const currentIndex = sortedThemes.indexOf(settings.theme);
@@ -464,6 +512,21 @@ function App() {
       }
       addRecentFile(path, name);
       setRecentFiles(getRecentFiles());
+
+      if (!workspacePath) {
+        // Fallback to setting the file's directory as the workspace
+        const dir = path.substring(0, Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/")));
+        if (dir) {
+          setWorkspacePath(dir);
+          saveWorkspacePath(dir);
+          try {
+            const tree = await readWorkspaceTree(dir);
+            setWorkspaceTree(tree);
+          } catch (e) {
+            console.error("Failed to load generic workspace", e);
+          }
+        }
+      }
     } catch (error) {
       console.error("Failed to open file:", error);
     }
@@ -562,6 +625,7 @@ function App() {
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (!path) return;
     setWorkspacePath(path);
+    saveWorkspacePath(path);
     try {
       const tree = await readWorkspaceTree(path);
       setWorkspaceTree(tree);
@@ -751,19 +815,19 @@ function App() {
       const preset = activePublicationPreset;
       const variant = publicationVariantFor(preset?.id);
       const resolvedText = preset
-        ? ensureAccessibleColor(preset.palette.text, preset.palette.bg, 10)
+        ? ensureAccessibleColor(preset.palette.text, preset.palette.bg, 4.5)
         : "#111827";
       const resolvedAccent = preset
-        ? ensureAccessibleColor(preset.palette.accent, preset.palette.bg, 10)
+        ? ensureAccessibleColor(preset.palette.accent, preset.palette.bg, 4.5)
         : "#172554";
       const layoutStyle =
         variant === "paper"
           ? "max-width: 760px; margin: 0 auto; letter-spacing: 0.01em;"
           : variant === "night"
-          ? "max-width: 880px; margin: 0 auto; font-size: 1.02rem;"
-          : variant === "magazine"
-          ? "max-width: 980px; margin: 0 auto; column-gap: 2.2rem;"
-          : "max-width: 860px; margin: 0 auto;";
+            ? "max-width: 880px; margin: 0 auto; font-size: 1.02rem;"
+            : variant === "magazine"
+              ? "max-width: 980px; margin: 0 auto; column-gap: 2.2rem;"
+              : "max-width: 860px; margin: 0 auto;";
       const presetStyle = preset
         ? `<style>
             body {
@@ -779,9 +843,8 @@ function App() {
             blockquote { border-left: 4px solid ${preset.palette.muted}; padding-left: 1rem; }
           </style>`
         : "";
-      output = `<!doctype html><html><head><meta charset="UTF-8" /><title>${activeTab.name}</title>${presetStyle}</head><body>${
-        `<main>${previewRef.current?.innerHTML || ""}</main>`
-      }</body></html>`;
+      output = `<!doctype html><html><head><meta charset="UTF-8" /><title>${activeTab.name}</title>${presetStyle}</head><body>${`<main>${previewRef.current?.innerHTML || ""}</main>`
+        }</body></html>`;
     }
 
     const path = await saveFileDialog(suggestedName);
@@ -851,8 +914,30 @@ function App() {
         saveSettings(next);
         return next;
       });
+
+      // Restore last workspace
+      const storedWorkspace = loadWorkspacePath();
+      if (storedWorkspace) {
+        setWorkspacePath(storedWorkspace);
+        try {
+          const tree = await readWorkspaceTree(storedWorkspace);
+          setWorkspaceTree(tree);
+        } catch {
+          // Folder may no longer exist
+          saveWorkspacePath(null);
+        }
+      }
     };
     loadStartupData();
+  }, []);
+
+  // Suppress default browser/Tauri context menu
+  useEffect(() => {
+    const suppress = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("contextmenu", suppress);
+    return () => window.removeEventListener("contextmenu", suppress);
   }, []);
 
   useEffect(() => {
@@ -862,6 +947,56 @@ function App() {
   useEffect(() => {
     savePublicationPresets(publicationPresets).catch(() => undefined);
   }, [publicationPresets]);
+
+  useEffect(() => {
+    const anchor = settings.floatingToolbarAnchor;
+    const byAnchor = settings.toolbarByAnchor ?? {};
+    const saved = byAnchor[anchor];
+    if (!saved) return;
+    const nextPatch: Partial<AppSettings> = {};
+    if (saved.showToolbarSectionLabels !== settings.showToolbarSectionLabels) {
+      nextPatch.showToolbarSectionLabels = saved.showToolbarSectionLabels;
+    }
+    if (saved.toolbarCompactBreakpoint !== settings.toolbarCompactBreakpoint) {
+      nextPatch.toolbarCompactBreakpoint = saved.toolbarCompactBreakpoint;
+    }
+    if (saved.toolbarDisplayMode !== settings.toolbarDisplayMode) {
+      nextPatch.toolbarDisplayMode = saved.toolbarDisplayMode;
+    }
+    if (JSON.stringify(saved.toolbarSections) !== JSON.stringify(settings.toolbarSections)) {
+      nextPatch.toolbarSections = saved.toolbarSections;
+    }
+    if (JSON.stringify(saved.toolbarItems) !== JSON.stringify(settings.toolbarItems)) {
+      nextPatch.toolbarItems = saved.toolbarItems;
+    }
+    if (Object.keys(nextPatch).length > 0) updateSettings(nextPatch);
+  }, [settings.floatingToolbarAnchor]);
+
+  useEffect(() => {
+    const anchor = settings.floatingToolbarAnchor;
+    const previous = settings.toolbarByAnchor ?? {};
+    const nextAnchorLayout = {
+      showToolbarSectionLabels: settings.showToolbarSectionLabels,
+      toolbarCompactBreakpoint: settings.toolbarCompactBreakpoint,
+      toolbarDisplayMode: settings.toolbarDisplayMode,
+      toolbarSections: settings.toolbarSections,
+      toolbarItems: settings.toolbarItems,
+    };
+    if (JSON.stringify(previous[anchor]) === JSON.stringify(nextAnchorLayout)) return;
+    updateSettings({
+      toolbarByAnchor: {
+        ...previous,
+        [anchor]: nextAnchorLayout,
+      },
+    });
+  }, [
+    settings.floatingToolbarAnchor,
+    settings.showToolbarSectionLabels,
+    settings.toolbarCompactBreakpoint,
+    settings.toolbarDisplayMode,
+    settings.toolbarItems,
+    settings.toolbarSections,
+  ]);
 
   useEffect(() => {
     if (publicationPresets.length === 0) return;
@@ -908,9 +1043,13 @@ function App() {
     };
   }, [isZenMode]);
 
+  const shortcutLabels = useMemo(
+    () => ({ ...DEFAULT_SHORTCUTS, ...(settings.customShortcuts ?? {}) }),
+    [settings.customShortcuts]
+  );
+
   useEffect(() => {
-    const shortcuts = settings.customShortcuts ?? {};
-    const getShortcut = (key: string, fallback: string) => shortcuts[key] || fallback;
+    const getShortcut = (key: string, fallback: string) => shortcutLabels[key] || fallback;
 
     const normalize = (value: string) => value.toUpperCase().split("+");
     const testShortcut = (event: KeyboardEvent, shortcut: string) => {
@@ -933,24 +1072,77 @@ function App() {
       } else if (testShortcut(event, getShortcut("file-open", "CTRL+O"))) {
         event.preventDefault();
         handleOpenFile();
+      } else if (testShortcut(event, getShortcut("file-open-folder", "CTRL+SHIFT+O"))) {
+        event.preventDefault();
+        handleOpenFolder();
       } else if (testShortcut(event, getShortcut("file-new", "CTRL+N"))) {
         event.preventDefault();
         handleNewFile();
+      } else if (testShortcut(event, getShortcut("file-export", "CTRL+E"))) {
+        event.preventDefault();
+        setShowExport(true);
       } else if (testShortcut(event, getShortcut("edit-find", "CTRL+F"))) {
         event.preventDefault();
         setShowFindReplace(true);
       } else if (testShortcut(event, getShortcut("edit-replace", "CTRL+H"))) {
         event.preventDefault();
         setShowFindReplace(true);
+      } else if (testShortcut(event, getShortcut("edit-snippets", "CTRL+J"))) {
+        event.preventDefault();
+        setShowSnippets(true);
       } else if (testShortcut(event, getShortcut("view-sidebar", "CTRL+B"))) {
         event.preventDefault();
         updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
+      } else if (testShortcut(event, getShortcut("help-shortcuts", "F1"))) {
+        event.preventDefault();
+        setShowShortcutHints((previous) => !previous);
+      } else if (testShortcut(event, getShortcut("view-edit", "CTRL+1"))) {
+        event.preventDefault();
+        setViewMode("edit");
+        updateSettings({ viewMode: "edit" });
+      } else if (testShortcut(event, getShortcut("view-split", "CTRL+2"))) {
+        event.preventDefault();
+        setViewMode("split");
+        updateSettings({ viewMode: "split" });
+      } else if (testShortcut(event, getShortcut("view-preview", "CTRL+3"))) {
+        event.preventDefault();
+        setViewMode("preview");
+        updateSettings({ viewMode: "preview" });
+      } else if (testShortcut(event, getShortcut("view-zen", "F10"))) {
+        event.preventDefault();
+        setIsZenMode((previous) => !previous);
+      } else if (testShortcut(event, getShortcut("view-theme-cycle", "CTRL+SHIFT+T"))) {
+        event.preventDefault();
+        cycleTheme();
+      } else if (testShortcut(event, getShortcut("app-settings", "CTRL+,"))) {
+        event.preventDefault();
+        setShowSettings(true);
+      } else if (testShortcut(event, getShortcut("fmt-bold", "CTRL+SHIFT+B"))) {
+        event.preventDefault();
+        handleFormatAction("bold");
+      } else if (testShortcut(event, getShortcut("fmt-italic", "CTRL+I"))) {
+        event.preventDefault();
+        handleFormatAction("italic");
+      } else if (testShortcut(event, getShortcut("fmt-link", "CTRL+K"))) {
+        event.preventDefault();
+        handleFormatAction("link");
+      } else if (testShortcut(event, getShortcut("fmt-ul", "CTRL+SHIFT+8"))) {
+        event.preventDefault();
+        handleFormatAction("ul");
+      } else if (testShortcut(event, getShortcut("fmt-ol", "CTRL+SHIFT+7"))) {
+        event.preventDefault();
+        handleFormatAction("ol");
+      } else if (testShortcut(event, getShortcut("fmt-task", "CTRL+SHIFT+9"))) {
+        event.preventDefault();
+        handleFormatAction("task");
+      } else if (event.key === "Escape") {
+        setShowShortcutHints(false);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeTab, settings, tabs]);
+  }, [activeTab, handleFormatAction, settings, shortcutLabels, tabs]);
 
   useEffect(() => {
     if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
@@ -967,6 +1159,59 @@ function App() {
     }, settings.autoSaveInterval * 1000);
     return () => clearInterval(timer);
   }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
+
+  const topChromeComponent = (
+    <TopChrome
+      t={t}
+      tConfig={tConfig}
+      floatingToolbarAnchor={settings.floatingToolbarAnchor}
+      sidebarEnabled={settings.sidebarEnabled}
+      viewMode={effectiveViewMode}
+      toolbarSections={settings.toolbarSections}
+      toolbarItems={settings.toolbarItems}
+      showToolbarSectionLabels={settings.showToolbarSectionLabels}
+      toolbarCompactBreakpoint={settings.toolbarCompactBreakpoint}
+      toolbarDisplayMode={settings.toolbarDisplayMode}
+      shortcutLabels={shortcutLabels}
+      showShortcutHints={showShortcutHints}
+      onToolbarSectionChange={(section, enabled) =>
+        updateSettings({
+          toolbarSections: {
+            ...settings.toolbarSections,
+            [section]: section === "system" ? true : enabled,
+          },
+        })
+      }
+      onNewFile={handleNewFile}
+      onOpenFile={handleOpenFile}
+      onOpenFolder={handleOpenFolder}
+      onSave={() => activeTab && saveTab(activeTab, false)}
+      onExport={() => setShowExport(true)}
+      onFindReplace={() => setShowFindReplace(true)}
+      onOpenSettings={() => setShowSettings(true)}
+      onOpenSnippets={() => setShowSnippets(true)}
+      onCycleTheme={cycleTheme}
+      onToggleSidebar={() => updateSettings({ sidebarEnabled: !settings.sidebarEnabled })}
+      onToggleZen={() => setIsZenMode((previous) => !previous)}
+      onViewModeChange={(mode) => {
+        setViewMode(mode);
+        updateSettings({ viewMode: mode });
+      }}
+      onFormatAction={handleFormatAction}
+    />
+  );
+  const topChromeBlock =
+    !isZenMode && settings.floatingToolbarAnchor === "top" && settings.sidebarEnabled ? (
+      <div className="relative">
+        {topChromeComponent}
+        <div
+          className={`pointer-events-none absolute top-0 bottom-0 w-px ${tConfig.uiBorder} opacity-90`}
+          style={{ left: `${Math.max(0, clampedSidebarWidth - 1)}px` }}
+        />
+      </div>
+    ) : (
+      topChromeComponent
+    );
 
   return (
     <div
@@ -985,55 +1230,39 @@ function App() {
           "--ml-fg": tConfig.fgHex,
           "--ml-bg": tConfig.bgHex,
           "--ml-ui": tConfig.uiHex,
+          boxShadow: "inset 0 1px 2px 0 rgba(255, 255, 255, 0.1)",
         } as React.CSSProperties
       }
     >
+      <WindowTitleBar tConfig={tConfig} />
       {!isZenMode && (
-        <TopChrome
-          t={t}
-          tConfig={tConfig}
-          floatingToolbarAnchor={settings.floatingToolbarAnchor}
-          sidebarEnabled={settings.sidebarEnabled}
-          sidebarWidth={sidebarWidth}
-          viewMode={viewMode}
-          toolbarSections={settings.toolbarSections}
-          toolbarItems={settings.toolbarItems}
-          toolbarDisplayMode={settings.toolbarDisplayMode}
-          onToolbarSectionChange={(section, enabled) =>
-            updateSettings({
-              toolbarSections: {
-                ...settings.toolbarSections,
-                [section]: section === "system" ? true : enabled,
-              },
-            })
-          }
-          onNewFile={handleNewFile}
-          onOpenFile={handleOpenFile}
-          onOpenFolder={handleOpenFolder}
-          onSave={() => activeTab && saveTab(activeTab, false)}
-          onExport={() => setShowExport(true)}
-          onFindReplace={() => setShowFindReplace(true)}
-          onOpenSettings={() => setShowSettings(true)}
-          onOpenSnippets={() => setShowSnippets(true)}
-          onCycleTheme={cycleTheme}
-          onToggleSidebar={() => updateSettings({ sidebarEnabled: !settings.sidebarEnabled })}
-          onToggleZen={() => setIsZenMode((previous) => !previous)}
-          onViewModeChange={(mode) => {
-            setViewMode(mode);
-            updateSettings({ viewMode: mode });
-          }}
-          onFormatAction={handleFormatAction}
-        />
+        <div
+          className={`h-8 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} px-2 flex items-center justify-between`}
+          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+        >
+          <div
+            className="flex items-center gap-2 min-w-0"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          >
+            <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded border ${tConfig.uiBorder}`} />
+            <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
+          </div>
+          <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
+        </div>
       )}
+      {!isZenMode && settings.floatingToolbarAnchor !== "bottom" && topChromeBlock}
 
       <div
-        className={`flex-1 min-h-0 flex ${
-          settings.floatingToolbarAnchor === "bottom" && !isZenMode ? "pb-14" : ""
-        }`}
+        className={`flex-1 min-h-0 flex ${!isZenMode && settings.floatingToolbarAnchor === "left" ? "pl-[72px]" : ""
+          } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
+          } ${!isZenMode && settings.floatingToolbarAnchor === "bottom" ? "pb-[52px]" : ""}`}
       >
         {!isZenMode && settings.sidebarEnabled && (
-          <>
-            <div style={{ width: `${sidebarWidth}px` }} className="min-w-[220px] max-w-[520px] h-full">
+          <div
+            style={{ width: `${clampedSidebarWidth}px`, minWidth: "180px", maxWidth: `${dynamicSidebarMax}px` }}
+            className={`relative h-full border-r ${tConfig.uiBorder}`}
+          >
+            <div className="h-full">
               <Sidebar
                 t={t}
                 tConfig={tConfig}
@@ -1048,27 +1277,22 @@ function App() {
                 onReveal={revealInFileManager}
               />
             </div>
-
             <div
               {...handleProps}
-              className={`relative flex-none transition-all duration-150 ${
-                isResizing ? "bg-indigo-500/10" : "hover:bg-indigo-500/10"
-              }`}
+              className="absolute top-0 -right-[6px] z-[150] h-full w-3 transition-all duration-150 group"
             >
               <div
-                className={`absolute left-1/2 top-0 -translate-x-1/2 h-full rounded-full transition-all duration-150 ${
-                  isResizing ? "bg-indigo-500/60" : "bg-indigo-500/30"
-                }`}
-                style={{ width: `${feedbackWidth}px` }}
+                className={`absolute left-1/2 top-0 -translate-x-1/2 h-full rounded-full transition-all duration-150 ${isResizing ? "bg-indigo-500/40" : "bg-transparent"
+                  }`}
+                style={{ width: `${isResizing ? feedbackWidth : 0}px` }}
               />
+              <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-indigo-500/40" />
             </div>
-          </>
+          </div>
         )}
 
         <div
-          className={`flex-1 min-w-0 h-full flex flex-col ${tConfig.editorBg} ${tConfig.editorFg} ${
-            settings.floatingToolbarAnchor === "left" && !isZenMode ? "pl-[72px]" : ""
-          } ${settings.floatingToolbarAnchor === "right" && !isZenMode ? "pr-[72px]" : ""}`}
+          className={`flex-1 min-w-0 h-full flex flex-col ${tConfig.editorBg} ${tConfig.editorFg}`}
         >
           {!isZenMode && settings.tabsEnabled && (
             <EditorTabs
@@ -1091,9 +1315,8 @@ function App() {
 
           <div className="flex-1 min-h-0 h-full flex flex-row">
             <div
-              className={`${
-                viewMode === "preview" ? "hidden" : "block"
-              } ${viewMode === "split" ? "w-1/2 border-r" : "w-full"} ${tConfig.uiBorder} min-h-0 h-full`}
+              className={`${effectiveViewMode === "preview" ? "hidden" : "block"
+                } ${effectiveViewMode === "split" ? "w-1/2 border-r" : "w-full"} ${tConfig.uiBorder} min-h-0 h-full`}
             >
               <CodeMirror
                 value={activeContent}
@@ -1116,41 +1339,76 @@ function App() {
 
             <div
               ref={previewRef}
-              className={`${
-                viewMode === "edit" ? "hidden" : "block"
-              } ${viewMode === "split" ? "w-1/2 border-l" : "w-full"} ${tConfig.uiBorder} overflow-auto min-h-0 h-full`}
+              className={`${effectiveViewMode === "edit" ? "hidden" : "block"
+                } ${effectiveViewMode === "split" ? "w-1/2 border-l" : "w-full"} ${tConfig.uiBorder} overflow-y-auto overflow-x-hidden min-h-0 h-full`}
+              style={{ backgroundColor: tConfig.bgHex }}
             >
               {isCodeDocument ? (
                 <CodePreview content={activeContent} fileName={activeTab?.name ?? "Untitled.ts"} tConfig={tConfig} />
-              ) : (
-                <div
-                  className="min-h-full p-5"
-                  style={{ backgroundColor: activePublicationPreset?.palette.bg ?? "#f8fafc" }}
-                >
+              ) : (() => {
+                const { meta, body } = parseFrontmatter(activeContent);
+                const hasMeta = Object.keys(meta).length > 0;
+                return (
                   <div
-                    className={`ml-preview-surface ml-preview-${activePublicationVariant} mx-auto`}
-                    style={previewSurfaceStyle}
-                    data-preview-variant={activePublicationVariant}
+                    className="min-h-full p-5"
+                    style={{ backgroundColor: tConfig.bgHex }}
                   >
-                    <div className="ml-preview-prose">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          img: (props) => (
-                            <LocalImage
-                              {...props}
-                              className="max-w-full h-auto rounded-md"
-                              basePath={activeTab?.path ?? null}
-                            />
-                          ),
-                        }}
-                      >
-                        {activeContent}
-                      </ReactMarkdown>
+                    <div
+                      className={`ml-preview-surface ml-preview-${activePublicationVariant} mx-auto`}
+                      style={previewSurfaceStyle}
+                      data-preview-variant={activePublicationVariant}
+                    >
+                      {hasMeta && (
+                        <div
+                          className="ml-frontmatter-card mb-6 rounded-lg border px-5 py-4"
+                          style={{
+                            borderColor: "color-mix(in srgb, var(--ml-preview-text, #111827) 20%, transparent)",
+                            background: "color-mix(in srgb, var(--ml-preview-text, #111827) 5%, transparent)",
+                          }}
+                        >
+                          <div
+                            className="text-[10px] font-bold uppercase tracking-widest mb-2"
+                            style={{ color: "var(--ml-preview-muted, #64748b)", opacity: 0.7 }}
+                          >
+                            Metadata
+                          </div>
+                          <dl className="grid gap-x-4 gap-y-1" style={{ gridTemplateColumns: "auto 1fr" }}>
+                            {Object.entries(meta).map(([key, value]) => (
+                              <React.Fragment key={key}>
+                                <dt
+                                  className="text-xs font-semibold capitalize"
+                                  style={{ color: "var(--ml-preview-muted, #64748b)" }}
+                                >
+                                  {key}
+                                </dt>
+                                <dd className="text-xs" style={{ color: "var(--ml-preview-text, #111827)" }}>
+                                  {value}
+                                </dd>
+                              </React.Fragment>
+                            ))}
+                          </dl>
+                        </div>
+                      )}
+                      <div className="ml-preview-prose">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            img: (props) => (
+                              <LocalImage
+                                {...props}
+                                className="max-w-full h-auto rounded-md"
+                                basePath={activeTab?.path ?? null}
+                              />
+                            ),
+                          }}
+                        >
+                          {body}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
 
@@ -1162,13 +1420,14 @@ function App() {
               </div>
               <div className="flex items-center gap-4">
                 <span>{tabs.length} tabs</span>
-                <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>
-                <span>{viewMode}</span>
+                {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
+                <span>{effectiveViewMode}</span>
               </div>
             </div>
           )}
         </div>
       </div>
+      {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
 
       {isZenMode && showZenExit && (
         <button

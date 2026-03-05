@@ -71,6 +71,8 @@ export interface AppSettings {
   sidebarEnabled: boolean;
   sidebarWidth: number;
   floatingToolbarAnchor: 'top' | 'bottom' | 'left' | 'right';
+  showToolbarSectionLabels: boolean;
+  toolbarCompactBreakpoint: number;
   toolbarDisplayMode: 'icon_text' | 'icon_only' | 'text_only';
   toolbarSections: {
     files: boolean;
@@ -101,6 +103,18 @@ export interface AppSettings {
     editOL: boolean;
     editTask: boolean;
   };
+  toolbarByAnchor?: Partial<
+    Record<
+      "top" | "bottom" | "left" | "right",
+      {
+        showToolbarSectionLabels: boolean;
+        toolbarCompactBreakpoint: number;
+        toolbarDisplayMode: "icon_text" | "icon_only" | "text_only";
+        toolbarSections: AppSettings["toolbarSections"];
+        toolbarItems: AppSettings["toolbarItems"];
+      }
+    >
+  >;
   accordionState: Record<string, boolean>;
   findReplace: {
     caseSensitive: boolean;

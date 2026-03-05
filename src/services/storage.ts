@@ -4,6 +4,7 @@ import { AppSettings, DocumentTab, Language, Theme } from "../types";
 const SETTINGS_KEY = "mark-lee-settings";
 const RECENT_FILES_KEY = "mark-lee-recent-files";
 const LAST_TABS_KEY = "mark-lee-last-tabs";
+const WORKSPACE_PATH_KEY = "mark-lee-workspace-path";
 const MAX_RECENT_FILES = 15;
 
 export interface RecentFile {
@@ -99,9 +100,41 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   };
   merged.toolbarItems.sysSettings = true;
 
+  const anchors: Array<"top" | "bottom" | "left" | "right"> = ["top", "bottom", "left", "right"];
+  const toolbarByAnchor = merged.toolbarByAnchor || {};
+  merged.toolbarByAnchor = {};
+  for (const anchor of anchors) {
+    const fallback = DEFAULT_SETTINGS.toolbarByAnchor?.[anchor];
+    const current = toolbarByAnchor[anchor];
+    merged.toolbarByAnchor[anchor] = {
+      showToolbarSectionLabels:
+        current?.showToolbarSectionLabels ?? fallback?.showToolbarSectionLabels ?? DEFAULT_SETTINGS.showToolbarSectionLabels,
+      toolbarCompactBreakpoint:
+        current?.toolbarCompactBreakpoint ?? fallback?.toolbarCompactBreakpoint ?? DEFAULT_SETTINGS.toolbarCompactBreakpoint,
+      toolbarDisplayMode:
+        current?.toolbarDisplayMode ?? fallback?.toolbarDisplayMode ?? DEFAULT_SETTINGS.toolbarDisplayMode,
+      toolbarSections: {
+        ...DEFAULT_SETTINGS.toolbarSections,
+        ...(fallback?.toolbarSections || {}),
+        ...(current?.toolbarSections || {}),
+      },
+      toolbarItems: {
+        ...DEFAULT_SETTINGS.toolbarItems,
+        ...(fallback?.toolbarItems || {}),
+        ...(current?.toolbarItems || {}),
+      },
+    };
+    merged.toolbarByAnchor[anchor]!.toolbarSections.system = true;
+    merged.toolbarByAnchor[anchor]!.toolbarItems.sysSettings = true;
+  }
+
   if (!["icon_text", "icon_only", "text_only"].includes(merged.toolbarDisplayMode)) {
     merged.toolbarDisplayMode = DEFAULT_SETTINGS.toolbarDisplayMode;
   }
+  if (!Number.isFinite(merged.toolbarCompactBreakpoint as number)) {
+    merged.toolbarCompactBreakpoint = DEFAULT_SETTINGS.toolbarCompactBreakpoint;
+  }
+  merged.toolbarCompactBreakpoint = Math.max(360, Math.min(900, Math.round(merged.toolbarCompactBreakpoint)));
 
   if (!merged.sidebarWidth || merged.sidebarWidth < 220) merged.sidebarWidth = 300;
   if (merged.sidebarWidth > 520) merged.sidebarWidth = 520;
@@ -175,5 +208,26 @@ export function loadLastTabs(): DocumentTab[] {
   } catch (error) {
     console.error("Failed to load last tabs:", error);
     return [];
+  }
+}
+
+export function saveWorkspacePath(path: string | null): void {
+  try {
+    if (path) {
+      localStorage.setItem(WORKSPACE_PATH_KEY, path);
+    } else {
+      localStorage.removeItem(WORKSPACE_PATH_KEY);
+    }
+  } catch (error) {
+    console.error("Failed to save workspace path:", error);
+  }
+}
+
+export function loadWorkspacePath(): string | null {
+  try {
+    return localStorage.getItem(WORKSPACE_PATH_KEY);
+  } catch (error) {
+    console.error("Failed to load workspace path:", error);
+    return null;
   }
 }

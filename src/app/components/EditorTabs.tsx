@@ -34,7 +34,8 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
 
   return (
     <div
-      className={`h-10 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} flex items-center px-1 gap-1 overflow-x-auto`}
+      data-tauri-drag-region
+      className={`h-10 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} flex items-center px-1 gap-1 overflow-x-auto select-none`}
       onDoubleClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -49,11 +50,10 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
             setContextTabId(tab.id);
             setMenuPosition({ x: event.clientX, y: event.clientY });
           }}
-          className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border ${
-            tab.id === activeTabId
+          className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border ${tab.id === activeTabId
               ? "ml-btn-active"
               : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
-          }`}
+            }`}
         >
           <span className="truncate max-w-[140px]">
             {tab.name}

@@ -5,6 +5,8 @@ import {
   PreviewPresetMockup,
   SnippetModelsMockup,
   WorkspaceContextMockup,
+  ExportMockup,
+  SplitViewMockup,
 } from "@/components/EditorMockup";
 import {
   LightweightIllustration,
@@ -44,7 +46,8 @@ const Produto = ({ locale }: ProdutoProps) => {
   const capabilityMockups = [
     <EditorMockup key="editor" locale={locale} />,
     <WorkspaceContextMockup key="workspace" locale={locale} />,
-    <PreviewPresetMockup key="preview" locale={locale} />,
+    <SplitViewMockup key="splitview" locale={locale} />,
+    <ExportMockup key="export" locale={locale} />,
     <SnippetModelsMockup key="snippets" locale={locale} />,
   ];
 

@@ -1,7 +1,7 @@
 {
   "name": "mark-lee-desktop",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "An elegant, high-performance Markdown editor built with React, Tauri, and Rust.",
   "author": "mafhper",
   "repository": {
@@ -20,6 +20,7 @@
     "smoke:install-browser": "playwright install chromium",
     "smoke:static": "npm run build && node scripts/smoke-static.mjs",
     "smoke:static:quick": "node scripts/smoke-static.mjs",
+    "test:ui-layout": "node scripts/ui_layout_regression_with_server.js",
     "site:dev": "npm --prefix apps/site run dev",
     "site:build": "npm --prefix apps/site run build",
     "site:preview": "npm --prefix apps/site run preview",

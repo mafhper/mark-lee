@@ -97,15 +97,21 @@ export const esESCopy: SiteCopy = {
             highlights: ["Presets de preview incluidos", "CRUD de presets personalizados"],
           },
           {
-            label: "Publicar",
-            title: "Publicación flexible",
+            label: "Exportar",
+            title: "Exportación flexible",
             description: "Exporta con seguridad a Markdown, HTML y PDF.",
-            highlights: ["Snippets reutilizables", "Búsqueda avanzada con reemplazo"],
+            highlights: ["Interfaz simple", "Búsqueda avanzada con reemplazo"],
+          },
+          {
+            label: "Snippets",
+            title: "Modelos reutilizables",
+            description: "Acelera tus patrones de escritura.",
+            highlights: ["Crea atajos", "Organiza en el workspace"],
           },
         ],
       },
       ctaSection: {
-        title: "¿Quieres escribir con menos fricción?",
+        title: "¿Quieres escribir a tu manera?",
         description: "Descarga la versión más reciente y empieza en tu propio workspace.",
         primaryCta: "Descargar",
         secondaryCta: "Repositorio",
@@ -155,13 +161,13 @@ export const esESCopy: SiteCopy = {
         ],
       },
       previewSection: {
-        label: "Preview",
-        title: "Uso real de la app",
+        label: "Customize",
+        title: "Encuentra tu manera de usar la app",
         description: "Sin vitrina genérica: cada bloque explica un uso concreto.",
         items: [
           {
             label: "Presets",
-            title: "Preview con CRUD de presets",
+            title: "Presets - Ajusta la previsualización",
             description: "Usa presets existentes, crea nuevos y ajusta tu salida.",
             visual: "preview",
           },

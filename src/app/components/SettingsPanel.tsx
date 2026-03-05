@@ -40,53 +40,53 @@ const toolbarSections: Array<{
   labelKey: string;
   fallback: string;
 }> = [
-  { key: "files", labelKey: "toolbar.files", fallback: "Files" },
-  { key: "system", labelKey: "toolbar.system", fallback: "System" },
-  { key: "editing", labelKey: "toolbar.editing", fallback: "Editing" },
-];
+    { key: "files", labelKey: "toolbar.files", fallback: "Files" },
+    { key: "system", labelKey: "toolbar.system", fallback: "System" },
+    { key: "editing", labelKey: "toolbar.editing", fallback: "Editing" },
+  ];
 
 const toolbarItemsBySection: Array<{
   section: keyof AppSettings["toolbarSections"];
   items: Array<{ key: keyof AppSettings["toolbarItems"]; labelKey: string; fallback: string }>;
 }> = [
-  {
-    section: "files",
-    items: [
-      { key: "fileNew", labelKey: "file.new", fallback: "New file" },
-      { key: "fileOpen", labelKey: "file.open", fallback: "Open file" },
-      { key: "fileOpenFolder", labelKey: "file.openFolder", fallback: "Open folder" },
-      { key: "fileSave", labelKey: "file.save", fallback: "Save" },
-      { key: "fileExport", labelKey: "file.export", fallback: "Export" },
-    ],
-  },
-  {
-    section: "system",
-    items: [
-      { key: "sysFind", labelKey: "edit.find", fallback: "Find" },
-      { key: "sysSnippets", labelKey: "edit.snippets", fallback: "Snippets" },
-      { key: "sysTheme", labelKey: "toolbar.theme", fallback: "Theme" },
-      { key: "sysSidebar", labelKey: "view.sidebar", fallback: "Sidebar" },
-      { key: "sysEdit", labelKey: "view.editor", fallback: "Edit" },
-      { key: "sysSplit", labelKey: "view.split", fallback: "Split" },
-      { key: "sysPreview", labelKey: "view.preview", fallback: "Preview" },
-      { key: "sysZen", labelKey: "view.zen", fallback: "Zen" },
-      { key: "sysSettings", labelKey: "settings", fallback: "Settings" },
-    ],
-  },
-  {
-    section: "editing",
-    items: [
-      { key: "editBold", labelKey: "tool.bold", fallback: "Bold" },
-      { key: "editItalic", labelKey: "tool.italic", fallback: "Italic" },
-      { key: "editCode", labelKey: "tool.code", fallback: "Code" },
-      { key: "editLink", labelKey: "tool.link", fallback: "Link" },
-      { key: "editImage", labelKey: "tool.image", fallback: "Image" },
-      { key: "editUL", labelKey: "tool.ul", fallback: "UL" },
-      { key: "editOL", labelKey: "tool.ol", fallback: "OL" },
-      { key: "editTask", labelKey: "tool.task", fallback: "Task" },
-    ],
-  },
-];
+    {
+      section: "files",
+      items: [
+        { key: "fileNew", labelKey: "file.new", fallback: "New file" },
+        { key: "fileOpen", labelKey: "file.open", fallback: "Open file" },
+        { key: "fileOpenFolder", labelKey: "file.openFolder", fallback: "Open folder" },
+        { key: "fileSave", labelKey: "file.save", fallback: "Save" },
+        { key: "fileExport", labelKey: "file.export", fallback: "Export" },
+      ],
+    },
+    {
+      section: "system",
+      items: [
+        { key: "sysFind", labelKey: "edit.find", fallback: "Find" },
+        { key: "sysSnippets", labelKey: "edit.snippets", fallback: "Snippets" },
+        { key: "sysTheme", labelKey: "toolbar.theme", fallback: "Theme" },
+        { key: "sysSidebar", labelKey: "view.sidebar", fallback: "Sidebar" },
+        { key: "sysEdit", labelKey: "view.editor", fallback: "Edit" },
+        { key: "sysSplit", labelKey: "view.split", fallback: "Split" },
+        { key: "sysPreview", labelKey: "view.preview", fallback: "Preview" },
+        { key: "sysZen", labelKey: "view.zen", fallback: "Zen" },
+        { key: "sysSettings", labelKey: "settings", fallback: "Settings" },
+      ],
+    },
+    {
+      section: "editing",
+      items: [
+        { key: "editBold", labelKey: "tool.bold", fallback: "Bold" },
+        { key: "editItalic", labelKey: "tool.italic", fallback: "Italic" },
+        { key: "editCode", labelKey: "tool.code", fallback: "Code" },
+        { key: "editLink", labelKey: "tool.link", fallback: "Link" },
+        { key: "editImage", labelKey: "tool.image", fallback: "Image" },
+        { key: "editUL", labelKey: "tool.ul", fallback: "UL" },
+        { key: "editOL", labelKey: "tool.ol", fallback: "OL" },
+        { key: "editTask", labelKey: "tool.task", fallback: "Task" },
+      ],
+    },
+  ];
 
 const behaviorToggles: Array<{
   key: keyof Pick<
@@ -96,13 +96,13 @@ const behaviorToggles: Array<{
   labelKey: string;
   fallback: string;
 }> = [
-  { key: "tabsEnabled", labelKey: "settings.tabs", fallback: "Tabs" },
-  { key: "sidebarEnabled", labelKey: "settings.sidebar", fallback: "Sidebar" },
-  { key: "singleInstance", labelKey: "settings.singleInstance", fallback: "Single window" },
-  { key: "wordWrap", labelKey: "settings.wordWrap", fallback: "Word wrap" },
-  { key: "spellCheck", labelKey: "settings.spellCheck", fallback: "Spell check" },
-  { key: "autoSave", labelKey: "settings.autoSave", fallback: "Auto save" },
-];
+    { key: "tabsEnabled", labelKey: "settings.tabs", fallback: "Tabs" },
+    { key: "sidebarEnabled", labelKey: "settings.sidebar", fallback: "Sidebar" },
+    { key: "singleInstance", labelKey: "settings.singleInstance", fallback: "Single window" },
+    { key: "wordWrap", labelKey: "settings.wordWrap", fallback: "Word wrap" },
+    { key: "spellCheck", labelKey: "settings.spellCheck", fallback: "Spell check" },
+    { key: "autoSave", labelKey: "settings.autoSave", fallback: "Auto save" },
+  ];
 
 function isColor(value: string) {
   return (
@@ -118,9 +118,9 @@ function hexToRgb(hex: string) {
   const expanded =
     normalized.length === 3
       ? normalized
-          .split("")
-          .map((part) => `${part}${part}`)
-          .join("")
+        .split("")
+        .map((part) => `${part}${part}`)
+        .join("")
       : normalized;
   const intValue = Number.parseInt(expanded, 16);
   if (Number.isNaN(intValue)) return null;
@@ -274,11 +274,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       key={theme}
                       type="button"
                       onClick={() => onSettingsChange({ theme })}
-                      className={`text-left p-3 rounded-lg border transition-colors ${
-                        isSelected
+                      className={`text-left p-3 rounded-lg border transition-colors ${isSelected
                           ? "ml-btn-active"
                           : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold">{themeLabels[theme]}</span>
@@ -314,27 +313,63 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {accordionHeader("toolbar", t["settings.toolbar"] || "Toolbar")}
             {settings.accordionState.toolbar && (
               <div className="p-4 space-y-4 text-sm">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide">{t["settings.toolbar.display"] || "Labels"}</label>
-                  <select
-                    value={settings.toolbarDisplayMode}
-                    className={`w-full max-w-[260px] px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    onChange={(event) =>
-                      onSettingsChange({
-                        toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"],
-                      })
-                    }
-                  >
-                    <option value="icon_text" className="text-black">
-                      {t["settings.toolbar.display.iconText"] || "Icon + text"}
-                    </option>
-                    <option value="icon_only" className="text-black">
-                      {t["settings.toolbar.display.iconOnly"] || "Icon only"}
-                    </option>
-                    <option value="text_only" className="text-black">
-                      {t["settings.toolbar.display.textOnly"] || "Text only"}
-                    </option>
-                  </select>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide">{t["settings.toolbar.display"] || "Labels"}</label>
+                    <select
+                      value={settings.toolbarDisplayMode}
+                      className={`w-full max-w-[260px] px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
+                      onChange={(event) =>
+                        onSettingsChange({
+                          toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"],
+                        })
+                      }
+                    >
+                      <option value="icon_text" className="text-black">
+                        {t["settings.toolbar.display.iconText"] || "Icon + text"}
+                      </option>
+                      <option value="icon_only" className="text-black">
+                        {t["settings.toolbar.display.iconOnly"] || "Icon only"}
+                      </option>
+                      <option value="text_only" className="text-black">
+                        {t["settings.toolbar.display.textOnly"] || "Text only"}
+                      </option>
+                    </select>
+                  </div>
+
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={settings.showToolbarSectionLabels}
+                      onChange={(event) => onSettingsChange({ showToolbarSectionLabels: event.target.checked })}
+                    />
+                    {t["settings.toolbar.sectionLabels"] || "Show category names (Files, System, Editing)"}
+                  </label>
+
+                  <label className="space-y-1 block">
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      {t["settings.toolbar.compactBreakpoint"] || "Compact mode width threshold"}
+                    </span>
+                    <input
+                      type="number"
+                      min={360}
+                      max={900}
+                      step={10}
+                      value={settings.toolbarCompactBreakpoint}
+                      className={`w-full max-w-[260px] px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
+                      onChange={(event) =>
+                        onSettingsChange({
+                          toolbarCompactBreakpoint: Math.max(
+                            360,
+                            Math.min(900, Number(event.target.value) || 560)
+                          ),
+                        })
+                      }
+                    />
+                    <div className="text-[11px] opacity-75">
+                      {t["settings.toolbar.compactBreakpoint.help"] || "Below this width, top/bottom toolbar hides section labels automatically."}
+                    </div>
+                  </label>
                 </div>
 
                 <div className="space-y-2">
@@ -525,134 +560,134 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   const meetsContrast = minPresetContrast >= 10;
 
                   return (
-                  <div key={preset.id} className={`p-3 rounded border ${tConfig.uiBorder} space-y-2`}>
-                    <div className="flex gap-2">
-                      <input
-                        className={`flex-1 px-2 py-1 rounded border text-sm bg-transparent ${tConfig.uiBorder}`}
-                        value={preset.name}
-                        onChange={(event) =>
-                          onPublicationPresetsChange(
-                            publicationPresets.map((item) =>
-                              item.id === preset.id ? { ...item, name: event.target.value } : item
+                    <div key={preset.id} className={`p-3 rounded border ${tConfig.uiBorder} space-y-2`}>
+                      <div className="flex gap-2">
+                        <input
+                          className={`flex-1 px-2 py-1 rounded border text-sm bg-transparent ${tConfig.uiBorder}`}
+                          value={preset.name}
+                          onChange={(event) =>
+                            onPublicationPresetsChange(
+                              publicationPresets.map((item) =>
+                                item.id === preset.id ? { ...item, name: event.target.value } : item
+                              )
                             )
-                          )
-                        }
-                      />
-                      <button
-                        className={`px-2 py-1 rounded text-[11px] border ${
-                          settings.publicationPresetId === preset.id ? "ml-btn-active" : tConfig.uiBorder
-                        }`}
-                        onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
-                        type="button"
-                      >
-                        {settings.publicationPresetId === preset.id
-                          ? t["settings.presets.activeTag"] || "Active"
-                          : t["settings.presets.use"] || "Use"}
-                      </button>
-                      <button
-                        className="p-1 rounded ml-btn-danger"
-                        onClick={() =>
-                          onPublicationPresetsChange(publicationPresets.filter((item) => item.id !== preset.id))
-                        }
-                        type="button"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                        Text/bg: {textContrast.toFixed(2)}:1
-                      </span>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                        Accent/bg: {accentContrast.toFixed(2)}:1
-                      </span>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                        {meetsContrast ? ">=10:1 OK" : "<10:1 Ajustar"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {(["bg", "text", "accent", "muted"] as const).map((colorKey) => (
-                        <label key={colorKey} className="text-xs space-y-1">
-                          <span className="font-semibold uppercase tracking-wide">{colorKey}</span>
+                          }
+                        />
+                        <button
+                          className={`px-2 py-1 rounded text-[11px] border ${settings.publicationPresetId === preset.id ? "ml-btn-active" : tConfig.uiBorder
+                            }`}
+                          onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
+                          type="button"
+                        >
+                          {settings.publicationPresetId === preset.id
+                            ? t["settings.presets.activeTag"] || "Active"
+                            : t["settings.presets.use"] || "Use"}
+                        </button>
+                        <button
+                          className="p-1 rounded ml-btn-danger"
+                          onClick={() =>
+                            onPublicationPresetsChange(publicationPresets.filter((item) => item.id !== preset.id))
+                          }
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
+                          Text/bg: {textContrast.toFixed(2)}:1
+                        </span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
+                          Accent/bg: {accentContrast.toFixed(2)}:1
+                        </span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
+                          {meetsContrast ? ">=10:1 OK" : "<10:1 Ajustar"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(["bg", "text", "accent", "muted"] as const).map((colorKey) => (
+                          <label key={colorKey} className="text-xs space-y-1">
+                            <span className="font-semibold uppercase tracking-wide">{colorKey}</span>
+                            <input
+                              className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
+                              value={preset.palette[colorKey]}
+                              onChange={(event) =>
+                                onPublicationPresetsChange(
+                                  publicationPresets.map((item) =>
+                                    item.id === preset.id
+                                      ? {
+                                        ...item,
+                                        palette: { ...item.palette, [colorKey]: event.target.value },
+                                      }
+                                      : item
+                                  )
+                                )
+                              }
+                            />
+                            <span
+                              className={`block h-6 rounded border ${tConfig.uiBorder}`}
+                              style={{
+                                backgroundColor: isColor(preset.palette[colorKey])
+                                  ? preset.palette[colorKey]
+                                  : "transparent",
+                              }}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="text-xs space-y-1">
+                          <span className="font-semibold uppercase tracking-wide">font</span>
                           <input
                             className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                            value={preset.palette[colorKey]}
+                            value={preset.typography.fontFamily}
                             onChange={(event) =>
                               onPublicationPresetsChange(
                                 publicationPresets.map((item) =>
                                   item.id === preset.id
                                     ? {
-                                        ...item,
-                                        palette: { ...item.palette, [colorKey]: event.target.value },
-                                      }
-                                    : item
-                                )
-                              )
-                            }
-                          />
-                          <span
-                            className={`block h-6 rounded border ${tConfig.uiBorder}`}
-                            style={{
-                              backgroundColor: isColor(preset.palette[colorKey])
-                                ? preset.palette[colorKey]
-                                : "transparent",
-                            }}
-                          />
-                        </label>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-xs space-y-1">
-                        <span className="font-semibold uppercase tracking-wide">font</span>
-                        <input
-                          className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                          value={preset.typography.fontFamily}
-                          onChange={(event) =>
-                            onPublicationPresetsChange(
-                              publicationPresets.map((item) =>
-                                item.id === preset.id
-                                  ? {
                                       ...item,
                                       typography: {
                                         ...item.typography,
                                         fontFamily: event.target.value,
                                       },
                                     }
-                                  : item
+                                    : item
+                                )
                               )
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="text-xs space-y-1">
-                        <span className="font-semibold uppercase tracking-wide">line-height</span>
-                        <input
-                          type="number"
-                          min={1.1}
-                          max={2.6}
-                          step={0.05}
-                          className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                          value={preset.typography.lineHeight}
-                          onChange={(event) =>
-                            onPublicationPresetsChange(
-                              publicationPresets.map((item) =>
-                                item.id === preset.id
-                                  ? {
+                            }
+                          />
+                        </label>
+                        <label className="text-xs space-y-1">
+                          <span className="font-semibold uppercase tracking-wide">line-height</span>
+                          <input
+                            type="number"
+                            min={1.1}
+                            max={2.6}
+                            step={0.05}
+                            className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
+                            value={preset.typography.lineHeight}
+                            onChange={(event) =>
+                              onPublicationPresetsChange(
+                                publicationPresets.map((item) =>
+                                  item.id === preset.id
+                                    ? {
                                       ...item,
                                       typography: {
                                         ...item.typography,
                                         lineHeight: Number(event.target.value),
                                       },
                                     }
-                                  : item
+                                    : item
+                                )
                               )
-                            )
-                          }
-                        />
-                      </label>
+                            }
+                          />
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                )})}
+                  )
+                })}
                 <button
                   className="px-3 py-1.5 rounded text-xs border hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-2"
                   onClick={() =>

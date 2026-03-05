@@ -143,9 +143,8 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: 
         {tabs.map((tab, i) => (
           <div
             key={tab}
-            className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${
-              i === activeTab ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"
-            }`}
+            className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${i === activeTab ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"
+              }`}
           >
             {tab}
           </div>
@@ -160,9 +159,8 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: 
           {sampleTree.map((item, i) => (
             <div
               key={`${item}-${i}`}
-              className={`truncate rounded px-1.5 py-0.5 text-[10px] ${
-                i === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/60"
-              }`}
+              className={`truncate rounded px-1.5 py-0.5 text-[10px] ${i === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/60"
+                }`}
             >
               {item}
             </div>
@@ -219,19 +217,21 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <div className="mockup-card text-[11px]">
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-          <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
-          <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
+      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+            <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
+            <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
+          </div>
+          <span className="ml-2 text-[10px] text-muted-foreground/60">Mark-Lee</span>
         </div>
-        <div className="ml-2 flex gap-0">
+        <div className="flex gap-0">
           {copy.splitModes.map((mode, i) => (
             <span
               key={mode}
-              className={`rounded px-2 py-0.5 text-[9px] ${
-                i === 1 ? "bg-primary/20 text-primary" : "text-muted-foreground/50"
-              }`}
+              className={`rounded px-2 py-0.5 text-[9px] ${i === 1 ? "bg-primary/20 text-primary" : "text-muted-foreground/50"
+                }`}
             >
               {mode}
             </span>
@@ -239,28 +239,42 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         </div>
       </div>
 
+      <div className="flex border-b border-border/40">
+        <div className="border-r border-border/30 px-3 py-1.5 text-[10px] bg-secondary/80 font-medium text-foreground">
+          readme.md
+        </div>
+      </div>
+
       <div className="flex min-h-[180px]">
-        <div className="flex-1 space-y-1 border-r border-border/30 p-3 font-mono">
-          <div className="font-semibold text-primary/80">## {copy.splitTitle}</div>
-          <div className="text-muted-foreground/70">{copy.splitDescriptionA}</div>
-          <div className="text-muted-foreground/70">{copy.splitDescriptionB}</div>
-          <div className="mt-1 text-green-400/60">npm run site:dev</div>
+        {/* Editor Area */}
+        <div className="flex-1 space-y-1.5 border-r border-border/30 p-3 font-mono">
+          <div className="flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
+            <span className="font-semibold text-primary/80">## {copy.splitTitle}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
+            <span className="text-muted-foreground/70">{copy.splitDescriptionA}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
+            <span className="text-muted-foreground/70">{copy.splitDescriptionB}</span>
+          </div>
         </div>
 
-        <div className="flex-1 space-y-2 p-3">
+        {/* Preview Area */}
+        <div className="flex-1 space-y-2 bg-primary/5 p-4">
           <div className="text-sm font-bold text-foreground/90">{copy.splitTitle}</div>
           <div className="text-[10px] leading-relaxed text-muted-foreground/70">
             {copy.splitDescriptionA} {copy.splitDescriptionB}
-          </div>
-          <div className="rounded bg-secondary/80 px-2 py-1.5 font-mono text-[10px] text-green-400/70">
-            npm run site:test:smoke
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between border-t border-border/40 px-3 py-1 text-[9px] text-muted-foreground/40">
-        <span>Split View</span>
-        <span>readme.md</span>
+        <span>{copy.statusMarkdown}</span>
+        <span>{copy.statusCursor}</span>
+        <span>UTF-8</span>
       </div>
     </div>
   );
@@ -283,15 +297,13 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         {formats.map((format) => (
           <div
             key={format.label}
-            className={`flex items-center justify-between rounded-md border px-3 py-2.5 ${
-              format.active ? "border-primary/40 bg-primary/5" : "border-border/30"
-            }`}
+            className={`flex items-center justify-between rounded-md border px-3 py-2.5 ${format.active ? "border-primary/40 bg-primary/5" : "border-border/30"
+              }`}
           >
             <div className="flex items-center gap-2">
               <div
-                className={`h-3 w-3 rounded-full border-2 ${
-                  format.active ? "border-primary bg-primary" : "border-muted-foreground/30"
-                }`}
+                className={`h-3 w-3 rounded-full border-2 ${format.active ? "border-primary bg-primary" : "border-muted-foreground/30"
+                  }`}
               >
                 {format.active && <div className="m-auto mt-[2px] h-1 w-1 rounded-full bg-primary-foreground" />}
               </div>
@@ -329,9 +341,8 @@ export const FileTreeMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           {workspaceItems.map((item, i) => (
             <div
               key={`${item.name}-${i}`}
-              className={`flex items-center gap-2 rounded px-2 py-1.5 ${
-                item.active ? "bg-primary/10 text-primary" : "text-muted-foreground/70 hover:bg-secondary/50"
-              }`}
+              className={`flex items-center gap-2 rounded px-2 py-1.5 ${item.active ? "bg-primary/10 text-primary" : "text-muted-foreground/70 hover:bg-secondary/50"
+                }`}
               style={{ paddingLeft: `${8 + item.level * 12}px` }}
             >
               <span className="text-[10px]">{item.type === "folder" ? "[DIR]" : "[MD]"}</span>
