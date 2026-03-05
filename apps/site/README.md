@@ -22,7 +22,7 @@ npm run dev
 ```bash
 npm run dev      # start dev server
 npm run check    # TypeScript check
-npm run build    # production build + 404.html fallback
+npm run build    # production build + 404.html + static route entries for deep links
 npm run preview  # preview production build
 ```
 

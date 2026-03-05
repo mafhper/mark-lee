@@ -11,7 +11,7 @@
 
 Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concentracion, uniendo tecnologias web modernas con capacidades nativas del sistema operativo a traves del framework Tauri. Ofrece un entorno de escritura sin distracciones con renderizado de vista previa en tiempo real y gestion robusta de archivos.
 
-![App Screenshot](assets/screen.jpg)
+![App Screenshot](assets/screen.png)
 
 ## Caracteristicas
 
@@ -90,6 +90,31 @@ npm run tauri build
 ```
 
 El proceso de build compila los assets de React via Vite y los embebe en el binario de Rust. El ejecutable final se genera en `src-tauri/target/release/`.
+
+### Flujo de release automatizado
+
+El workflow `release.yml` se ejecuta en:
+- Push de tag `v*`
+- Publicacion de release en GitHub
+- Ejecucion manual (`workflow_dispatch`)
+
+Artefactos principales:
+- **Windows**: `.exe`, `.msi`
+- **macOS**: `.app`
+- **Linux**: `.deb`, `.AppImage`
+
+Nota: el `.dmg` de macOS corre en job opcional/no bloqueante. Si falla, la release principal sigue valida.
+
+## Archivos del Proyecto
+
+### Carpeta `assets/`
+| Archivo | Uso |
+|---------|-----|
+| `logo.svg` | Logo principal (README y materiales de difusion) |
+| `logo-icon.svg` | Fuente del icono para generar formatos Tauri |
+| `logo-bg_blk.svg` | Logo para temas claros (toolbar) |
+| `logo-bg_gray.svg` | Logo para temas oscuros (toolbar) |
+| `screen.png` | Captura de pantalla para documentacion |
 
 ## Licencia
 

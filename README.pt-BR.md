@@ -11,7 +11,7 @@
 
 Mark-Lee e um editor Markdown desktop projetado para desempenho e foco, unindo tecnologias web modernas com capacidades nativas do sistema operacional atraves do framework Tauri. Ele oferece um ambiente de escrita sem distracoes com renderizacao de preview em tempo real e gerenciamento robusto de arquivos.
 
-![App Screenshot](assets/screen.jpg)
+![App Screenshot](assets/screen.png)
 
 ## Recursos
 
@@ -174,9 +174,11 @@ git tag v1.0.1 && git push origin v1.0.1
 
 Apos fazer push da tag, o GitHub Actions automaticamente:
 - Compila para **Windows** (.exe, .msi)
-- Compila para **macOS** (.dmg, .app)  
+- Compila para **macOS** (.app)
 - Compila para **Linux** (.deb, .AppImage)
 - Cria um **Draft Release** com todos os instaladores anexados
+
+Obs.: O pacote **.dmg** roda em job opcional e nao bloqueante. Se falhar no macOS runner, a release principal continua valida com `.app`.
 
 Voce pode monitorar o progresso do build em: `https://github.com/SEU_USUARIO/mark-lee/actions`
 
@@ -198,7 +200,7 @@ Pronto! Sua release esta no ar e os usuarios podem baixar os instaladores.
 
 | Workflow | Gatilho | Acao |
 |----------|---------|------|
-| `release.yml` | Push de tag `v*` | Compila instaladores para todas as plataformas |
+| `release.yml` | Push de tag `v*`, release publicada ou dispatch manual | Compila instaladores principais e tenta DMG opcional no macOS |
 | `pages.yml` | Push em `main` | Deploy da versao web no GitHub Pages |
 
 ### Configuracao Necessaria no GitHub
@@ -210,15 +212,14 @@ Pronto! Sua release esta no ar e os usuarios podem baixar os instaladores.
 
 ## Arquivos do Projeto
 
-### Pasta `public/`
+### Pasta `assets/`
 | Arquivo | Uso |
 |---------|-----|
-| `logo.png` | Logo principal (favicon, pagina de download) |
+| `logo.svg` | Logo principal (README e materiais de divulgacao) |
+| `logo-icon.svg` | Fonte do icone para gerar formatos Tauri |
 | `logo-bg_blk.svg` | Logo para temas claros (toolbar) |
 | `logo-bg_gray.svg` | Logo para temas escuros (toolbar) |
-| `screen.jpg` | Screenshot para pagina de download |
-| `intro.md` | Conteudo inicial do editor |
-| `download.html` | Pagina de download (GitHub Pages) |
+| `screen.png` | Screenshot para documentacao |
 
 ---
 

@@ -1216,7 +1216,7 @@ function App() {
   return (
     <div
       data-theme={settings.theme}
-      className={`h-screen w-screen overflow-hidden flex flex-col transition-colors duration-300 ${tConfig.bg} ${tConfig.fg}`}
+      className={`h-screen w-screen overflow-hidden rounded-[8px] flex flex-col transition-colors duration-300 ${tConfig.bg} ${tConfig.fg}`}
       style={
         {
           backgroundColor: tConfig.bgHex,

@@ -51,6 +51,7 @@
   border: 1px solid transparent;
   color: var(--ml-fg, #111827);
   background: transparent;
+  border-radius: 8px;
 }
 
 .ml-btn:hover {

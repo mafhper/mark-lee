@@ -112,6 +112,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const [visibleCounts, setVisibleCounts] = useState<Partial<Record<ToolbarSectionKey, number>>>({});
   const [hoveredSection, setHoveredSection] = useState<ToolbarSectionKey | null>(null);
   const [compactHorizontal, setCompactHorizontal] = useState(false);
+  const [, setOverflowLayoutTick] = useState(0);
 
   const effectiveShowSectionLabels = showToolbarSectionLabels && !( !isVertical && compactHorizontal );
 
@@ -128,6 +129,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const openOverflow = (sectionKey: ToolbarSectionKey) => {
     if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
     setHoveredSection(sectionKey);
+    setOverflowLayoutTick((previous) => previous + 1);
   };
 
   const closeOverflowSoon = (sectionKey: ToolbarSectionKey) => {
@@ -150,7 +152,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
       Math.floor(window.innerHeight * 0.7)
     );
     const estimatedPanelWidth = Math.min(
-      Math.max(panelEl?.offsetWidth ?? (isVertical ? 96 : 420), isVertical ? 96 : 220),
+      Math.max(panelEl?.offsetWidth ?? (isVertical ? 108 : 420), isVertical ? 108 : 240),
       Math.floor(window.innerWidth - 16)
     );
     const clampedTop = clamp(
@@ -600,7 +602,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     return (
       <div
         key={section.key}
-        className="relative rounded-md flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/10 focus-within:bg-black/6 dark:focus-within:bg-white/12"
+        className="relative rounded-[8px] flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/10 focus-within:bg-black/6 dark:focus-within:bg-white/12"
         ref={(el) => {
           sectionFrameRefs.current[section.key] = el;
         }}
@@ -685,9 +687,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         {collapsed && hoveredSection === section.key && (
           <div
-            className={`fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-lg border p-2 shadow-[0_10px_24px_rgba(2,6,23,0.16)] ${tConfig.ui} ${tConfig.uiBorder}`}
+            className={`fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[8px] border p-2 shadow-[0_10px_24px_rgba(2,6,23,0.16)] ${isVertical ? "w-[108px]" : "w-[min(560px,calc(100vw-16px))]"} ${tConfig.ui} ${tConfig.uiBorder}`}
             ref={(el) => {
               overflowPanelRefs.current[section.key] = el;
+              if (el) {
+                requestAnimationFrame(() => {
+                  setOverflowLayoutTick((previous) => previous + 1);
+                });
+              }
             }}
             style={{ ...getOverflowPanelStyle(section.key, isLastSection), ...noDragStyle }}
             onMouseEnter={() => openOverflow(section.key)}
@@ -698,7 +705,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               {section.icon}
               {section.title}
             </div>
-            <div className={`${isVertical ? "flex w-full flex-col items-center gap-1" : "flex max-w-full items-center gap-1 overflow-x-auto pb-0.5"}`}>
+            <div className={`${isVertical ? "flex w-full flex-col items-center gap-1" : "flex max-w-full flex-wrap items-center gap-1 pb-0.5"}`}>
               {section.actions.map((action) => renderActionButton(action))}
             </div>
           </div>
@@ -717,7 +724,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
           type="button"
           title={`${section.title} (${t["settings.presets.use"] || "Use"})`}
           onClick={() => onToolbarSectionChange(section.key, true)}
-          className="rounded-md border inline-flex items-center justify-center ml-btn h-8 w-8"
+          className="rounded-[8px] border inline-flex items-center justify-center ml-btn h-8 w-8"
         >
           {section.icon}
         </button>
