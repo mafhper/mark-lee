@@ -61,12 +61,35 @@ async function killProcessTree(child) {
     });
     return;
   }
+  await new Promise((resolve) => {
+    const killer = spawn("bash", ["-lc", `pkill -TERM -P ${child.pid} || true`], {
+      stdio: "ignore",
+    });
+    killer.on("close", () => resolve());
+    killer.on("error", () => resolve());
+  });
+
   child.kill("SIGTERM");
+  await Promise.race([
+    new Promise((resolve) => child.once("close", resolve)),
+    sleep(1200),
+  ]);
+
+  if (child.exitCode === null && child.signalCode === null) {
+    child.kill("SIGKILL");
+  }
 }
 
 function createServerProcess(port) {
-  return spawn(`npx serve apps/site/dist -l ${port} --no-clipboard`, {
-    shell: true,
+  if (isWindows) {
+    return spawn(`npx serve apps/site/dist -l ${port} --no-clipboard`, {
+      shell: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
+
+  return spawn("npx", ["serve", "apps/site/dist", "-l", String(port), "--no-clipboard"], {
+    shell: false,
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
@@ -210,10 +233,17 @@ async function run() {
   const baseUrl = `http://127.0.0.1:${port}`;
   const server = createServerProcess(port);
   const stderr = [];
+  let serverSpawnError = null;
 
   server.stderr?.on("data", (data) => stderr.push(String(data)));
+  server.on("error", (error) => {
+    serverSpawnError = error;
+  });
 
   try {
+    if (serverSpawnError) {
+      throw serverSpawnError;
+    }
     await waitForServer(baseUrl);
 
     const browser = await chromium.launch({ headless: true });
@@ -273,7 +303,9 @@ async function run() {
   }
 }
 
-run().catch((error) => {
-  console.error("Site smoke failed:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+run()
+  .then(() => process.exit(process.exitCode ?? 0))
+  .catch((error) => {
+    console.error("Site smoke failed:", error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
