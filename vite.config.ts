@@ -39,7 +39,29 @@ export default defineConfig(async () => ({
     cssMinify: true,
     target: 'esnext',
     sourcemap: false,
-    rollupOptions: {}
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("@codemirror") || id.includes("@uiw/react-codemirror")) {
+            return "vendor-codemirror";
+          }
+
+          if (id.includes("react-markdown") || id.includes("remark-gfm") || id.includes("highlight.js")) {
+            return "vendor-markdown";
+          }
+
+          if (id.includes("react-dom") || id.includes("react") || id.includes("scheduler")) {
+            return "vendor-react";
+          }
+
+          if (id.includes("lucide-react") || id.includes("clsx") || id.includes("tailwind-merge")) {
+            return "vendor-ui";
+          }
+        },
+      },
+    }
   },
 }));
 

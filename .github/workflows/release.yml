@@ -4,10 +4,20 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types:
+      - published
   workflow_dispatch:
+    inputs:
+      dmg_only:
+        description: "Run only optional macOS DMG job"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   release:
+    if: ${{ github.event_name != 'release' && (github.event_name != 'workflow_dispatch' || inputs.dmg_only != true) }}
     permissions:
       contents: write
     strategy:
@@ -55,7 +65,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: ${{ matrix.tauriArgs }}
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ github.event.release.tag_name || github.ref_name }}
           releaseName: 'Mark-Lee v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
@@ -64,6 +74,7 @@ jobs:
   release-macos-dmg:
     name: Optional macOS DMG (non-blocking)
     needs: release
+    if: ${{ always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch' || needs.release.result == 'success') }}
     runs-on: macos-latest
     continue-on-error: true
     permissions:
@@ -95,8 +106,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --bundles dmg
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ github.event.release.tag_name || github.ref_name }}
           releaseName: 'Mark-Lee v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
+
+      - name: Collect DMG bundle logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p /tmp/mark-lee-dmg-logs
+          if [ -d "src-tauri/target/release/bundle/dmg" ]; then
+            cp -R src-tauri/target/release/bundle/dmg /tmp/mark-lee-dmg-logs/
+          fi
+          if [ -f "src-tauri/target/release/bundle/dmg/bundle_dmg.sh" ]; then
+            cp src-tauri/target/release/bundle/dmg/bundle_dmg.sh /tmp/mark-lee-dmg-logs/
+          fi
+
+      - name: Upload DMG failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-bundle-logs-${{ github.run_id }}
+          path: /tmp/mark-lee-dmg-logs
+          if-no-files-found: ignore
