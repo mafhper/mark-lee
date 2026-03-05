@@ -19,17 +19,17 @@ const Footer = () => {
               <img src={logo} alt="Mark-Lee" className="h-7 w-7 rounded-md" />
               <span className="text-base font-semibold leading-none text-foreground">Mark-Lee</span>
             </Link>
-            <p className="max-w-[240px] text-sm leading-relaxed text-muted-foreground">
+            <p className="max-w-[240px] text-sm leading-relaxed text-foreground/80">
               {copy.footer.description}
             </p>
-            <p className="mt-6 text-xs text-muted-foreground/60">{copy.footer.copyright}</p>
+            <p className="mt-6 text-xs text-foreground/65">{copy.footer.copyright}</p>
           </div>
 
           {copy.footer.groups.map((group) => (
             <div key={group.title}>
-              <h4 className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-foreground/75">
                 {group.title}
-              </h4>
+              </h3>
               <ul className="space-y-2.5">
                 {group.links.map((link) => (
                   <li key={link.label}>
@@ -38,14 +38,14 @@ const Footer = () => {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
+                        className="rounded-sm text-sm text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none"
                       >
                         {link.label}
                       </a>
                     ) : (
                       <Link
                         to={pathFor(locale, link.page ?? "home")}
-                        className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
+                        className="rounded-sm text-sm text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none"
                       >
                         {link.label}
                       </Link>
