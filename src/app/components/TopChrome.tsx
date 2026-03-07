@@ -175,7 +175,30 @@ const TopChrome: React.FC<TopChromeProps> = ({
     }, 140);
   };
 
-  const getOverflowPanelStyle = (sectionKey: ToolbarSectionKey, isLastSection: boolean): React.CSSProperties => {
+  const getHorizontalOverflowMetrics = (sectionKey: ToolbarSectionKey) => {
+    if (isVertical || typeof window === "undefined") {
+      return { panelWidth: undefined, shouldWrap: true };
+    }
+
+    const buttonWidths =
+      measureButtonRefs.current[sectionKey]
+        ?.map((button) => Math.ceil(button?.getBoundingClientRect().width ?? 0))
+        .filter((width) => width > 0) ?? [];
+    const titleWidth = Math.ceil(sectionTitleRefs.current[sectionKey]?.getBoundingClientRect().width ?? 0);
+    const viewportWidth = Math.max(240, Math.floor(window.innerWidth - 16));
+    const contentWidth =
+      buttonWidths.reduce((sum, width) => sum + width, 0) +
+      Math.max(0, buttonWidths.length - 1) * 4 +
+      16;
+    const desiredWidth = Math.max(240, titleWidth + 24, contentWidth);
+
+    return {
+      panelWidth: Math.min(desiredWidth, viewportWidth),
+      shouldWrap: desiredWidth > viewportWidth,
+    };
+  };
+
+  const getOverflowPanelStyle = (sectionKey: ToolbarSectionKey): React.CSSProperties => {
     const frame = sectionFrameRefs.current[sectionKey];
     const trigger = overflowTriggerRefs.current[sectionKey];
     if ((!frame && !trigger) || typeof window === "undefined") return {};
@@ -183,12 +206,16 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const gap = 8;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
     const panelEl = overflowPanelRefs.current[sectionKey];
+    const horizontalOverflow = getHorizontalOverflowMetrics(sectionKey);
     const estimatedPanelHeight = Math.min(
       Math.max(panelEl?.offsetHeight ?? 320, 180),
       Math.floor(window.innerHeight * 0.7)
     );
     const estimatedPanelWidth = Math.min(
-      Math.max(panelEl?.offsetWidth ?? (isVertical ? 108 : 420), isVertical ? 108 : 240),
+      Math.max(
+        isVertical ? (panelEl?.offsetWidth ?? 108) : (horizontalOverflow.panelWidth ?? panelEl?.offsetWidth ?? 420),
+        isVertical ? 108 : 240
+      ),
       Math.floor(window.innerWidth - 16)
     );
     const clampedTop = clamp(
@@ -196,17 +223,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
       8,
       Math.max(8, window.innerHeight - estimatedPanelHeight - 8)
     );
-    const clampedLeft = clamp(
-      rect.left,
-      8,
-      Math.max(8, window.innerWidth - estimatedPanelWidth - 8)
-    );
-    const clampedRight = clamp(
-      window.innerWidth - rect.right,
-      8,
-      Math.max(8, window.innerWidth - estimatedPanelWidth - 8)
-    );
-
     if (isVertical) {
       if (floatingToolbarAnchor === "right") {
         return {
@@ -222,32 +238,26 @@ const TopChrome: React.FC<TopChromeProps> = ({
       };
     }
 
+    const centeredLeft = clamp(
+      Math.round((window.innerWidth - estimatedPanelWidth) / 2),
+      8,
+      Math.max(8, window.innerWidth - estimatedPanelWidth - 8)
+    );
+
     if (floatingToolbarAnchor === "bottom") {
-      if (isLastSection) {
-        return {
-          position: "fixed",
-          bottom: window.innerHeight - rect.top + gap,
-          right: clampedRight,
-        };
-      }
       return {
         position: "fixed",
         bottom: window.innerHeight - rect.top + gap,
-        left: clampedLeft,
+        left: centeredLeft,
+        width: estimatedPanelWidth,
       };
     }
 
-    if (isLastSection) {
-      return {
-        position: "fixed",
-        top: rect.bottom + gap,
-        right: clampedRight,
-      };
-    }
     return {
       position: "fixed",
       top: rect.bottom + gap,
-      left: clampedLeft,
+      left: centeredLeft,
+      width: estimatedPanelWidth,
     };
   };
 
@@ -633,15 +643,16 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const collapsed = clampedVisibleCount < section.actions.length;
     const visibleActions = collapsed ? section.actions.slice(0, clampedVisibleCount) : section.actions;
 
-    const isLastSection = enabledSections[enabledSections.length - 1]?.key === section.key;
+    const horizontalOverflow = getHorizontalOverflowMetrics(section.key);
 
     return (
       <div
         key={section.key}
-        className="relative rounded-[8px] flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/10 focus-within:bg-black/6 dark:focus-within:bg-white/12"
+        className="ml-toolbar-section relative rounded-[10px] flex-shrink-0 transition-colors"
         ref={(el) => {
           sectionFrameRefs.current[section.key] = el;
         }}
+        data-toolbar-open={openSection === section.key}
       >
         {!isVertical && (
           <div className="absolute left-0 top-0 -z-10 opacity-0 pointer-events-none whitespace-nowrap">
@@ -666,12 +677,10 @@ const TopChrome: React.FC<TopChromeProps> = ({
                 ref={(el) => {
                   sectionTitleRefs.current[section.key] = el;
                 }}
-                className="h-8 shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide"
+                className="ml-toolbar-section-title h-8 shrink-0 inline-flex items-center px-2"
               >
-                {section.icon}
                 {section.title}
               </div>
-              <div className="h-5 w-px bg-black/25 dark:bg-white/25 shrink-0" />
             </>
           )}
 
@@ -723,7 +732,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         {collapsed && openSection === section.key && (
           <div
-            className={`fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[8px] border p-2 shadow-[0_10px_24px_rgba(2,6,23,0.16)] ${isVertical ? "w-[108px]" : "w-[min(560px,calc(100vw-16px))]"} ${tConfig.ui} ${tConfig.uiBorder}`}
+            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[10px] border p-2 shadow-[0_10px_24px_rgba(2,6,23,0.16)] ${isVertical ? "w-[108px]" : "min-w-[240px]"} ${tConfig.uiBorder}`}
             ref={(el) => {
               overflowPanelRefs.current[section.key] = el;
               if (el) {
@@ -732,16 +741,15 @@ const TopChrome: React.FC<TopChromeProps> = ({
                 });
               }
             }}
-            style={{ ...getOverflowPanelStyle(section.key, isLastSection), ...noDragStyle }}
+            style={{ ...getOverflowPanelStyle(section.key), ...noDragStyle }}
             onMouseEnter={() => openOverflow(section.key)}
             onMouseLeave={() => closeOverflowSoon(section.key)}
             data-overflow-panel={section.key}
           >
-            <div className={`mb-2 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide ${isVertical ? "w-full justify-center" : ""}`}>
-              {section.icon}
+            <div className={`ml-toolbar-section-title mb-2 inline-flex items-center px-1 ${isVertical ? "w-full justify-center" : ""}`}>
               {section.title}
             </div>
-            <div className={`${isVertical ? "flex w-full flex-col items-center gap-1" : "flex max-w-full flex-wrap items-center gap-1 pb-0.5"}`}>
+            <div className={`${isVertical ? "flex w-full flex-col items-center gap-1" : `flex max-w-full items-center gap-1 pb-0.5 ${horizontalOverflow.shouldWrap ? "flex-wrap" : "flex-nowrap"}`}`}>
               {section.actions.map((action) => renderActionButton(action))}
             </div>
           </div>
