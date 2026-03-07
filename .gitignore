@@ -43,3 +43,19 @@ src-tauri/gen/
 *.sw?
 
 
+# Agent local private files
+AGENTS.md
+CLAUDE.md
+QWEN.md
+KIMI.md
+.codex/
+.agents/
+.gemini/
+.gemini-clipboard/
+.claude/
+.claude-code/
+.qwen/
+.kimi/
+.roo/
+.cursor/
+.windsurf/
