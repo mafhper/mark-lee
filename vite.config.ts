@@ -44,8 +44,23 @@ export default defineConfig(async () => ({
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
 
-          if (id.includes("@codemirror") || id.includes("@uiw/react-codemirror")) {
-            return "vendor-codemirror";
+          if (id.includes("@uiw/react-codemirror")) {
+            return "vendor-codemirror-ui";
+          }
+
+          if (
+            id.includes("@codemirror/lang-markdown") ||
+            id.includes("@lezer/markdown")
+          ) {
+            return "vendor-codemirror-markdown";
+          }
+
+          if (id.includes("@codemirror/search")) {
+            return "vendor-codemirror-search";
+          }
+
+          if (id.includes("@codemirror")) {
+            return "vendor-codemirror-core";
           }
 
           if (id.includes("react-markdown") || id.includes("remark-gfm") || id.includes("highlight.js")) {

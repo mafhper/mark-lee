@@ -111,8 +111,10 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visibleCounts, setVisibleCounts] = useState<Partial<Record<ToolbarSectionKey, number>>>({});
   const [hoveredSection, setHoveredSection] = useState<ToolbarSectionKey | null>(null);
+  const [pinnedSection, setPinnedSection] = useState<ToolbarSectionKey | null>(null);
   const [compactHorizontal, setCompactHorizontal] = useState(false);
   const [, setOverflowLayoutTick] = useState(0);
+  const openSection = pinnedSection ?? hoveredSection;
 
   const effectiveShowSectionLabels = showToolbarSectionLabels && !( !isVertical && compactHorizontal );
 
@@ -126,14 +128,48 @@ const TopChrome: React.FC<TopChromeProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!pinnedSection) return;
+      const target = event.target as Node | null;
+      const insideTrigger = pinnedSection
+        ? overflowTriggerRefs.current[pinnedSection]?.contains(target ?? null)
+        : false;
+      const insidePanel = pinnedSection
+        ? overflowPanelRefs.current[pinnedSection]?.contains(target ?? null)
+        : false;
+      if (!insideTrigger && !insidePanel) {
+        setPinnedSection(null);
+        setHoveredSection(null);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPinnedSection(null);
+        setHoveredSection(null);
+      }
+    };
+
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [pinnedSection]);
+
   const openOverflow = (sectionKey: ToolbarSectionKey) => {
     if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
-    setHoveredSection(sectionKey);
+    if (!pinnedSection || pinnedSection === sectionKey) {
+      setHoveredSection(sectionKey);
+    }
     setOverflowLayoutTick((previous) => previous + 1);
   };
 
   const closeOverflowSoon = (sectionKey: ToolbarSectionKey) => {
     if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    if (pinnedSection === sectionKey) return;
     hoverCloseTimerRef.current = setTimeout(() => {
       setHoveredSection((previous) => (previous === sectionKey ? null : previous));
     }, 140);
@@ -247,6 +283,83 @@ const TopChrome: React.FC<TopChromeProps> = ({
         ].filter(Boolean) as ToolbarAction[],
       },
       {
+        key: "editing",
+        title: t["toolbar.editing"] || "Editing",
+        icon: <Bold size={11} />,
+        actions: [
+          toolbarItems.editBold
+            ? {
+              id: "edit-bold",
+              label: t["tool.bold"] || "Bold",
+              icon: <Bold size={13} />,
+              onClick: () => onFormatAction("bold"),
+              shortcutId: "fmt-bold",
+            }
+            : null,
+          toolbarItems.editItalic
+            ? {
+              id: "edit-italic",
+              label: t["tool.italic"] || "Italic",
+              icon: <i className="text-xs">I</i>,
+              onClick: () => onFormatAction("italic"),
+              shortcutId: "fmt-italic",
+            }
+            : null,
+          toolbarItems.editCode
+            ? {
+              id: "edit-code",
+              label: t["tool.code"] || "Code",
+              icon: <Code size={13} />,
+              onClick: () => onFormatAction("code"),
+            }
+            : null,
+          toolbarItems.editLink
+            ? {
+              id: "edit-link",
+              label: t["tool.link"] || "Link",
+              icon: <Link2 size={13} />,
+              onClick: () => onFormatAction("link"),
+              shortcutId: "fmt-link",
+            }
+            : null,
+          toolbarItems.editImage
+            ? {
+              id: "edit-image",
+              label: t["tool.image"] || "Image",
+              icon: <Image size={13} />,
+              onClick: () => onFormatAction("image"),
+            }
+            : null,
+          toolbarItems.editUL
+            ? {
+              id: "edit-ul",
+              label: t["tool.ul"] || "UL",
+              icon: <List size={13} />,
+              onClick: () => onFormatAction("ul"),
+              shortcutId: "fmt-ul",
+            }
+            : null,
+          toolbarItems.editOL
+            ? {
+              id: "edit-ol",
+              label: t["tool.ol"] || "OL",
+              icon: <ListOrdered size={13} />,
+              onClick: () => onFormatAction("ol"),
+              shortcutId: "fmt-ol",
+            }
+            : null,
+          toolbarItems.editTask
+            ? {
+              id: "edit-task",
+              label: t["tool.task"] || "Task",
+              icon: <CheckSquare size={13} />,
+              onClick: () => onFormatAction("task"),
+              shortcutId: "fmt-task",
+            }
+            : null,
+        ].filter(Boolean) as ToolbarAction[],
+      },
+      {
         key: "system",
         title: t["toolbar.system"] || "System",
         icon: <Settings2 size={11} />,
@@ -334,83 +447,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
             onClick: onOpenSettings,
             shortcutId: "app-settings",
           },
-        ].filter(Boolean) as ToolbarAction[],
-      },
-      {
-        key: "editing",
-        title: t["toolbar.editing"] || "Editing",
-        icon: <Bold size={11} />,
-        actions: [
-          toolbarItems.editBold
-            ? {
-              id: "edit-bold",
-              label: t["tool.bold"] || "Bold",
-              icon: <Bold size={13} />,
-              onClick: () => onFormatAction("bold"),
-              shortcutId: "fmt-bold",
-            }
-            : null,
-          toolbarItems.editItalic
-            ? {
-              id: "edit-italic",
-              label: t["tool.italic"] || "Italic",
-              icon: <i className="text-xs">I</i>,
-              onClick: () => onFormatAction("italic"),
-              shortcutId: "fmt-italic",
-            }
-            : null,
-          toolbarItems.editCode
-            ? {
-              id: "edit-code",
-              label: t["tool.code"] || "Code",
-              icon: <Code size={13} />,
-              onClick: () => onFormatAction("code"),
-            }
-            : null,
-          toolbarItems.editLink
-            ? {
-              id: "edit-link",
-              label: t["tool.link"] || "Link",
-              icon: <Link2 size={13} />,
-              onClick: () => onFormatAction("link"),
-              shortcutId: "fmt-link",
-            }
-            : null,
-          toolbarItems.editImage
-            ? {
-              id: "edit-image",
-              label: t["tool.image"] || "Image",
-              icon: <Image size={13} />,
-              onClick: () => onFormatAction("image"),
-            }
-            : null,
-          toolbarItems.editUL
-            ? {
-              id: "edit-ul",
-              label: t["tool.ul"] || "UL",
-              icon: <List size={13} />,
-              onClick: () => onFormatAction("ul"),
-              shortcutId: "fmt-ul",
-            }
-            : null,
-          toolbarItems.editOL
-            ? {
-              id: "edit-ol",
-              label: t["tool.ol"] || "OL",
-              icon: <ListOrdered size={13} />,
-              onClick: () => onFormatAction("ol"),
-              shortcutId: "fmt-ol",
-            }
-            : null,
-          toolbarItems.editTask
-            ? {
-              id: "edit-task",
-              label: t["tool.task"] || "Task",
-              icon: <CheckSquare size={13} />,
-              onClick: () => onFormatAction("task"),
-              shortcutId: "fmt-task",
-            }
-            : null,
         ].filter(Boolean) as ToolbarAction[],
       },
     ],
@@ -669,13 +705,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
                 onMouseLeave={() => closeOverflowSoon(section.key)}
                 onFocus={() => openOverflow(section.key)}
                 onBlur={() => closeOverflowSoon(section.key)}
-                onClick={() =>
-                  setHoveredSection((previous) =>
-                    previous === section.key ? null : section.key
-                  )
-                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPinnedSection((previous) => (previous === section.key ? null : section.key));
+                  setHoveredSection(section.key);
+                }}
                 aria-label={`${section.title} hidden actions`}
-                aria-expanded={hoveredSection === section.key}
+                aria-expanded={openSection === section.key}
                 style={noDragStyle}
                 data-overflow-trigger={section.key}
               >
@@ -685,7 +721,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
           </div>
         </div>
 
-        {collapsed && hoveredSection === section.key && (
+        {collapsed && openSection === section.key && (
           <div
             className={`fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[8px] border p-2 shadow-[0_10px_24px_rgba(2,6,23,0.16)] ${isVertical ? "w-[108px]" : "w-[min(560px,calc(100vw-16px))]"} ${tConfig.ui} ${tConfig.uiBorder}`}
             ref={(el) => {
@@ -734,10 +770,10 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
   const positionClass =
     floatingToolbarAnchor === "bottom"
-      ? `fixed left-0 right-0 bottom-0 z-[120] border-t shadow-[0_-1px_3px_rgba(0,0,0,0.05)] overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`
+      ? `relative z-[120] border-t shadow-[0_-1px_3px_rgba(0,0,0,0.05)] overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`
       : floatingToolbarAnchor === "left"
         ? `fixed left-0 top-[32px] h-[calc(100vh-32px)] z-[120] border-r overflow-y-auto overflow-x-visible ${tConfig.uiBorder} ${tConfig.ui}`
-      : floatingToolbarAnchor === "right"
+        : floatingToolbarAnchor === "right"
           ? `fixed right-0 top-[32px] h-[calc(100vh-32px)] z-[120] border-l overflow-y-auto overflow-x-visible ${tConfig.uiBorder} ${tConfig.ui}`
           : `relative z-[120] border-b overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`;
 

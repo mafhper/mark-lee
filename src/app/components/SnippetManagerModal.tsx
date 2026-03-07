@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Save, Trash2, X } from "lucide-react";
+import React, { useDeferredValue, useMemo, useState } from "react";
+import { Plus, Save, Search, Trash2, X } from "lucide-react";
 import { Snippet, ThemeConfig } from "../../types";
 
 interface SnippetManagerModalProps {
@@ -42,6 +42,8 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const categories = useMemo(() => {
     const set = new Set(snippets.map((snippet) => snippet.category || "general"));
@@ -49,9 +51,27 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
   }, [snippets]);
 
   const filteredSnippets = useMemo(() => {
-    if (categoryFilter === "all") return snippets;
-    return snippets.filter((snippet) => snippet.category === categoryFilter);
-  }, [categoryFilter, snippets]);
+    const normalizedSearch = normalizeSnippetKey(deferredSearchQuery);
+    return snippets.filter((snippet) => {
+      const matchesCategory = categoryFilter === "all" || snippet.category === categoryFilter;
+      if (!matchesCategory) return false;
+      if (!normalizedSearch) return true;
+
+      const haystack = [
+        snippet.name,
+        snippet.category,
+        snippet.trigger,
+        snippet.content,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_");
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [categoryFilter, deferredSearchQuery, snippets]);
 
   const editingSnippet = useMemo(
     () => snippets.find((item) => item.id === editingId) ?? filteredSnippets[0] ?? null,
@@ -67,10 +87,10 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
   return (
     <div className="fixed inset-0 z-[125] bg-black/45 flex items-center justify-center" onClick={onClose}>
       <div
-        className={`w-[860px] max-w-[95vw] h-[82vh] rounded-xl border shadow-2xl ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg} grid grid-cols-[320px_1fr]`}
+        className={`w-[860px] max-w-[95vw] h-[82vh] overflow-hidden rounded-xl border shadow-2xl ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg} grid grid-cols-[320px_minmax(0,1fr)]`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={`border-r ${tConfig.uiBorder} flex flex-col`}>
+        <div className={`min-h-0 overflow-hidden border-r ${tConfig.uiBorder} flex flex-col`}>
           <div className={`px-3 py-3 border-b ${tConfig.uiBorder} flex justify-between items-center`}>
             <div className="text-sm font-semibold">{t["snippets.title"] || "Snippets"}</div>
             <button
@@ -88,6 +108,19 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
           </div>
 
           <div className={`px-3 py-2 border-b ${tConfig.uiBorder}`}>
+            <label className="text-xs font-semibold uppercase tracking-wide">{t["snippets.search"] || "Search snippets"}</label>
+            <div className={`mt-1 flex items-center gap-2 rounded border px-2 py-1.5 ${tConfig.uiBorder}`}>
+              <Search size={13} className="opacity-70" />
+              <input
+                className="w-full bg-transparent text-xs outline-none"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t["snippets.search"] || "Search snippets"}
+              />
+            </div>
+          </div>
+
+          <div className={`px-3 py-2 border-b ${tConfig.uiBorder}`}>
             <label className="text-xs font-semibold uppercase tracking-wide">Categoria</label>
             <select
               className={`mt-1 w-full px-2 py-1.5 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
@@ -102,7 +135,12 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
             </select>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
+          <div className="ml-scrollbar flex-1 min-h-0 overflow-y-auto p-2 pr-1.5 space-y-1">
+            {filteredSnippets.length === 0 && (
+              <div className={`rounded border border-dashed px-3 py-4 text-center text-xs ${tConfig.uiBorder}`}>
+                {t["snippets.empty"] || "No snippets match the current filters."}
+              </div>
+            )}
             {filteredSnippets.map((snippet) => (
               <button
                 key={snippet.id}
@@ -125,7 +163,7 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col">
+        <div className="min-h-0 min-w-0 overflow-hidden flex flex-col">
           <div className={`px-3 py-3 border-b ${tConfig.uiBorder} flex justify-between items-center`}>
             <div className="text-sm font-semibold">{t["snippets.edit"] || "Edit snippet"}</div>
             <button className="p-1 rounded ml-btn" onClick={onClose} type="button">
@@ -136,7 +174,7 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
           {!editingSnippet && <div className="p-4 text-xs">{t["snippets.tip"] || "Select a snippet"}</div>}
 
           {editingSnippet && (
-            <div className="p-4 flex-1 overflow-auto space-y-3">
+            <div className="ml-scrollbar p-4 pr-3 flex-1 overflow-auto space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1">
                   <span className="text-xs font-semibold uppercase tracking-wide">Name</span>
@@ -176,7 +214,7 @@ const SnippetManagerModal: React.FC<SnippetManagerModalProps> = ({
               <label className="space-y-1 block">
                 <span className="text-xs font-semibold uppercase tracking-wide">Content</span>
                 <textarea
-                  className={`w-full min-h-[250px] px-3 py-2 rounded border text-sm bg-transparent font-mono ${tConfig.uiBorder}`}
+                  className={`ml-scrollbar w-full min-h-[250px] px-3 py-2 rounded border text-sm bg-transparent font-mono ${tConfig.uiBorder}`}
                   value={editingSnippet.content}
                   onChange={(event) => updateSnippet(editingSnippet.id, { content: event.target.value })}
                 />

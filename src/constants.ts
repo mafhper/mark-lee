@@ -236,6 +236,7 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   "help-shortcuts": "F1",
   "view-theme-cycle": "Ctrl+Shift+T",
   "app-settings": "Ctrl+,",
+  "app-command-palette": "Ctrl+P",
   "fmt-bold": "Ctrl+Shift+B",
   "fmt-italic": "Ctrl+I",
   "fmt-link": "Ctrl+K",

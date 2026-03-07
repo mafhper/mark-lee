@@ -41,8 +41,8 @@ const toolbarSections: Array<{
   fallback: string;
 }> = [
     { key: "files", labelKey: "toolbar.files", fallback: "Files" },
-    { key: "system", labelKey: "toolbar.system", fallback: "System" },
     { key: "editing", labelKey: "toolbar.editing", fallback: "Editing" },
+    { key: "system", labelKey: "toolbar.system", fallback: "System" },
   ];
 
 const toolbarItemsBySection: Array<{
@@ -60,6 +60,19 @@ const toolbarItemsBySection: Array<{
       ],
     },
     {
+      section: "editing",
+      items: [
+        { key: "editBold", labelKey: "tool.bold", fallback: "Bold" },
+        { key: "editItalic", labelKey: "tool.italic", fallback: "Italic" },
+        { key: "editCode", labelKey: "tool.code", fallback: "Code" },
+        { key: "editLink", labelKey: "tool.link", fallback: "Link" },
+        { key: "editImage", labelKey: "tool.image", fallback: "Image" },
+        { key: "editUL", labelKey: "tool.ul", fallback: "UL" },
+        { key: "editOL", labelKey: "tool.ol", fallback: "OL" },
+        { key: "editTask", labelKey: "tool.task", fallback: "Task" },
+      ],
+    },
+    {
       section: "system",
       items: [
         { key: "sysFind", labelKey: "edit.find", fallback: "Find" },
@@ -71,19 +84,6 @@ const toolbarItemsBySection: Array<{
         { key: "sysPreview", labelKey: "view.preview", fallback: "Preview" },
         { key: "sysZen", labelKey: "view.zen", fallback: "Zen" },
         { key: "sysSettings", labelKey: "settings", fallback: "Settings" },
-      ],
-    },
-    {
-      section: "editing",
-      items: [
-        { key: "editBold", labelKey: "tool.bold", fallback: "Bold" },
-        { key: "editItalic", labelKey: "tool.italic", fallback: "Italic" },
-        { key: "editCode", labelKey: "tool.code", fallback: "Code" },
-        { key: "editLink", labelKey: "tool.link", fallback: "Link" },
-        { key: "editImage", labelKey: "tool.image", fallback: "Image" },
-        { key: "editUL", labelKey: "tool.ul", fallback: "UL" },
-        { key: "editOL", labelKey: "tool.ol", fallback: "OL" },
-        { key: "editTask", labelKey: "tool.task", fallback: "Task" },
       ],
     },
   ];

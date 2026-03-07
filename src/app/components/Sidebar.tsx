@@ -31,6 +31,12 @@ interface SidebarProps {
   onReveal: (path: string) => void;
 }
 
+const VIRTUAL_NODE_PREFIX = "__mark_lee_virtual__:";
+
+function isVirtualNode(path: string) {
+  return path.startsWith(VIRTUAL_NODE_PREFIX);
+}
+
 const SidebarTreeNode: React.FC<{
   node: WorkspaceNode;
   level: number;
@@ -55,6 +61,7 @@ const SidebarTreeNode: React.FC<{
     const isExpanded = expandedPaths.has(node.path);
     const hasChildren = node.children && node.children.length > 0;
     const isSelected = selectedPath === node.path;
+    const isVirtual = isVirtualNode(node.path);
 
     const normalized = query.trim().toLowerCase();
     const matchesSelf = node.name.toLowerCase().includes(normalized);
@@ -71,11 +78,13 @@ const SidebarTreeNode: React.FC<{
             }`}
           style={{ paddingLeft: `${8 + level * 14}px` }}
           onClick={() => {
+            if (isVirtual) return;
             onSelect(node);
             if (node.is_dir) onToggleExpand(node.path);
             else onOpenFile(node.path);
           }}
           onContextMenu={(e) => {
+            if (isVirtual) return;
             e.preventDefault();
             e.stopPropagation();
             onSelect(node);
@@ -141,6 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const selectedBasePath = useMemo(() => {
     if (!selectedNode) return rootPath;
+    if (isVirtualNode(selectedNode.path)) return rootPath;
     return selectedNode.is_dir
       ? selectedNode.path
       : selectedNode.path.replace(/[/\\][^/\\]+$/, "");
@@ -300,7 +310,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
-      {selectedNode && (
+      {selectedNode && !isVirtualNode(selectedNode.path) && (
         <div className={`p-2 border-t ${tConfig.uiBorder} grid grid-cols-4 gap-1`}>
           <button
             title={t["sidebar.rename"] || "Rename"}

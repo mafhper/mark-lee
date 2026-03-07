@@ -89,6 +89,34 @@
   background: #3a141b;
 }
 
+.ml-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color:
+    color-mix(in srgb, var(--ml-fg, #111827) 22%, transparent)
+    color-mix(in srgb, var(--ml-ui, #ffffff) 55%, transparent);
+  scrollbar-gutter: stable;
+}
+
+.ml-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.ml-scrollbar::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 58%, transparent);
+  border-radius: 999px;
+}
+
+.ml-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 20%, transparent);
+  border: 2px solid color-mix(in srgb, var(--ml-ui, #ffffff) 58%, transparent);
+  border-radius: 999px;
+}
+
+.ml-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 32%, transparent);
+}
+
 .cm-editor,
 .cm-theme,
 .cm-scroller {

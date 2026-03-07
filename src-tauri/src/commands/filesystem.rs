@@ -4,6 +4,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{command, Manager};
 
+const MAX_WORKSPACE_DEPTH: usize = 8;
+const MAX_CHILDREN_PER_DIRECTORY: usize = 250;
+const MAX_TOTAL_WORKSPACE_NODES: usize = 5_000;
+const VIRTUAL_NODE_PREFIX: &str = "__mark_lee_virtual__:";
+
 #[derive(Debug, Serialize)]
 pub struct WorkspaceNode {
     pub name: String,
@@ -12,8 +17,44 @@ pub struct WorkspaceNode {
     pub children: Vec<WorkspaceNode>,
 }
 
-fn build_tree(path: &Path) -> Result<WorkspaceNode, String> {
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+#[derive(Default)]
+struct BuildState {
+    total_nodes: usize,
+}
+
+fn virtual_node(base_path: &Path, suffix: &str, name: String) -> WorkspaceNode {
+    WorkspaceNode {
+        name,
+        path: format!("{VIRTUAL_NODE_PREFIX}{}#{suffix}", base_path.display()),
+        is_dir: false,
+        children: Vec::new(),
+    }
+}
+
+fn is_ignored_directory(name: &str) -> bool {
+    matches!(
+        name,
+        ".git"
+            | ".hg"
+            | ".svn"
+            | ".next"
+            | ".nuxt"
+            | ".svelte-kit"
+            | ".turbo"
+            | ".yarn"
+            | "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+            | "coverage"
+            | "tmp"
+            | "temp"
+    )
+}
+
+fn build_tree(path: &Path, depth: usize, state: &mut BuildState) -> Result<WorkspaceNode, String> {
+    let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    let is_symlink = metadata.file_type().is_symlink();
     let is_dir = metadata.is_dir();
     let name = path
         .file_name()
@@ -28,7 +69,22 @@ fn build_tree(path: &Path) -> Result<WorkspaceNode, String> {
         children: Vec::new(),
     };
 
+    state.total_nodes += 1;
+
+    if is_symlink {
+        return Ok(node);
+    }
+
     if is_dir {
+        if depth >= MAX_WORKSPACE_DEPTH {
+            node.children.push(virtual_node(
+                path,
+                "depth-limit",
+                "... depth limit reached".to_string(),
+            ));
+            return Ok(node);
+        }
+
         let mut entries: Vec<PathBuf> = fs::read_dir(path)
             .map_err(|e| e.to_string())?
             .filter_map(Result::ok)
@@ -50,8 +106,41 @@ fn build_tree(path: &Path) -> Result<WorkspaceNode, String> {
             }
         });
 
+        let mut omitted_entries = 0usize;
+
         for child_path in entries {
-            node.children.push(build_tree(&child_path)?);
+            if node.children.len() >= MAX_CHILDREN_PER_DIRECTORY {
+                omitted_entries += 1;
+                continue;
+            }
+
+            if state.total_nodes >= MAX_TOTAL_WORKSPACE_NODES {
+                omitted_entries += 1;
+                continue;
+            }
+
+            let child_name = child_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
+
+            if child_path.is_dir() && is_ignored_directory(child_name) {
+                omitted_entries += 1;
+                continue;
+            }
+
+            match build_tree(&child_path, depth + 1, state) {
+                Ok(child) => node.children.push(child),
+                Err(_) => omitted_entries += 1,
+            }
+        }
+
+        if omitted_entries > 0 {
+            node.children.push(virtual_node(
+                path,
+                "omitted",
+                format!("... {omitted_entries} items omitted"),
+            ));
         }
     }
 
@@ -85,7 +174,8 @@ pub fn list_dir(path: String) -> Result<Vec<String>, String> {
 
 #[command]
 pub fn read_workspace_tree(path: String) -> Result<WorkspaceNode, String> {
-    build_tree(Path::new(&path))
+    let mut state = BuildState::default();
+    build_tree(Path::new(&path), 0, &mut state)
 }
 
 #[command]
@@ -165,7 +255,10 @@ pub fn get_user_data_path(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[command]
-pub fn read_user_data_file(app: tauri::AppHandle, file_name: String) -> Result<Option<String>, String> {
+pub fn read_user_data_file(
+    app: tauri::AppHandle,
+    file_name: String,
+) -> Result<Option<String>, String> {
     let mut path = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     path.push(file_name);
@@ -216,7 +309,10 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 #[command]
-pub fn copy_image_to_document_dir(image_path: String, document_path: String) -> Result<String, String> {
+pub fn copy_image_to_document_dir(
+    image_path: String,
+    document_path: String,
+) -> Result<String, String> {
     let image = PathBuf::from(&image_path);
     if !image.exists() {
         return Err("Image file not found".to_string());
@@ -275,4 +371,47 @@ pub fn copy_image_to_document_dir(image_path: String, document_path: String) -> 
         .replace('\\', "/");
 
     Ok(relative)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_workspace_tree;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_workspace(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("mark-lee-{name}-{unique}"));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn read_workspace_tree_omits_heavy_directories() {
+        let root = temp_workspace("tree-ignore");
+        let docs = root.join("docs");
+        let node_modules = root.join("node_modules");
+
+        fs::create_dir_all(&docs).unwrap();
+        fs::create_dir_all(&node_modules).unwrap();
+        fs::write(docs.join("readme.md"), "# ok").unwrap();
+        fs::write(node_modules.join("huge.js"), "export {}").unwrap();
+
+        let tree = read_workspace_tree(root.display().to_string()).unwrap();
+        let child_names: Vec<&str> = tree
+            .children
+            .iter()
+            .map(|child| child.name.as_str())
+            .collect();
+
+        assert!(child_names.contains(&"docs"));
+        assert!(!child_names.contains(&"node_modules"));
+        assert!(child_names.iter().any(|name| name.contains("omitted")));
+
+        fs::remove_dir_all(root).unwrap();
+    }
 }

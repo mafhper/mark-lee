@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
-import { EditorSelection, EditorState } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { invoke } from "@tauri-apps/api/core";
@@ -57,6 +57,7 @@ import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal"
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel from "./app/components/SettingsPanel";
+import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import CodePreview from "./components/CodePreview";
 import { DoorOpen } from "lucide-react";
@@ -322,7 +323,7 @@ function App() {
     const restored = loadLastTabs();
     return restored[0]?.id ?? null;
   });
-  const [, setRecentFiles] = useState(() => getRecentFiles());
+  const [recentFiles, setRecentFiles] = useState(() => getRecentFiles());
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [workspaceTree, setWorkspaceTree] = useState<WorkspaceNode | null>(null);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -331,10 +332,14 @@ function App() {
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [viewMode, setViewMode] = useState(settings.viewMode);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -397,6 +402,45 @@ function App() {
       "--ml-preview-line-height": `${preset.typography.lineHeight}`,
     } as React.CSSProperties;
   }, [activePublicationPreset]);
+  const saveTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(settings.language, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [settings.language]
+  );
+  const saveStatus = useMemo(() => {
+    if (saveError) {
+      return {
+        label: t["status.error"] || "Save failed",
+        toneClass: "text-rose-500",
+      };
+    }
+    if (isSaving) {
+      return {
+        label: t["status.saving"] || "Saving",
+        toneClass: "text-amber-500",
+      };
+    }
+    if (activeTab?.dirty) {
+      return {
+        label: t["status.dirty"] || "Unsaved",
+        toneClass: "text-amber-600",
+      };
+    }
+    if (!activeTab?.path) {
+      return {
+        label: t["status.draft"] || "Draft",
+        toneClass: "opacity-75",
+      };
+    }
+    const suffix = lastSavedAt ? ` · ${saveTimeFormatter.format(lastSavedAt)}` : "";
+    return {
+      label: `${t["status.saved"] || "Saved"}${suffix}`,
+      toneClass: "text-emerald-600 dark:text-emerald-400",
+    };
+  }, [activeTab?.dirty, activeTab?.path, isSaving, lastSavedAt, saveError, saveTimeFormatter, t]);
 
   const activeContent = activeTab?.content ?? "";
   const isCodeDocument = activeTab ? isCodeFile(activeTab.name) : false;
@@ -405,8 +449,11 @@ function App() {
       const selection = view.state.selection.main;
       if (!selection.empty) return false;
       const line = view.state.doc.lineAt(selection.from);
-      const text = line.text.trim();
-      const match = text.match(/^(?:>?\s*snip:|\/snip\s+)([a-z0-9_\- ]+)$/i);
+      const cursorOffset = selection.from - line.from;
+      const beforeCursor = line.text.slice(0, cursorOffset);
+      const afterCursor = line.text.slice(cursorOffset);
+      if (afterCursor.trim().length > 0) return false;
+      const match = beforeCursor.trim().match(/^(?:>?\s*snip:|\/snip\s+)([a-z0-9_\- ]+)$/i);
       if (!match) return false;
       const trigger = normalizeSnippetKey(match[1] || "");
       const snippet = snippetMap.get(trigger);
@@ -419,10 +466,12 @@ function App() {
       return true;
     };
 
-    const snippetCommandExtension = keymap.of([
-      { key: "Enter", run: tryExpandSnippet },
-      { key: "Tab", run: tryExpandSnippet },
-    ]);
+    const snippetCommandExtension = Prec.highest(
+      keymap.of([
+        { key: "Enter", run: tryExpandSnippet },
+        { key: "Tab", run: tryExpandSnippet },
+      ])
+    );
 
     const core = [
       history(),
@@ -445,6 +494,22 @@ function App() {
   const clampedSidebarWidth = Math.min(sidebarWidth, dynamicSidebarMax);
   const effectiveViewMode: "edit" | "split" | "preview" =
     isNarrowViewport && viewMode === "split" ? "edit" : viewMode;
+
+  const closeAllDialogs = useCallback(() => {
+    setShowSettings(false);
+    setShowFindReplace(false);
+    setShowExport(false);
+    setShowSnippets(false);
+    setShowCommandPalette(false);
+  }, []);
+
+  const openDialog = useCallback((dialog: "settings" | "find" | "export" | "snippets" | "palette") => {
+    setShowSettings(dialog === "settings");
+    setShowFindReplace(dialog === "find");
+    setShowExport(dialog === "export");
+    setShowSnippets(dialog === "snippets");
+    setShowCommandPalette(dialog === "palette");
+  }, []);
 
   const updateSettings = (patch: Partial<AppSettings>) => {
     setSettings((previous) => {
@@ -476,10 +541,12 @@ function App() {
     const next = makeNewTab("Untitled.md", "");
     setTabs((previous) => [...previous, next]);
     setActiveTabId(next.id);
+    setSaveError(null);
   };
 
   const updateActiveTabContent = (content: string) => {
     if (!activeTab) return;
+    setSaveError(null);
     setTabs((previous) =>
       previous.map((tab) =>
         tab.id === activeTab.id ? { ...tab, content, dirty: tab.dirty || content !== tab.content } : tab
@@ -487,8 +554,23 @@ function App() {
     );
   };
 
+  const insertSnippet = useCallback((snippet: Snippet) => {
+    const view = editorRef.current;
+    if (!view) return;
+    const selection = view.state.selection.main;
+    view.dispatch({
+      changes: {
+        from: selection.from,
+        to: selection.to,
+        insert: snippet.content,
+      },
+    });
+    view.focus();
+  }, []);
+
   const openPathInTab = async (path: string) => {
     try {
+      setSaveError(null);
       const content = await readFile(path);
       const name = path.split(/[\\/]/).pop() || "Untitled.md";
       const existing = tabs.find((tab) => tab.path === path);
@@ -554,6 +636,8 @@ function App() {
   };
 
   const saveTab = async (tab: DocumentTab, forceSaveAs: boolean) => {
+    setIsSaving(true);
+    setSaveError(null);
     try {
       let path = tab.path;
       if (!path || forceSaveAs) {
@@ -571,12 +655,16 @@ function App() {
       );
       addRecentFile(path, name);
       setRecentFiles(getRecentFiles());
+      setLastSavedAt(Date.now());
 
       if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
         await refreshWorkspace();
       }
     } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "save_failed");
       console.error("Failed to save file:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -872,6 +960,165 @@ function App() {
     setActiveTabId((current) => current ?? tabs[0]?.id ?? null);
   };
 
+  const shortcutLabels = useMemo(
+    () => ({ ...DEFAULT_SHORTCUTS, ...(settings.customShortcuts ?? {}) }),
+    [settings.customShortcuts]
+  );
+
+  const commandPaletteItems = useMemo<CommandPaletteItem[]>(() => {
+    const actionSection = t["palette.group.actions"] || "Actions";
+    const fileSection = t["palette.group.files"] || "Files";
+    const snippetSection = t["palette.group.snippets"] || "Snippets";
+
+    const items: CommandPaletteItem[] = [
+      {
+        id: "palette-new-file",
+        label: t["file.new"] || "New File",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["file-new"],
+        keywords: "new file tab untitled",
+        onSelect: handleNewFile,
+      },
+      {
+        id: "palette-open-file",
+        label: t["file.open"] || "Open...",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["file-open"],
+        keywords: "open file picker",
+        onSelect: handleOpenFile,
+      },
+      {
+        id: "palette-open-folder",
+        label: t["file.openFolder"] || "Open Folder...",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["file-open-folder"],
+        keywords: "open folder workspace",
+        onSelect: handleOpenFolder,
+      },
+      {
+        id: "palette-save",
+        label: t["file.save"] || "Save",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["file-save"],
+        keywords: "save file",
+        onSelect: () => activeTab && saveTab(activeTab, false),
+      },
+      {
+        id: "palette-find",
+        label: t["edit.find"] || "Find",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["edit-find"],
+        keywords: "find replace search",
+        onSelect: () => openDialog("find"),
+      },
+      {
+        id: "palette-snippets",
+        label: t["edit.snippets"] || "Snippets",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["edit-snippets"],
+        keywords: "snippets templates insert",
+        onSelect: () => openDialog("snippets"),
+      },
+      {
+        id: "palette-settings",
+        label: t["settings"] || "Settings",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["app-settings"],
+        keywords: "preferences settings options",
+        onSelect: () => openDialog("settings"),
+      },
+      {
+        id: "palette-export",
+        label: t["file.export"] || "Export...",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["file-export"],
+        keywords: "export html pdf markdown",
+        onSelect: () => openDialog("export"),
+      },
+      {
+        id: "palette-theme",
+        label: t["toolbar.theme"] || "Theme",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["view-theme-cycle"],
+        keywords: "theme appearance colors",
+        onSelect: cycleTheme,
+      },
+      {
+        id: "palette-sidebar",
+        label: t["view.sidebar"] || "Sidebar",
+        section: actionSection,
+        kind: "action",
+        hint: shortcutLabels["view-sidebar"],
+        keywords: "sidebar toggle",
+        onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+      },
+    ];
+
+    for (const tab of tabs) {
+      items.push({
+        id: `tab-${tab.id}`,
+        label: tab.name,
+        subtitle: tab.path || (t["status.draft"] || "Draft"),
+        section: fileSection,
+        kind: "file",
+        keywords: `tab open ${tab.name} ${tab.path || ""}`,
+        onSelect: () => setActiveTabId(tab.id),
+      });
+    }
+
+    for (const file of recentFiles) {
+      items.push({
+        id: `recent-${file.path}`,
+        label: file.name,
+        subtitle: file.path,
+        section: fileSection,
+        kind: "file",
+        keywords: `recent file ${file.name} ${file.path}`,
+        onSelect: () => openPathInTab(file.path),
+      });
+    }
+
+    for (const snippet of snippets) {
+      items.push({
+        id: `snippet-${snippet.id}`,
+        label: `>snip:${snippet.trigger}`,
+        subtitle: snippet.name,
+        section: snippetSection,
+        kind: "snippet",
+        keywords: `${snippet.trigger} ${snippet.name} ${snippet.category} ${snippet.content}`,
+        onSelect: () => insertSnippet(snippet),
+      });
+    }
+
+    return items;
+  }, [
+    activeTab,
+    cycleTheme,
+    handleNewFile,
+    handleOpenFile,
+    handleOpenFolder,
+    insertSnippet,
+    openPathInTab,
+    openDialog,
+    recentFiles,
+    saveTab,
+    settings.sidebarEnabled,
+    shortcutLabels,
+    snippets,
+    t,
+    tabs,
+    updateSettings,
+  ]);
+
   useEffect(() => {
     if (!activeTabId && tabs.length > 0) setActiveTabId(tabs[0].id);
     if (tabs.length === 0) {
@@ -895,6 +1142,10 @@ function App() {
     }
     document.title = title;
   }, [activeTab]);
+
+  useEffect(() => {
+    setSaveError(null);
+  }, [activeTabId]);
 
   useEffect(() => {
     const loadStartupData = async () => {
@@ -1043,11 +1294,6 @@ function App() {
     };
   }, [isZenMode]);
 
-  const shortcutLabels = useMemo(
-    () => ({ ...DEFAULT_SHORTCUTS, ...(settings.customShortcuts ?? {}) }),
-    [settings.customShortcuts]
-  );
-
   useEffect(() => {
     const getShortcut = (key: string, fallback: string) => shortcutLabels[key] || fallback;
 
@@ -1063,7 +1309,10 @@ function App() {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (testShortcut(event, getShortcut("file-save", "CTRL+S"))) {
+      if (testShortcut(event, getShortcut("app-command-palette", "CTRL+P"))) {
+        event.preventDefault();
+        openDialog("palette");
+      } else if (testShortcut(event, getShortcut("file-save", "CTRL+S"))) {
         event.preventDefault();
         if (activeTab) saveTab(activeTab, false);
       } else if (testShortcut(event, getShortcut("file-save-as", "CTRL+SHIFT+S"))) {
@@ -1080,16 +1329,16 @@ function App() {
         handleNewFile();
       } else if (testShortcut(event, getShortcut("file-export", "CTRL+E"))) {
         event.preventDefault();
-        setShowExport(true);
+        openDialog("export");
       } else if (testShortcut(event, getShortcut("edit-find", "CTRL+F"))) {
         event.preventDefault();
-        setShowFindReplace(true);
+        openDialog("find");
       } else if (testShortcut(event, getShortcut("edit-replace", "CTRL+H"))) {
         event.preventDefault();
-        setShowFindReplace(true);
+        openDialog("find");
       } else if (testShortcut(event, getShortcut("edit-snippets", "CTRL+J"))) {
         event.preventDefault();
-        setShowSnippets(true);
+        openDialog("snippets");
       } else if (testShortcut(event, getShortcut("view-sidebar", "CTRL+B"))) {
         event.preventDefault();
         updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
@@ -1116,7 +1365,7 @@ function App() {
         cycleTheme();
       } else if (testShortcut(event, getShortcut("app-settings", "CTRL+,"))) {
         event.preventDefault();
-        setShowSettings(true);
+        openDialog("settings");
       } else if (testShortcut(event, getShortcut("fmt-bold", "CTRL+SHIFT+B"))) {
         event.preventDefault();
         handleFormatAction("bold");
@@ -1136,26 +1385,33 @@ function App() {
         event.preventDefault();
         handleFormatAction("task");
       } else if (event.key === "Escape") {
+        closeAllDialogs();
         setShowShortcutHints(false);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeTab, handleFormatAction, settings, shortcutLabels, tabs]);
+  }, [activeTab, closeAllDialogs, handleFormatAction, openDialog, settings, shortcutLabels, tabs]);
 
   useEffect(() => {
     if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
     const timer = setInterval(() => {
       const fresh = tabs.find((item) => item.id === activeTab.id);
       if (!fresh?.path || !fresh.dirty) return;
+      setIsSaving(true);
+      setSaveError(null);
       writeFile(fresh.path, fresh.content)
         .then(() => {
           setTabs((previous) =>
             previous.map((item) => (item.id === fresh.id ? { ...item, dirty: false } : item))
           );
+          setLastSavedAt(Date.now());
         })
-        .catch(() => undefined);
+        .catch((error) => {
+          setSaveError(error instanceof Error ? error.message : "autosave_failed");
+        })
+        .finally(() => setIsSaving(false));
     }, settings.autoSaveInterval * 1000);
     return () => clearInterval(timer);
   }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
@@ -1186,10 +1442,10 @@ function App() {
       onOpenFile={handleOpenFile}
       onOpenFolder={handleOpenFolder}
       onSave={() => activeTab && saveTab(activeTab, false)}
-      onExport={() => setShowExport(true)}
-      onFindReplace={() => setShowFindReplace(true)}
-      onOpenSettings={() => setShowSettings(true)}
-      onOpenSnippets={() => setShowSnippets(true)}
+      onExport={() => openDialog("export")}
+      onFindReplace={() => openDialog("find")}
+      onOpenSettings={() => openDialog("settings")}
+      onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
       onToggleSidebar={() => updateSettings({ sidebarEnabled: !settings.sidebarEnabled })}
       onToggleZen={() => setIsZenMode((previous) => !previous)}
@@ -1212,6 +1468,26 @@ function App() {
     ) : (
       topChromeComponent
     );
+  const statusBar =
+    !isZenMode ? (
+      <div className={`h-8 border-t ${tConfig.uiBorder} ${tConfig.ui} px-3 text-xs flex items-center justify-between`}>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="truncate">
+            {activeTab?.name}
+            {activeTab?.dirty ? "*" : ""}
+          </div>
+          <div className={`inline-flex items-center gap-1.5 rounded-full border border-current/10 px-2 py-0.5 ${saveStatus.toneClass}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            <span>{saveStatus.label}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span>{tabs.length} tabs</span>
+          {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
+          <span>{effectiveViewMode}</span>
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div
@@ -1255,7 +1531,7 @@ function App() {
       <div
         className={`flex-1 min-h-0 flex ${!isZenMode && settings.floatingToolbarAnchor === "left" ? "pl-[72px]" : ""
           } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
-          } ${!isZenMode && settings.floatingToolbarAnchor === "bottom" ? "pb-[52px]" : ""}`}
+          }`}
       >
         {!isZenMode && settings.sidebarEnabled && (
           <div
@@ -1411,23 +1687,10 @@ function App() {
               })()}
             </div>
           </div>
-
-          {!isZenMode && (
-            <div className={`h-8 border-t ${tConfig.uiBorder} ${tConfig.ui} px-3 text-xs flex items-center justify-between`}>
-              <div>
-                {activeTab?.name}
-                {activeTab?.dirty ? "*" : ""}
-              </div>
-              <div className="flex items-center gap-4">
-                <span>{tabs.length} tabs</span>
-                {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
-                <span>{effectiveViewMode}</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
+      {statusBar}
 
       {isZenMode && showZenExit && (
         <button
@@ -1446,7 +1709,7 @@ function App() {
         tConfig={tConfig}
         content={activeContent}
         options={settings.findReplace}
-        onClose={() => setShowFindReplace(false)}
+        onClose={closeAllDialogs}
         onOptionsChange={(options) => updateSettings({ findReplace: options })}
         onSelectResult={handleFindSelect}
         onReplaceOne={handleReplaceOne}
@@ -1457,7 +1720,7 @@ function App() {
         open={showExport}
         t={t}
         tConfig={tConfig}
-        onClose={() => setShowExport(false)}
+        onClose={closeAllDialogs}
         onConfirm={handleExport}
       />
 
@@ -1466,22 +1729,20 @@ function App() {
         snippets={snippets}
         t={t}
         tConfig={tConfig}
-        onClose={() => setShowSnippets(false)}
+        onClose={closeAllDialogs}
         onInsert={(snippet) => {
-          const view = editorRef.current;
-          if (!view) return;
-          const selection = view.state.selection.main;
-          view.dispatch({
-            changes: {
-              from: selection.from,
-              to: selection.to,
-              insert: snippet.content,
-            },
-          });
-          view.focus();
-          setShowSnippets(false);
+          insertSnippet(snippet);
+          closeAllDialogs();
         }}
         onChange={setSnippets}
+      />
+
+      <CommandPaletteModal
+        open={showCommandPalette}
+        items={commandPaletteItems}
+        t={t}
+        tConfig={tConfig}
+        onClose={closeAllDialogs}
       />
 
       <SettingsPanel
@@ -1490,7 +1751,7 @@ function App() {
         t={t}
         tConfig={tConfig}
         publicationPresets={publicationPresets}
-        onClose={() => setShowSettings(false)}
+        onClose={closeAllDialogs}
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
       />
