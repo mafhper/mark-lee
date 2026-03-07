@@ -1,40 +1,30 @@
-# Logs
-logs
+# Dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+.turbo/
+.cache/
+coverage/
+*.local
+
+# Logs and diagnostics
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-# Internal Development
-@development/
-.dev/
-_dev/
-/_development
-/docs
-/.gemini
-GEMINI.md
-/performance-reports
-
-# Exceptions
-!docs/plan/change.log
-node_modules
-dist
-dist-ssr
-*.local
-.turbo
-.cache
-coverage
+/performance-reports/
 
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/
 
-# Editor directories and files
+# Editor and OS files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
@@ -42,12 +32,15 @@ src-tauri/gen/
 *.sln
 *.sw?
 
+# Project-local private workspaces
+@development/
+.dev/
+_dev/
+/_development/
+/docs/
+!docs/plan/change.log
 
-# Agent local private files
-AGENTS.md
-CLAUDE.md
-QWEN.md
-KIMI.md
+# Agent-private directories
 .codex/
 .agents/
 .gemini/
@@ -59,3 +52,10 @@ KIMI.md
 .roo/
 .cursor/
 .windsurf/
+
+# Agent-private files
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+QWEN.md
+KIMI.md

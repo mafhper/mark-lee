@@ -1,6 +1,7 @@
 import { PUBLICATION_PRESET_DEFAULTS, SNIPPETS } from "../constants";
 import { PublicationPreset, Snippet } from "../types";
 import { readUserDataFile, writeUserDataFile } from "./filesystem";
+import { migratePublicationPreset } from "./publication-style";
 
 const SNIPPETS_FILE = "snippets.json";
 const PRESETS_FILE = "publication-presets.json";
@@ -49,11 +50,12 @@ export async function saveSnippets(snippets: Snippet[]): Promise<void> {
 export async function loadPublicationPresets(): Promise<PublicationPreset[]> {
   try {
     const raw = await readUserDataFile(PRESETS_FILE);
-    if (!raw) return PUBLICATION_PRESET_DEFAULTS;
+    if (!raw) return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
     const parsed = JSON.parse(raw) as PublicationPreset[];
-    return parsed.length > 0 ? parsed : PUBLICATION_PRESET_DEFAULTS;
+    const migrated = parsed.map((preset) => migratePublicationPreset(preset));
+    return migrated.length > 0 ? migrated : PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
   } catch {
-    return PUBLICATION_PRESET_DEFAULTS;
+    return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
   }
 }
 

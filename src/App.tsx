@@ -38,6 +38,11 @@ import {
   savePublicationPresets,
   saveSnippets,
 } from "./services/user-content";
+import {
+  getPublicationStyleObject,
+  publicationExportBaseCss,
+  styleObjectToInlineCss,
+} from "./services/publication-style";
 import { isTauriRuntime } from "./services/runtime";
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
 import {
@@ -180,63 +185,6 @@ function buildRegex(
   }
 }
 
-function parseHexColor(value: string) {
-  const clean = value.replace("#", "");
-  if (clean.length === 6) {
-    return {
-      r: Number.parseInt(clean.slice(0, 2), 16),
-      g: Number.parseInt(clean.slice(2, 4), 16),
-      b: Number.parseInt(clean.slice(4, 6), 16),
-    };
-  }
-  if (clean.length === 3) {
-    return {
-      r: Number.parseInt(clean[0] + clean[0], 16),
-      g: Number.parseInt(clean[1] + clean[1], 16),
-      b: Number.parseInt(clean[2] + clean[2], 16),
-    };
-  }
-  return null;
-}
-
-function relativeLuminance(value: { r: number; g: number; b: number }) {
-  const linearize = (channel: number) => {
-    const normalized = channel / 255;
-    if (normalized <= 0.03928) return normalized / 12.92;
-    return ((normalized + 0.055) / 1.055) ** 2.4;
-  };
-  return (
-    0.2126 * linearize(value.r) +
-    0.7152 * linearize(value.g) +
-    0.0722 * linearize(value.b)
-  );
-}
-
-function contrastRatioHex(a: string, b: string) {
-  const colorA = parseHexColor(a);
-  const colorB = parseHexColor(b);
-  if (!colorA || !colorB) return 0;
-  const luminanceA = relativeLuminance(colorA);
-  const luminanceB = relativeLuminance(colorB);
-  const lighter = Math.max(luminanceA, luminanceB);
-  const darker = Math.min(luminanceA, luminanceB);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function ensureAccessibleColor(
-  foreground: string,
-  background: string,
-  minimumContrast = 10
-) {
-  const ratio = contrastRatioHex(foreground, background);
-  if (ratio >= minimumContrast) return foreground;
-  const darkCandidate = "#111827";
-  const lightCandidate = "#f8fafc";
-  const darkRatio = contrastRatioHex(darkCandidate, background);
-  const lightRatio = contrastRatioHex(lightCandidate, background);
-  return darkRatio >= lightRatio ? darkCandidate : lightCandidate;
-}
-
 function hexLuminance(hex: string): number {
   const clean = hex.replace("#", "");
   if (clean.length !== 6) return 0;
@@ -287,13 +235,6 @@ function isPathInsideWorkspace(path: string, workspacePath: string) {
   const normalizedFile = normalizeFsPath(path);
   const normalizedWorkspace = normalizeFsPath(workspacePath);
   return normalizedFile === normalizedWorkspace || normalizedFile.startsWith(`${normalizedWorkspace}/`);
-}
-
-function publicationVariantFor(presetId: string | null | undefined) {
-  if (presetId === "paper") return "paper";
-  if (presetId === "night") return "night";
-  if (presetId === "magazine") return "magazine";
-  return "modern";
 }
 
 function parseFrontmatter(content: string): { meta: Record<string, string>; body: string } {
@@ -372,10 +313,6 @@ function App() {
       null,
     [publicationPresets, settings.publicationPresetId]
   );
-  const activePublicationVariant = useMemo(
-    () => publicationVariantFor(activePublicationPreset?.id),
-    [activePublicationPreset?.id]
-  );
   const snippetMap = useMemo(() => {
     const map = new Map<string, Snippet>();
     for (const snippet of snippets) {
@@ -388,19 +325,7 @@ function App() {
   const previewSurfaceStyle = useMemo(() => {
     const preset = activePublicationPreset;
     if (!preset) return undefined;
-    const resolvedText = ensureAccessibleColor(preset.palette.text, preset.palette.bg, 4.5);
-    const resolvedAccent = ensureAccessibleColor(preset.palette.accent, preset.palette.bg, 10);
-    return {
-      backgroundColor: preset.palette.bg,
-      color: resolvedText,
-      fontFamily: preset.typography.fontFamily,
-      lineHeight: `${preset.typography.lineHeight}`,
-      "--ml-preview-bg": preset.palette.bg,
-      "--ml-preview-text": resolvedText,
-      "--ml-preview-accent": resolvedAccent,
-      "--ml-preview-muted": preset.palette.muted,
-      "--ml-preview-line-height": `${preset.typography.lineHeight}`,
-    } as React.CSSProperties;
+    return getPublicationStyleObject(preset) as React.CSSProperties;
   }, [activePublicationPreset]);
   const saveTimeFormatter = useMemo(
     () =>
@@ -901,38 +826,18 @@ function App() {
     } else if (format === "html") {
       suggestedName = suggestedName.replace(/\.md$/i, ".html");
       const preset = activePublicationPreset;
-      const variant = publicationVariantFor(preset?.id);
-      const resolvedText = preset
-        ? ensureAccessibleColor(preset.palette.text, preset.palette.bg, 4.5)
-        : "#111827";
-      const resolvedAccent = preset
-        ? ensureAccessibleColor(preset.palette.accent, preset.palette.bg, 4.5)
-        : "#172554";
-      const layoutStyle =
-        variant === "paper"
-          ? "max-width: 760px; margin: 0 auto; letter-spacing: 0.01em;"
-          : variant === "night"
-            ? "max-width: 880px; margin: 0 auto; font-size: 1.02rem;"
-            : variant === "magazine"
-              ? "max-width: 980px; margin: 0 auto; column-gap: 2.2rem;"
-              : "max-width: 860px; margin: 0 auto;";
-      const presetStyle = preset
-        ? `<style>
+      const presetStyleObject = preset ? getPublicationStyleObject(preset) : {};
+      const presetStyle = `<style>
             body {
               margin: 0;
               padding: 2rem;
-              background: ${preset.palette.bg};
-              color: ${resolvedText};
-              font-family: ${preset.typography.fontFamily};
-              line-height: ${preset.typography.lineHeight};
+              background: ${preset?.surface.bg || "#f8fafc"};
+              color: ${preset?.surface.text || "#111827"};
+              font-family: ${preset?.typography.fontFamily || "'Source Sans 3', sans-serif"};
             }
-            main { ${layoutStyle} }
-            a { color: ${resolvedAccent}; font-weight: 700; text-decoration-thickness: 2px; }
-            blockquote { border-left: 4px solid ${preset.palette.muted}; padding-left: 1rem; }
-          </style>`
-        : "";
-      output = `<!doctype html><html><head><meta charset="UTF-8" /><title>${activeTab.name}</title>${presetStyle}</head><body>${`<main>${previewRef.current?.innerHTML || ""}</main>`
-        }</body></html>`;
+            ${publicationExportBaseCss}
+          </style>`;
+      output = `<!doctype html><html><head><meta charset="UTF-8" /><title>${activeTab.name}</title>${presetStyle}</head><body><main class="ml-preview-surface" style="${styleObjectToInlineCss(presetStyleObject)}"><article class="ml-preview-prose">${previewRef.current?.querySelector(".ml-preview-prose")?.innerHTML || ""}</article></main></body></html>`;
     }
 
     const path = await saveFileDialog(suggestedName);
@@ -1426,6 +1331,7 @@ function App() {
       toolbarSections={settings.toolbarSections}
       toolbarItems={settings.toolbarItems}
       showToolbarSectionLabels={settings.showToolbarSectionLabels}
+      toolbarAlwaysShowIcons={settings.toolbarAlwaysShowIcons}
       toolbarCompactBreakpoint={settings.toolbarCompactBreakpoint}
       toolbarDisplayMode={settings.toolbarDisplayMode}
       shortcutLabels={shortcutLabels}
@@ -1630,9 +1536,8 @@ function App() {
                     style={{ backgroundColor: tConfig.bgHex }}
                   >
                     <div
-                      className={`ml-preview-surface ml-preview-${activePublicationVariant} mx-auto`}
+                      className="ml-preview-surface mx-auto"
                       style={previewSurfaceStyle}
-                      data-preview-variant={activePublicationVariant}
                     >
                       {hasMeta && (
                         <div
@@ -1642,10 +1547,7 @@ function App() {
                             background: "color-mix(in srgb, var(--ml-preview-text, #111827) 5%, transparent)",
                           }}
                         >
-                          <div
-                            className="text-[10px] font-bold uppercase tracking-widest mb-2"
-                            style={{ color: "var(--ml-preview-muted, #64748b)", opacity: 0.7 }}
-                          >
+                          <div className="ml-frontmatter-title mb-2">
                             Metadata
                           </div>
                           <dl className="grid gap-x-4 gap-y-1" style={{ gridTemplateColumns: "auto 1fr" }}>

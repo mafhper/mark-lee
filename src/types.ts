@@ -72,6 +72,7 @@ export interface AppSettings {
   sidebarWidth: number;
   floatingToolbarAnchor: 'top' | 'bottom' | 'left' | 'right';
   showToolbarSectionLabels: boolean;
+  toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
   toolbarDisplayMode: 'icon_text' | 'icon_only' | 'text_only';
   toolbarSections: {
@@ -167,18 +168,155 @@ export interface Snippet {
   content: string;
 }
 
+export type PublicationTone = "text" | "accent" | "muted";
+export type PublicationTracking = "tight" | "normal" | "wide";
+export type PublicationShadow = "none" | "soft" | "lifted" | "editorial";
+export type PublicationUnderline = "none" | "subtle" | "strong";
+
+export interface PublicationSurfaceStyle {
+  bg: string;
+  text: string;
+  accent: string;
+  muted: string;
+  border: string;
+  radius: number;
+  shadow: PublicationShadow;
+}
+
+export interface PublicationTypographyStyle {
+  fontFamily: string;
+  lineHeight: number;
+  bodySize: number;
+  bodyWeight: number;
+  headingWeight: number;
+  tracking: PublicationTracking;
+}
+
+export interface PublicationSpacingStyle {
+  pagePadding: number;
+  columnWidth: number;
+  blockGap: number;
+  paragraphGap: number;
+  listGap: number;
+  tableCellPaddingX: number;
+  tableCellPaddingY: number;
+}
+
+export interface PublicationHeadingStyle {
+  size: number;
+  weight: number;
+  lineHeight: number;
+  letterSpacing: number;
+  marginTop: number;
+  marginBottom: number;
+  tone: PublicationTone;
+  italic?: boolean;
+  uppercase?: boolean;
+}
+
+export interface PublicationParagraphStyle {
+  size: number;
+  weight: number;
+  lineHeight: number;
+  marginBottom: number;
+  tone: "text" | "muted";
+}
+
+export interface PublicationListStyle {
+  size: number;
+  weight: number;
+  lineHeight: number;
+  itemGap: number;
+  indent: number;
+  markerTone: PublicationTone;
+}
+
+export interface PublicationBlockquoteStyle {
+  paddingX: number;
+  paddingY: number;
+  radius: number;
+  borderWidth: number;
+  tone: "accent" | "muted";
+  useBackground: boolean;
+  italic: boolean;
+}
+
+export interface PublicationInlineCodeStyle {
+  fontSize: number;
+  paddingX: number;
+  paddingY: number;
+  radius: number;
+  useBackground: boolean;
+  useBorder: boolean;
+}
+
+export interface PublicationCodeBlockStyle {
+  fontSize: number;
+  padding: number;
+  radius: number;
+  useBackground: boolean;
+  useBorder: boolean;
+}
+
+export interface PublicationLinkStyle {
+  weight: number;
+  underline: PublicationUnderline;
+}
+
+export interface PublicationRuleStyle {
+  thickness: number;
+  opacity: number;
+  margin: number;
+}
+
+export interface PublicationTableStyle {
+  headerWeight: number;
+  cellPaddingX: number;
+  cellPaddingY: number;
+  radius: number;
+  striped: boolean;
+  dense: boolean;
+  useBorder: boolean;
+  captionTone: "accent" | "muted";
+}
+
+export interface PublicationImageStyle {
+  radius: number;
+  margin: number;
+  useBorder: boolean;
+  shadow: PublicationShadow;
+}
+
+export interface PublicationFrontmatterStyle {
+  padding: number;
+  radius: number;
+  useBorder: boolean;
+  useBackground: boolean;
+  titleWeight: number;
+}
+
+export interface PublicationElementStyles {
+  h1: PublicationHeadingStyle;
+  h2: PublicationHeadingStyle;
+  h3: PublicationHeadingStyle;
+  p: PublicationParagraphStyle;
+  list: PublicationListStyle;
+  blockquote: PublicationBlockquoteStyle;
+  codeInline: PublicationInlineCodeStyle;
+  codeBlock: PublicationCodeBlockStyle;
+  link: PublicationLinkStyle;
+  hr: PublicationRuleStyle;
+  table: PublicationTableStyle;
+  image: PublicationImageStyle;
+  frontmatterCard: PublicationFrontmatterStyle;
+}
+
 export interface PublicationPreset {
   id: string;
   name: string;
   description: string;
-  palette: {
-    bg: string;
-    text: string;
-    accent: string;
-    muted: string;
-  };
-  typography: {
-    fontFamily: string;
-    lineHeight: number;
-  };
+  surface: PublicationSurfaceStyle;
+  typography: PublicationTypographyStyle;
+  spacing: PublicationSpacingStyle;
+  elements: PublicationElementStyles;
 }

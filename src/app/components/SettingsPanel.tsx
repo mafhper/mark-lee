@@ -1,9 +1,28 @@
-import React, { useMemo } from "react";
-import { Check, ChevronDown, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Keyboard,
+  Layers3,
+  Palette,
+  Settings2,
+  Sparkles,
+  Type,
+  X,
+} from "lucide-react";
 import { THEMES } from "../../constants";
+import { createPublicationPreset } from "../../services/publication-style";
 import { AppSettings, Language, PublicationPreset, Theme, ThemeConfig } from "../../types";
 
-interface SettingsPanelProps {
+type SettingsTabId =
+  | "general"
+  | "appearance"
+  | "editor"
+  | "toolbar"
+  | "presets"
+  | "shortcuts";
+
+type SettingsPanelProps = {
   open: boolean;
   settings: AppSettings;
   t: Record<string, string>;
@@ -11,116 +30,85 @@ interface SettingsPanelProps {
   publicationPresets: PublicationPreset[];
   onClose: () => void;
   onSettingsChange: (patch: Partial<AppSettings>) => void;
-  onPublicationPresetsChange: (presets: PublicationPreset[]) => void;
-}
-
-const languages: { code: Language; label: string }[] = [
-  { code: "pt-BR", label: "Portugues (Brasil)" },
-  { code: "en-US", label: "English (US)" },
-  { code: "es-ES", label: "Espanol" },
-];
-
-const themeLabels: Record<Theme, string> = {
-  [Theme.Coffee]: "Coffee",
-  [Theme.Dark]: "Dark",
-  [Theme.Firenight]: "Firenight",
-  [Theme.Forest]: "Forest",
-  [Theme.Golden]: "Golden",
-  [Theme.Light]: "Light",
-  [Theme.Midnight]: "Midnight",
-  [Theme.Neomatrix]: "Neomatrix",
-  [Theme.Nord]: "Nord",
-  [Theme.Sepia]: "Sepia",
-  [Theme.Synthwave]: "Synthwave",
-  [Theme.Terminal]: "Terminal",
+  onPublicationPresetsChange: React.Dispatch<React.SetStateAction<PublicationPreset[]>>;
 };
 
-const toolbarSections: Array<{
-  key: keyof AppSettings["toolbarSections"];
-  labelKey: string;
-  fallback: string;
-}> = [
-    { key: "files", labelKey: "toolbar.files", fallback: "Files" },
-    { key: "editing", labelKey: "toolbar.editing", fallback: "Editing" },
-    { key: "system", labelKey: "toolbar.system", fallback: "System" },
-  ];
+const tabs: Array<{ id: SettingsTabId; label: string; icon: React.ReactNode }> = [
+  { id: "general", label: "Geral", icon: <Settings2 className="h-4 w-4" /> },
+  { id: "appearance", label: "Aparencia", icon: <Palette className="h-4 w-4" /> },
+  { id: "editor", label: "Editor", icon: <Type className="h-4 w-4" /> },
+  { id: "toolbar", label: "Toolbar", icon: <Sparkles className="h-4 w-4" /> },
+  { id: "presets", label: "Presets", icon: <Layers3 className="h-4 w-4" /> },
+  { id: "shortcuts", label: "Atalhos", icon: <Keyboard className="h-4 w-4" /> },
+];
+
+const languages: Language[] = ["pt-BR", "en-US", "es-ES"];
+
+const shortcutActions = [
+  { id: "file-save", label: "Salvar" },
+  { id: "file-open", label: "Abrir arquivo" },
+  { id: "file-open-folder", label: "Abrir pasta" },
+  { id: "edit-find", label: "Buscar" },
+  { id: "edit-snippets", label: "Snippets" },
+  { id: "app-command-palette", label: "Command palette" },
+  { id: "app-settings", label: "Configuracoes" },
+  { id: "fmt-bold", label: "Negrito" },
+  { id: "fmt-italic", label: "Italico" },
+  { id: "fmt-link", label: "Link" },
+];
 
 const toolbarItemsBySection: Array<{
-  section: keyof AppSettings["toolbarSections"];
-  items: Array<{ key: keyof AppSettings["toolbarItems"]; labelKey: string; fallback: string }>;
+  title: string;
+  items: Array<{ key: keyof AppSettings["toolbarItems"]; label: string }>;
 }> = [
-    {
-      section: "files",
-      items: [
-        { key: "fileNew", labelKey: "file.new", fallback: "New file" },
-        { key: "fileOpen", labelKey: "file.open", fallback: "Open file" },
-        { key: "fileOpenFolder", labelKey: "file.openFolder", fallback: "Open folder" },
-        { key: "fileSave", labelKey: "file.save", fallback: "Save" },
-        { key: "fileExport", labelKey: "file.export", fallback: "Export" },
-      ],
-    },
-    {
-      section: "editing",
-      items: [
-        { key: "editBold", labelKey: "tool.bold", fallback: "Bold" },
-        { key: "editItalic", labelKey: "tool.italic", fallback: "Italic" },
-        { key: "editCode", labelKey: "tool.code", fallback: "Code" },
-        { key: "editLink", labelKey: "tool.link", fallback: "Link" },
-        { key: "editImage", labelKey: "tool.image", fallback: "Image" },
-        { key: "editUL", labelKey: "tool.ul", fallback: "UL" },
-        { key: "editOL", labelKey: "tool.ol", fallback: "OL" },
-        { key: "editTask", labelKey: "tool.task", fallback: "Task" },
-      ],
-    },
-    {
-      section: "system",
-      items: [
-        { key: "sysFind", labelKey: "edit.find", fallback: "Find" },
-        { key: "sysSnippets", labelKey: "edit.snippets", fallback: "Snippets" },
-        { key: "sysTheme", labelKey: "toolbar.theme", fallback: "Theme" },
-        { key: "sysSidebar", labelKey: "view.sidebar", fallback: "Sidebar" },
-        { key: "sysEdit", labelKey: "view.editor", fallback: "Edit" },
-        { key: "sysSplit", labelKey: "view.split", fallback: "Split" },
-        { key: "sysPreview", labelKey: "view.preview", fallback: "Preview" },
-        { key: "sysZen", labelKey: "view.zen", fallback: "Zen" },
-        { key: "sysSettings", labelKey: "settings", fallback: "Settings" },
-      ],
-    },
-  ];
-
-const behaviorToggles: Array<{
-  key: keyof Pick<
-    AppSettings,
-    "tabsEnabled" | "sidebarEnabled" | "singleInstance" | "wordWrap" | "spellCheck" | "autoSave"
-  >;
-  labelKey: string;
-  fallback: string;
-}> = [
-    { key: "tabsEnabled", labelKey: "settings.tabs", fallback: "Tabs" },
-    { key: "sidebarEnabled", labelKey: "settings.sidebar", fallback: "Sidebar" },
-    { key: "singleInstance", labelKey: "settings.singleInstance", fallback: "Single window" },
-    { key: "wordWrap", labelKey: "settings.wordWrap", fallback: "Word wrap" },
-    { key: "spellCheck", labelKey: "settings.spellCheck", fallback: "Spell check" },
-    { key: "autoSave", labelKey: "settings.autoSave", fallback: "Auto save" },
-  ];
-
-function isColor(value: string) {
-  return (
-    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ||
-    /^rgb(a)?\(/i.test(value) ||
-    /^hsl(a)?\(/i.test(value)
-  );
-}
+  {
+    title: "Arquivos",
+    items: [
+      { key: "fileNew", label: "Novo" },
+      { key: "fileOpen", label: "Abrir" },
+      { key: "fileOpenFolder", label: "Abrir pasta" },
+      { key: "fileSave", label: "Salvar" },
+      { key: "fileExport", label: "Exportar" },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { key: "sysFind", label: "Buscar" },
+      { key: "sysSnippets", label: "Snippets" },
+      { key: "sysTheme", label: "Tema" },
+      { key: "sysSidebar", label: "Sidebar" },
+      { key: "sysEdit", label: "Editor" },
+      { key: "sysSplit", label: "Split" },
+      { key: "sysPreview", label: "Preview" },
+      { key: "sysZen", label: "Zen" },
+      { key: "sysSettings", label: "Configuracoes" },
+    ],
+  },
+  {
+    title: "Edicao",
+    items: [
+      { key: "editBold", label: "Negrito" },
+      { key: "editItalic", label: "Italico" },
+      { key: "editCode", label: "Codigo" },
+      { key: "editLink", label: "Link" },
+      { key: "editImage", label: "Imagem" },
+      { key: "editUL", label: "Lista" },
+      { key: "editOL", label: "Lista numerada" },
+      { key: "editTask", label: "Tarefa" },
+    ],
+  },
+];
 
 function hexToRgb(hex: string) {
   const normalized = hex.replace("#", "");
-  if (normalized.length !== 3 && normalized.length !== 6) return null;
+  if (![3, 6].includes(normalized.length)) return null;
   const expanded =
     normalized.length === 3
       ? normalized
-        .split("")
-        .map((part) => `${part}${part}`)
-        .join("")
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
       : normalized;
   const intValue = Number.parseInt(expanded, 16);
   if (Number.isNaN(intValue)) return null;
@@ -131,7 +119,9 @@ function hexToRgb(hex: string) {
   };
 }
 
-function luminance(rgb: { r: number; g: number; b: number }) {
+function luminance(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
   const channels = [rgb.r, rgb.g, rgb.b].map((value) => {
     const v = value / 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
@@ -139,18 +129,16 @@ function luminance(rgb: { r: number; g: number; b: number }) {
   return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
 
-function contrastRatio(hexA: string, hexB: string) {
-  const a = hexToRgb(hexA);
-  const b = hexToRgb(hexB);
-  if (!a || !b) return 0;
+function contrastRatio(a: string, b: string) {
   const l1 = luminance(a);
   const l2 = luminance(b);
+  if (l1 == null || l2 == null) return 0;
   const lighter = Math.max(l1, l2);
   const darker = Math.min(l1, l2);
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({
+export default function SettingsPanel({
   open,
   settings,
   t,
@@ -159,569 +147,630 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onClose,
   onSettingsChange,
   onPublicationPresetsChange,
-}) => {
-  const sortedThemes = useMemo(
-    () =>
-      Object.values(Theme).slice().sort((a, b) => {
-        return themeLabels[a].localeCompare(themeLabels[b], "en", { sensitivity: "base" });
-      }),
-    []
+}: SettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
+  const [expandedPresetIds, setExpandedPresetIds] = useState<string[]>([]);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const activePreset = useMemo(
+    () => publicationPresets.find((preset) => preset.id === settings.publicationPresetId) ?? publicationPresets[0] ?? null,
+    [publicationPresets, settings.publicationPresetId]
   );
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab]);
 
   if (!open) return null;
 
-  const toggleAccordion = (section: string) => {
+  const themeCards = Object.entries(THEMES) as Array<[Theme, ThemeConfig]>;
+  const panelClass = `${tConfig.ui} ${tConfig.fg} ${tConfig.uiBorder}`;
+  const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg}`;
+  const setShortcut = (actionId: string, event: React.KeyboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const keys: string[] = [];
+    if (event.ctrlKey) keys.push("Ctrl");
+    if (event.altKey) keys.push("Alt");
+    if (event.shiftKey) keys.push("Shift");
+    if (event.metaKey) keys.push("Meta");
+    const ignored = ["Control", "Alt", "Shift", "Meta"];
+    if (!ignored.includes(event.key)) {
+      keys.push(event.key.length === 1 ? event.key.toUpperCase() : event.key);
+    }
+    if (keys.length === 0) return;
     onSettingsChange({
-      accordionState: {
-        ...settings.accordionState,
-        [section]: !settings.accordionState[section],
+      customShortcuts: {
+        ...(settings.customShortcuts ?? {}),
+        [actionId]: keys.join("+"),
       },
     });
   };
 
-  const accordionHeader = (section: string, label: string) => {
-    const openState = settings.accordionState[section] ?? false;
-    const Icon = openState ? ChevronDown : ChevronRight;
-    return (
-      <button
-        className={`w-full px-4 py-3 border-b ${tConfig.uiBorder} flex items-center gap-2 text-left`}
-        onClick={() => toggleAccordion(section)}
-        type="button"
-      >
-        <Icon size={14} />
-        <span className="text-sm font-semibold">{label}</span>
-      </button>
-    );
+  const updatePreset = (presetId: string, updater: (preset: PublicationPreset) => PublicationPreset) => {
+    onPublicationPresetsChange((current) => current.map((preset) => (preset.id === presetId ? updater(preset) : preset)));
   };
 
-  return (
-    <div className="fixed inset-0 z-[150] bg-black/45 flex items-center justify-center" onClick={onClose}>
-      <div
-        className={`w-[980px] max-w-[96vw] max-h-[90vh] rounded-xl overflow-hidden border shadow-2xl ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg}`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className={`px-4 py-3 border-b ${tConfig.uiBorder} flex justify-between items-center`}>
-          <h2 className="text-sm font-semibold">{t["settings.title"] || "Settings"}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10" type="button">
-            <X size={14} />
+  const renderSwitch = (checked: boolean, onChange: (next: boolean) => void) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`inline-flex h-7 w-12 items-center rounded-full border px-1 transition ${checked ? "justify-end" : "justify-start"} ${tConfig.uiBorder}`}
+      aria-pressed={checked}
+    >
+      <span className={`h-5 w-5 rounded-full ${checked ? "bg-emerald-400" : "bg-white/30"}`} />
+    </button>
+  );
+
+  const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => (
+    <section className={`rounded-[24px] border p-5 ${panelClass}`}>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] opacity-80">{title}</h3>
+        <p className="mt-1 text-sm opacity-70">{description}</p>
+      </div>
+      {contentNode}
+    </section>
+  );
+
+  const renderRangeField = (
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    suffix: string,
+    onChange: (next: number) => void
+  ) => (
+    <label className="space-y-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="opacity-80">{label}</span>
+        <span className="rounded-full px-2 py-0.5 text-xs opacity-70">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full accent-current"
+      />
+    </label>
+  );
+
+  const renderTabNav = (compact: boolean) => (
+    <div className={compact ? "flex gap-2 overflow-x-auto pb-1" : "grid gap-2"}>
+      {tabs.map((tab) => {
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "bg-white/12" : "hover:bg-white/6"}`}
+          >
+            <span className="opacity-80">{tab.icon}</span>
+            <span>{tab.label}</span>
           </button>
-        </div>
+        );
+      })}
+    </div>
+  );
 
-        <div className="overflow-auto max-h-[calc(90vh-52px)]">
-          <section>
-            {accordionHeader("interface", t["settings.accordion.interface"] || "Interface")}
-            {settings.accordionState.interface && (
-              <div className="p-4 grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide">{t["settings.language"] || "Language"}</label>
-                  <select
-                    value={settings.language}
-                    className={`w-full px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    onChange={(event) => onSettingsChange({ language: event.target.value as Language })}
-                  >
-                    {languages.map((language) => (
-                      <option key={language.code} value={language.code} className="text-black">
-                        {language.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+  let content: React.ReactNode = <div className="text-sm opacity-70">Carregando painel...</div>;
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide">{t["settings.floatingAnchor"] || "Toolbar anchor"}</label>
-                  <select
-                    value={settings.floatingToolbarAnchor}
-                    className={`w-full px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    onChange={(event) =>
-                      onSettingsChange({
-                        floatingToolbarAnchor: event.target.value as AppSettings["floatingToolbarAnchor"],
-                      })
-                    }
-                  >
-                    <option value="top" className="text-black">
-                      Top
-                    </option>
-                    <option value="bottom" className="text-black">
-                      Bottom
-                    </option>
-                    <option value="left" className="text-black">
-                      Left
-                    </option>
-                    <option value="right" className="text-black">
-                      Right
-                    </option>
-                  </select>
-                </div>
+  if (activeTab === "general") {
+    content = (
+      <div className="grid gap-5 xl:grid-cols-2">
+        {renderSectionCard(
+          "Fluxo do app",
+          "Opcoes principais do shell e da navegacao do app.",
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{t["settings.language"] ?? "Idioma"}</span>
+              <select
+                className={inputClass}
+                value={settings.language}
+                onChange={(event) => onSettingsChange({ language: event.target.value as Language })}
+              >
+                {languages.map((language) => (
+                  <option key={language} value={language}>
+                    {language}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{t["settings.floatingAnchor"] ?? "Ancora da barra"}</span>
+              <select
+                className={inputClass}
+                value={settings.floatingToolbarAnchor}
+                onChange={(event) =>
+                  onSettingsChange({
+                    floatingToolbarAnchor: event.target.value as AppSettings["floatingToolbarAnchor"],
+                    toolbarPosition: event.target.value as AppSettings["toolbarPosition"],
+                  })
+                }
+              >
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Abas</p>
+                <p className="text-xs opacity-70">Mantem documentos abertos em uma trilha previsivel.</p>
               </div>
-            )}
-          </section>
-
-          <section>
-            {accordionHeader("themes", t["settings.themes"] || "Themes")}
-            {settings.accordionState.themes && (
-              <div className="p-4 grid grid-cols-2 lg:grid-cols-3 gap-3">
-                {sortedThemes.map((theme) => {
-                  const config = THEMES[theme];
-                  const surfaceContrast = contrastRatio(config.fgHex, config.bgHex);
-                  const uiContrast = contrastRatio(config.fgHex, config.uiHex);
-                  const editorContrast = contrastRatio(config.editorFgHex, config.editorBgHex);
-                  const minContrast = Math.min(surfaceContrast, uiContrast, editorContrast);
-                  const passesAA = minContrast >= 10;
-                  const isSelected = settings.theme === theme;
-
-                  return (
-                    <button
-                      key={theme}
-                      type="button"
-                      onClick={() => onSettingsChange({ theme })}
-                      className={`text-left p-3 rounded-lg border transition-colors ${isSelected
-                          ? "ml-btn-active"
-                          : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold">{themeLabels[theme]}</span>
-                        {isSelected && <Check size={14} />}
-                      </div>
-                      <div className="grid grid-cols-4 gap-1 mb-2">
-                        <span className="h-6 rounded border" style={{ background: config.bgHex }} />
-                        <span className="h-6 rounded border" style={{ background: config.uiHex }} />
-                        <span className="h-6 rounded border" style={{ background: config.editorBgHex }} />
-                        <span className="h-6 rounded border" style={{ background: config.fgHex }} />
-                      </div>
-                      <div className="text-[11px]">
-                        WCAG 2.2 text/surface: {minContrast.toFixed(2)}:1
-                      </div>
-                      <div className="mt-1 text-[11px]">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}
-                        >
-                          {passesAA ? "10:1 PASS" : "10:1 FAIL"}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-[11px]">
-                        UI: {config.uiFont.split(",")[0]} | Editor: {config.editorFont.split(",")[0]}
-                      </div>
-                    </button>
-                  );
-                })}
+              {renderSwitch(settings.tabsEnabled, (tabsEnabled) => onSettingsChange({ tabsEnabled }))}
+            </div>
+            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Sidebar</p>
+                <p className="text-xs opacity-70">Mostra workspace, busca e acoes locais.</p>
               </div>
+              {renderSwitch(settings.sidebarEnabled, (sidebarEnabled) => onSettingsChange({ sidebarEnabled }))}
+            </div>
+          </div>
+        )}
+        {renderSectionCard(
+          "Workspace",
+          "Ajustes estruturais da janela e da coluna lateral.",
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Janela unica</p>
+                <p className="text-xs opacity-70">Reaproveita a janela atual ao abrir arquivos.</p>
+              </div>
+              {renderSwitch(settings.singleInstance, (singleInstance) => onSettingsChange({ singleInstance }))}
+            </div>
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{t["settings.transparency"] ?? "Transparencia"}</span>
+              <input
+                type="range"
+                min={0.55}
+                max={1}
+                step={0.05}
+                value={settings.transparency}
+                onChange={(event) => onSettingsChange({ transparency: Number(event.target.value) })}
+                className="w-full accent-current"
+              />
+            </label>
+            {renderRangeField("Largura da sidebar", settings.sidebarWidth, 220, 520, 10, "px", (sidebarWidth) =>
+              onSettingsChange({ sidebarWidth })
             )}
-          </section>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-          <section>
-            {accordionHeader("toolbar", t["settings.toolbar"] || "Toolbar")}
-            {settings.accordionState.toolbar && (
-              <div className="p-4 space-y-4 text-sm">
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide">{t["settings.toolbar.display"] || "Labels"}</label>
-                    <select
-                      value={settings.toolbarDisplayMode}
-                      className={`w-full max-w-[260px] px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                      onChange={(event) =>
-                        onSettingsChange({
-                          toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"],
-                        })
-                      }
-                    >
-                      <option value="icon_text" className="text-black">
-                        {t["settings.toolbar.display.iconText"] || "Icon + text"}
-                      </option>
-                      <option value="icon_only" className="text-black">
-                        {t["settings.toolbar.display.iconOnly"] || "Icon only"}
-                      </option>
-                      <option value="text_only" className="text-black">
-                        {t["settings.toolbar.display.textOnly"] || "Text only"}
-                      </option>
-                    </select>
+  if (activeTab === "appearance") {
+    content = (
+      <div className="grid gap-5">
+        {renderSectionCard(
+          "Tema do shell",
+          "O tema do app controla chrome, editor e painéis. O preset de publicacao continua separado.",
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {themeCards.map(([themeId, themeConfig]) => {
+              const active = settings.theme === themeId;
+              return (
+                <button
+                  key={themeId}
+                  type="button"
+                  onClick={() => onSettingsChange({ theme: themeId })}
+                  className={`rounded-[22px] border p-4 text-left transition ${active ? "ring-2 ring-white/50" : ""}`}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold">{themeId}</span>
+                    {active ? <Check className="h-4 w-4" /> : null}
                   </div>
-
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={settings.showToolbarSectionLabels}
-                      onChange={(event) => onSettingsChange({ showToolbarSectionLabels: event.target.checked })}
-                    />
-                    {t["settings.toolbar.sectionLabels"] || "Show category names (Files, System, Editing)"}
-                  </label>
-
-                  <label className="space-y-1 block">
-                    <span className="text-xs font-semibold uppercase tracking-wide">
-                      {t["settings.toolbar.compactBreakpoint"] || "Compact mode width threshold"}
-                    </span>
-                    <input
-                      type="number"
-                      min={360}
-                      max={900}
-                      step={10}
-                      value={settings.toolbarCompactBreakpoint}
-                      className={`w-full max-w-[260px] px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                      onChange={(event) =>
-                        onSettingsChange({
-                          toolbarCompactBreakpoint: Math.max(
-                            360,
-                            Math.min(900, Number(event.target.value) || 560)
-                          ),
-                        })
-                      }
-                    />
-                    <div className="text-[11px] opacity-75">
-                      {t["settings.toolbar.compactBreakpoint.help"] || "Below this width, top/bottom toolbar hides section labels automatically."}
-                    </div>
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide">{t["settings.toolbar.sections"] || "Categories"}</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {toolbarSections.map((section) => (
-                      <label
-                        key={section.key}
-                        className="inline-flex items-center gap-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={section.key === "system" ? true : settings.toolbarSections[section.key]}
-                          disabled={section.key === "system"}
-                          onChange={(event) =>
-                            onSettingsChange({
-                              toolbarSections: {
-                                ...settings.toolbarSections,
-                                [section.key]: section.key === "system" ? true : event.target.checked,
-                              },
-                            })
-                          }
-                        />
-                        {t[section.labelKey] || section.fallback}
-                      </label>
-                    ))}
+                  <div className="mb-3 flex gap-2">
+                    <span className="h-8 flex-1 rounded-xl" style={{ backgroundColor: themeConfig.bgHex }} />
+                    <span className="h-8 flex-1 rounded-xl" style={{ backgroundColor: themeConfig.uiHex }} />
+                    <span className="h-8 flex-1 rounded-xl" style={{ backgroundColor: themeConfig.fgHex }} />
                   </div>
-                </div>
+                  <p className="text-xs opacity-70">{themeConfig.uiFont}</p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide">{t["settings.toolbar.items"] || "Items"}</div>
-                  {toolbarItemsBySection.map((group) => (
-                    <div key={group.section} className={`rounded border ${tConfig.uiBorder} p-2`}>
-                      <div className="text-[11px] font-semibold mb-2 uppercase tracking-wide">
-                        {t[`toolbar.${group.section}`] || group.section}
-                      </div>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                        {group.items.map((item) => (
-                          <label key={item.key} className="inline-flex items-center gap-2 text-xs">
-                            <input
-                              type="checkbox"
-                              checked={item.key === "sysSettings" ? true : settings.toolbarItems[item.key]}
-                              disabled={item.key === "sysSettings"}
-                              onChange={(event) =>
-                                onSettingsChange({
-                                  toolbarItems: {
-                                    ...settings.toolbarItems,
-                                    [item.key]: item.key === "sysSettings" ? true : event.target.checked,
-                                  },
-                                })
-                              }
-                            />
-                            {t[item.labelKey] || item.fallback}
-                          </label>
-                        ))}
-                      </div>
+  if (activeTab === "editor") {
+    content = (
+      <div className="grid gap-5 xl:grid-cols-2">
+        {renderSectionCard(
+          "Tipografia do editor",
+          "Ajusta leitura e ritmo do editor sem interferir na preview publicada.",
+          <div className="grid gap-4">
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{t["settings.fontFamily"] ?? "Familia"}</span>
+              <select
+                className={inputClass}
+                value={settings.fontFamily}
+                onChange={(event) => onSettingsChange({ fontFamily: event.target.value })}
+              >
+                <option value="mono">Mono</option>
+                <option value="sans">Sans</option>
+                <option value="serif">Serif</option>
+              </select>
+            </label>
+            {renderRangeField("Tamanho base", settings.fontSize, 12, 24, 1, "px", (fontSize) => onSettingsChange({ fontSize }))}
+            {renderRangeField("Altura de linha", settings.lineHeight, 1.2, 2.1, 0.05, "", (lineHeight) =>
+              onSettingsChange({ lineHeight })
+            )}
+          </div>
+        )}
+        {renderSectionCard(
+          "Comportamento",
+          "Leitura, foco e persistencia do texto.",
+          <div className="grid gap-3">
+            {[
+              ["Quebra de linha", settings.wordWrap, (wordWrap: boolean) => onSettingsChange({ wordWrap })],
+              ["Typewriter", settings.typewriterMode, (typewriterMode: boolean) => onSettingsChange({ typewriterMode })],
+              ["Focus mode", settings.focusMode, (focusMode: boolean) => onSettingsChange({ focusMode })],
+              ["Spell check", settings.spellCheck, (spellCheck: boolean) => onSettingsChange({ spellCheck })],
+              ["Auto save", settings.autoSave, (autoSave: boolean) => onSettingsChange({ autoSave })],
+            ].map(([label, checked, onToggle]) => (
+              <div key={String(label)} className="flex items-center justify-between rounded-2xl border px-4 py-3">
+                <span className="text-sm">{label as string}</span>
+                {renderSwitch(checked as boolean, onToggle as (next: boolean) => void)}
+              </div>
+            ))}
+            {renderRangeField("Intervalo do auto save", settings.autoSaveInterval, 15, 300, 15, "s", (autoSaveInterval) =>
+              onSettingsChange({ autoSaveInterval })
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeTab === "toolbar") {
+    content = (
+      <div className="grid gap-5">
+        {renderSectionCard(
+          "Composicao",
+          "A barra passa a ser configurada por densidade, rotulos e grupos reais.",
+          <div className="grid gap-4 xl:grid-cols-3">
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{t["settings.toolbar.display"] ?? "Exibicao"}</span>
+              <select
+                className={inputClass}
+                value={settings.toolbarDisplayMode}
+                onChange={(event) =>
+                  onSettingsChange({ toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"] })
+                }
+              >
+                <option value="icon_text">Icone + texto</option>
+                <option value="icon_only">Apenas icone</option>
+                <option value="text_only">Apenas texto</option>
+              </select>
+            </label>
+            {renderRangeField("Breakpoint compacto", settings.toolbarCompactBreakpoint, 320, 1100, 20, "px", (toolbarCompactBreakpoint) =>
+              onSettingsChange({ toolbarCompactBreakpoint })
+            )}
+            <div className="rounded-2xl border px-4 py-3">
+              <p className="text-sm font-medium">Icones sempre visiveis</p>
+              <p className="mb-3 text-xs opacity-70">Mantem os icones na barra mesmo quando o modo textual estiver ativo.</p>
+              {renderSwitch(settings.toolbarAlwaysShowIcons, (toolbarAlwaysShowIcons) =>
+                onSettingsChange({ toolbarAlwaysShowIcons })
+              )}
+            </div>
+            <div className="rounded-2xl border px-4 py-3">
+              <p className="text-sm font-medium">Rotulos de categoria</p>
+              <p className="mb-3 text-xs opacity-70">Mantem o container das categorias sempre legivel.</p>
+              {renderSwitch(settings.showToolbarSectionLabels, (showToolbarSectionLabels) =>
+                onSettingsChange({ showToolbarSectionLabels })
+              )}
+            </div>
+          </div>
+        )}
+        {renderSectionCard(
+          "Blocos e itens",
+          "Ligue ou desligue grupos inteiros e acoes especificas.",
+          <div className="grid gap-4 xl:grid-cols-3">
+            <div className="rounded-2xl border p-4">
+              <p className="mb-3 text-sm font-semibold">Categorias</p>
+              <div className="grid gap-3">
+                {(["files", "editing", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
+                  <div key={sectionKey} className="flex items-center justify-between">
+                    <span className="text-sm capitalize">{sectionKey}</span>
+                    {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>
+                      onSettingsChange({ toolbarSections: { ...settings.toolbarSections, [sectionKey]: enabled } })
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {toolbarItemsBySection.map((group) => (
+              <div key={group.title} className="rounded-2xl border p-4">
+                <p className="mb-3 text-sm font-semibold">{group.title}</p>
+                <div className="grid gap-3">
+                  {group.items.map((item) => (
+                    <div key={item.key} className="flex items-center justify-between gap-3">
+                      <span className="text-sm">{item.label}</span>
+                      {renderSwitch(settings.toolbarItems[item.key], (enabled) =>
+                        onSettingsChange({ toolbarItems: { ...settings.toolbarItems, [item.key]: enabled } })
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </section>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
-          <section>
-            {accordionHeader("behavior", t["settings.accordion.behavior"] || "Behavior")}
-            {settings.accordionState.behavior && (
-              <div className="p-4 grid grid-cols-2 gap-3 text-sm">
-                {behaviorToggles.map((toggle) => (
-                  <label key={toggle.key} className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={settings[toggle.key]}
-                      onChange={(event) =>
-                        onSettingsChange({
-                          [toggle.key]: event.target.checked,
-                        } as Partial<AppSettings>)
-                      }
-                    />
-                    {t[toggle.labelKey] || toggle.fallback}
-                  </label>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            {accordionHeader("typography", t["settings.accordion.typography"] || "Typography")}
-            {settings.accordionState.typography && (
-              <div className="p-4 grid grid-cols-3 gap-3 text-sm">
-                <label className="space-y-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide">
-                    {t["settings.fontFamily"] || "Editor font family"}
-                  </span>
-                  <select
-                    value={settings.fontFamily}
-                    className={`w-full px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    onChange={(event) =>
-                      onSettingsChange({ fontFamily: event.target.value as AppSettings["fontFamily"] })
-                    }
-                  >
-                    <option value="theme_default" className="text-black">
-                      Theme default
-                    </option>
-                    <option value="mono" className="text-black">
-                      Monospace (theme)
-                    </option>
-                    <option value="sans" className="text-black">
-                      Sans
-                    </option>
-                    <option value="serif" className="text-black">
-                      Serif
-                    </option>
-                    <option value="jetbrains_mono" className="text-black">
-                      JetBrains Mono
-                    </option>
-                    <option value="fira_code" className="text-black">
-                      Fira Code
-                    </option>
-                    <option value="cascadia_code" className="text-black">
-                      Cascadia Code
-                    </option>
-                    <option value="ibm_plex_mono" className="text-black">
-                      IBM Plex Mono
-                    </option>
-                    <option value="source_code_pro" className="text-black">
-                      Source Code Pro
-                    </option>
-                    <option value="merriweather" className="text-black">
-                      Merriweather
-                    </option>
-                    <option value="georgia" className="text-black">
-                      Georgia
-                    </option>
-                  </select>
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide">{t["settings.fontSize"] || "Font size"}</span>
-                  <input
-                    type="number"
-                    min={10}
-                    max={36}
-                    className={`w-full px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    value={settings.fontSize}
-                    onChange={(event) => onSettingsChange({ fontSize: Number(event.target.value) })}
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide">{t["settings.lineHeight"] || "Line height"}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={3}
-                    step={0.1}
-                    className={`w-full px-3 py-2 rounded border bg-transparent ${tConfig.uiBorder}`}
-                    value={settings.lineHeight}
-                    onChange={(event) => onSettingsChange({ lineHeight: Number(event.target.value) })}
-                  />
-                </label>
-              </div>
-            )}
-          </section>
-
-          <section>
-            {accordionHeader("presets", t["settings.accordion.presets"] || "Publication presets")}
-            {settings.accordionState.presets && (
-              <div className="p-4 space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide">
-                    {t["settings.presets.active"] || "Active publication preset"}
-                  </label>
-                  <select
-                    value={settings.publicationPresetId}
-                    className={`w-full max-w-[320px] px-3 py-2 rounded border bg-transparent text-sm ${tConfig.uiBorder}`}
-                    onChange={(event) => onSettingsChange({ publicationPresetId: event.target.value })}
-                  >
-                    {publicationPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id} className="text-black">
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {publicationPresets.map((preset) => {
-                  const textContrast = contrastRatio(preset.palette.text, preset.palette.bg);
-                  const accentContrast = contrastRatio(preset.palette.accent, preset.palette.bg);
-                  const minPresetContrast = Math.min(textContrast, accentContrast);
-                  const meetsContrast = minPresetContrast >= 10;
-
-                  return (
-                    <div key={preset.id} className={`p-3 rounded border ${tConfig.uiBorder} space-y-2`}>
-                      <div className="flex gap-2">
-                        <input
-                          className={`flex-1 px-2 py-1 rounded border text-sm bg-transparent ${tConfig.uiBorder}`}
-                          value={preset.name}
-                          onChange={(event) =>
-                            onPublicationPresetsChange(
-                              publicationPresets.map((item) =>
-                                item.id === preset.id ? { ...item, name: event.target.value } : item
-                              )
-                            )
-                          }
-                        />
-                        <button
-                          className={`px-2 py-1 rounded text-[11px] border ${settings.publicationPresetId === preset.id ? "ml-btn-active" : tConfig.uiBorder
-                            }`}
-                          onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
-                          type="button"
-                        >
-                          {settings.publicationPresetId === preset.id
-                            ? t["settings.presets.activeTag"] || "Active"
-                            : t["settings.presets.use"] || "Use"}
-                        </button>
-                        <button
-                          className="p-1 rounded ml-btn-danger"
-                          onClick={() =>
-                            onPublicationPresetsChange(publicationPresets.filter((item) => item.id !== preset.id))
-                          }
-                          type="button"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                          Text/bg: {textContrast.toFixed(2)}:1
-                        </span>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                          Accent/bg: {accentContrast.toFixed(2)}:1
-                        </span>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full border ${tConfig.uiBorder}`}>
-                          {meetsContrast ? ">=10:1 OK" : "<10:1 Ajustar"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {(["bg", "text", "accent", "muted"] as const).map((colorKey) => (
-                          <label key={colorKey} className="text-xs space-y-1">
-                            <span className="font-semibold uppercase tracking-wide">{colorKey}</span>
-                            <input
-                              className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                              value={preset.palette[colorKey]}
-                              onChange={(event) =>
-                                onPublicationPresetsChange(
-                                  publicationPresets.map((item) =>
-                                    item.id === preset.id
-                                      ? {
-                                        ...item,
-                                        palette: { ...item.palette, [colorKey]: event.target.value },
-                                      }
-                                      : item
-                                  )
-                                )
-                              }
-                            />
-                            <span
-                              className={`block h-6 rounded border ${tConfig.uiBorder}`}
-                              style={{
-                                backgroundColor: isColor(preset.palette[colorKey])
-                                  ? preset.palette[colorKey]
-                                  : "transparent",
-                              }}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs space-y-1">
-                          <span className="font-semibold uppercase tracking-wide">font</span>
-                          <input
-                            className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                            value={preset.typography.fontFamily}
-                            onChange={(event) =>
-                              onPublicationPresetsChange(
-                                publicationPresets.map((item) =>
-                                  item.id === preset.id
-                                    ? {
-                                      ...item,
-                                      typography: {
-                                        ...item.typography,
-                                        fontFamily: event.target.value,
-                                      },
-                                    }
-                                    : item
-                                )
-                              )
-                            }
-                          />
-                        </label>
-                        <label className="text-xs space-y-1">
-                          <span className="font-semibold uppercase tracking-wide">line-height</span>
-                          <input
-                            type="number"
-                            min={1.1}
-                            max={2.6}
-                            step={0.05}
-                            className={`w-full px-2 py-1 rounded border text-xs bg-transparent ${tConfig.uiBorder}`}
-                            value={preset.typography.lineHeight}
-                            onChange={(event) =>
-                              onPublicationPresetsChange(
-                                publicationPresets.map((item) =>
-                                  item.id === preset.id
-                                    ? {
-                                      ...item,
-                                      typography: {
-                                        ...item.typography,
-                                        lineHeight: Number(event.target.value),
-                                      },
-                                    }
-                                    : item
-                                )
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )
-                })}
-                <button
-                  className="px-3 py-1.5 rounded text-xs border hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-2"
-                  onClick={() =>
-                    onPublicationPresetsChange([
-                      ...publicationPresets,
-                      {
-                        id: crypto.randomUUID(),
-                        name: "Custom Preset",
-                        description: "Custom publication preset",
-                        palette: {
-                          bg: "#f8fafc",
-                          text: "#111827",
-                          accent: "#172554",
-                          muted: "#334155",
-                        },
-                        typography: {
-                          fontFamily: "'Source Sans 3', sans-serif",
-                          lineHeight: 1.7,
-                        },
-                      },
-                    ])
-                  }
-                  type="button"
+  if (activeTab === "presets") {
+    content = (
+      <div className="grid gap-5">
+        {renderSectionCard(
+          "Preset ativo",
+          "Preview e export HTML compartilham os mesmos tokens estruturados.",
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,260px)_1fr]">
+            <div className="rounded-2xl border p-4">
+              <label className="space-y-2">
+                <span className="text-sm opacity-80">{t["settings.presets.active"] ?? "Preset ativo"}</span>
+                <select
+                  className={inputClass}
+                  value={settings.publicationPresetId}
+                  onChange={(event) => onSettingsChange({ publicationPresetId: event.target.value })}
                 >
-                  <Plus size={14} />
-                  {t["settings.presets.add"] || "Add preset"}
+                  {publicationPresets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  onPublicationPresetsChange((current) => [
+                    ...current,
+                    createPublicationPreset(
+                      crypto.randomUUID(),
+                      `Preset ${current.length + 1}`,
+                      "Novo preset customizavel",
+                      { bg: "#f8fafc", text: "#111827", accent: "#1d4ed8", muted: "#475569" }
+                    ),
+                  ])
+                }
+                className="mt-4 w-full rounded-xl border px-4 py-2 text-sm font-medium"
+              >
+                {t["settings.presets.add"] ?? "Adicionar preset"}
+              </button>
+            </div>
+            <div className="grid gap-4">
+              {publicationPresets.map((preset) => {
+                const expanded = expandedPresetIds.includes(preset.id);
+                const contrast = contrastRatio(preset.surface.text, preset.surface.bg).toFixed(1);
+                return (
+                  <article key={preset.id} className="rounded-[24px] border p-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedPresetIds((current) =>
+                          current.includes(preset.id) ? current.filter((id) => id !== preset.id) : [...current, preset.id]
+                        )
+                      }
+                      className="flex w-full items-center justify-between gap-4"
+                    >
+                      <div className="min-w-0 text-left">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-base font-semibold">{preset.name}</h3>
+                          {settings.publicationPresetId === preset.id ? (
+                            <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]">ativo</span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-sm opacity-70">{preset.description}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-2">
+                          {[preset.surface.bg, preset.surface.text, preset.surface.accent].map((color) => (
+                            <span key={color} className="h-8 w-8 rounded-xl border" style={{ backgroundColor: color }} />
+                          ))}
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
+                      </div>
+                    </button>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs opacity-70">
+                      <span className="rounded-full border px-2 py-1">contraste {contrast}:1</span>
+                      <span className="rounded-full border px-2 py-1">{preset.spacing.columnWidth}px coluna</span>
+                    </div>
+                    {expanded ? (
+                      <div className="mt-4 grid gap-4 2xl:grid-cols-2">
+                        <div className="rounded-2xl border p-4">
+                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Metadados</h4>
+                          <div className="grid gap-4">
+                            <label className="space-y-2">
+                              <span className="text-sm opacity-80">Nome</span>
+                              <input
+                                className={inputClass}
+                                value={preset.name}
+                                onChange={(event) => updatePreset(preset.id, (current) => ({ ...current, name: event.target.value }))}
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm opacity-80">Descricao</span>
+                              <input
+                                className={inputClass}
+                                value={preset.description}
+                                onChange={(event) =>
+                                  updatePreset(preset.id, (current) => ({ ...current, description: event.target.value }))
+                                }
+                              />
+                            </label>
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border p-4">
+                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Surface</h4>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {(["bg", "text", "accent", "muted"] as const).map((key) => (
+                              <label key={key} className="space-y-2">
+                                <span className="text-sm opacity-80">Surface {key}</span>
+                                <input
+                                  type="color"
+                                  className="h-11 w-full rounded-xl border bg-transparent p-1"
+                                  value={preset.surface[key]}
+                                  onChange={(event) =>
+                                    updatePreset(preset.id, (current) => ({
+                                      ...current,
+                                      surface: { ...current.surface, [key]: event.target.value },
+                                    }))
+                                  }
+                                />
+                              </label>
+                            ))}
+                            <div className="sm:col-span-2">
+                              {renderRangeField("Raio da superficie", preset.surface.radius, 0, 32, 1, "px", (radius) =>
+                                updatePreset(preset.id, (current) => ({ ...current, surface: { ...current.surface, radius } }))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border p-4">
+                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Tipografia</h4>
+                          <div className="grid gap-4">
+                            {renderRangeField("Corpo", preset.typography.bodySize, 14, 24, 1, "px", (bodySize) =>
+                              updatePreset(preset.id, (current) => ({ ...current, typography: { ...current.typography, bodySize } }))
+                            )}
+                            {renderRangeField("Line height", preset.typography.lineHeight, 1.2, 2.1, 0.05, "", (lineHeight) =>
+                              updatePreset(preset.id, (current) => ({ ...current, typography: { ...current.typography, lineHeight } }))
+                            )}
+                            {renderRangeField("H1", preset.elements.h1.size, 26, 62, 1, "px", (size) =>
+                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, h1: { ...current.elements.h1, size } } }))
+                            )}
+                            {renderRangeField("H2", preset.elements.h2.size, 22, 48, 1, "px", (size) =>
+                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, h2: { ...current.elements.h2, size } } }))
+                            )}
+                            {renderRangeField("Paragrafo", preset.elements.p.size, 14, 24, 1, "px", (size) =>
+                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, p: { ...current.elements.p, size } } }))
+                            )}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border p-4">
+                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Layout e acoes</h4>
+                          <div className="grid gap-4">
+                            {renderRangeField("Padding da pagina", preset.spacing.pagePadding, 12, 72, 2, "px", (pagePadding) =>
+                              updatePreset(preset.id, (current) => ({ ...current, spacing: { ...current.spacing, pagePadding } }))
+                            )}
+                            {renderRangeField("Largura de coluna", preset.spacing.columnWidth, 520, 1080, 10, "px", (columnWidth) =>
+                              updatePreset(preset.id, (current) => ({ ...current, spacing: { ...current.spacing, columnWidth } }))
+                            )}
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                type="button"
+                                onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
+                                className="rounded-xl border px-4 py-2 text-sm font-medium"
+                              >
+                                Usar preset
+                              </button>
+                              {publicationPresets.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onPublicationPresetsChange((current) => current.filter((item) => item.id !== preset.id))}
+                                  className="rounded-xl border px-4 py-2 text-sm font-medium text-rose-300"
+                                >
+                                  Remover
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeTab === "shortcuts") {
+    content = (
+      <div className="grid gap-5">
+        {renderSectionCard(
+          "Atalhos",
+          "Clique no campo e pressione a combinacao desejada.",
+          <div className="grid gap-3 sm:grid-cols-2">
+            {shortcutActions.map((action) => (
+              <label key={action.id} className="space-y-2 rounded-2xl border p-4">
+                <span className="text-sm font-medium">{action.label}</span>
+                <input
+                  className={inputClass}
+                  readOnly
+                  value={settings.customShortcuts?.[action.id] ?? ""}
+                  onKeyDown={(event) => setShortcut(action.id, event)}
+                  placeholder="Pressione um atalho"
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90]">
+      <button
+        type="button"
+        aria-label="Close settings"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="absolute inset-[max(24px,4vh)]">
+        <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border shadow-2xl xl:flex-row ${panelClass}`}>
+          <aside className={`hidden w-[228px] shrink-0 flex-col border-r xl:flex ${panelClass}`}>
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
+                <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferencias"}</h2>
+              </div>
+              <button type="button" onClick={onClose} className="rounded-xl border p-2">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto p-3">{renderTabNav(false)}</nav>
+          </aside>
+          <section className={`flex min-h-0 min-w-0 flex-1 flex-col ${panelClass}`}>
+            <div className="border-b px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Painel ativo</p>
+                  <h3 className="mt-1 text-2xl font-semibold">{tabs.find((tab) => tab.id === activeTab)?.label}</h3>
+                </div>
+                <button type="button" onClick={onClose} className="rounded-xl border p-2 xl:hidden">
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-            )}
+              <p className="mt-2 max-w-3xl text-sm opacity-70">
+                Estrutura em abas, menor densidade visual e controles organizados por superficie real da interface.
+              </p>
+              <div className="mt-4 xl:hidden">{renderTabNav(true)}</div>
+            </div>
+            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto p-5 md:p-6">{content}</div>
+            {activePreset ? (
+              <div className="border-t px-6 py-4 text-xs opacity-70">
+                Preset ativo: <span className="font-semibold">{activePreset.name}</span>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>
     </div>
   );
-};
-
-export default SettingsPanel;
+}

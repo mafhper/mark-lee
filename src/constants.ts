@@ -6,6 +6,7 @@ import {
   Theme,
   ThemeConfig,
 } from "./types";
+import { createPublicationPreset } from "./services/publication-style";
 
 export const THEMES: Record<Theme, ThemeConfig> = {
   [Theme.Coffee]: {
@@ -319,66 +320,91 @@ export const TEXT_PRESETS: Record<string, TextPreset> = {
 };
 
 export const PUBLICATION_PRESET_DEFAULTS: PublicationPreset[] = [
-  {
-    id: "modern",
-    name: "Modern",
-    description: "Layout limpo de produto com alto contraste.",
-    palette: {
-      bg: "#f8fafc",
-      text: "#111827",
-      accent: "#172554",
-      muted: "#334155",
-    },
-    typography: {
+  createPublicationPreset(
+    "modern",
+    "Modern",
+    "Layout limpo de produto com contraste alto e ritmo estável.",
+    { bg: "#f8fafc", text: "#111827", accent: "#172554", muted: "#475569", border: "rgba(15,23,42,0.14)" },
+    {
       fontFamily: "'Source Sans 3', 'Segoe UI', sans-serif",
-      lineHeight: 1.65,
+      lineHeight: 1.68,
+      bodySize: 18,
+      bodyWeight: 430,
+      headingWeight: 780,
+      tracking: "normal",
     },
-  },
-  {
-    id: "paper",
-    name: "Paper",
-    description: "Leitura longa com tom editorial clássico.",
-    palette: {
-      bg: "#f6edda",
-      text: "#2f2418",
-      accent: "#3b2410",
-      muted: "#5a4631",
+    {
+      h1: { size: 46, weight: 820, lineHeight: 1.02, letterSpacing: -0.035, marginTop: 8, marginBottom: 18, tone: "text" },
+      h2: { size: 32, weight: 760, lineHeight: 1.08, letterSpacing: -0.025, marginTop: 28, marginBottom: 14, tone: "text" },
+      h3: { size: 24, weight: 720, lineHeight: 1.14, letterSpacing: -0.01, marginTop: 22, marginBottom: 10, tone: "accent" },
     },
-    typography: {
+    { pagePadding: 36, columnWidth: 860, blockGap: 24, paragraphGap: 14 }
+  ),
+  createPublicationPreset(
+    "paper",
+    "Paper",
+    "Leitura longa com textura editorial e serif mais calma.",
+    { bg: "#f6edda", text: "#2f2418", accent: "#5e3a14", muted: "#6b5c4d", border: "rgba(47,36,24,0.16)" },
+    {
       fontFamily: "'Merriweather', Georgia, serif",
-      lineHeight: 1.9,
+      lineHeight: 1.86,
+      bodySize: 19,
+      bodyWeight: 420,
+      headingWeight: 760,
+      tracking: "normal",
     },
-  },
-  {
-    id: "night",
-    name: "Night",
-    description: "Modo noturno para leitura técnica intensa.",
-    palette: {
-      bg: "#030712",
-      text: "#e2e8f0",
-      accent: "#bae6fd",
-      muted: "#94a3b8",
+    {
+      h1: { size: 44, weight: 780, lineHeight: 1.05, letterSpacing: -0.025, marginTop: 8, marginBottom: 22, tone: "text", italic: true },
+      h2: { size: 30, weight: 720, lineHeight: 1.12, letterSpacing: -0.02, marginTop: 30, marginBottom: 16, tone: "text" },
+      h3: { size: 22, weight: 700, lineHeight: 1.18, letterSpacing: 0, marginTop: 24, marginBottom: 10, tone: "accent" },
+      blockquote: { paddingX: 20, paddingY: 16, radius: 18, borderWidth: 4, tone: "muted", useBackground: true, italic: true },
     },
-    typography: {
+    { pagePadding: 38, columnWidth: 760, blockGap: 26, paragraphGap: 16 }
+  ),
+  createPublicationPreset(
+    "night",
+    "Night",
+    "Modo noturno técnico com contraste forte e ritmo controlado.",
+    { bg: "#030712", text: "#e2e8f0", accent: "#7dd3fc", muted: "#94a3b8", border: "rgba(226,232,240,0.18)" },
+    {
       fontFamily: "'IBM Plex Mono', 'JetBrains Mono', monospace",
-      lineHeight: 1.72,
+      lineHeight: 1.74,
+      bodySize: 16,
+      bodyWeight: 430,
+      headingWeight: 760,
+      tracking: "wide",
     },
-  },
-  {
-    id: "magazine",
-    name: "Magazine",
-    description: "Visual de revista com hierarquia forte.",
-    palette: {
-      bg: "#fff7ed",
-      text: "#1f1b4b",
-      accent: "#312e81",
-      muted: "#4338ca",
+    {
+      h1: { size: 42, weight: 800, lineHeight: 1.04, letterSpacing: 0.05, marginTop: 10, marginBottom: 18, tone: "accent", uppercase: true },
+      h2: { size: 28, weight: 760, lineHeight: 1.12, letterSpacing: 0.02, marginTop: 28, marginBottom: 12, tone: "text", uppercase: true },
+      h3: { size: 22, weight: 720, lineHeight: 1.18, letterSpacing: 0.01, marginTop: 20, marginBottom: 10, tone: "accent" },
+      codeBlock: { fontSize: 14, padding: 18, radius: 16, useBackground: true, useBorder: true },
+      image: { radius: 14, margin: 22, useBorder: true, shadow: "soft" },
     },
-    typography: {
+    { pagePadding: 34, columnWidth: 920, blockGap: 22, paragraphGap: 14 }
+  ),
+  createPublicationPreset(
+    "magazine",
+    "Magazine",
+    "Visual de revista com títulos largos, respiro e contraste de seções.",
+    { bg: "#fff7ed", text: "#1f1b4b", accent: "#312e81", muted: "#6d5bb8", border: "rgba(49,46,129,0.16)" },
+    {
       fontFamily: "'Merriweather Sans', 'Segoe UI', sans-serif",
-      lineHeight: 1.58,
+      lineHeight: 1.62,
+      bodySize: 18,
+      bodyWeight: 440,
+      headingWeight: 800,
+      tracking: "tight",
     },
-  },
+    {
+      h1: { size: 52, weight: 840, lineHeight: 0.98, letterSpacing: 0.04, marginTop: 8, marginBottom: 18, tone: "text", uppercase: true },
+      h2: { size: 30, weight: 760, lineHeight: 1.08, letterSpacing: 0.02, marginTop: 30, marginBottom: 12, tone: "accent", uppercase: true },
+      h3: { size: 22, weight: 740, lineHeight: 1.16, letterSpacing: 0.01, marginTop: 22, marginBottom: 10, tone: "accent" },
+      table: { headerWeight: 760, cellPaddingX: 16, cellPaddingY: 10, radius: 16, striped: true, dense: false, useBorder: true, captionTone: "accent" },
+      image: { radius: 22, margin: 24, useBorder: false, shadow: "lifted" },
+    },
+    { pagePadding: 34, columnWidth: 980, blockGap: 24, paragraphGap: 12 }
+  ),
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -406,6 +432,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sidebarWidth: 260,
   floatingToolbarAnchor: "bottom",
   showToolbarSectionLabels: true,
+  toolbarAlwaysShowIcons: true,
   toolbarCompactBreakpoint: 560,
   toolbarDisplayMode: "icon_text",
   toolbarSections: {
