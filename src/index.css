@@ -108,13 +108,19 @@
 }
 
 .ml-btn-danger {
-  background: #2b1115;
-  border: 1px solid #14080b;
-  color: #f8fafc;
+  border: 1px solid transparent;
+  color: color-mix(in srgb, #b42318 78%, var(--ml-fg, #111827) 22%);
+  background: transparent;
 }
 
 .ml-btn-danger:hover {
-  background: #3a141b;
+  background: color-mix(in srgb, #b42318 14%, transparent);
+  border-color: color-mix(in srgb, #b42318 26%, transparent);
+}
+
+.ml-btn-danger:focus-visible {
+  outline: 2px solid color-mix(in srgb, #b42318 34%, transparent);
+  outline-offset: 1px;
 }
 
 .ml-color-input {

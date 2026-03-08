@@ -9,7 +9,7 @@
   <a href="README.es.md">Espanol</a>
 </p>
 
-Mark-Lee e um editor Markdown desktop projetado para desempenho e foco, unindo tecnologias web modernas com capacidades nativas do sistema operacional atraves do framework Tauri. Ele oferece um ambiente de escrita sem distracoes com renderizacao de preview em tempo real e gerenciamento robusto de arquivos.
+Mark-Lee e um editor Markdown desktop projetado para desempenho e foco, unindo tecnologias web modernas com capacidades nativas do sistema operacional atraves do framework Tauri. Ele oferece um ambiente de escrita sem distracoes com abas, navegacao por workspace, preview em split e gerenciamento robusto de arquivos.
 
 ![App Screenshot](assets/screen.png)
 
@@ -17,6 +17,8 @@ Mark-Lee e um editor Markdown desktop projetado para desempenho e foco, unindo t
 
 - **Modo Zen** - A interface desaparece quando voce para de mover o mouse
 - **Modo Foco** - Destaque apenas para o paragrafo ativo
+- **Workspace com Abas** - Trabalhe com varios arquivos Markdown usando a arvore lateral
+- **Preview em Split** - Edite e confira o documento renderizado lado a lado
 - **Rolagem Sincronizada** - Editor e preview se movem juntos
 - **Exportacao PDF Profissional** - Layout A4 e tipografia limpa para impressao
 - **9 Temas** - Claro, Escuro, Meia-noite, Sepia, Nord, Synthwave, Forest, Coffee, Terminal
@@ -219,7 +221,7 @@ Pronto! Sua release esta no ar e os usuarios podem baixar os instaladores.
 | `logo-icon.svg` | Fonte do icone para gerar formatos Tauri |
 | `logo-bg_blk.svg` | Logo para temas claros (toolbar) |
 | `logo-bg_gray.svg` | Logo para temas escuros (toolbar) |
-| `screen.png` | Screenshot para documentacao |
+| `screen.png` | Screenshot atual para documentacao |
 
 ---
 
@@ -229,7 +231,7 @@ A aplicacao implementa varias otimizacoes:
 
 - **Lazy Loading**: ReactMarkdown e carregado apenas quando necessario
 - **Debounce de 150ms**: Preview nao atualiza enquanto digita rapido
-- **Code Splitting**: React e Markdown sao chunks separados (~4KB gzip cada)
+- **Code Splitting**: Editor, Markdown, React e parsers sao separados em bundles menores
 - **Frameless Window**: Menor overhead de renderizacao
 
 ### Quando Minimizada

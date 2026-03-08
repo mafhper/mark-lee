@@ -9,7 +9,7 @@
   <a href="README.es.md">Espanol</a>
 </p>
 
-Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with real-time preview rendering and robust file management.
+Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with tabs, workspace navigation, split preview, and robust file management.
 
 ![App Screenshot](assets/screen.png)
 
@@ -17,6 +17,8 @@ Mark-Lee is a desktop Markdown editor engineered for performance and focus, brid
 
 - **Zen Mode** - UI fades away when you stop moving the mouse
 - **Focus Mode** - Spotlight effect highlighting only the active paragraph
+- **Tabbed Workspace** - Work across multiple Markdown files with a file tree sidebar
+- **Split Preview** - Edit and inspect the rendered document side by side
 - **Synchronized Scrolling** - Editor and preview move together
 - **Professional PDF Export** - A4 layout with clean typography for printing
 - **9 Themes** - Light, Dark, Midnight, Sepia, Nord, Synthwave, Forest, Coffee, Terminal
@@ -254,7 +256,7 @@ Done! Your release is now live and users can download the installers.
 | `logo-icon.svg` | Icon source for Tauri icons |
 | `logo-bg_blk.svg` | Logo for light themes (toolbar) |
 | `logo-bg_gray.svg` | Logo for dark themes (toolbar) |
-| `screen.png` | Screenshot for documentation |
+| `screen.png` | Current screenshot for documentation |
 
 ---
 
@@ -264,7 +266,7 @@ The application implements several optimizations:
 
 - **Lazy Loading**: ReactMarkdown is loaded only when needed
 - **150ms Debounce**: Preview doesn't update while typing fast
-- **Code Splitting**: React and Markdown are separate chunks (~4KB gzip each)
+- **Code Splitting**: Editor, Markdown, React, and parser bundles are split for faster loading
 - **Frameless Window**: Lower rendering overhead
 
 ### When Minimized

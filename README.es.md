@@ -9,7 +9,7 @@
   <a href="README.pt-BR.md">Portugues</a>
 </p>
 
-Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concentracion, uniendo tecnologias web modernas con capacidades nativas del sistema operativo a traves del framework Tauri. Ofrece un entorno de escritura sin distracciones con renderizado de vista previa en tiempo real y gestion robusta de archivos.
+Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concentracion, uniendo tecnologias web modernas con capacidades nativas del sistema operativo a traves del framework Tauri. Ofrece un entorno de escritura sin distracciones con pestanas, navegacion por workspace, vista previa en split y gestion robusta de archivos.
 
 ![App Screenshot](assets/screen.png)
 
@@ -17,6 +17,8 @@ Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concent
 
 - **Modo Zen** - La interfaz desaparece cuando dejas de mover el raton
 - **Modo Enfoque** - Efecto de foco destacando solo el parrafo activo
+- **Workspace con Pestanas** - Trabaja con varios archivos Markdown usando el arbol lateral
+- **Vista Previa en Split** - Edita e inspecciona el documento renderizado lado a lado
 - **Desplazamiento Sincronizado** - Editor y vista previa se mueven juntos
 - **Exportacion PDF Profesional** - Diseno A4 con tipografia limpia para impresion
 - **9 Temas** - Claro, Oscuro, Medianoche, Sepia, Nord, Synthwave, Forest, Coffee, Terminal
