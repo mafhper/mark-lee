@@ -1468,7 +1468,6 @@ function App() {
                 tConfig={tConfig}
                 workspacePath={workspacePath}
                 workspaceTree={workspaceTree}
-                onOpenFolder={handleOpenFolder}
                 onOpenFile={openPathInTab}
                 onCreateFile={handleWorkspaceCreateFile}
                 onCreateFolder={handleWorkspaceCreateFolder}

@@ -7,6 +7,7 @@ import {
   Columns2,
   Download,
   Eye,
+  FileInput,
   FilePlus2,
   FolderOpen,
   Focus,
@@ -302,7 +303,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
             : null,
 
           toolbarItems.fileOpen
-            ? { id: "file-open", label: t["file.open"] || "Open", icon: toolIcon(FolderOpen), onClick: onOpenFile, shortcutId: "file-open" }
+            ? { id: "file-open", label: t["file.open"] || "Open", icon: toolIcon(FileInput), onClick: onOpenFile, shortcutId: "file-open" }
             : null,
           toolbarItems.fileOpenFolder
             ? {

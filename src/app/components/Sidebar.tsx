@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
   ChevronRight,
-  FolderOpen,
   FilePlus2,
   FolderPlus,
   Pencil,
@@ -23,7 +22,6 @@ interface SidebarProps {
   tConfig: ThemeConfig;
   workspacePath: string | null;
   workspaceTree: WorkspaceNode | null;
-  onOpenFolder: () => void;
   onOpenFile: (path: string) => void;
   onCreateFile: (basePath: string) => void;
   onCreateFolder: (basePath: string) => void;
@@ -134,7 +132,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   tConfig,
   workspacePath,
   workspaceTree,
-  onOpenFolder,
   onOpenFile,
   onCreateFile,
   onCreateFolder,
@@ -248,15 +245,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center"
-            onClick={onOpenFolder}
-            title={t["sidebar.openFolder"] || "Open folder"}
-            aria-label={t["sidebar.openFolder"] || "Open folder"}
-          >
-            <FolderOpen size={14} />
-          </button>
-          <button
-            type="button"
             className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => onCreateFile(selectedBasePath)}
             title={t["sidebar.newFile"] || "New file"}
@@ -322,9 +310,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="px-1 pt-1">
             <div className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] opacity-55">
               {t["sidebar.title"] || "Workspace"}
-            </div>
-            <div className="mt-1 truncate rounded-md border border-current/10 px-2 py-1.5 text-[11px] font-medium opacity-85">
-              {workspacePath.split(/[\\/]/).pop()}
             </div>
           </div>
         )}
