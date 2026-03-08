@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
   ChevronRight,
+  FolderOpen,
   FilePlus2,
   FolderPlus,
   Pencil,
@@ -133,6 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   tConfig,
   workspacePath,
   workspaceTree,
+  onOpenFolder,
   onOpenFile,
   onCreateFile,
   onCreateFolder,
@@ -242,19 +244,68 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
-      <div className={`px-2 py-1.5 border-b ${tConfig.uiBorder} flex items-center justify-between gap-2`}>
-        <div className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide opacity-80">
-          {workspacePath ? workspacePath.split(/[\\/]/).pop() : (t["sidebar.title"] || "Workspace")}
-        </div>
-        {workspacePath && (
+      <div className={`border-b ${tConfig.uiBorder} p-2`}>
+        <div className="flex items-center gap-1">
           <button
-            className="px-2 py-1 rounded text-[10px] ml-btn"
-            onClick={() => onReveal(workspacePath)}
-            title={t["sidebar.reveal"] || "Reveal in Explorer"}
+            type="button"
+            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center"
+            onClick={onOpenFolder}
+            title={t["sidebar.openFolder"] || "Open folder"}
+            aria-label={t["sidebar.openFolder"] || "Open folder"}
           >
-            {t["sidebar.reveal"] || "Reveal"}
+            <FolderOpen size={14} />
           </button>
-        )}
+          <button
+            type="button"
+            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => onCreateFile(selectedBasePath)}
+            title={t["sidebar.newFile"] || "New file"}
+            aria-label={t["sidebar.newFile"] || "New file"}
+            disabled={!workspacePath}
+          >
+            <FilePlus2 size={14} />
+          </button>
+          <button
+            type="button"
+            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => onCreateFolder(selectedBasePath)}
+            title={t["sidebar.newFolder"] || "New folder"}
+            aria-label={t["sidebar.newFolder"] || "New folder"}
+            disabled={!workspacePath}
+          >
+            <FolderPlus size={14} />
+          </button>
+          <button
+            type="button"
+            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => selectedNode && onRename(selectedNode.path)}
+            title={t["sidebar.rename"] || "Rename"}
+            aria-label={t["sidebar.rename"] || "Rename"}
+            disabled={!selectedNode || isVirtualNode(selectedNode.path)}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            className="h-8 w-8 rounded-md ml-btn-danger inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => selectedNode && onDelete(selectedNode.path)}
+            title={t["sidebar.delete"] || "Delete"}
+            aria-label={t["sidebar.delete"] || "Delete"}
+            disabled={!selectedNode || isVirtualNode(selectedNode.path)}
+          >
+            <Trash2 size={14} />
+          </button>
+          <button
+            type="button"
+            className="ml-auto h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => onReveal(selectedNode?.path ?? workspacePath ?? "")}
+            title={t["sidebar.reveal"] || "Reveal"}
+            aria-label={t["sidebar.reveal"] || "Reveal"}
+            disabled={!workspacePath}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="p-2 space-y-2">
@@ -268,21 +319,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           />
         </div>
         {workspacePath && (
-          <div className="grid grid-cols-2 gap-1">
-            <button
-              className="h-8 px-2 rounded-md text-[11px] ml-btn flex items-center justify-center gap-1"
-              onClick={() => onCreateFile(selectedBasePath)}
-            >
-              <FilePlus2 size={12} />
-              {t["sidebar.newFile"] || "New file"}
-            </button>
-            <button
-              className="h-8 px-2 rounded-md text-[11px] ml-btn flex items-center justify-center gap-1"
-              onClick={() => onCreateFolder(selectedBasePath)}
-            >
-              <FolderPlus size={12} />
-              {t["sidebar.newFolder"] || "New folder"}
-            </button>
+          <div className="px-1 pt-1">
+            <div className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] opacity-55">
+              {t["sidebar.title"] || "Workspace"}
+            </div>
+            <div className="mt-1 truncate rounded-md border border-current/10 px-2 py-1.5 text-[11px] font-medium opacity-85">
+              {workspacePath.split(/[\\/]/).pop()}
+            </div>
           </div>
         )}
       </div>
@@ -310,41 +353,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
-      {selectedNode && !isVirtualNode(selectedNode.path) && (
-        <div className={`p-2 border-t ${tConfig.uiBorder} grid grid-cols-4 gap-1`}>
-          <button
-            title={t["sidebar.rename"] || "Rename"}
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
-            onClick={() => onRename(selectedNode.path)}
-          >
-            <Pencil size={14} className="mx-auto" />
-          </button>
-          <button
-            title={t["sidebar.delete"] || "Delete"}
-            className="p-1 rounded ml-btn-danger"
-            onClick={() => onDelete(selectedNode.path)}
-          >
-            <Trash2 size={14} className="mx-auto" />
-          </button>
-          <button
-            title={t["sidebar.reveal"] || "Reveal"}
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
-            onClick={() => onReveal(selectedNode.path)}
-          >
-            <ExternalLink size={14} className="mx-auto" />
-          </button>
-          {selectedNode.is_dir && (
-            <button
-              title={t["sidebar.newFile"] || "New file"}
-              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
-              onClick={() => onCreateFile(selectedNode.path)}
-            >
-              <FilePlus2 size={14} className="mx-auto" />
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Context Menu */}
       {ctxMenu && (
         <div

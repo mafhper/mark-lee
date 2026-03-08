@@ -18,21 +18,33 @@ export enum Theme {
 export type Language = 'pt-BR' | 'en-US' | 'es-ES';
 
 export interface ThemeConfig {
-  bg: string; // Tailwind class for solid, used for reference
-  bgHex: string; // Hex value for opacity manipulation
+  bg: string;
+  bgHex: string;
   fg: string;
   fgHex: string;
   ui: string;
   uiHex: string;
   uiBorder: string;
-  editorBg: string; // Tailwind class
-  editorBgHex: string; // Hex for opacity
+  uiBorderHex: string;
+  editorBg: string;
+  editorBgHex: string;
   editorFg: string;
   editorFgHex: string;
   accent: string;
+  accentHex: string;
   prose: string; // Tailwind prose class suffix
   uiFont: string;
   editorFont: string;
+}
+
+export type ThemeId = string;
+
+export interface ThemeDefinition {
+  id: ThemeId;
+  name: string;
+  config: ThemeConfig;
+  builtIn?: boolean;
+  baseThemeId?: Theme;
 }
 
 export type EditorAction =
@@ -57,7 +69,6 @@ export interface AppSettings {
   wordWrap: boolean;
   typewriterMode: boolean;
   spellCheck: boolean;
-  transparency: number; // 0.1 to 1.0
   singleInstance: boolean; // true = reuse window, false = new window per file
   autoSave: boolean; // Enable auto-save
   autoSaveInterval: number; // Auto-save interval in seconds (30-300)
@@ -75,6 +86,7 @@ export interface AppSettings {
   toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
   toolbarDisplayMode: 'icon_text' | 'icon_only' | 'text_only';
+  toolbarSectionBehavior: "default" | "repulsion";
   toolbarSections: {
     files: boolean;
     system: boolean;
@@ -111,6 +123,7 @@ export interface AppSettings {
         showToolbarSectionLabels: boolean;
         toolbarCompactBreakpoint: number;
         toolbarDisplayMode: "icon_text" | "icon_only" | "text_only";
+        toolbarSectionBehavior: "default" | "repulsion";
         toolbarSections: AppSettings["toolbarSections"];
         toolbarItems: AppSettings["toolbarItems"];
       }
@@ -122,7 +135,19 @@ export interface AppSettings {
     wholeWord: boolean;
     useRegex: boolean;
   };
-  theme: Theme; // Current color theme
+  commandPalette: {
+    includeActions: boolean;
+    includeOpenTabs: boolean;
+    includeRecentFiles: boolean;
+    includeSnippets: boolean;
+    searchMode: "standard" | "deep";
+    snippetBehavior: "insert" | "manage";
+    closeAfterSelect: boolean;
+    showHints: boolean;
+    maxResults: number;
+  };
+  themeLibrary: ThemeDefinition[];
+  theme: ThemeId;
   viewMode: ViewMode; // Last used view mode (edit/split/preview)
 }
 

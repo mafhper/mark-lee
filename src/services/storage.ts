@@ -1,5 +1,5 @@
-import { DEFAULT_SETTINGS, THEMES } from "../constants";
-import { AppSettings, DocumentTab, Language, Theme } from "../types";
+import { createDefaultThemeLibrary, DEFAULT_SETTINGS, THEMES } from "../constants";
+import { AppSettings, DocumentTab, Language, Theme, ThemeDefinition, ThemeId } from "../types";
 
 const SETTINGS_KEY = "mark-lee-settings";
 const RECENT_FILES_KEY = "mark-lee-recent-files";
@@ -31,10 +31,45 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
     merged.theme = Theme.Firenight;
   }
 
-  if (!Object.values(Theme).includes(merged.theme)) {
-    merged.theme = DEFAULT_SETTINGS.theme;
-  }
-  if (!THEMES[merged.theme]) {
+  const defaultThemeLibrary = createDefaultThemeLibrary();
+  const storedThemes = Array.isArray(settings.themeLibrary) ? settings.themeLibrary : [];
+  const customThemes = storedThemes.filter((theme) => !theme?.builtIn);
+  const builtInOverrides = new Map(
+    storedThemes
+      .filter((theme): theme is ThemeDefinition => Boolean(theme?.builtIn && theme.id))
+      .map((theme) => [theme.id, theme])
+  );
+  merged.themeLibrary = [
+    ...defaultThemeLibrary.map((theme) => {
+      const stored = builtInOverrides.get(theme.id);
+      return stored
+        ? {
+            ...theme,
+            ...stored,
+            config: { ...theme.config, ...(stored.config || {}) },
+            builtIn: true,
+            baseThemeId: (theme.baseThemeId ?? theme.id) as Theme,
+          }
+        : theme;
+    }),
+    ...customThemes
+      .filter((theme): theme is ThemeDefinition => Boolean(theme?.id && theme?.config))
+      .map((theme) => ({
+        ...theme,
+        builtIn: false,
+        baseThemeId:
+          theme.baseThemeId && Object.values(Theme).includes(theme.baseThemeId)
+            ? theme.baseThemeId
+            : Theme.Golden,
+        config: {
+          ...THEMES[(theme.baseThemeId as Theme) || Theme.Golden],
+          ...theme.config,
+        },
+      })),
+  ];
+
+  const availableThemeIds = new Set<ThemeId>(merged.themeLibrary.map((theme) => theme.id));
+  if (!availableThemeIds.has(merged.theme)) {
     merged.theme = DEFAULT_SETTINGS.theme;
   }
 
@@ -113,6 +148,8 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
         current?.toolbarCompactBreakpoint ?? fallback?.toolbarCompactBreakpoint ?? DEFAULT_SETTINGS.toolbarCompactBreakpoint,
       toolbarDisplayMode:
         current?.toolbarDisplayMode ?? fallback?.toolbarDisplayMode ?? DEFAULT_SETTINGS.toolbarDisplayMode,
+      toolbarSectionBehavior:
+        current?.toolbarSectionBehavior ?? fallback?.toolbarSectionBehavior ?? DEFAULT_SETTINGS.toolbarSectionBehavior,
       toolbarSections: {
         ...DEFAULT_SETTINGS.toolbarSections,
         ...(fallback?.toolbarSections || {}),
@@ -131,6 +168,9 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   if (!["icon_text", "icon_only", "text_only"].includes(merged.toolbarDisplayMode)) {
     merged.toolbarDisplayMode = DEFAULT_SETTINGS.toolbarDisplayMode;
   }
+  if (!["default", "repulsion"].includes(merged.toolbarSectionBehavior)) {
+    merged.toolbarSectionBehavior = DEFAULT_SETTINGS.toolbarSectionBehavior;
+  }
   if (!Number.isFinite(merged.toolbarCompactBreakpoint as number)) {
     merged.toolbarCompactBreakpoint = DEFAULT_SETTINGS.toolbarCompactBreakpoint;
   }
@@ -138,6 +178,18 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
 
   if (!merged.sidebarWidth || merged.sidebarWidth < 220) merged.sidebarWidth = 300;
   if (merged.sidebarWidth > 520) merged.sidebarWidth = 520;
+
+  merged.commandPalette = {
+    ...DEFAULT_SETTINGS.commandPalette,
+    ...(merged.commandPalette || {}),
+  };
+  merged.commandPalette.maxResults = Math.max(6, Math.min(40, Math.round(merged.commandPalette.maxResults)));
+  if (!["standard", "deep"].includes(merged.commandPalette.searchMode)) {
+    merged.commandPalette.searchMode = DEFAULT_SETTINGS.commandPalette.searchMode;
+  }
+  if (!["insert", "manage"].includes(merged.commandPalette.snippetBehavior)) {
+    merged.commandPalette.snippetBehavior = DEFAULT_SETTINGS.commandPalette.snippetBehavior;
+  }
 
   return merged;
 }

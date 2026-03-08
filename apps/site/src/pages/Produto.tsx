@@ -1,11 +1,10 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
+  CommandPaletteMockup,
   EditorMockup,
-  PreviewPresetMockup,
   SnippetModelsMockup,
   WorkspaceContextMockup,
-  ExportMockup,
   SplitViewMockup,
 } from "@/components/EditorMockup";
 import {
@@ -47,7 +46,7 @@ const Produto = ({ locale }: ProdutoProps) => {
     <EditorMockup key="editor" locale={locale} />,
     <WorkspaceContextMockup key="workspace" locale={locale} />,
     <SplitViewMockup key="splitview" locale={locale} />,
-    <ExportMockup key="export" locale={locale} />,
+    <CommandPaletteMockup key="palette" locale={locale} />,
     <SnippetModelsMockup key="snippets" locale={locale} />,
   ];
 

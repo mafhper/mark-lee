@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Sparkles, Wrench } from "lucide-react";
+import { Braces, FileText, Wrench } from "lucide-react";
 import { ThemeConfig } from "../../types";
 
 export interface CommandPaletteItem {
@@ -18,12 +18,15 @@ interface CommandPaletteModalProps {
   items: CommandPaletteItem[];
   t: Record<string, string>;
   tConfig: ThemeConfig;
+  closeAfterSelect?: boolean;
+  maxResults?: number;
+  showHints?: boolean;
   onClose: () => void;
 }
 
 const iconFor = (kind: CommandPaletteItem["kind"]) => {
   if (kind === "file") return <FileText size={14} />;
-  if (kind === "snippet") return <Sparkles size={14} />;
+  if (kind === "snippet") return <Braces size={14} />;
   return <Wrench size={14} />;
 };
 
@@ -32,6 +35,9 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   items,
   t,
   tConfig,
+  closeAfterSelect = true,
+  maxResults = 18,
+  showHints = true,
   onClose,
 }) => {
   const [query, setQuery] = useState("");
@@ -42,15 +48,17 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   const filteredItems = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase();
-    if (!normalized) return items;
-    return items.filter((item) => {
+    const pool = !normalized
+      ? items
+      : items.filter((item) => {
       const haystack = [item.label, item.subtitle, item.keywords, item.section]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return haystack.includes(normalized);
     });
-  }, [deferredQuery, items]);
+    return pool.slice(0, maxResults);
+  }, [deferredQuery, items, maxResults]);
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, CommandPaletteItem[]>();
@@ -111,13 +119,15 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         const next = filteredItems[selectedIndex];
         if (!next) return;
         event.preventDefault();
-        Promise.resolve(next.onSelect()).finally(onClose);
+        Promise.resolve(next.onSelect()).finally(() => {
+          if (closeAfterSelect) onClose();
+        });
       }
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [filteredItems, onClose, open, selectedIndex]);
+  }, [closeAfterSelect, filteredItems, onClose, open, selectedIndex]);
 
   if (!open) return null;
 
@@ -174,7 +184,9 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       }`}
                       onMouseEnter={() => setSelectedIndex(itemIndex)}
                       onClick={() => {
-                        Promise.resolve(item.onSelect()).finally(onClose);
+                        Promise.resolve(item.onSelect()).finally(() => {
+                          if (closeAfterSelect) onClose();
+                        });
                       }}
                       type="button"
                     >
@@ -187,7 +199,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                           <div className="mt-1 truncate text-xs opacity-70">{item.subtitle}</div>
                         )}
                       </div>
-                      {item.hint && (
+                      {showHints && item.hint && (
                         <div className="shrink-0 rounded-md border border-current/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
                           {item.hint}
                         </div>

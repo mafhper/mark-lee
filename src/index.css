@@ -117,6 +117,26 @@
   background: #3a141b;
 }
 
+.ml-color-input {
+  appearance: none;
+  -webkit-appearance: none;
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 24%, transparent);
+}
+
+.ml-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ml-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 10px;
+}
+
+.ml-color-input::-moz-color-swatch {
+  border: none;
+  border-radius: 10px;
+}
+
 .ml-scrollbar {
   scrollbar-width: thin;
   scrollbar-color:
@@ -288,7 +308,11 @@
   border-radius: var(--ml-preview-radius, 20px);
   padding: clamp(1.2rem, 2vw, var(--ml-preview-page-padding, 2rem));
   overflow: hidden;
-  box-shadow: var(--ml-preview-shadow, 0 12px 24px rgba(2, 6, 23, 0.12));
+  box-shadow: var(--ml-preview-shadow, 0 8px 18px rgba(2, 6, 23, 0.1));
+}
+
+.ml-preview-pane {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ml-fg, #111827) 10%, transparent);
 }
 
 .ml-preview-prose {

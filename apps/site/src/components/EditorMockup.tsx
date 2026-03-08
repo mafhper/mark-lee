@@ -18,6 +18,8 @@ interface MockupCopy {
   snippetsTitle: string;
   snippetsCreate: string;
   snippetsStatus: string;
+  commandTitle: string;
+  commandHint: string;
   focusTitle: string;
   focusSubtitle: string;
   previewTitle: string;
@@ -41,6 +43,8 @@ const mockupCopy: Record<Locale, MockupCopy> = {
     snippetsTitle: "Snippets de modelos",
     snippetsCreate: "Criar novo",
     snippetsStatus: "4 modelos ativos",
+    commandTitle: "Command palette",
+    commandHint: "Buscar ações, arquivos e snippets",
     focusTitle: "Modo Foco",
     focusSubtitle: "Texto centralizado · ruído visual reduzido",
     previewTitle: "Preview Presets",
@@ -62,6 +66,8 @@ const mockupCopy: Record<Locale, MockupCopy> = {
     snippetsTitle: "Model snippets",
     snippetsCreate: "Create new",
     snippetsStatus: "4 active models",
+    commandTitle: "Command palette",
+    commandHint: "Search actions, files, and snippets",
     focusTitle: "Focus Mode",
     focusSubtitle: "Centered text · reduced visual noise",
     previewTitle: "Preview Presets",
@@ -83,6 +89,8 @@ const mockupCopy: Record<Locale, MockupCopy> = {
     snippetsTitle: "Snippets de modelos",
     snippetsCreate: "Crear nuevo",
     snippetsStatus: "4 modelos activos",
+    commandTitle: "Command palette",
+    commandHint: "Busca acciones, archivos y snippets",
     focusTitle: "Modo Foco",
     focusSubtitle: "Texto centrado · menos ruido visual",
     previewTitle: "Presets de Preview",
@@ -594,6 +602,44 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
             {item}
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
+  const copy = mockupCopy[locale];
+  const actions = [
+    { label: "Export document", hint: "Ctrl+E", active: true },
+    { label: "Open workspace", hint: "Ctrl+Shift+O" },
+    { label: ">snip:release_note", hint: "Snippet" },
+    { label: "drafts/roadmap.md", hint: "Arquivo" },
+  ];
+
+  return (
+    <div className="mockup-card min-h-[240px] p-4 text-[11px]">
+      <div className="rounded-2xl border border-border/40 bg-background/70 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+        <div className="rounded-xl border border-border/40 bg-card/80 px-3 py-2 text-[10px] text-muted-foreground/70">
+          {copy.commandHint}
+        </div>
+        <div className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
+          {copy.commandTitle}
+        </div>
+        <div className="mt-3 space-y-2">
+          {actions.map((action) => (
+            <div
+              key={action.label}
+              className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
+                action.active ? "border-primary/35 bg-primary/10 text-primary" : "border-border/35 bg-secondary/35 text-muted-foreground/80"
+              }`}
+            >
+              <span className="truncate">{action.label}</span>
+              <span className="rounded-md border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em]">
+                {action.hint}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

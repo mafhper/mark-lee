@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bold,
+  Braces,
   CheckSquare,
   Code,
   Columns2,
@@ -19,7 +20,6 @@ import {
   Save,
   Search,
   Settings2,
-  Sparkles,
   PenLine,
 } from "lucide-react";
 import { AppSettings, ThemeConfig } from "../../types";
@@ -54,6 +54,7 @@ interface TopChromeProps {
   toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
   toolbarDisplayMode: AppSettings["toolbarDisplayMode"];
+  toolbarSectionBehavior: AppSettings["toolbarSectionBehavior"];
   shortcutLabels: Record<string, string>;
   showShortcutHints: boolean;
   onToolbarSectionChange: (section: ToolbarSectionKey, enabled: boolean) => void;
@@ -84,6 +85,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   toolbarAlwaysShowIcons,
   toolbarCompactBreakpoint,
   toolbarDisplayMode,
+  toolbarSectionBehavior,
   shortcutLabels,
   showShortcutHints,
   onToolbarSectionChange,
@@ -117,6 +119,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const [hoveredSection, setHoveredSection] = useState<ToolbarSectionKey | null>(null);
   const [pinnedSection, setPinnedSection] = useState<ToolbarSectionKey | null>(null);
   const [compactHorizontal, setCompactHorizontal] = useState(false);
+  const [repulsionGapPx, setRepulsionGapPx] = useState<number | null>(null);
   const [, setOverflowLayoutTick] = useState(0);
   const openSection = pinnedSection ?? hoveredSection;
 
@@ -413,7 +416,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
             ? {
               id: "sys-snippets",
               label: t["edit.snippets"] || "Snippets",
-              icon: toolIcon(Sparkles),
+              icon: toolIcon(Braces),
               onClick: onOpenSnippets,
               shortcutId: "edit-snippets",
             }
@@ -590,6 +593,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     };
 
     const next: Partial<Record<ToolbarSectionKey, number>> = {};
+    let nextRepulsionGap: number | null = null;
 
     if (isVertical) {
       const maxActions = Math.max(0, ...sectionMeta.map((s) => s.total));
@@ -654,11 +658,36 @@ const TopChrome: React.FC<TopChromeProps> = ({
       }
     }
 
+    if (
+      !isVertical &&
+      typeof window !== "undefined" &&
+      toolbarSectionBehavior === "repulsion" &&
+      !nextCompactHorizontal &&
+      enabledSections.length > 1
+    ) {
+      const sectionsCollapsed = sectionMeta.some((meta) => (next[meta.key] ?? meta.total) < meta.total);
+      if (!sectionsCollapsed) {
+        const sectionWidths = enabledSections.map((section) =>
+          Math.ceil(sectionFrameRefs.current[section.key]?.getBoundingClientRect().width ?? 0)
+        );
+        const hasAllWidths = sectionWidths.every((width) => width > 0);
+        if (hasAllWidths) {
+          const totalSectionsWidth = sectionWidths.reduce((sum, width) => sum + width, 0);
+          const defaultGapPx = Math.max(5, Math.min(window.innerWidth * 0.007, 13));
+          const equalGap = (currentWidth - totalSectionsWidth) / (enabledSections.length - 1);
+          if (Number.isFinite(equalGap) && equalGap > defaultGapPx) {
+            nextRepulsionGap = Math.round(equalGap * 10) / 10;
+          }
+        }
+      }
+    }
+
     setVisibleCounts((previous) => {
       const changed = enabledSections.some((section) => previous[section.key] !== next[section.key]);
       return changed ? next : previous;
     });
-  }, [effectiveShowSectionLabels, enabledSections, isVertical, showLabel, toolbarCompactBreakpoint]);
+    setRepulsionGapPx((previous) => (previous === nextRepulsionGap ? previous : nextRepulsionGap));
+  }, [effectiveShowSectionLabels, enabledSections, isVertical, showLabel, toolbarCompactBreakpoint, toolbarSectionBehavior]);
 
   useEffect(() => {
     const raf = requestAnimationFrame(recomputeVisibleCounts);
@@ -868,6 +897,16 @@ const TopChrome: React.FC<TopChromeProps> = ({
     fontFamily: tConfig.uiFont,
     ...(isVertical ? { width: "72px" } : {}),
   };
+  const sectionsAreCollapsed = enabledSections.some(
+    (section) => (visibleCounts[section.key] ?? section.actions.length) < section.actions.length
+  );
+  const useRepulsionLayout =
+    !isVertical &&
+    toolbarSectionBehavior === "repulsion" &&
+    !compactHorizontal &&
+    enabledSections.length > 1 &&
+    !sectionsAreCollapsed &&
+    repulsionGapPx !== null;
 
   return (
     <div
@@ -887,9 +926,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
         <div className="flex h-11 items-center px-2" style={{ WebkitAppRegion: "drag", backgroundColor: tConfig.uiHex } as React.CSSProperties}>
           <div className="min-w-0 h-9 flex-1" ref={centerRef} style={{ WebkitAppRegion: "no-drag", ...noDragStyle } as React.CSSProperties}>
             <div
-              className="flex h-9 items-center justify-start flex-nowrap w-full overflow-hidden"
+              className="flex h-9 items-center flex-nowrap w-full overflow-hidden justify-start"
               style={{
-                gap: "clamp(0.3rem, 0.7vw, 0.8rem)",
+                gap: useRepulsionLayout ? `${repulsionGapPx}px` : "clamp(0.3rem, 0.7vw, 0.8rem)",
                 pointerEvents: "auto",
               }}
             >

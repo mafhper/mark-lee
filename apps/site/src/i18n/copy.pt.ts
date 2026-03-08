@@ -57,8 +57,8 @@ export const ptBRCopy: SiteCopy = {
     home: {
       hero: {
         label: "Editor desktop para escrita focada",
-        title: "Escreva bem. Publique sem atrito.",
-        description: "Edição, preview e exportação no mesmo fluxo.",
+        title: "Crie, edite e exporte. A ferramenta certa para o seu texto.",
+        description: "Edição, preview e exportação no mesmo fluxo, com controle total do ambiente.",
       },
       statsSection: {
         label: "Pronto para o dia a dia",
@@ -75,8 +75,8 @@ export const ptBRCopy: SiteCopy = {
       },
       capabilitiesSection: {
         label: "Recursos",
-        title: "Ferramentas úteis, sem excesso",
-        description: "Cada bloco mantém seu fluxo.",
+        title: "Ferramentas úteis, customização plena",
+        description: "Cada bloco pode se adaptar ao seu fluxo.",
         items: [
           {
             label: "Escrever",
@@ -97,10 +97,10 @@ export const ptBRCopy: SiteCopy = {
             highlights: ["Presets visuais prontos", "CRUD de presets para seu fluxo"],
           },
           {
-            label: "Exportar",
-            title: "Exportação flexível",
-            description: "Exporte para Markdown, HTML e PDF.",
-            highlights: ["Interface simples", "Busca avançada com substituição"],
+            label: "Comandos",
+            title: "Command palette para navegar e agir",
+            description: "Abra ações, arquivos e snippets a partir de uma única busca.",
+            highlights: ["Busca por ações e arquivos", "Execução rápida de snippets e atalhos"],
           },
           {
             label: "Snippets",
@@ -184,10 +184,10 @@ export const ptBRCopy: SiteCopy = {
             visual: "workspace",
           },
           {
-            label: "Modelos",
-            title: "Snippets prontos e editáveis",
-            description: "Use modelos prontos e crie novos snippets.",
-            visual: "snippets",
+            label: "Exportação",
+            title: "Exporte sem sair do fluxo",
+            description: "Markdown, HTML e PDF no mesmo painel, com saída previsível.",
+            visual: "export",
           },
         ],
       },

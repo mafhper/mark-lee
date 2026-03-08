@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
+  ExportMockup,
   FocusModeMockup,
   PreviewPresetMockup,
-  SnippetModelsMockup,
   ThemeCycleHeroMockup,
   ThemePreviewMockup,
   WorkspaceContextMockup,
@@ -36,7 +36,7 @@ const Galeria = ({ locale }: GaleriaProps) => {
     preview: <PreviewPresetMockup locale={locale} />,
     focus: <FocusModeMockup locale={locale} />,
     workspace: <WorkspaceContextMockup locale={locale} />,
-    snippets: <SnippetModelsMockup locale={locale} />,
+    export: <ExportMockup locale={locale} />,
   };
 
   return (

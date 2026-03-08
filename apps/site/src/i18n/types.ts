@@ -99,7 +99,7 @@ export interface HomeCopy {
   ctaSection: CtaCopy;
 }
 
-export type GalleryPreviewVisual = "preview" | "focus" | "workspace" | "snippets";
+export type GalleryPreviewVisual = "preview" | "focus" | "workspace" | "export";
 
 export interface GalleryCopy {
   hero: {

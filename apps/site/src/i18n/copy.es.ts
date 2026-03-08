@@ -57,8 +57,8 @@ export const esESCopy: SiteCopy = {
     home: {
       hero: {
         label: "Editor de escritorio para escritura enfocada",
-        title: "Escribe claro. Publica sin fricción.",
-        description: "Edición, preview y exportación en un solo flujo para no cortar tu ritmo.",
+        title: "Crea, edita y exporta. La herramienta correcta para tu texto.",
+        description: "Edición, preview y exportación en un solo flujo, con control total del entorno.",
       },
       statsSection: {
         label: "Listo para el día a día",
@@ -75,8 +75,8 @@ export const esESCopy: SiteCopy = {
       },
       capabilitiesSection: {
         label: "Funciones",
-        title: "Herramientas útiles, sin exceso",
-        description: "Cada bloque protege tu flujo de escritura.",
+        title: "Herramientas útiles, personalización plena",
+        description: "Cada bloque puede adaptarse a tu flujo de trabajo.",
         items: [
           {
             label: "Escribir",
@@ -97,10 +97,10 @@ export const esESCopy: SiteCopy = {
             highlights: ["Presets de preview incluidos", "CRUD de presets personalizados"],
           },
           {
-            label: "Exportar",
-            title: "Exportación flexible",
-            description: "Exporta con seguridad a Markdown, HTML y PDF.",
-            highlights: ["Interfaz simple", "Búsqueda avanzada con reemplazo"],
+            label: "Comandos",
+            title: "Command palette para navegar y ejecutar",
+            description: "Abre acciones, archivos y snippets desde una sola búsqueda.",
+            highlights: ["Busca acciones y archivos", "Dispara snippets y atajos rápido"],
           },
           {
             label: "Snippets",
@@ -184,10 +184,10 @@ export const esESCopy: SiteCopy = {
             visual: "workspace",
           },
           {
-            label: "Modelos",
-            title: "Snippets listos y editables",
-            description: "Parte de modelos existentes y crea nuevos snippets cuando haga falta.",
-            visual: "snippets",
+            label: "Exportación",
+            title: "Exporta sin salir del flujo",
+            description: "Markdown, HTML y PDF en el mismo panel con salida predecible.",
+            visual: "export",
           },
         ],
       },

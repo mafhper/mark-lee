@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { Braces, X } from 'lucide-react';
 import { ThemeConfig, Language } from '../types';
 import { SNIPPETS } from '../constants';
 import { TRANSLATIONS } from '../translations';
@@ -37,7 +37,7 @@ const SnippetsMenu: React.FC<SnippetsMenuProps> = ({
         {/* Header */}
         <div className={`flex items-center justify-between p-4 border-b ${tConfig.uiBorder}`}>
           <div className="flex items-center gap-2">
-            <Sparkles size={20} className="text-indigo-500" />
+            <Braces size={20} className="text-indigo-500" />
             <h2 className={`text-lg font-semibold ${tConfig.fg}`}>
               {t['snippets.title'] || 'Snippets'}
             </h2>

@@ -50,7 +50,6 @@ import {
   DocumentTab,
   PublicationPreset,
   Snippet,
-  Theme,
   WorkspaceNode,
 } from "./types";
 import { TRANSLATIONS } from "./translations";
@@ -292,12 +291,14 @@ function App() {
     isTauriRuntime() ||
     (typeof window !== "undefined" && Boolean((window as { DEBUG_SHOW_TITLEBAR?: boolean }).DEBUG_SHOW_TITLEBAR));
   const t = TRANSLATIONS[settings.language] ?? TRANSLATIONS["en-US"];
-  const tConfig = THEMES[settings.theme] ?? THEMES[Theme.Sepia];
-  const editorFontFamily = resolveEditorFontFamily(settings.fontFamily, tConfig.editorFont);
-  const sortedThemes = useMemo(
-    () => Object.values(Theme).slice().sort((a, b) => a.localeCompare(b)),
-    []
+  const activeShellTheme = useMemo(
+    () => settings.themeLibrary.find((theme) => theme.id === settings.theme) ?? settings.themeLibrary[0],
+    [settings.theme, settings.themeLibrary]
   );
+  const tConfig = activeShellTheme?.config ?? THEMES.golden;
+  const themeDataTheme = activeShellTheme?.baseThemeId ?? activeShellTheme?.id ?? "golden";
+  const editorFontFamily = resolveEditorFontFamily(settings.fontFamily, tConfig.editorFont);
+  const sortedThemes = useMemo(() => settings.themeLibrary.map((theme) => theme.id), [settings.themeLibrary]);
   const isNarrowViewport = viewportWidth < 980;
   const isTinyViewport = viewportWidth < 560;
   const dynamicSidebarMax = Math.max(220, Math.min(520, Math.floor(viewportWidth * 0.45)));
@@ -457,6 +458,7 @@ function App() {
   }, [dynamicSidebarMax, settings.sidebarWidth]);
 
   const cycleTheme = () => {
+    if (sortedThemes.length === 0) return;
     const currentIndex = sortedThemes.indexOf(settings.theme);
     const nextTheme = sortedThemes[(currentIndex + 1 + sortedThemes.length) % sortedThemes.length];
     updateSettings({ theme: nextTheme });
@@ -874,134 +876,152 @@ function App() {
     const actionSection = t["palette.group.actions"] || "Actions";
     const fileSection = t["palette.group.files"] || "Files";
     const snippetSection = t["palette.group.snippets"] || "Snippets";
+    const items: CommandPaletteItem[] = [];
 
-    const items: CommandPaletteItem[] = [
-      {
-        id: "palette-new-file",
-        label: t["file.new"] || "New File",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["file-new"],
-        keywords: "new file tab untitled",
-        onSelect: handleNewFile,
-      },
-      {
-        id: "palette-open-file",
-        label: t["file.open"] || "Open...",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["file-open"],
-        keywords: "open file picker",
-        onSelect: handleOpenFile,
-      },
-      {
-        id: "palette-open-folder",
-        label: t["file.openFolder"] || "Open Folder...",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["file-open-folder"],
-        keywords: "open folder workspace",
-        onSelect: handleOpenFolder,
-      },
-      {
-        id: "palette-save",
-        label: t["file.save"] || "Save",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["file-save"],
-        keywords: "save file",
-        onSelect: () => activeTab && saveTab(activeTab, false),
-      },
-      {
-        id: "palette-find",
-        label: t["edit.find"] || "Find",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["edit-find"],
-        keywords: "find replace search",
-        onSelect: () => openDialog("find"),
-      },
-      {
-        id: "palette-snippets",
-        label: t["edit.snippets"] || "Snippets",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["edit-snippets"],
-        keywords: "snippets templates insert",
-        onSelect: () => openDialog("snippets"),
-      },
-      {
-        id: "palette-settings",
-        label: t["settings"] || "Settings",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["app-settings"],
-        keywords: "preferences settings options",
-        onSelect: () => openDialog("settings"),
-      },
-      {
-        id: "palette-export",
-        label: t["file.export"] || "Export...",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["file-export"],
-        keywords: "export html pdf markdown",
-        onSelect: () => openDialog("export"),
-      },
-      {
-        id: "palette-theme",
-        label: t["toolbar.theme"] || "Theme",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["view-theme-cycle"],
-        keywords: "theme appearance colors",
-        onSelect: cycleTheme,
-      },
-      {
-        id: "palette-sidebar",
-        label: t["view.sidebar"] || "Sidebar",
-        section: actionSection,
-        kind: "action",
-        hint: shortcutLabels["view-sidebar"],
-        keywords: "sidebar toggle",
-        onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
-      },
-    ];
-
-    for (const tab of tabs) {
-      items.push({
-        id: `tab-${tab.id}`,
-        label: tab.name,
-        subtitle: tab.path || (t["status.draft"] || "Draft"),
-        section: fileSection,
-        kind: "file",
-        keywords: `tab open ${tab.name} ${tab.path || ""}`,
-        onSelect: () => setActiveTabId(tab.id),
-      });
+    if (settings.commandPalette.includeActions) {
+      items.push(
+        {
+          id: "palette-new-file",
+          label: t["file.new"] || "New File",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["file-new"],
+          keywords: "new file tab untitled",
+          onSelect: handleNewFile,
+        },
+        {
+          id: "palette-open-file",
+          label: t["file.open"] || "Open...",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["file-open"],
+          keywords: "open file picker",
+          onSelect: handleOpenFile,
+        },
+        {
+          id: "palette-open-folder",
+          label: t["file.openFolder"] || "Open Folder...",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["file-open-folder"],
+          keywords: "open folder workspace",
+          onSelect: handleOpenFolder,
+        },
+        {
+          id: "palette-save",
+          label: t["file.save"] || "Save",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["file-save"],
+          keywords: "save file",
+          onSelect: () => activeTab && saveTab(activeTab, false),
+        },
+        {
+          id: "palette-find",
+          label: t["edit.find"] || "Find",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["edit-find"],
+          keywords: "find replace search",
+          onSelect: () => openDialog("find"),
+        },
+        {
+          id: "palette-snippets",
+          label: t["edit.snippets"] || "Snippets",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["edit-snippets"],
+          keywords: "snippets templates insert",
+          onSelect: () => openDialog("snippets"),
+        },
+        {
+          id: "palette-settings",
+          label: t["settings"] || "Settings",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["app-settings"],
+          keywords: "preferences settings options",
+          onSelect: () => openDialog("settings"),
+        },
+        {
+          id: "palette-export",
+          label: t["file.export"] || "Export...",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["file-export"],
+          keywords: "export html pdf markdown",
+          onSelect: () => openDialog("export"),
+        },
+        {
+          id: "palette-theme",
+          label: t["toolbar.theme"] || "Theme",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-theme-cycle"],
+          keywords: "theme appearance colors",
+          onSelect: cycleTheme,
+        },
+        {
+          id: "palette-sidebar",
+          label: t["view.sidebar"] || "Sidebar",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-sidebar"],
+          keywords: "sidebar toggle",
+          onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+        }
+      );
     }
 
-    for (const file of recentFiles) {
-      items.push({
-        id: `recent-${file.path}`,
-        label: file.name,
-        subtitle: file.path,
-        section: fileSection,
-        kind: "file",
-        keywords: `recent file ${file.name} ${file.path}`,
-        onSelect: () => openPathInTab(file.path),
-      });
+    if (settings.commandPalette.includeOpenTabs) {
+      for (const tab of tabs) {
+        items.push({
+          id: `tab-${tab.id}`,
+          label: tab.name,
+          subtitle: tab.path || (t["status.draft"] || "Draft"),
+          section: fileSection,
+          kind: "file",
+          keywords: `tab open ${tab.name} ${tab.path || ""}`,
+          onSelect: () => setActiveTabId(tab.id),
+        });
+      }
     }
 
-    for (const snippet of snippets) {
-      items.push({
-        id: `snippet-${snippet.id}`,
-        label: `>snip:${snippet.trigger}`,
-        subtitle: snippet.name,
-        section: snippetSection,
-        kind: "snippet",
-        keywords: `${snippet.trigger} ${snippet.name} ${snippet.category} ${snippet.content}`,
-        onSelect: () => insertSnippet(snippet),
-      });
+    if (settings.commandPalette.includeRecentFiles) {
+      for (const file of recentFiles) {
+        items.push({
+          id: `recent-${file.path}`,
+          label: file.name,
+          subtitle: file.path,
+          section: fileSection,
+          kind: "file",
+          keywords: `recent file ${file.name} ${file.path}`,
+          onSelect: () => openPathInTab(file.path),
+        });
+      }
+    }
+
+    if (settings.commandPalette.includeSnippets) {
+      for (const snippet of snippets) {
+        items.push({
+          id: `snippet-${snippet.id}`,
+          label: `>snip:${snippet.trigger}`,
+          subtitle: snippet.name,
+          section: snippetSection,
+          kind: "snippet",
+          keywords:
+            settings.commandPalette.searchMode === "deep"
+              ? `${snippet.trigger} ${snippet.name} ${snippet.category} ${snippet.content}`
+              : `${snippet.trigger} ${snippet.name} ${snippet.category}`,
+          onSelect: () => {
+            if (settings.commandPalette.snippetBehavior === "manage") {
+              openDialog("snippets");
+              return;
+            }
+            insertSnippet(snippet);
+          },
+        });
+      }
     }
 
     return items;
@@ -1016,6 +1036,7 @@ function App() {
     openDialog,
     recentFiles,
     saveTab,
+    settings.commandPalette,
     settings.sidebarEnabled,
     shortcutLabels,
     snippets,
@@ -1119,6 +1140,9 @@ function App() {
     if (saved.toolbarDisplayMode !== settings.toolbarDisplayMode) {
       nextPatch.toolbarDisplayMode = saved.toolbarDisplayMode;
     }
+    if (saved.toolbarSectionBehavior !== settings.toolbarSectionBehavior) {
+      nextPatch.toolbarSectionBehavior = saved.toolbarSectionBehavior;
+    }
     if (JSON.stringify(saved.toolbarSections) !== JSON.stringify(settings.toolbarSections)) {
       nextPatch.toolbarSections = saved.toolbarSections;
     }
@@ -1135,6 +1159,7 @@ function App() {
       showToolbarSectionLabels: settings.showToolbarSectionLabels,
       toolbarCompactBreakpoint: settings.toolbarCompactBreakpoint,
       toolbarDisplayMode: settings.toolbarDisplayMode,
+      toolbarSectionBehavior: settings.toolbarSectionBehavior,
       toolbarSections: settings.toolbarSections,
       toolbarItems: settings.toolbarItems,
     };
@@ -1150,6 +1175,7 @@ function App() {
     settings.showToolbarSectionLabels,
     settings.toolbarCompactBreakpoint,
     settings.toolbarDisplayMode,
+    settings.toolbarSectionBehavior,
     settings.toolbarItems,
     settings.toolbarSections,
   ]);
@@ -1334,6 +1360,7 @@ function App() {
       toolbarAlwaysShowIcons={settings.toolbarAlwaysShowIcons}
       toolbarCompactBreakpoint={settings.toolbarCompactBreakpoint}
       toolbarDisplayMode={settings.toolbarDisplayMode}
+      toolbarSectionBehavior={settings.toolbarSectionBehavior}
       shortcutLabels={shortcutLabels}
       showShortcutHints={showShortcutHints}
       onToolbarSectionChange={(section, enabled) =>
@@ -1362,18 +1389,7 @@ function App() {
       onFormatAction={handleFormatAction}
     />
   );
-  const topChromeBlock =
-    !isZenMode && settings.floatingToolbarAnchor === "top" && settings.sidebarEnabled ? (
-      <div className="relative">
-        {topChromeComponent}
-        <div
-          className={`pointer-events-none absolute top-0 bottom-0 w-px ${tConfig.uiBorder} opacity-90`}
-          style={{ left: `${Math.max(0, clampedSidebarWidth - 1)}px` }}
-        />
-      </div>
-    ) : (
-      topChromeComponent
-    );
+  const topChromeBlock = topChromeComponent;
   const statusBar =
     !isZenMode ? (
       <div className={`h-8 border-t ${tConfig.uiBorder} ${tConfig.ui} px-3 text-xs flex items-center justify-between`}>
@@ -1397,7 +1413,7 @@ function App() {
 
   return (
     <div
-      data-theme={settings.theme}
+      data-theme={themeDataTheme}
       className={`h-screen w-screen overflow-hidden rounded-[8px] flex flex-col transition-colors duration-300 ${tConfig.bg} ${tConfig.fg}`}
       style={
         {
@@ -1412,6 +1428,8 @@ function App() {
           "--ml-fg": tConfig.fgHex,
           "--ml-bg": tConfig.bgHex,
           "--ml-ui": tConfig.uiHex,
+          "--ml-border": tConfig.uiBorderHex,
+          "--ml-accent": tConfig.accentHex,
           boxShadow: "inset 0 1px 2px 0 rgba(255, 255, 255, 0.1)",
         } as React.CSSProperties
       }
@@ -1461,7 +1479,7 @@ function App() {
             </div>
             <div
               {...handleProps}
-              className="absolute top-0 -right-[6px] z-[150] h-full w-3 transition-all duration-150 group"
+              className="absolute top-0 -right-[6px] z-[80] h-full w-3 transition-all duration-150 group"
             >
               <div
                 className={`absolute left-1/2 top-0 -translate-x-1/2 h-full rounded-full transition-all duration-150 ${isResizing ? "bg-indigo-500/40" : "bg-transparent"
@@ -1498,7 +1516,7 @@ function App() {
           <div className="flex-1 min-h-0 h-full flex flex-row">
             <div
               className={`${effectiveViewMode === "preview" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2 border-r" : "w-full"} ${tConfig.uiBorder} min-h-0 h-full`}
+                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
             >
               <CodeMirror
                 value={activeContent}
@@ -1522,7 +1540,7 @@ function App() {
             <div
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2 border-l" : "w-full"} ${tConfig.uiBorder} overflow-y-auto overflow-x-hidden min-h-0 h-full`}
+                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
               style={{ backgroundColor: tConfig.bgHex }}
             >
               {isCodeDocument ? (
@@ -1644,6 +1662,9 @@ function App() {
         items={commandPaletteItems}
         t={t}
         tConfig={tConfig}
+        closeAfterSelect={settings.commandPalette.closeAfterSelect}
+        maxResults={settings.commandPalette.maxResults}
+        showHints={settings.commandPalette.showHints}
         onClose={closeAllDialogs}
       />
 

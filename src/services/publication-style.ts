@@ -84,13 +84,13 @@ function shadowToCss(shadow: PublicationShadow, textColor: string) {
     case "none":
       return "none";
     case "soft":
-      return `0 10px 22px ${rgba(textColor, 0.12)}`;
+      return `0 8px 18px ${rgba(textColor, 0.1)}`;
     case "lifted":
-      return `0 18px 32px ${rgba(textColor, 0.16)}, 0 2px 8px ${rgba(textColor, 0.08)}`;
+      return `0 12px 24px ${rgba(textColor, 0.13)}, 0 2px 6px ${rgba(textColor, 0.06)}`;
     case "editorial":
-      return `0 14px 28px ${rgba(textColor, 0.14)}, inset 0 1px 0 rgba(255,255,255,0.22)`;
+      return `0 10px 20px ${rgba(textColor, 0.11)}, inset 0 1px 0 rgba(255,255,255,0.18)`;
     default:
-      return `0 10px 22px ${rgba(textColor, 0.12)}`;
+      return `0 8px 18px ${rgba(textColor, 0.1)}`;
   }
 }
 
