@@ -49,6 +49,13 @@ export default defineConfig(async () => ({
           }
 
           if (
+            id.includes("@lezer/") ||
+            id.includes("@marijn/")
+          ) {
+            return "vendor-codemirror-lezer";
+          }
+
+          if (
             id.includes("@codemirror/lang-markdown") ||
             id.includes("@lezer/markdown")
           ) {
