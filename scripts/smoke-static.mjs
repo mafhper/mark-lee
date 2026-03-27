@@ -40,7 +40,7 @@ async function killProcessTree(child) {
 }
 
 function createServerProcess() {
-  const command = `npx serve dist -l ${port} --no-clipboard`;
+  const command = `npx vite preview --host 127.0.0.1 --port ${port} --strictPort`;
   return spawn(command, {
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
