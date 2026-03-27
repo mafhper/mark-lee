@@ -82,13 +82,15 @@ async function killProcessTree(child) {
 
 function createServerProcess(port) {
   if (isWindows) {
-    return spawn(`npx serve apps/site/dist -l ${port} --no-clipboard`, {
+    return spawn(`npx vite preview --host 127.0.0.1 --port ${port} --strictPort`, {
+      cwd: "apps/site",
       shell: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
   }
 
-  return spawn("npx", ["serve", "apps/site/dist", "-l", String(port), "--no-clipboard"], {
+  return spawn("npx", ["vite", "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+    cwd: "apps/site",
     shell: false,
     stdio: ["ignore", "pipe", "pipe"],
   });
