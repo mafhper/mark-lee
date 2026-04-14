@@ -79,7 +79,7 @@ npm run setup
 
 3.  **Desenvolvimento Local (Desktop)**:
     ```bash
-    npm run tauri dev
+    npm run tauri:dev
     ```
     Isso lanca a aplicacao na janela nativa do Tauri.
 
@@ -89,7 +89,7 @@ npm run setup
 Para compilar a aplicacao para producao localmente:
 
 ```bash
-npm run tauri build
+npm run tauri:build
 ```
 
 O processo de build compila os assets React via Vite e os embute no binario Rust. O executavel final e gerado em `src-tauri/target/release/`.

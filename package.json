@@ -1,7 +1,7 @@
 {
   "name": "mark-lee-desktop",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "An elegant, high-performance Markdown editor built with React, Tauri, and Rust.",
   "author": "mafhper",
   "repository": {
@@ -32,6 +32,9 @@
     "site:test:smoke": "npm run site:build && node scripts/smoke-site.mjs",
     "contrast:check": "node scripts/contrast-check.mjs",
     "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:info": "tauri info",
     "release": "node scripts/release.js",
     "setup": "node scripts/setup.js",
     "icons": "node scripts/generate-icons.cjs"
@@ -57,6 +60,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0"
   },

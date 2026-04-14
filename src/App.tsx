@@ -8,6 +8,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { invoke } from "@tauri-apps/api/core";
 import remarkGfm from "remark-gfm";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import {
   addRecentFile,
@@ -280,6 +281,11 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
+  const tabsRef = useRef(tabs);
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -1104,6 +1110,28 @@ function App() {
           saveWorkspacePath(null);
         }
       }
+
+      // Sync unaltered tabs on initial load
+      const currentTabs = loadLastTabs();
+      let changed = false;
+      const syncedTabs = await Promise.all(
+        currentTabs.map(async (tab) => {
+          if (!tab.path || tab.dirty) return tab;
+          try {
+            const diskContent = await readFile(tab.path);
+            if (diskContent !== tab.content) {
+              changed = true;
+              return { ...tab, content: diskContent };
+            }
+          } catch {
+            // ignore
+          }
+          return tab;
+        })
+      );
+      if (changed) {
+        setTabs(syncedTabs);
+      }
     };
     loadStartupData();
   }, []);
@@ -1115,6 +1143,52 @@ function App() {
     };
     window.addEventListener("contextmenu", suppress);
     return () => window.removeEventListener("contextmenu", suppress);
+  }, []);
+
+  // Listen for window focus to refresh files modified externally
+  useEffect(() => {
+    const handleFocus = async () => {
+      const currentTabs = tabsRef.current;
+      const updates: { id: string; content: string }[] = [];
+      for (const tab of currentTabs) {
+        if (!tab.path || tab.dirty) continue;
+        try {
+          const diskContent = await readFile(tab.path);
+          if (diskContent !== tab.content) {
+            updates.push({ id: tab.id, content: diskContent });
+          }
+        } catch {} // ignore
+      }
+      if (updates.length > 0) {
+        setTabs((prev) =>
+          prev.map((tab) => {
+            const update = updates.find((u) => u.id === tab.id);
+            return update && !tab.dirty ? { ...tab, content: update.content } : tab;
+          })
+        );
+      }
+    };
+
+    const handleWebFocus = () => handleFocus();
+    window.addEventListener("focus", handleWebFocus);
+
+    let unlistenTauri: () => void;
+    if (isTauriRuntime()) {
+      import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+        getCurrentWindow()
+          .onFocusChanged(({ payload: focused }) => {
+            if (focused) handleFocus();
+          })
+          .then((unlisten) => {
+            unlistenTauri = unlisten;
+          });
+      });
+    }
+
+    return () => {
+      window.removeEventListener("focus", handleWebFocus);
+      if (unlistenTauri) unlistenTauri();
+    };
   }, []);
 
   useEffect(() => {
@@ -1587,6 +1661,7 @@ function App() {
                       <div className="ml-preview-prose">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw]}
                           components={{
                             img: (props) => (
                               <LocalImage
