@@ -94,7 +94,7 @@ async function main() {
   console.log(`2. Commit changes: ${COLORS.yellow}git add . && git commit -m "chore: release v${newVersion}"${COLORS.reset}`);
   console.log(`3. Tag release: ${COLORS.yellow}git tag v${newVersion}${COLORS.reset}`);
   console.log(`4. Push: ${COLORS.yellow}git push && git push --tags${COLORS.reset}`);
-  console.log(`\n${COLORS.dim}Note: pushes to main update the nightly pre-release automatically via GitHub Actions.${COLORS.reset}`);
+  console.log(`\n${COLORS.dim}Note: publish the release by pushing the version tag to GitHub.${COLORS.reset}`);
 }
 
 main();

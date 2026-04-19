@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  release:
-    types:
-      - published
   workflow_dispatch:
     inputs:
       dmg_only:
@@ -17,7 +14,7 @@ on:
 
 jobs:
   release:
-    if: ${{ github.event_name != 'release' && (github.event_name != 'workflow_dispatch' || inputs.dmg_only != true) }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.dmg_only != true }}
     permissions:
       contents: write
     strategy:
@@ -65,16 +62,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: ${{ matrix.tauriArgs }}
-          tagName: ${{ github.event.release.tag_name || github.ref_name }}
+          tagName: ${{ github.ref_name }}
           releaseName: 'Mark-Lee v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
   release-macos-dmg:
     name: Optional macOS DMG (non-blocking)
     needs: release
-    if: ${{ always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch' || needs.release.result == 'success') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release.result == 'success') }}
     runs-on: macos-latest
     continue-on-error: true
     permissions:
@@ -106,10 +103,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --bundles dmg
-          tagName: ${{ github.event.release.tag_name || github.ref_name }}
+          tagName: ${{ github.ref_name }}
           releaseName: 'Mark-Lee v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
       - name: Collect DMG bundle logs on failure
