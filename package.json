@@ -1,7 +1,7 @@
 {
   "name": "mark-lee-desktop",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "An elegant, high-performance Markdown editor built with React, Tauri, and Rust.",
   "author": "mafhper",
   "repository": {
