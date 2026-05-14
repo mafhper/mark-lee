@@ -473,7 +473,7 @@ export default function SettingsPanel({
     suffix: string,
     onChange: (next: number) => void
   ) => (
-    <label className="space-y-2">
+    <label className="ml-settings-field-block block space-y-2 rounded-xl px-4 py-3">
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="opacity-80">{label}</span>
         <span className="rounded-full px-2 py-0.5 text-xs opacity-70">
@@ -956,7 +956,7 @@ export default function SettingsPanel({
               <p className="mb-3 text-sm font-semibold">{tr("Categorias", "Categories", "Categorías")}</p>
               <div className="grid gap-2">
                 {(["files", "editing", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
-                  <div key={sectionKey} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md py-1.5">
+                  <div key={sectionKey} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
                     <span className="text-sm">{toolbarSectionLabels[sectionKey]}</span>
                     {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>
                       onSettingsChange({ toolbarSections: { ...settings.toolbarSections, [sectionKey]: enabled } })
@@ -970,7 +970,7 @@ export default function SettingsPanel({
                 <p className="mb-3 text-sm font-semibold">{toolbarSectionLabels[group.titleKey]}</p>
                 <div className="grid gap-2">
                   {group.items.map((item) => (
-                    <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md py-1.5">
+                    <div key={item.key} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
                       <span className="text-sm">{toolbarItemLabels[item.labelKey]}</span>
                       {renderSwitch(settings.toolbarItems[item.key], (enabled) =>
                         onSettingsChange({ toolbarItems: { ...settings.toolbarItems, [item.key]: enabled } })
@@ -1337,17 +1337,19 @@ export default function SettingsPanel({
       />
       <div className="ml-settings-shell absolute flex items-stretch justify-center">
         <div className={`ml-settings-panel flex h-full w-full min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
-          <div className="ml-settings-header grid shrink-0 gap-4 px-5 py-4 md:px-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
-                <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferências"}</h2>
+          <div className="ml-settings-header shrink-0 px-5 py-4 md:px-6">
+            <div className={`mx-auto grid w-full max-w-[1080px] gap-4 ${tConfig.fg}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
+                  <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferências"}</h2>
+                </div>
+                <button type="button" onClick={onClose} className="ml-settings-field rounded-xl border p-2">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button type="button" onClick={onClose} className="ml-settings-field rounded-xl border p-2">
-                <X className="h-4 w-4" />
-              </button>
+              <nav>{renderTabNav(true)}</nav>
             </div>
-            <nav>{renderTabNav(true)}</nav>
           </div>
           <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
             <div className="shrink-0 px-5 py-4 md:px-6">

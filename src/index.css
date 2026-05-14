@@ -215,8 +215,11 @@
 }
 
 .ml-settings-row {
-  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 10%, transparent);
-  border: 0;
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
 }
 
 .ml-settings-row + .ml-settings-row {
@@ -228,6 +231,19 @@
   background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 13%, transparent);
 }
 
+.ml-settings-field-block {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.ml-settings-inline-row + .ml-settings-inline-row,
+.ml-settings-field-block + .ml-settings-field-block {
+  border-top: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+}
+
 .ml-settings-editor-pane {
   background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 11%, transparent);
   border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
@@ -235,6 +251,22 @@
 
 .ml-settings-color-row + .ml-settings-color-row {
   border-top: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+}
+
+@media (hover: hover) {
+  .ml-settings-row:hover,
+  .ml-settings-field-block:hover {
+    background:
+      linear-gradient(0deg, color-mix(in srgb, var(--ml-accent, #60a5fa) 10%, transparent), color-mix(in srgb, var(--ml-accent, #60a5fa) 10%, transparent)),
+      color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+    border-color: color-mix(in srgb, var(--ml-accent, #60a5fa) 28%, var(--ml-fg, #111827) 8%);
+  }
+
+  .ml-settings-inline-row:hover,
+  .ml-settings-color-row:hover {
+    background: color-mix(in srgb, var(--ml-accent, #60a5fa) 12%, transparent);
+    border-radius: 0.5rem;
+  }
 }
 
 .ml-settings-field {
