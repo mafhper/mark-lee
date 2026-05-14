@@ -206,7 +206,33 @@ interface MarkLeeWindowProps {
   bg?: string;
   panel?: string;
   className?: string;
+  showSidebar?: boolean;
 }
+
+type ThemeTokenSet = {
+  bg: string;
+  fg: string;
+  ui: string;
+  border: string;
+  editorBg: string;
+  editorFg: string;
+  accent: string;
+};
+
+const builtInThemeTokens: Record<string, ThemeTokenSet> = {
+  Coffee: { bg: "#2b231f", fg: "#f8f1e8", ui: "#3a2f29", border: "#6a5448", editorBg: "#2b231f", editorFg: "#f8f1e8", accent: "#f4c68f" },
+  Light: { bg: "#ffffff", fg: "#0f172a", ui: "#f9fafb", border: "#e5e7eb", editorBg: "#ffffff", editorFg: "#0f172a", accent: "#4f46e5" },
+  Dark: { bg: "#16191e", fg: "#f4f4f5", ui: "#1d2229", border: "#2c3440", editorBg: "#16191e", editorFg: "#f4f4f5", accent: "#7dd3fc" },
+  Forest: { bg: "#17241b", fg: "#e8fbe9", ui: "#203124", border: "#3c6b48", editorBg: "#17241b", editorFg: "#e8fbe9", accent: "#90f0a8" },
+  Golden: { bg: "#f4d49a", fg: "#1e1308", ui: "#e7be73", border: "#6b4b16", editorBg: "#f4d49a", editorFg: "#1e1308", accent: "#2a1808" },
+  Midnight: { bg: "#111827", fg: "#eef2ff", ui: "#0b1220", border: "#24344e", editorBg: "#111827", editorFg: "#eef2ff", accent: "#8fb5ff" },
+  Neomatrix: { bg: "#040b04", fg: "#8afcc7", ui: "#061207", border: "#1b5a33", editorBg: "#040b04", editorFg: "#8afcc7", accent: "#57ff9e" },
+  Nord: { bg: "#2E3440", fg: "#ECEFF4", ui: "#262f40", border: "#425066", editorBg: "#2E3440", editorFg: "#ECEFF4", accent: "#88C0D0" },
+  Sepia: { bg: "#f2e6c5", fg: "#2d2417", ui: "#e8d7ad", border: "#b99f63", editorBg: "#f2e6c5", editorFg: "#2d2417", accent: "#8d5f12" },
+  Synthwave: { bg: "#221833", fg: "#fef3ff", ui: "#2e1f45", border: "#8a39d3", editorBg: "#221833", editorFg: "#fef3ff", accent: "#ff89cf" },
+  Terminal: { bg: "#000000", fg: "#87ffa5", ui: "#050505", border: "#1c4728", editorBg: "#000000", editorFg: "#87ffa5", accent: "#5bffa0" },
+  Firenight: { bg: "#1b0f0d", fg: "#ffe1bf", ui: "#2a1713", border: "#8a4c31", editorBg: "#1b0f0d", editorFg: "#ffe1bf", accent: "#ffb86c" },
+};
 
 const fileLabel = (item: MarkLeeFile) => {
   if (item.kind === "folder") return "[DIR]";
@@ -266,6 +292,7 @@ const MarkLeeWindow = ({
   bg,
   panel,
   className = "",
+  showSidebar = true,
 }: MarkLeeWindowProps) => (
   <div
     className={`mockup-card marklee-window text-[11px] ${className}`}
@@ -285,35 +312,37 @@ const MarkLeeWindow = ({
       <span className="marklee-window-title">{title}</span>
       <WindowControlButtons />
     </div>
-    <div className="marklee-main">
-      <aside className="marklee-sidebar">
-        <SidebarActions />
-        <div className="marklee-sidebar-search">
-          <Search size={12} />
-          <span>Pesquisar no workspace</span>
-        </div>
-        <div className="marklee-sidebar-content">
-          <div className="marklee-sidebar-header">
-            <span>Workspace</span>
-            <span>{files.filter((item) => item.kind !== "folder").length}</span>
+    <div className={`marklee-main ${showSidebar ? "" : "marklee-main--no-sidebar"}`}>
+      {showSidebar && (
+        <aside className="marklee-sidebar">
+          <SidebarActions />
+          <div className="marklee-sidebar-search">
+            <Search size={12} />
+            <span>Pesquisar no workspace</span>
           </div>
-          <div className="marklee-file-list">
-            {files.map((item) => (
-              <div
-                key={`${item.name}-${item.level ?? 0}`}
-                className={`marklee-file ${item.name === activeFile ? "marklee-file--active" : ""}`}
-                style={{ paddingLeft: `${0.45 + (item.level ?? 0) * 0.62}rem` }}
-              >
-                <span className="marklee-file-chevron">
-                  {item.kind === "folder" ? <ChevronDown size={12} /> : item.level ? null : <ChevronRight size={12} />}
-                </span>
-                <span className="marklee-file-kind">{fileLabel(item)}</span>
-                <span>{item.name}</span>
-              </div>
-            ))}
+          <div className="marklee-sidebar-content">
+            <div className="marklee-sidebar-header">
+              <span>Workspace</span>
+              <span>{files.filter((item) => item.kind !== "folder").length}</span>
+            </div>
+            <div className="marklee-file-list">
+              {files.map((item) => (
+                <div
+                  key={`${item.name}-${item.level ?? 0}`}
+                  className={`marklee-file ${item.name === activeFile ? "marklee-file--active" : ""}`}
+                  style={{ paddingLeft: `${0.45 + (item.level ?? 0) * 0.62}rem` }}
+                >
+                  <span className="marklee-file-chevron">
+                    {item.kind === "folder" ? <ChevronDown size={12} /> : item.level ? null : <ChevronRight size={12} />}
+                  </span>
+                  <span className="marklee-file-kind">{fileLabel(item)}</span>
+                  <span>{item.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      )}
       <section className="marklee-workspace">
         <div className="marklee-tabs">
           {tabs.map((tab) => (
@@ -462,6 +491,7 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      showSidebar={false}
       tabs={["release-notes.md", "preview.html"]}
       activeTab="release-notes.md"
       activeFile="release-notes.md"
@@ -618,15 +648,20 @@ export const ThemeCycleHeroMockup = ({
   }, [themes.length, reducedMotion]);
 
   const theme = themes[activeTheme] ?? themes[0];
-  const gradient = useMemo(() => {
-    if (!theme) return "linear-gradient(140deg, #131313, #1f1f1f)";
-    return `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]}, ${theme.colors[2]}55)`;
-  }, [theme]);
-  const palette = theme?.colors ?? ["#131313", "#222222", "#ffffff", "#f4b942", "#4f46e5"];
+  const tokens = (theme?.name && builtInThemeTokens[theme.name]) ?? builtInThemeTokens.Firenight;
+  const themeShell = `linear-gradient(140deg, ${tokens.bg}, ${tokens.ui})`;
+  const tokenRows = [
+    ["Shell", tokens.bg],
+    ["Chrome", tokens.ui],
+    ["Borda", tokens.border],
+    ["Editor", tokens.editorBg],
+    ["Texto", tokens.editorFg],
+    ["Acento", tokens.accent],
+  ];
 
   return (
     <motion.div
-      animate={{ background: gradient }}
+      animate={{ background: themeShell }}
       transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
       className="hero-theme-cycle-mockup"
     >
@@ -642,22 +677,14 @@ export const ThemeCycleHeroMockup = ({
           { name: "export.md", level: 1 },
           { name: "snippets", kind: "folder" },
         ]}
-        accent={palette[3]}
-        bg={palette[0]}
-        panel={palette[1]}
+        accent={tokens.accent}
+        bg={tokens.bg}
+        panel={tokens.ui}
         editor={renderEditorLines([
           { text: `# ${theme?.name ?? "Theme"}`, tone: "heading" },
-          { text: "A interface muda de tom, mas a leitura continua estável." },
+          { text: "Tokens reais aplicados ao shell, chrome e editor." },
           { text: "" },
-          {
-            text: (
-              <span
-                className="marklee-theme-strip"
-                style={{ background: `linear-gradient(90deg, ${palette.join(", ")})` }}
-              />
-            ),
-          },
-          { text: "Shell | Editor | Preview | Export", tone: "muted" },
+          ...tokenRows.map(([label, value]) => ({ text: `${label}: ${value}` })),
         ])}
         status={[theme?.name ?? "Theme", "Theme preview", "UTF-8"]}
       />
@@ -671,6 +698,7 @@ export const FocusModeMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   return (
     <MarkLeeWindow
       className="marklee-window--zen"
+      showSidebar={false}
       tabs={["poema.md"]}
       activeTab="poema.md"
       activeFile="poema.md"
@@ -758,6 +786,7 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      showSidebar={false}
       tabs={["modelos.md", "release-note.md"]}
       activeTab="modelos.md"
       activeFile="modelos.md"
@@ -796,6 +825,7 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      showSidebar={false}
       tabs={["roadmap.md", "drafts.md"]}
       activeTab="roadmap.md"
       activeFile="roadmap.md"
@@ -827,13 +857,6 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 };
 
 export const EngineeringHeroMockup = () => {
-  const codeLines = [
-    "watch_workspace(path).await?",
-    "emit('workspace-fs-change', payload)",
-    "sanitize_markdown(document)",
-    "export_html(activePreset)",
-  ];
-
   return (
     <MarkLeeWindow
       className="hero-editor-mockup"
@@ -851,21 +874,17 @@ export const EngineeringHeroMockup = () => {
       bg="#101820"
       panel="#16232a"
       editor={renderEditorLines([
-        { text: "# Fluxo de arquivo externo", tone: "heading" },
-        { text: "1. Receber intenção de abertura." },
-        { text: "2. Preservar workspace explícito." },
-        { text: "3. Atualizar sidebar por watcher." },
-        { text: "Sem sobrescrever buffer sujo.", tone: "muted" },
+        { text: "pub async fn watch_workspace(path: PathBuf) -> Result<()> {", tone: "accent" },
+        { text: "    let canonical = path.canonicalize()?;" },
+        { text: "    let watcher = create_debounced_watcher(canonical)?;" },
+        { text: "    emit_workspace_change(app, watcher.events()).await?;" },
+        { text: "    Ok(())" },
+        { text: "}" },
+        { text: "" },
+        { text: "fn preserve_dirty_buffer(tab: &DocumentTab) -> bool {", tone: "accent" },
+        { text: "    tab.dirty || tab.conflicted_externally" },
+        { text: "}" },
       ])}
-      rightPane={
-        <div className="marklee-code-card">
-          <p>Core path</p>
-          {codeLines.map((line) => (
-            <code key={line}>{line}</code>
-          ))}
-          <span>CI: build, site smoke, rust check</span>
-        </div>
-      }
       status={["Rust", "Tauri + React", "CI"]}
     />
   );
@@ -929,18 +948,17 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
           initial={{ opacity: 0.72 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.28 }}
-          className="marklee-review-panel"
+          className="marklee-rendered-preview"
         >
-          <p>Revisão do PR</p>
-          <span>{suggestions[active]}</span>
-          <div>
-            <strong>Local</strong>
-            <span>build, smoke, layout</span>
-          </div>
-          <div>
-            <strong>GitHub</strong>
-            <span>CI e comentários do PR</span>
-          </div>
+          <h4>Revisão de contribuição</h4>
+          <p>{suggestions[active]}</p>
+          <p>Validar localmente antes do PR.</p>
+          <h4>Checklist</h4>
+          <ul className="marklee-preview-list">
+            <li>Reproduzir no Windows</li>
+            <li>Rodar build e smoke</li>
+            <li>Atualizar PR draft</li>
+          </ul>
         </motion.div>
       }
       status={[copy.explorer, "Review", "UTF-8"]}
@@ -969,16 +987,6 @@ export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: stri
         ))}
         <span>{credit}</span>
       </div>
-    }
-    overlay={
-      <motion.div
-        className="marklee-modal marklee-modal--faq pointer-events-none"
-        animate={{ opacity: [1, 1, 0], y: [0, 0, 10] }}
-        transition={{ duration: 4.8, times: [0, 0.62, 1], repeat: Infinity, repeatDelay: 1.2 }}
-      >
-        <div className="marklee-modal-title">FAQ</div>
-        <p>Consulta aberta. Entrando em modo zen para leitura.</p>
-      </motion.div>
     }
     status={["Zen", "FAQ", "UTF-8"]}
   />

@@ -131,32 +131,32 @@ export const esESCopy: SiteCopy = {
           {
             name: "Firenight",
             description: "Ámbar oscuro para sesiones largas y contraste fuerte.",
-            colors: ["#1a1410", "#2a2018", "#d4943a", "#8b7355", "#6b8a3a"],
+            colors: ["#1b0f0d", "#2a1713", "#1b0f0d", "#ffe1bf", "#ffb86c"],
           },
           {
             name: "Forest",
             description: "Verde profundo con contraste suave.",
-            colors: ["#0f1a14", "#1a2e20", "#4a8b5c", "#7ab88a", "#2d5a3a"],
+            colors: ["#17241b", "#203124", "#17241b", "#e8fbe9", "#90f0a8"],
           },
           {
             name: "Golden",
             description: "Paleta dorada cálida con énfasis en títulos.",
-            colors: ["#1a1508", "#2e2510", "#c4a035", "#8b7830", "#d4b84a"],
+            colors: ["#f4d49a", "#e7be73", "#f4d49a", "#1e1308", "#2a1808"],
           },
           {
             name: "Light",
             description: "Tema claro para ambientes iluminados.",
-            colors: ["#fafafa", "#f0f0f0", "#333333", "#666666", "#0066cc"],
+            colors: ["#ffffff", "#f9fafb", "#ffffff", "#0f172a", "#4f46e5"],
           },
           {
             name: "Neomatrix",
             description: "Estilo terminal con verde neón.",
-            colors: ["#0a0f0a", "#0d1a0d", "#00ff41", "#008f11", "#003b00"],
+            colors: ["#040b04", "#061207", "#040b04", "#8afcc7", "#57ff9e"],
           },
           {
             name: "Nord",
             description: "Azules fríos equilibrados para foco sostenido.",
-            colors: ["#2e3440", "#3b4252", "#88c0d0", "#81a1c1", "#5e81ac"],
+            colors: ["#2E3440", "#262f40", "#2E3440", "#ECEFF4", "#88C0D0"],
           },
         ],
       },
