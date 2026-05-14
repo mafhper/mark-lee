@@ -1,5 +1,19 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  FilePlus2,
+  FolderPlus,
+  Minus,
+  Pencil,
+  Plus,
+  Search,
+  Square,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Locale } from "@/i18n";
 
 interface MockupCopy {
@@ -213,6 +227,30 @@ const renderEditorLines = (lines: EditorLine[]) => (
   </div>
 );
 
+const WindowControlButtons = () => (
+  <div className="marklee-window-controls" aria-hidden="true">
+    <span>
+      <Minus size={12} strokeWidth={1.4} />
+    </span>
+    <span>
+      <Square size={10} strokeWidth={1.4} />
+    </span>
+    <span className="marklee-window-control-close">
+      <X size={12} strokeWidth={1.4} />
+    </span>
+  </div>
+);
+
+const SidebarActions = () => (
+  <div className="marklee-sidebar-actions" aria-hidden="true">
+    <span><FilePlus2 size={13} /></span>
+    <span><FolderPlus size={13} /></span>
+    <span><Pencil size={13} /></span>
+    <span className="is-danger"><Trash2 size={13} /></span>
+    <span className="ml-auto"><ExternalLink size={13} /></span>
+  </div>
+);
+
 const MarkLeeWindow = ({
   tabs,
   files,
@@ -240,52 +278,67 @@ const MarkLeeWindow = ({
     }
   >
     <div className="marklee-titlebar">
-      <div className="marklee-window-controls">
-        <span className="bg-destructive/65" />
-        <span className="bg-primary/65" />
-        <span className="bg-emerald-500/65" />
+      <div className="marklee-brand">
+        <span className="marklee-brand-mark">M</span>
+        <span>Mark-Lee</span>
       </div>
       <span className="marklee-window-title">{title}</span>
-      <div className="marklee-toolbar-icons" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
+      <WindowControlButtons />
     </div>
-    {toolbar && <div className="marklee-toolbar">{toolbar}</div>}
-    <div className="marklee-tabs">
-      {tabs.map((tab) => (
-        <div key={tab} className={`marklee-tab ${tab === activeTab ? "marklee-tab--active" : ""}`}>
-          <span>{tab}</span>
-          {tab === activeTab && <span className="marklee-tab-close">x</span>}
-        </div>
-      ))}
-      <span className="marklee-tab-add">+</span>
-    </div>
-    <div className={`marklee-body ${rightPane ? "marklee-body--split" : ""}`}>
+    <div className="marklee-main">
       <aside className="marklee-sidebar">
-        <div className="marklee-sidebar-header">
-          <span>Workspace</span>
-          <span>{files.filter((item) => item.kind !== "folder").length}</span>
+        <SidebarActions />
+        <div className="marklee-sidebar-search">
+          <Search size={12} />
+          <span>Pesquisar no workspace</span>
         </div>
-        <div className="marklee-file-list">
-          {files.map((item) => (
-            <div
-              key={`${item.name}-${item.level ?? 0}`}
-              className={`marklee-file ${item.name === activeFile ? "marklee-file--active" : ""}`}
-              style={{ paddingLeft: `${0.45 + (item.level ?? 0) * 0.62}rem` }}
-            >
-              <span>{fileLabel(item)}</span>
-              <span>{item.name}</span>
-            </div>
-          ))}
+        <div className="marklee-sidebar-content">
+          <div className="marklee-sidebar-header">
+            <span>Workspace</span>
+            <span>{files.filter((item) => item.kind !== "folder").length}</span>
+          </div>
+          <div className="marklee-file-list">
+            {files.map((item) => (
+              <div
+                key={`${item.name}-${item.level ?? 0}`}
+                className={`marklee-file ${item.name === activeFile ? "marklee-file--active" : ""}`}
+                style={{ paddingLeft: `${0.45 + (item.level ?? 0) * 0.62}rem` }}
+              >
+                <span className="marklee-file-chevron">
+                  {item.kind === "folder" ? <ChevronDown size={12} /> : item.level ? null : <ChevronRight size={12} />}
+                </span>
+                <span className="marklee-file-kind">{fileLabel(item)}</span>
+                <span>{item.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </aside>
-      <main className="marklee-editor">
-        {editor}
-        {overlay}
-      </main>
-      {rightPane && <aside className="marklee-preview">{rightPane}</aside>}
+      <section className="marklee-workspace">
+        <div className="marklee-tabs">
+          {tabs.map((tab) => (
+            <div key={tab} className={`marklee-tab ${tab === activeTab ? "marklee-tab--active" : ""}`}>
+              <span>{tab}</span>
+              {tab === activeTab && (
+                <span className="marklee-tab-close" aria-hidden="true">
+                  <X size={11} strokeWidth={1.5} />
+                </span>
+              )}
+            </div>
+          ))}
+          <span className="marklee-tab-add" aria-hidden="true">
+            <Plus size={14} strokeWidth={1.5} />
+          </span>
+        </div>
+        {toolbar && <div className="marklee-toolbar">{toolbar}</div>}
+        <div className={`marklee-body ${rightPane ? "marklee-body--split" : ""}`}>
+          <main className="marklee-editor">
+            {editor}
+            {overlay}
+          </main>
+          {rightPane && <aside className="marklee-preview">{rightPane}</aside>}
+        </div>
+      </section>
     </div>
     <div className="marklee-statusbar">
       {status.map((item) => (
@@ -575,7 +628,7 @@ export const ThemeCycleHeroMockup = ({
     <motion.div
       animate={{ background: gradient }}
       transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
-      className="hero-theme-cycle-mockup rounded-lg p-3"
+      className="hero-theme-cycle-mockup"
     >
       <MarkLeeWindow
         className="hero-editor-mockup"
@@ -864,20 +917,29 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
         { text: "# Revisão de contribuição", tone: "heading" },
         { text: suggestions[active] },
         { text: "Validar localmente antes do PR.", tone: "muted" },
+        { text: "" },
+        { text: "## Checklist", tone: "accent" },
+        { text: "- Reproduzir no Windows" },
+        { text: "- Rodar build e smoke" },
+        { text: "- Atualizar PR draft" },
       ])}
-      overlay={
+      rightPane={
         <motion.div
           key={active}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0.72 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.28 }}
-          className="marklee-modal marklee-modal--suggestion"
+          className="marklee-review-panel"
         >
-          <div className="marklee-modal-title">Sugestão recebida</div>
-          <p>{suggestions[active]}</p>
-          <div className="marklee-modal-actions">
-            <span>Aplicar</span>
-            <span>Reescrever</span>
+          <p>Revisão do PR</p>
+          <span>{suggestions[active]}</span>
+          <div>
+            <strong>Local</strong>
+            <span>build, smoke, layout</span>
+          </div>
+          <div>
+            <strong>GitHub</strong>
+            <span>CI e comentários do PR</span>
           </div>
         </motion.div>
       }
