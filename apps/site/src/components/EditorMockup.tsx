@@ -524,14 +524,16 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
   const formats = [
-    { label: "Markdown", ext: ".md", active: false },
+    { label: "Original", ext: ".md", active: false },
+    { label: "Formatado", ext: ".md", active: false },
+    { label: "Minificado", ext: ".md", active: false },
     { label: "HTML", ext: ".html", active: true },
     { label: "PDF", ext: ".pdf", active: false },
   ];
 
   return (
     <MarkLeeWindow
-      className="marklee-window--feature"
+      className="marklee-window--feature marklee-window--export-feature"
       showSidebar={false}
       tabs={["release-notes.md", "preview.html", "export.json"]}
       activeTab="release-notes.md"
@@ -552,8 +554,8 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         { text: "- Markdown preservado como fonte" },
         { text: "- PDF gerado no fim do fluxo" },
       ])}
-      rightPane={
-        <div className="marklee-export-panel">
+      overlay={
+        <div className="marklee-modal marklee-modal--export">
           <div className="marklee-modal-title">{copy.exportTitle}</div>
           <p>release-notes.html</p>
           <div className="marklee-modal-options">
@@ -563,12 +565,6 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
                 <span>{format.ext}</span>
               </div>
             ))}
-          </div>
-          <span>Preset: formatado</span>
-          <span>Inclui estilos e sumário</span>
-          <div className="marklee-modal-actions">
-            <span>{copy.exportButton}</span>
-            <span>{copy.cancelButton}</span>
           </div>
         </div>
       }
@@ -619,47 +615,49 @@ export const FileTreeMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 export const ThemePreviewMockup = ({
   colors,
   name,
-  locale = "pt-BR",
 }: {
   colors: string[];
   name: string;
 } & LocaleProps) => {
-  const copy = mockupCopy[locale];
+  const tokens = builtInThemeTokens[name] ?? {
+    bg: colors[0] ?? "#16191e",
+    ui: colors[1] ?? "#1d2229",
+    editorBg: colors[2] ?? colors[0] ?? "#16191e",
+    fg: colors[3] ?? "#f4f4f5",
+    editorFg: colors[3] ?? "#f4f4f5",
+    border: colors[4] ?? "#2c3440",
+    accent: colors[4] ?? "#7dd3fc",
+  };
 
   return (
-    <div className="mockup-card overflow-hidden text-[11px]">
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2" style={{ backgroundColor: colors[0] }}>
-        <div className="flex gap-1.5">
-          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: `${colors[2]}60` }} />
-          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: `${colors[3]}60` }} />
-          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: `${colors[4]}60` }} />
+    <MarkLeeWindow
+      className="marklee-window--theme-preview marklee-window--fit-mobile"
+      showSidebar={false}
+      tabs={["tema.md"]}
+      activeTab="tema.md"
+      activeFile="tema.md"
+      files={[
+        { name: "temas", kind: "folder" },
+        { name: "tema.md", level: 1 },
+      ]}
+      accent={tokens.accent}
+      bg={tokens.bg}
+      panel={tokens.ui}
+      fg={tokens.fg}
+      border={tokens.border}
+      editorBg={tokens.editorBg}
+      editorFg={tokens.editorFg}
+      accentForeground={readableTextOn(tokens.accent)}
+      editor={
+        <div className="marklee-zen-page marklee-theme-page">
+          <p>{name}</p>
+          <blockquote>Shell {tokens.bg}</blockquote>
+          <blockquote>Editor {tokens.editorBg}</blockquote>
+          <span>Texto {tokens.editorFg} · Acento {tokens.accent}</span>
         </div>
-        <span className="ml-1 text-[10px]" style={{ color: colors[3] }}>
-          {name}
-        </span>
-      </div>
-      <div className="min-h-[160px] space-y-1.5 p-3 font-mono" style={{ backgroundColor: colors[0] }}>
-        <div style={{ color: colors[2] }} className="text-xs font-semibold">
-          {copy.previewTitle}
-        </div>
-        <div style={{ color: colors[3] }} className="text-[10px] opacity-80">
-          {copy.previewDescription}
-        </div>
-        <div className="h-1" />
-        <div style={{ color: colors[2] }} className="text-[11px] font-semibold">
-          # Mark-Lee
-        </div>
-        <div style={{ color: colors[4] }} className="text-[10px]">
-          - Zen mode
-        </div>
-        <div style={{ color: colors[4] }} className="text-[10px]">
-          - Presets
-        </div>
-        <div style={{ color: colors[4] }} className="text-[10px]">
-          - Snippets
-        </div>
-      </div>
-    </div>
+      }
+      status={[name, cursorStatus(4, tokens.accent.length), "UTF-8"]}
+    />
   );
 };
 
@@ -803,8 +801,13 @@ export const PreviewPresetMockup = ({ locale = "pt-BR" }: LocaleProps) => {
             <strong>Technical</strong>
           </div>
           <h4>Technical Doc</h4>
-          <p>Documentação técnica com leitura densa, títulos compactos e blocos de código legíveis.</p>
-          <code>watch_workspace(path)</code>
+          <p>Preset atual: documentação técnica.</p>
+          <h5>Fluxo</h5>
+          <ul className="marklee-preview-list">
+            <li>Títulos compactos</li>
+            <li>Código com contraste</li>
+            <li>Preview sincronizado</li>
+          </ul>
           <div className="marklee-preview-pills">
             <span className="is-active">Technical</span>
             <span>Article</span>
@@ -874,11 +877,12 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
       ])}
       rightPane={
         <div className="marklee-snippet-detail">
-          <p>{copy.snippetsCreate}</p>
+          <p>Preview</p>
           <strong>Architecture ADR</strong>
-          <span>Título</span>
-          <span>Contexto</span>
-          <span>Decisão</span>
+          <span>Insere no cursor</span>
+          <span># Título</span>
+          <span>## Contexto</span>
+          <span>## Decisão</span>
         </div>
       }
       status={[copy.snippetsTitle, cursorStatus(6, 13), "UTF-8"]}

@@ -665,6 +665,12 @@
     font-weight: 700;
   }
 
+  .marklee-preview-document h5 {
+    color: color-mix(in srgb, var(--hero-mockup-fg) 88%, transparent);
+    font-size: 0.62rem;
+    font-weight: 700;
+  }
+
   .marklee-preview-document code {
     overflow: hidden;
     border-radius: 0.32rem;
@@ -743,6 +749,7 @@
   .marklee-modal,
   .marklee-floating-palette {
     position: absolute;
+    z-index: 6;
     right: 0.85rem;
     bottom: 0.85rem;
     width: min(17rem, 72%);
@@ -759,6 +766,28 @@
     width: min(20rem, 56%);
   }
 
+  .marklee-modal--export {
+    top: 54%;
+    right: 50%;
+    bottom: auto;
+    width: min(18.5rem, 62%);
+    padding: 0.62rem;
+    transform: translate(50%, -50%);
+  }
+
+  .marklee-modal--export .marklee-modal-options {
+    gap: 0.28rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .marklee-modal--export .marklee-modal-option {
+    padding-block: 0.28rem;
+  }
+
+  .marklee-modal--export .marklee-modal-actions {
+    margin-top: 0.28rem;
+  }
+
   .marklee-window--feature .marklee-body--split {
     grid-template-columns: minmax(0, 1.08fr) minmax(10rem, 0.54fr);
   }
@@ -767,12 +796,29 @@
     background: color-mix(in srgb, var(--hero-mockup-editor-bg) 86%, var(--hero-mockup-panel) 14%);
   }
 
+  .marklee-window--export-feature .marklee-editor {
+    overflow: visible;
+  }
+
   .marklee-window--home-feature {
     min-height: 300px;
   }
 
   .marklee-window--home-feature .marklee-body {
     min-height: 0;
+  }
+
+  .marklee-window--theme-preview {
+    aspect-ratio: 16 / 9;
+    min-height: 220px;
+  }
+
+  .marklee-window--theme-preview .marklee-zen-page {
+    padding-inline: clamp(1.25rem, 9vw, 4.5rem);
+  }
+
+  .marklee-theme-page blockquote {
+    font-size: clamp(0.72rem, 1.8vw, 1rem);
   }
 
   .marklee-snippet-detail {
