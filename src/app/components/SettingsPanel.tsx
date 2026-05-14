@@ -345,11 +345,11 @@ export default function SettingsPanel({
   if (!open) return null;
 
   const panelClass = `${tConfig.ui} ${tConfig.fg} ${tConfig.uiBorder}`;
-  const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg}`;
+  const inputClass = `w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg}`;
   const contentSurfaceStyle: React.CSSProperties = {
     background: `color-mix(in srgb, ${tConfig.editorBgHex} 72%, ${tConfig.uiHex} 28%)`,
     borderColor: `color-mix(in srgb, ${tConfig.uiBorderHex} 78%, ${tConfig.editorBgHex} 22%)`,
-    boxShadow: `inset 0 1px 0 color-mix(in srgb, ${tConfig.editorFgHex} 9%, transparent)`,
+    boxShadow: `inset 0 1px 0 color-mix(in srgb, ${tConfig.editorFgHex} 5%, transparent)`,
   };
   const activeTabStyle: React.CSSProperties = {
     background: `color-mix(in srgb, ${tConfig.fgHex} 14%, transparent)`,
@@ -460,9 +460,9 @@ export default function SettingsPanel({
   );
 
   const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => (
-    <section className={`rounded-[24px] border p-5 ${panelClass}`}>
+    <section className={`rounded-xl border p-4 ${panelClass}`}>
       <div className="mb-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] opacity-80">{title}</h3>
+        <h3 className="text-sm font-semibold opacity-85">{title}</h3>
         <p className="mt-1 text-sm opacity-70">{description}</p>
       </div>
       {contentNode}
@@ -511,7 +511,7 @@ export default function SettingsPanel({
     value: string;
     onChange: (next: string) => void;
   }) => (
-    <div className="space-y-3 rounded-2xl border p-3">
+    <div className="space-y-3 rounded-lg border p-3">
       <div>
         <div className="text-sm font-medium">{label}</div>
         <div className="mt-1 text-xs opacity-65">{note}</div>
@@ -529,7 +529,7 @@ export default function SettingsPanel({
         <button
           type="button"
           onClick={() => colorInputRefs.current[pickerId]?.click()}
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border p-1"
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-1"
           title={tr("Abrir seletor de cor", "Open color picker", "Abrir selector de color")}
         >
           <span className="h-full w-full rounded-lg border border-black/10" style={{ backgroundColor: value }} />
@@ -553,7 +553,7 @@ export default function SettingsPanel({
             type="button"
             onClick={() => setActiveTab(tab.id)}
             style={active ? activeTabStyle : undefined}
-            className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "" : "border-transparent hover:bg-white/6"}`}
+          className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "" : "border-transparent hover:bg-white/6"}`}
           >
             <span className={active ? "opacity-100" : "opacity-80"}>{tab.icon}</span>
             <span className={active ? "font-medium" : ""}>{tabLabels[tab.id]}</span>
@@ -1345,8 +1345,8 @@ export default function SettingsPanel({
         onClick={onClose}
       />
       <div className="absolute inset-[max(24px,4vh)]">
-        <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border shadow-2xl xl:flex-row ${panelClass}`}>
-          <aside className={`hidden w-[228px] shrink-0 flex-col border-r xl:flex ${panelClass}`}>
+        <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border shadow-xl xl:flex-row ${panelClass}`}>
+          <aside className={`hidden w-[220px] shrink-0 flex-col border-r xl:flex ${panelClass}`}>
             <div className="flex items-center justify-between border-b px-5 py-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
@@ -1359,13 +1359,13 @@ export default function SettingsPanel({
             <nav className="flex-1 overflow-y-auto p-3">{renderTabNav(false)}</nav>
           </aside>
           <section className={`flex min-h-0 min-w-0 flex-1 flex-col ${panelClass}`}>
-            <div className="border-b px-6 py-5">
+            <div className="border-b px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
                     {tr("Painel ativo", "Active panel", "Panel activo")}
                   </p>
-                  <h3 className="mt-1 text-2xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
+                  <h3 className="mt-1 text-xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
                 </div>
                 <button type="button" onClick={onClose} className="rounded-xl border p-2 xl:hidden">
                   <X className="h-4 w-4" />
@@ -1377,7 +1377,7 @@ export default function SettingsPanel({
               <div className="mt-4 xl:hidden">{renderTabNav(true)}</div>
             </div>
             <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto p-5 md:p-6">
-              <div className={`min-h-full rounded-[28px] border p-5 md:p-6 ${tConfig.fg}`} style={contentSurfaceStyle}>
+              <div className={`min-h-full rounded-xl border p-4 md:p-5 ${tConfig.fg}`} style={contentSurfaceStyle}>
                 {content}
               </div>
             </div>

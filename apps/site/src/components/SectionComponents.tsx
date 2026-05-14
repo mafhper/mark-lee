@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -22,36 +22,107 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = ({ label, title, description, mockup }: HeroSectionProps) => (
-  <section className="relative overflow-hidden">
-    <div className="pointer-events-none absolute inset-0 bg-gradient-glow" />
-    <div className="container py-24 md:py-32">
-      <div className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
+  <section className="relative min-h-[calc(100svh-3.5rem)] overflow-hidden">
+    <HeroCanvasBackground />
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,hsl(var(--primary)/0.18),transparent_34%),linear-gradient(180deg,transparent, hsl(var(--background))_96%)]" />
+    <div className="container relative flex min-h-[calc(100svh-3.5rem)] flex-col justify-center py-16 md:py-20">
+      <div className="mx-auto max-w-3xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
           <SectionLabel>{label}</SectionLabel>
-          <h1 className="mt-4 text-4xl font-bold leading-[1.1] tracking-tight text-gradient-hero md:text-[3.25rem]">
+          <h1 className="mt-4 text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero md:text-[3.4rem]">
             {title}
           </h1>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
             {description}
           </p>
         </motion.div>
+      </div>
         {mockup && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
+            className="mx-auto mt-12 w-full max-w-5xl"
           >
             {mockup}
           </motion.div>
         )}
-      </div>
     </div>
   </section>
 );
+
+const HeroCanvasBackground = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    let frame = 0;
+    let raf = 0;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+    const resize = () => {
+      canvas.width = Math.floor(canvas.clientWidth * dpr);
+      canvas.height = Math.floor(canvas.clientHeight * dpr);
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const draw = () => {
+      frame += 0.006;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      context.clearRect(0, 0, width, height);
+
+      const gradient = context.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, "rgba(222, 148, 48, 0.16)");
+      gradient.addColorStop(0.5, "rgba(38, 112, 214, 0.10)");
+      gradient.addColorStop(1, "rgba(24, 185, 137, 0.10)");
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+
+      context.globalCompositeOperation = "screen";
+      for (let i = 0; i < 8; i += 1) {
+        const x = width * (0.15 + i * 0.105) + Math.sin(frame + i) * 28;
+        const y = height * (0.18 + ((i * 73) % 52) / 100) + Math.cos(frame * 1.3 + i) * 24;
+        const radius = Math.max(width, height) * (0.12 + (i % 3) * 0.018);
+        const glow = context.createRadialGradient(x, y, 0, x, y, radius);
+        glow.addColorStop(0, i % 2 === 0 ? "rgba(255, 180, 88, 0.18)" : "rgba(102, 161, 255, 0.15)");
+        glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        context.fillStyle = glow;
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.globalCompositeOperation = "source-over";
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+    window.addEventListener("resize", resize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-80"
+      aria-hidden="true"
+    />
+  );
+};
 
 interface FeatureRowProps {
   label: string;

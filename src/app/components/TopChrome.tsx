@@ -719,10 +719,11 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const compactShortcutText = shortcutText ? formatShortcutCompact(shortcutText) : undefined;
     const shouldShowShortcut = variant === "toolbar" && Boolean(showShortcutHints && shortcutText);
+    const displayedShortcutText = compactHorizontal ? compactShortcutText : shortcutText;
     const buttonClass =
       variant === "popover"
         ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 px-3 justify-start"} inline-flex min-w-0 items-center gap-2 rounded-xl border border-current/10 bg-[color-mix(in_srgb,var(--ml-fg,#111827)_7%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_11%,transparent)] ${action.active ? "ml-btn-active" : ""}`
-        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 px-2.5"} min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
+        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
     return (
       <button
         key={action.id}
@@ -736,10 +737,10 @@ const TopChrome: React.FC<TopChromeProps> = ({
         style={noDragStyle}
       >
         {showIcon && action.icon}
-        {showLabel && <span className="truncate">{action.label}</span>}
+        {showLabel && <span className="whitespace-nowrap">{action.label}</span>}
         {shouldShowShortcut && !isVertical && (
           <span className="ml-1 rounded-md border border-current/10 px-1.5 py-0.5 text-[10px] opacity-70 whitespace-nowrap">
-            {compactShortcutText}
+            {displayedShortcutText}
           </span>
         )}
       </button>
@@ -774,6 +775,11 @@ const TopChrome: React.FC<TopChromeProps> = ({
               >
                 {showIcon && action.icon}
                 {showLabel && <span>{action.label}</span>}
+                {showShortcutHints && action.shortcutId && shortcutLabels[action.shortcutId] && !isVertical && (
+                  <span className="ml-1 rounded-md border px-1.5 py-0.5 text-[10px]">
+                    {shortcutLabels[action.shortcutId]}
+                  </span>
+                )}
               </button>
             ))}
           </div>

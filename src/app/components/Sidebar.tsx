@@ -23,6 +23,7 @@ interface SidebarProps {
   workspacePath: string | null;
   workspaceTree: WorkspaceNode | null;
   onOpenFile: (path: string) => void;
+  onOpenFolder: () => void;
   onCreateFile: (basePath: string) => void;
   onCreateFolder: (basePath: string) => void;
   onRename: (path: string) => void;
@@ -133,6 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   workspacePath,
   workspaceTree,
   onOpenFile,
+  onOpenFolder,
   onCreateFile,
   onCreateFolder,
   onRename,
@@ -297,15 +299,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="p-2 space-y-2">
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-black/5 dark:bg-white/5">
-          <Search size={14} />
-          <input
-            className="bg-transparent border-none outline-none w-full text-xs"
-            placeholder={t["sidebar.search"] || "Search workspace"}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        {workspacePath && (
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-black/5 dark:bg-white/5">
+            <Search size={14} />
+            <input
+              className="bg-transparent border-none outline-none w-full text-xs"
+              placeholder={t["sidebar.search"] || "Search workspace"}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        )}
         {workspacePath && (
           <div className="px-1 pt-1">
             <div className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] opacity-55">
@@ -316,8 +320,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
       <div className="flex-1 overflow-auto p-2">
         {!workspaceTree && (
-          <div className="text-xs px-2 py-3 opacity-80">
-            {t["sidebar.empty"] || "No folder open"}
+          <div className="space-y-3 px-2 py-3 text-xs opacity-90">
+            <div>{t["sidebar.empty"] || "No folder open"}</div>
+            <button type="button" className="rounded-md border px-3 py-1.5 ml-btn" onClick={onOpenFolder}>
+              {t["sidebar.openFolder"] || "Open folder"}
+            </button>
           </div>
         )}
         {workspaceTree && (
