@@ -170,6 +170,12 @@
     inset 0 1px 0 color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
 }
 
+.ml-settings-shell {
+  --ml-settings-viewport-gap: clamp(16px, 4vmin, 56px);
+
+  inset: var(--ml-settings-viewport-gap);
+}
+
 .ml-settings-header {
   background:
     linear-gradient(
@@ -251,6 +257,12 @@
 .ml-color-input::-moz-color-swatch {
   border: none;
   border-radius: 10px;
+}
+
+@media (max-width: 720px), (max-height: 640px) {
+  .ml-settings-shell {
+    --ml-settings-viewport-gap: clamp(10px, 3vmin, 18px);
+  }
 }
 
 .ml-scrollbar {
