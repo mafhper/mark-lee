@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  Braces,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -566,6 +567,10 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
               </div>
             ))}
           </div>
+          <div className="marklee-modal-actions">
+            <span>{copy.exportButton}</span>
+            <span>{copy.cancelButton}</span>
+          </div>
         </div>
       }
       status={["Markdown", cursorStatus(7, 31), "UTF-8"]}
@@ -854,7 +859,12 @@ export const WorkspaceContextMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
 export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
-  const items = ["Architecture ADR", "Release note", "Daily log", "Bug report"];
+  const snippets = [
+    { name: "Architecture ADR", preview: "# Título\n\n## Contexto\n## Decisão", active: true },
+    { name: "Release note", preview: "## Mudanças\n- Item entregue" },
+    { name: "Daily log", preview: "## Hoje\n- Próxima ação" },
+    { name: "Bug report", preview: "## Reprodução\n1. Passo" },
+  ];
 
   return (
     <MarkLeeWindow
@@ -873,19 +883,29 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
       editor={renderEditorLines([
         { text: `# ${copy.snippetsTitle}`, tone: "heading" },
         { text: copy.snippetsStatus },
-        ...items.map((item) => ({ text: `- ${item}` })),
+        { text: "" },
+        { text: "Use o menu de snippets para inserir modelos no cursor." },
+        { text: "O documento permanece no editor.", tone: "muted" },
       ])}
-      rightPane={
-        <div className="marklee-snippet-detail">
-          <p>Preview</p>
-          <strong>Architecture ADR</strong>
-          <span>Insere no cursor</span>
-          <span># Título</span>
-          <span>## Contexto</span>
-          <span>## Decisão</span>
+      overlay={
+        <div className="marklee-snippets-menu">
+          <div className="marklee-snippets-menu-header">
+            <span className="marklee-snippets-icon"><Braces size={13} /></span>
+            <strong>Snippets</strong>
+            <X size={12} strokeWidth={1.5} />
+          </div>
+          <div className="marklee-snippets-grid">
+            {snippets.map((snippet) => (
+              <div key={snippet.name} className={`marklee-snippet-card ${snippet.active ? "is-active" : ""}`}>
+                <strong>{snippet.name}</strong>
+                <span>{snippet.preview.split("\n")[0]}</span>
+              </div>
+            ))}
+          </div>
+          <p>Click to insert at cursor position</p>
         </div>
       }
-      status={[copy.snippetsTitle, cursorStatus(6, 13), "UTF-8"]}
+      status={[copy.snippetsTitle, cursorStatus(5, 29), "UTF-8"]}
     />
   );
 };
@@ -1054,7 +1074,8 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
 
 export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: string }) => (
   <MarkLeeWindow
-    className="hero-editor-mockup marklee-window--zen marklee-window--fit-mobile"
+    className="hero-editor-mockup marklee-window--faq-preview marklee-window--fit-mobile"
+    showSidebar={false}
     tabs={["faq.md", "poema.md"]}
     activeTab="poema.md"
     activeFile="poema.md"
@@ -1071,12 +1092,18 @@ export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: stri
     editorBg="#16130f"
     editorFg="#f8ead4"
     accentForeground={readableTextOn("#f2c078")}
-    editor={
-      <div className="marklee-zen-page">
+    editor={renderEditorLines([
+      { text: "# Modo zen", tone: "heading" },
+      ...lines.map((line) => ({ text: `> ${line}` })),
+      { text: "" },
+      { text: credit, tone: "muted" },
+    ])}
+    rightPane={
+      <div className="marklee-rendered-preview marklee-faq-preview">
         {lines.map((line) => (
           <blockquote key={line}>{line}</blockquote>
         ))}
-        <span>{credit}</span>
+        <p>{credit}</p>
       </div>
     }
     status={["Zen", cursorStatus(lines.length, Math.max(...lines.map((line) => line.length), 1)), "UTF-8"]}
