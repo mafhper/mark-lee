@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Locale } from "@/i18n";
 
@@ -166,6 +166,135 @@ const writingScenes: Record<Locale, WritingScene[]> = {
   ],
 };
 
+type MarkLeeFile = {
+  name: string;
+  kind?: "file" | "folder";
+  level?: number;
+};
+
+type EditorLine = {
+  text: ReactNode;
+  tone?: "heading" | "muted" | "accent" | "dim";
+};
+
+interface MarkLeeWindowProps {
+  tabs: string[];
+  files: MarkLeeFile[];
+  activeTab?: string;
+  activeFile?: string;
+  title?: string;
+  toolbar?: ReactNode;
+  editor?: ReactNode;
+  rightPane?: ReactNode;
+  overlay?: ReactNode;
+  status?: [string, string, string];
+  accent?: string;
+  bg?: string;
+  panel?: string;
+  className?: string;
+}
+
+const fileLabel = (item: MarkLeeFile) => {
+  if (item.kind === "folder") return "[DIR]";
+  const ext = item.name.split(".").pop()?.toUpperCase() ?? "MD";
+  return `[${ext.slice(0, 3)}]`;
+};
+
+const renderEditorLines = (lines: EditorLine[]) => (
+  <div className="marklee-editor-lines">
+    {lines.map((line, index) => (
+      <div key={index} className="marklee-editor-line">
+        <span className="marklee-line-number">{index + 1}</span>
+        <span className={`marklee-line-text ${line.tone ? `marklee-line-text--${line.tone}` : ""}`}>
+          {line.text}
+        </span>
+      </div>
+    ))}
+  </div>
+);
+
+const MarkLeeWindow = ({
+  tabs,
+  files,
+  activeTab = tabs[0],
+  activeFile = activeTab,
+  title = "Mark-Lee",
+  toolbar,
+  editor,
+  rightPane,
+  overlay,
+  status = ["Markdown", "Ln 12, Col 18", "UTF-8"],
+  accent,
+  bg,
+  panel,
+  className = "",
+}: MarkLeeWindowProps) => (
+  <div
+    className={`mockup-card marklee-window text-[11px] ${className}`}
+    style={
+      {
+        "--hero-mockup-bg": bg,
+        "--hero-mockup-panel": panel,
+        "--hero-mockup-accent": accent,
+      } as React.CSSProperties
+    }
+  >
+    <div className="marklee-titlebar">
+      <div className="marklee-window-controls">
+        <span className="bg-destructive/65" />
+        <span className="bg-primary/65" />
+        <span className="bg-emerald-500/65" />
+      </div>
+      <span className="marklee-window-title">{title}</span>
+      <div className="marklee-toolbar-icons" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+    {toolbar && <div className="marklee-toolbar">{toolbar}</div>}
+    <div className="marklee-tabs">
+      {tabs.map((tab) => (
+        <div key={tab} className={`marklee-tab ${tab === activeTab ? "marklee-tab--active" : ""}`}>
+          <span>{tab}</span>
+          {tab === activeTab && <span className="marklee-tab-close">x</span>}
+        </div>
+      ))}
+      <span className="marklee-tab-add">+</span>
+    </div>
+    <div className={`marklee-body ${rightPane ? "marklee-body--split" : ""}`}>
+      <aside className="marklee-sidebar">
+        <div className="marklee-sidebar-header">
+          <span>Workspace</span>
+          <span>{files.filter((item) => item.kind !== "folder").length}</span>
+        </div>
+        <div className="marklee-file-list">
+          {files.map((item) => (
+            <div
+              key={`${item.name}-${item.level ?? 0}`}
+              className={`marklee-file ${item.name === activeFile ? "marklee-file--active" : ""}`}
+              style={{ paddingLeft: `${0.45 + (item.level ?? 0) * 0.62}rem` }}
+            >
+              <span>{fileLabel(item)}</span>
+              <span>{item.name}</span>
+            </div>
+          ))}
+        </div>
+      </aside>
+      <main className="marklee-editor">
+        {editor}
+        {overlay}
+      </main>
+      {rightPane && <aside className="marklee-preview">{rightPane}</aside>}
+    </div>
+    <div className="marklee-statusbar">
+      {status.map((item) => (
+        <span key={item}>{item}</span>
+      ))}
+    </div>
+  </div>
+);
+
 export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false }: { activeTab?: number; animated?: boolean } & LocaleProps) => {
   const tabs = ["readme.md", "changelog.md", "notes.md"];
   const copy = mockupCopy[locale];
@@ -194,103 +323,38 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
   }, [animated, sceneIndex, scenes, typedLength]);
 
   return (
-    <div
-      className={`mockup-card text-[11px] ${animated ? "hero-editor-mockup" : ""}`}
-      style={
-        animated
-          ? ({
-              "--hero-mockup-bg": scene.bg,
-              "--hero-mockup-panel": scene.panel,
-              "--hero-mockup-accent": scene.accent,
-            } as React.CSSProperties)
-          : undefined
-      }
-    >
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-          <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
-          <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
-        </div>
-        <span className="ml-2 text-[10px] text-muted-foreground/60">Mark-Lee</span>
-      </div>
-
-      <div className="flex border-b border-border/40">
-        {visibleTabs.map((tab, i) => (
-          <div
-            key={tab}
-            className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${i === activeTab ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"
-              }`}
-          >
-            {tab}
-          </div>
-        ))}
-      </div>
-
-      <div className={animated ? "flex min-h-0 flex-1 overflow-hidden" : "flex min-h-[210px]"}>
-        <div className="w-[132px] shrink-0 space-y-1 overflow-hidden border-r border-border/30 p-2">
-          <div className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">
-            {copy.explorer}
-          </div>
-          {visibleTree.map((item, i) => (
-            <div
-              key={`${item}-${i}`}
-              className={`truncate rounded px-1.5 py-0.5 text-[10px] ${
-                (animated && item === scene.tab) || (!animated && i === 1)
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground/60"
-              }`}
-            >
-              {animated ? `${item.includes(".") ? "[MD] " : "[DIR] "}${item}` : item}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex-1 space-y-1.5 overflow-hidden p-3 font-mono">
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
-            <span className="min-w-0 break-words font-semibold text-primary"># {animated ? scene.title : "Mark-Lee"}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
-            <span className="min-w-0 break-words text-muted-foreground/80">
+    <MarkLeeWindow
+      className={animated ? "hero-editor-mockup" : ""}
+      tabs={visibleTabs}
+      activeTab={visibleTabs[activeTab] ?? visibleTabs[0]}
+      activeFile={animated ? scene.tab : "readme.md"}
+      files={visibleTree.map((item) => ({
+        name: item.replace(/^(\s*\[(DIR|MD)\]\s*)/, "").trim(),
+        kind: item.includes(".") ? "file" : "folder",
+        level: item.startsWith("  ") ? 1 : 0,
+      }))}
+      accent={animated ? scene.accent : undefined}
+      bg={animated ? scene.bg : undefined}
+      panel={animated ? scene.panel : undefined}
+      status={[copy.statusMarkdown, copy.statusCursor, "UTF-8"]}
+      editor={renderEditorLines([
+        { text: <># {animated ? scene.title : "Mark-Lee"}</>, tone: "heading" },
+        {
+          text: (
+            <>
               {animated ? typedBody : "Escrita focada com preview integrado."}
               {animated && <span className="hero-editor-caret" />}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
-            <span className="text-muted-foreground/80">{animated ? "" : "Fluxo de publicação previsível."}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">4</span>
-            <span className="text-muted-foreground/40" />
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">5</span>
-            <span className="font-semibold text-primary/80">## Recursos</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">6</span>
-            <span className="text-muted-foreground/80">- Modo zen</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">7</span>
-            <span className="text-muted-foreground/80">- Presets de preview</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">8</span>
-            <span className="text-muted-foreground/80">- Snippets reutilizáveis</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border/40 px-3 py-1 text-[9px] text-muted-foreground/40">
-        <span>{copy.statusMarkdown}</span>
-        <span>{copy.statusCursor}</span>
-        <span>UTF-8</span>
-      </div>
-    </div>
+            </>
+          ),
+        },
+        { text: animated ? "" : "Fluxo de publicação previsível." },
+        { text: "" },
+        { text: "## Recursos", tone: "accent" },
+        { text: "- Modo zen" },
+        { text: "- Presets de preview" },
+        { text: "- Snippets reutilizáveis" },
+      ])}
+    />
   );
 };
 
@@ -298,67 +362,40 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
 
   return (
-    <div className="mockup-card text-[11px]">
-      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-            <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
-            <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
-          </div>
-          <span className="ml-2 text-[10px] text-muted-foreground/60">Mark-Lee</span>
-        </div>
-        <div className="flex gap-0">
+    <MarkLeeWindow
+      tabs={["readme.md", "preview.md"]}
+      activeTab="readme.md"
+      activeFile="readme.md"
+      files={[
+        { name: "docs", kind: "folder" },
+        { name: "readme.md", level: 1 },
+        { name: "guia-rapido.md", level: 1 },
+        { name: "publicacao.md", level: 1 },
+      ]}
+      toolbar={
+        <div className="marklee-segmented">
           {copy.splitModes.map((mode, i) => (
-            <span
-              key={mode}
-              className={`rounded px-2 py-0.5 text-[9px] ${i === 1 ? "bg-primary/20 text-primary" : "text-muted-foreground/50"
-                }`}
-            >
+            <span key={mode} className={i === 1 ? "is-active" : ""}>
               {mode}
             </span>
           ))}
         </div>
-      </div>
-
-      <div className="flex border-b border-border/40">
-        <div className="border-r border-border/30 px-3 py-1.5 text-[10px] bg-secondary/80 font-medium text-foreground">
-          readme.md
-        </div>
-      </div>
-
-      <div className="flex min-h-[180px]">
-        {/* Editor Area */}
-        <div className="flex-1 space-y-1.5 border-r border-border/30 p-3 font-mono">
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
-            <span className="font-semibold text-primary/80">## {copy.splitTitle}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
-            <span className="text-muted-foreground/70">{copy.splitDescriptionA}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
-            <span className="text-muted-foreground/70">{copy.splitDescriptionB}</span>
-          </div>
-        </div>
-
-        {/* Preview Area */}
-        <div className="flex-1 space-y-2 bg-primary/5 p-4">
-          <div className="text-sm font-bold text-foreground/90">{copy.splitTitle}</div>
-          <div className="text-[10px] leading-relaxed text-muted-foreground/70">
+      }
+      editor={renderEditorLines([
+        { text: `## ${copy.splitTitle}`, tone: "accent" },
+        { text: copy.splitDescriptionA },
+        { text: copy.splitDescriptionB },
+      ])}
+      rightPane={
+        <div className="marklee-rendered-preview">
+          <h4>{copy.splitTitle}</h4>
+          <p>
             {copy.splitDescriptionA} {copy.splitDescriptionB}
-          </div>
+          </p>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border/40 px-3 py-1 text-[9px] text-muted-foreground/40">
-        <span>{copy.statusMarkdown}</span>
-        <span>{copy.statusCursor}</span>
-        <span>UTF-8</span>
-      </div>
-    </div>
+      }
+      status={[copy.statusMarkdown, copy.statusCursor, "UTF-8"]}
+    />
   );
 };
 
@@ -371,41 +408,41 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   ];
 
   return (
-    <div className="mockup-card text-[11px]">
-      <div className="border-b border-border/40 px-4 py-3">
-        <span className="text-[11px] font-semibold text-foreground">{copy.exportTitle}</span>
-      </div>
-      <div className="space-y-3 p-4">
-        {formats.map((format) => (
-          <div
-            key={format.label}
-            className={`flex items-center justify-between rounded-md border px-3 py-2.5 ${format.active ? "border-primary/40 bg-primary/5" : "border-border/30"
-              }`}
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className={`h-3 w-3 rounded-full border-2 ${format.active ? "border-primary bg-primary" : "border-muted-foreground/30"
-                  }`}
-              >
-                {format.active && <div className="m-auto mt-[2px] h-1 w-1 rounded-full bg-primary-foreground" />}
+    <MarkLeeWindow
+      tabs={["release-notes.md", "preview.html"]}
+      activeTab="release-notes.md"
+      activeFile="release-notes.md"
+      files={[
+        { name: "publicacao", kind: "folder" },
+        { name: "release-notes.md", level: 1 },
+        { name: "changelog.md", level: 1 },
+        { name: "dist", kind: "folder" },
+        { name: "preview.html", level: 1 },
+      ]}
+      editor={renderEditorLines([
+        { text: "# Release notes", tone: "heading" },
+        { text: "Versao preparada para publicacao." },
+        { text: "Exportacao configurada com preset formatado." },
+      ])}
+      overlay={
+        <div className="marklee-modal">
+          <div className="marklee-modal-title">{copy.exportTitle}</div>
+          <div className="marklee-modal-options">
+            {formats.map((format) => (
+              <div key={format.label} className={`marklee-modal-option ${format.active ? "is-active" : ""}`}>
+                <span>{format.label}</span>
+                <span>{format.ext}</span>
               </div>
-              <span className={format.active ? "font-medium text-foreground" : "text-muted-foreground"}>
-                {format.label}
-              </span>
-            </div>
-            <span className="font-mono text-[10px] text-muted-foreground/50">{format.ext}</span>
+            ))}
           </div>
-        ))}
-        <div className="flex gap-2 pt-2">
-          <div className="flex-1 rounded-md bg-primary py-2 text-center text-[10px] font-medium text-primary-foreground">
-            {copy.exportButton}
-          </div>
-          <div className="rounded-md border border-border/40 px-4 py-2 text-center text-[10px] text-muted-foreground">
-            {copy.cancelButton}
+          <div className="marklee-modal-actions">
+            <span>{copy.exportButton}</span>
+            <span>{copy.cancelButton}</span>
           </div>
         </div>
-      </div>
-    </div>
+      }
+      status={["Markdown", "Export preset", "UTF-8"]}
+    />
   );
 };
 
@@ -535,69 +572,43 @@ export const ThemeCycleHeroMockup = ({
   const palette = theme?.colors ?? ["#131313", "#222222", "#ffffff", "#f4b942", "#4f46e5"];
 
   return (
-    <div className="mockup-card hero-theme-cycle-mockup overflow-hidden">
-      <motion.div
-        animate={{ background: gradient }}
-        transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
-        className="flex h-full min-h-0 items-center p-4"
-      >
-        <div className="w-full overflow-hidden rounded-lg border border-black/25 bg-black/35 text-[10px] text-white/78 backdrop-blur-sm">
-          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-red-400/70" />
-                <span className="h-2 w-2 rounded-full bg-amber-300/70" />
-                <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
-              </div>
-              <span className="opacity-70">Mark-Lee</span>
-            </div>
-            <span className="font-medium text-white/85">{theme?.name ?? "Theme"}</span>
-          </div>
-          <div className="flex border-b border-white/10">
-            {["tema.md", "preview.md", "export.md"].map((tab, index) => (
-              <div key={tab} className={`border-r border-white/10 px-3 py-1.5 ${index === 0 ? "bg-white/10 text-white" : "text-white/45"}`}>
-                {tab}
-              </div>
-            ))}
-          </div>
-          <div className="grid min-h-0 flex-1 grid-cols-[138px_1fr]">
-            <div className="border-r border-white/10 p-3">
-              <p className="mb-3 uppercase tracking-[0.16em] text-white/35">Workspace</p>
-              {["docs", "readme.md", "themes.md", "export.md", "snippets"].map((item, index) => (
-                <div
-                  key={item}
-                  className={`mb-1 rounded px-2 py-1 ${index === 2 ? "bg-white/12 text-white" : "text-white/48"}`}
-                >
-                  {index === 0 || index === 4 ? "[DIR] " : "[MD] "}{item}
-                </div>
-              ))}
-            </div>
-            <div className="p-4 font-mono">
-              <div className="flex gap-2">
-                <span className="w-4 text-right text-white/24">1</span>
-                <span style={{ color: palette[3] }} className="font-semibold"># {theme?.name ?? "Theme"}</span>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <span className="w-4 text-right text-white/24">2</span>
-                <span className="text-white/72">A interface muda de tom, mas a leitura continua estável.</span>
-              </div>
-              <div className="mt-5 rounded-md border border-white/10 bg-black/22 p-3">
-                <div
-                  className="h-2 rounded-full border border-white/10"
-                  style={{ background: `linear-gradient(90deg, ${palette.join(", ")})` }}
-                />
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Shell</span>
-                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Editor</span>
-                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Preview</span>
-                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Export</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+    <motion.div
+      animate={{ background: gradient }}
+      transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
+      className="hero-theme-cycle-mockup rounded-lg p-3"
+    >
+      <MarkLeeWindow
+        className="hero-editor-mockup"
+        tabs={["themes.md", "preview.md", "export.md"]}
+        activeTab="themes.md"
+        activeFile="themes.md"
+        files={[
+          { name: "docs", kind: "folder" },
+          { name: "readme.md", level: 1 },
+          { name: "themes.md", level: 1 },
+          { name: "export.md", level: 1 },
+          { name: "snippets", kind: "folder" },
+        ]}
+        accent={palette[3]}
+        bg={palette[0]}
+        panel={palette[1]}
+        editor={renderEditorLines([
+          { text: `# ${theme?.name ?? "Theme"}`, tone: "heading" },
+          { text: "A interface muda de tom, mas a leitura continua estável." },
+          { text: "" },
+          {
+            text: (
+              <span
+                className="marklee-theme-strip"
+                style={{ background: `linear-gradient(90deg, ${palette.join(", ")})` }}
+              />
+            ),
+          },
+          { text: "Shell | Editor | Preview | Export", tone: "muted" },
+        ])}
+        status={[theme?.name ?? "Theme", "Theme preview", "UTF-8"]}
+      />
+    </motion.div>
   );
 };
 
@@ -605,16 +616,24 @@ export const FocusModeMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
 
   return (
-    <div className="mockup-card flex min-h-[240px] items-center justify-center p-8 text-center">
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">{copy.focusTitle}</p>
-        <div className="mx-auto mt-6 max-w-[260px] space-y-2 font-mono text-sm text-foreground/90">
-          <p>"Texto no centro da tela."</p>
-          <p className="text-muted-foreground/70">Sem painéis laterais visíveis.</p>
+    <MarkLeeWindow
+      className="marklee-window--zen"
+      tabs={["poema.md"]}
+      activeTab="poema.md"
+      activeFile="poema.md"
+      files={[
+        { name: "poemas", kind: "folder" },
+        { name: "poema.md", level: 1 },
+      ]}
+      editor={
+        <div className="marklee-zen-page">
+          <p>{copy.focusTitle}</p>
+          <blockquote>"Texto no centro da tela."</blockquote>
+          <span>{copy.focusSubtitle}</span>
         </div>
-        <p className="mt-8 text-[10px] text-muted-foreground/55">{copy.focusSubtitle}</p>
-      </div>
-    </div>
+      }
+      status={[copy.focusTitle, "Zen", "UTF-8"]}
+    />
   );
 };
 
@@ -622,31 +641,36 @@ export const PreviewPresetMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
 
   return (
-    <div className="mockup-card min-h-[240px] p-4 text-[11px]">
-      <div className="flex items-center justify-between border-b border-border/40 pb-2">
-        <span className="font-semibold text-foreground">{copy.previewTitle}</span>
-        <span className="rounded bg-primary/15 px-2 py-0.5 text-[10px] text-primary">CRUD</span>
-      </div>
-      <p className="mt-2 text-[10px] text-muted-foreground/70">{copy.previewDescription}</p>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <div className="rounded border border-primary/30 bg-primary/10 p-2 text-[10px] text-primary">Technical</div>
-        <div className="rounded border border-border/40 bg-secondary/50 p-2 text-[10px] text-muted-foreground">Article</div>
-        <div className="rounded border border-border/40 bg-secondary/50 p-2 text-[10px] text-muted-foreground">Release</div>
-      </div>
-      <div className="mt-4 rounded-lg border border-border/40 bg-secondary/30 p-3">
-        <div className="h-2 w-2/3 rounded bg-muted" />
-        <div className="mt-2 h-2 w-full rounded bg-muted" />
-        <div className="mt-2 h-2 w-4/5 rounded bg-muted" />
-        <div className="mt-3 flex gap-2">
-          <button type="button" className="rounded bg-primary px-2.5 py-1 text-[10px] text-primary-foreground">
-            Save
-          </button>
-          <button type="button" className="rounded border border-border px-2.5 py-1 text-[10px] text-muted-foreground">
-            Duplicate
-          </button>
+    <MarkLeeWindow
+      tabs={["preview.md", "preset-crud.md"]}
+      activeTab="preset-crud.md"
+      activeFile="preset-crud.md"
+      files={[
+        { name: "presets", kind: "folder" },
+        { name: "technical.md", level: 1 },
+        { name: "article.md", level: 1 },
+        { name: "preset-crud.md", level: 1 },
+      ]}
+      editor={renderEditorLines([
+        { text: `# ${copy.previewTitle}`, tone: "heading" },
+        { text: copy.previewDescription },
+        { text: "- Technical" },
+        { text: "- Article" },
+        { text: "- Release" },
+      ])}
+      rightPane={
+        <div className="marklee-rendered-preview">
+          <h4>CRUD</h4>
+          <p>{copy.previewDescription}</p>
+          <div className="marklee-preview-pills">
+            <span>Technical</span>
+            <span>Article</span>
+            <span>Release</span>
+          </div>
         </div>
-      </div>
-    </div>
+      }
+      status={[copy.previewTitle, "Preset: CRUD", "UTF-8"]}
+    />
   );
 };
 
@@ -654,37 +678,24 @@ export const WorkspaceContextMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
 
   return (
-    <div className="mockup-card min-h-[240px] text-[11px]">
-      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
-        <span className="font-semibold text-foreground">{copy.workspaceTitle}</span>
-        <span className="text-[10px] text-muted-foreground/60">{copy.filesLabel}</span>
-      </div>
-      <div className="grid grid-cols-[180px_1fr]">
-        <div className="min-h-[200px] border-r border-border/30 p-2">
-          {workspaceItems.map((item, i) => (
-            <div
-              key={`${item.name}-${i}`}
-              className={`rounded px-2 py-1.5 text-[10px] ${item.active ? "bg-primary/10 text-primary" : "text-muted-foreground/70"}`}
-              style={{ paddingLeft: `${8 + item.level * 12}px` }}
-            >
-              {item.type === "folder" ? "▾ " : "• "}
-              {item.name}
-            </div>
-          ))}
-        </div>
-        <div className="min-h-[200px] space-y-2 p-3">
-          <div className="rounded border border-border/30 bg-secondary/30 p-2 text-[10px] text-muted-foreground/80">
-            Tab: readme.md
-          </div>
-          <div className="rounded border border-border/30 bg-secondary/30 p-2 text-[10px] text-muted-foreground/80">
-            Preview: documentation preset
-          </div>
-          <div className="rounded border border-border/30 bg-secondary/30 p-2 text-[10px] text-muted-foreground/80">
-            Export queue: 1 pending
-          </div>
-        </div>
-      </div>
-    </div>
+    <MarkLeeWindow
+      tabs={["readme.md", "architecture.md", "draft.md"]}
+      activeTab="readme.md"
+      activeFile="readme.md"
+      files={workspaceItems.map((item) => ({
+        name: item.name,
+        kind: item.type,
+        level: item.level,
+      }))}
+      editor={renderEditorLines([
+        { text: `# ${copy.workspaceTitle}`, tone: "heading" },
+        { text: copy.filesLabel },
+        { text: "Tab: readme.md" },
+        { text: "Preview: documentation preset" },
+        { text: "Export queue: 1 pending", tone: "muted" },
+      ])}
+      status={[copy.workspaceTitle, copy.filesLabel, "UTF-8"]}
+    />
   );
 };
 
@@ -693,22 +704,31 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const items = ["Architecture ADR", "Release note", "Daily log", "Bug report"];
 
   return (
-    <div className="mockup-card min-h-[240px] p-4 text-[11px]">
-      <div className="flex items-center justify-between border-b border-border/40 pb-2">
-        <span className="font-semibold text-foreground">{copy.snippetsTitle}</span>
-        <button type="button" className="rounded bg-primary px-2.5 py-1 text-[10px] text-primary-foreground">
-          {copy.snippetsCreate}
-        </button>
-      </div>
-      <p className="mt-2 text-[10px] text-muted-foreground/70">{copy.snippetsStatus}</p>
-      <div className="mt-3 space-y-2">
-        {items.map((item) => (
-          <div key={item} className="rounded border border-border/35 bg-secondary/40 px-2.5 py-2 text-[10px] text-muted-foreground/85">
-            {item}
-          </div>
-        ))}
-      </div>
-    </div>
+    <MarkLeeWindow
+      tabs={["modelos.md", "release-note.md"]}
+      activeTab="modelos.md"
+      activeFile="modelos.md"
+      files={[
+        { name: "snippets", kind: "folder" },
+        { name: "modelos.md", level: 1 },
+        { name: "release-note.md", level: 1 },
+        { name: "daily-log.md", level: 1 },
+        { name: "bug-report.md", level: 1 },
+      ]}
+      editor={renderEditorLines([
+        { text: `# ${copy.snippetsTitle}`, tone: "heading" },
+        { text: copy.snippetsStatus },
+        ...items.map((item) => ({ text: `- ${item}` })),
+      ])}
+      overlay={
+        <div className="marklee-floating-palette marklee-floating-palette--small">
+          <strong>{copy.snippetsCreate}</strong>
+          <span>Architecture ADR</span>
+          <span>Release note</span>
+        </div>
+      }
+      status={[copy.snippetsTitle, copy.snippetsStatus, "UTF-8"]}
+    />
   );
 };
 
@@ -722,31 +742,34 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   ];
 
   return (
-    <div className="mockup-card min-h-[240px] p-4 text-[11px]">
-      <div className="rounded-2xl border border-border/40 bg-background/70 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
-        <div className="rounded-xl border border-border/40 bg-card/80 px-3 py-2 text-[10px] text-muted-foreground/70">
-          {copy.commandHint}
-        </div>
-        <div className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
-          {copy.commandTitle}
-        </div>
-        <div className="mt-3 space-y-2">
+    <MarkLeeWindow
+      tabs={["roadmap.md", "drafts.md"]}
+      activeTab="roadmap.md"
+      activeFile="roadmap.md"
+      files={[
+        { name: "drafts", kind: "folder" },
+        { name: "roadmap.md", level: 1 },
+        { name: "release.md", level: 1 },
+        { name: "atalhos.md", level: 1 },
+      ]}
+      editor={renderEditorLines([
+        { text: "# Roadmap", tone: "heading" },
+        { text: "A paleta fica sobre a edicao sem deslocar abas ou workspace." },
+      ])}
+      overlay={
+        <div className="marklee-floating-palette">
+          <div className="marklee-palette-input">{copy.commandHint}</div>
+          <p>{copy.commandTitle}</p>
           {actions.map((action) => (
-            <div
-              key={action.label}
-              className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
-                action.active ? "border-primary/35 bg-primary/10 text-primary" : "border-border/35 bg-secondary/35 text-muted-foreground/80"
-              }`}
-            >
-              <span className="truncate">{action.label}</span>
-              <span className="rounded-md border border-current/15 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em]">
-                {action.hint}
-              </span>
+            <div key={action.label} className={`marklee-palette-row ${action.active ? "is-active" : ""}`}>
+              <span>{action.label}</span>
+              <span>{action.hint}</span>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      }
+      status={[copy.commandTitle, "Ctrl+Shift+P", "UTF-8"]}
+    />
   );
 };
 
@@ -759,58 +782,39 @@ export const EngineeringHeroMockup = () => {
   ];
 
   return (
-    <div className="mockup-card relative flex min-h-0 flex-col overflow-hidden text-[11px]">
-      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500/55" />
-            <span className="h-2.5 w-2.5 rounded-full bg-primary/55" />
-            <span className="h-2.5 w-2.5 rounded-full bg-green-500/55" />
-          </div>
-          <span className="text-muted-foreground/60">Mark-Lee</span>
-        </div>
-        <span className="rounded border border-primary/20 px-2 py-0.5 font-mono text-[10px] text-primary">Tauri + React</span>
-      </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[130px_1fr]">
-        <div className="border-r border-border/30 p-2">
-          <p className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">Workspace</p>
-          {["src-tauri", "watcher.rs", "security.rs", "src/app", "SettingsPanel.tsx"].map((item, index) => (
-            <div key={item} className={`truncate rounded px-1.5 py-1 ${index === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/62"}`}>
-              {index === 0 || index === 3 ? "[DIR] " : ""}{item}
-            </div>
+    <MarkLeeWindow
+      className="hero-editor-mockup"
+      tabs={["watcher.rs", "security.rs", "PLAN.md"]}
+      activeTab="watcher.rs"
+      activeFile="watcher.rs"
+      files={[
+        { name: "src-tauri", kind: "folder" },
+        { name: "watcher.rs", level: 1 },
+        { name: "security.rs", level: 1 },
+        { name: "src", kind: "folder" },
+        { name: "SettingsPanel.tsx", level: 1 },
+      ]}
+      accent="#7dd3fc"
+      bg="#101820"
+      panel="#16232a"
+      editor={renderEditorLines([
+        { text: "# Fluxo de arquivo externo", tone: "heading" },
+        { text: "1. Receber intenção de abertura." },
+        { text: "2. Preservar workspace explícito." },
+        { text: "3. Atualizar sidebar por watcher." },
+        { text: "Sem sobrescrever buffer sujo.", tone: "muted" },
+      ])}
+      rightPane={
+        <div className="marklee-code-card">
+          <p>Core path</p>
+          {codeLines.map((line) => (
+            <code key={line}>{line}</code>
           ))}
+          <span>CI: build, site smoke, rust check</span>
         </div>
-        <div className="grid min-w-0 grid-rows-[auto_1fr]">
-          <div className="flex border-b border-border/35">
-            {["watcher.rs", "security.rs", "PLAN.md"].map((tab, index) => (
-              <div key={tab} className={`border-r border-border/30 px-3 py-1.5 ${index === 0 ? "bg-secondary/80 text-foreground" : "text-muted-foreground/55"}`}>
-                {tab}
-              </div>
-            ))}
-          </div>
-          <div className="grid min-h-0 gap-3 p-3 md:grid-cols-[1fr_0.84fr]">
-            <div className="min-w-0 rounded-lg border border-border/35 bg-background/35 p-3 font-mono text-[10px] leading-relaxed">
-              <p className="mb-2 text-primary/85"># Fluxo de arquivo externo</p>
-              <p className="text-muted-foreground/78">1. Receber intenção de abertura.</p>
-              <p className="text-muted-foreground/78">2. Preservar workspace explícito.</p>
-              <p className="text-muted-foreground/78">3. Atualizar sidebar por watcher.</p>
-              <p className="mt-3 text-muted-foreground/45">Sem sobrescrever buffer sujo.</p>
-            </div>
-            <div className="min-w-0 rounded-lg border border-primary/20 bg-background/60 p-3 font-mono text-[10px] leading-relaxed text-primary/85">
-              <p className="mb-2 text-[9px] uppercase tracking-[0.16em] text-primary/58">Core path</p>
-              {codeLines.map((line) => (
-                <p key={line} className="truncate">
-                  {line}
-                </p>
-              ))}
-              <div className="mt-4 rounded border border-border/30 bg-secondary/30 px-2 py-1 text-muted-foreground/70">
-                CI: build, site smoke, rust check
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      }
+      status={["Rust", "Tauri + React", "CI"]}
+    />
   );
 };
 
@@ -841,80 +845,79 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
   }, [suggestions.length]);
 
   return (
-    <div
-      className="mockup-card hero-editor-mockup text-[11px]"
-      style={
-        {
-          "--hero-mockup-bg": "#101820",
-          "--hero-mockup-panel": "#16232a",
-          "--hero-mockup-accent": "#f2b84b",
-        } as React.CSSProperties
+    <MarkLeeWindow
+      className="hero-editor-mockup"
+      tabs={["feedback.md", "pull-request.md", "ci.md"]}
+      activeTab="feedback.md"
+      activeFile="feedback.md"
+      files={[
+        { name: "issues", kind: "folder" },
+        { name: "feedback.md", level: 1 },
+        { name: "design.md", level: 1 },
+        { name: "tests", kind: "folder" },
+        { name: "ci-checks.md", level: 1 },
+      ]}
+      accent="#f2b84b"
+      bg="#101820"
+      panel="#16232a"
+      editor={renderEditorLines([
+        { text: "# Revisão de contribuição", tone: "heading" },
+        { text: suggestions[active] },
+        { text: "Validar localmente antes do PR.", tone: "muted" },
+      ])}
+      overlay={
+        <motion.div
+          key={active}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28 }}
+          className="marklee-modal marklee-modal--suggestion"
+        >
+          <div className="marklee-modal-title">Sugestão recebida</div>
+          <p>{suggestions[active]}</p>
+          <div className="marklee-modal-actions">
+            <span>Aplicar</span>
+            <span>Reescrever</span>
+          </div>
+        </motion.div>
       }
-    >
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-          <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
-          <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
-        </div>
-        <span className="ml-2 text-[10px] text-muted-foreground/60">Mark-Lee</span>
-      </div>
-      <div className="flex border-b border-border/40">
-        {["feedback.md", "pull-request.md", "ci.md"].map((tab, index) => (
-          <div key={tab} className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${index === 0 ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"}`}>
-            {tab}
-          </div>
-        ))}
-      </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[132px_1fr] overflow-hidden">
-        <div className="space-y-1 overflow-hidden border-r border-border/30 p-2">
-          <div className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">{copy.explorer}</div>
-          {["issues", "feedback.md", "design.md", "tests", "ci-checks.md"].map((item, index) => (
-            <div key={item} className={`truncate rounded px-1.5 py-0.5 text-[10px] ${index === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/60"}`}>
-              {index === 0 || index === 3 ? "[DIR] " : "[MD] "}{item}
-            </div>
-          ))}
-        </div>
-        <div className="relative min-w-0 overflow-hidden p-3 font-mono">
-          <div className="flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
-            <span className="font-semibold text-primary"># Revisão de contribuição</span>
-          </div>
-          <div className="mt-2 flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
-            <span className="text-muted-foreground/80">{suggestions[active]}</span>
-          </div>
-          <div className="mt-2 flex gap-2">
-            <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
-            <span className="text-muted-foreground/50">Validar localmente antes do PR.</span>
-          </div>
-          <motion.div
-            key={active}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28 }}
-            className="absolute bottom-5 right-5 w-[min(260px,70%)] rounded-lg border border-primary/25 bg-background/85 p-3 shadow-card backdrop-blur"
-          >
-            <p className="text-[9px] uppercase tracking-[0.16em] text-primary/70">Sugestão recebida</p>
-            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground/85">{suggestions[active]}</p>
-            <div className="mt-3 flex gap-2">
-              <span className="rounded bg-primary px-2 py-1 text-[9px] text-primary-foreground">Aplicar</span>
-              <span className="rounded border border-border/50 px-2 py-1 text-[9px] text-muted-foreground">Reescrever</span>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </div>
+      status={[copy.explorer, "Review", "UTF-8"]}
+    />
   );
 };
 
 export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: string }) => (
-  <div className="mockup-card flex min-h-[320px] items-center justify-center p-8 md:min-h-[380px]">
-    <div className="max-w-xs text-center font-serif text-sm leading-relaxed text-foreground/90">
-      {lines.map((line) => (
-        <p key={line}>{line}</p>
-      ))}
-      <p className="mt-6 text-[10px] font-sans uppercase tracking-[0.16em] text-muted-foreground/60">{credit}</p>
-    </div>
-  </div>
+  <MarkLeeWindow
+    className="hero-editor-mockup marklee-window--zen"
+    tabs={["faq.md", "poema.md"]}
+    activeTab="poema.md"
+    activeFile="poema.md"
+    files={[
+      { name: "ajuda", kind: "folder" },
+      { name: "faq.md", level: 1 },
+      { name: "poema.md", level: 1 },
+    ]}
+    accent="#f2c078"
+    bg="#16130f"
+    panel="#201a13"
+    editor={
+      <div className="marklee-zen-page">
+        {lines.map((line) => (
+          <blockquote key={line}>{line}</blockquote>
+        ))}
+        <span>{credit}</span>
+      </div>
+    }
+    overlay={
+      <motion.div
+        className="marklee-modal marklee-modal--faq pointer-events-none"
+        animate={{ opacity: [1, 1, 0], y: [0, 0, 10] }}
+        transition={{ duration: 4.8, times: [0, 0.62, 1], repeat: Infinity, repeatDelay: 1.2 }}
+      >
+        <div className="marklee-modal-title">FAQ</div>
+        <p>Consulta aberta. Entrando em modo zen para leitura.</p>
+      </motion.div>
+    }
+    status={["Zen", "FAQ", "UTF-8"]}
+  />
 );

@@ -241,6 +241,415 @@
     color: var(--hero-mockup-accent);
   }
 
+  .marklee-window {
+    --hero-mockup-bg: hsl(var(--card));
+    --hero-mockup-panel: hsl(var(--secondary));
+    --hero-mockup-accent: hsl(var(--primary));
+    display: flex;
+    min-height: 240px;
+    flex-direction: column;
+    color: hsl(var(--foreground));
+  }
+
+  .marklee-titlebar,
+  .marklee-toolbar,
+  .marklee-tabs,
+  .marklee-statusbar {
+    display: flex;
+    align-items: center;
+    border-color: hsl(var(--border) / 0.42);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 68%, transparent);
+  }
+
+  .marklee-titlebar {
+    min-height: 30px;
+    justify-content: space-between;
+    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    padding: 0.38rem 0.62rem;
+  }
+
+  .marklee-window-controls,
+  .marklee-toolbar-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.36rem;
+  }
+
+  .marklee-window-controls span {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 999px;
+  }
+
+  .marklee-toolbar-icons span {
+    height: 0.72rem;
+    width: 0.72rem;
+    border-radius: 0.18rem;
+    border: 1px solid hsl(var(--foreground) / 0.16);
+  }
+
+  .marklee-window-title {
+    font-size: 0.62rem;
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  .marklee-toolbar {
+    min-height: 28px;
+    gap: 0.45rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    padding: 0.32rem 0.62rem;
+  }
+
+  .marklee-tabs {
+    min-height: 34px;
+    align-items: stretch;
+    border-bottom: 1px solid hsl(var(--border) / 0.42);
+  }
+
+  .marklee-tab {
+    display: flex;
+    min-width: 0;
+    max-width: 9rem;
+    align-items: center;
+    gap: 0.45rem;
+    border-right: 1px solid hsl(var(--border) / 0.38);
+    padding: 0 0.75rem;
+    color: hsl(var(--muted-foreground) / 0.74);
+  }
+
+  .marklee-tab span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .marklee-tab--active {
+    background: color-mix(in srgb, var(--hero-mockup-accent) 16%, transparent);
+    color: hsl(var(--foreground));
+  }
+
+  .marklee-tab-close,
+  .marklee-tab-add {
+    color: hsl(var(--muted-foreground) / 0.64);
+  }
+
+  .marklee-tab-add {
+    display: grid;
+    width: 2.2rem;
+    place-items: center;
+    border-right: 1px solid hsl(var(--border) / 0.3);
+    font-size: 1rem;
+  }
+
+  .marklee-body {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(112px, 0.27fr) minmax(0, 1fr);
+  }
+
+  .marklee-body--split {
+    grid-template-columns: minmax(112px, 0.24fr) minmax(0, 1fr) minmax(120px, 0.48fr);
+  }
+
+  .marklee-sidebar {
+    min-width: 0;
+    overflow: hidden;
+    border-right: 1px solid hsl(var(--border) / 0.38);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 78%, transparent);
+    padding: 0.52rem;
+  }
+
+  .marklee-sidebar-header,
+  .marklee-statusbar {
+    justify-content: space-between;
+    gap: 0.65rem;
+    font-size: 0.56rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  .marklee-sidebar-header span:last-child {
+    display: none;
+  }
+
+  .marklee-file-list {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.16rem;
+  }
+
+  .marklee-file {
+    display: flex;
+    min-width: 0;
+    gap: 0.32rem;
+    border-radius: 0.26rem;
+    padding-block: 0.24rem;
+    padding-right: 0.38rem;
+    color: hsl(var(--muted-foreground) / 0.72);
+  }
+
+  .marklee-file span:first-child {
+    flex: 0 0 auto;
+    font-size: 0.54rem;
+    color: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  .marklee-file span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .marklee-file--active {
+    background: color-mix(in srgb, var(--hero-mockup-accent) 18%, transparent);
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-editor,
+  .marklee-preview {
+    min-width: 0;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--hero-mockup-bg) 84%, #000 16%);
+  }
+
+  .marklee-editor {
+    position: relative;
+    padding: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .marklee-preview {
+    border-left: 1px solid hsl(var(--border) / 0.34);
+    padding: 0.75rem;
+  }
+
+  .marklee-editor-lines {
+    display: grid;
+    gap: 0.32rem;
+  }
+
+  .marklee-editor-line {
+    display: grid;
+    grid-template-columns: 1.45rem minmax(0, 1fr);
+    gap: 0.5rem;
+    line-height: 1.45;
+  }
+
+  .marklee-line-number {
+    text-align: right;
+    color: hsl(var(--muted-foreground) / 0.34);
+  }
+
+  .marklee-line-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: hsl(var(--muted-foreground) / 0.86);
+  }
+
+  .marklee-line-text--heading,
+  .marklee-line-text--accent {
+    color: var(--hero-mockup-accent);
+    font-weight: 700;
+  }
+
+  .marklee-line-text--muted {
+    color: hsl(var(--muted-foreground) / 0.62);
+  }
+
+  .marklee-line-text--dim {
+    color: hsl(var(--muted-foreground) / 0.42);
+  }
+
+  .marklee-statusbar {
+    min-height: 24px;
+    border-top: 1px solid hsl(var(--border) / 0.42);
+    padding: 0.24rem 0.62rem;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .marklee-segmented {
+    display: inline-flex;
+    overflow: hidden;
+    border-radius: 0.34rem;
+    border: 1px solid hsl(var(--border) / 0.44);
+  }
+
+  .marklee-segmented span {
+    padding: 0.16rem 0.48rem;
+    color: hsl(var(--muted-foreground) / 0.68);
+  }
+
+  .marklee-segmented .is-active {
+    background: color-mix(in srgb, var(--hero-mockup-accent) 18%, transparent);
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-rendered-preview,
+  .marklee-code-card {
+    display: grid;
+    gap: 0.52rem;
+    font-size: 0.68rem;
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .marklee-rendered-preview h4,
+  .marklee-code-card p {
+    color: hsl(var(--foreground) / 0.92);
+    font-weight: 700;
+  }
+
+  .marklee-preview-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .marklee-preview-pills span,
+  .marklee-code-card span {
+    border-radius: 0.32rem;
+    border: 1px solid hsl(var(--border) / 0.38);
+    padding: 0.28rem 0.42rem;
+    background: hsl(var(--secondary) / 0.42);
+  }
+
+  .marklee-code-card code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-modal,
+  .marklee-floating-palette {
+    position: absolute;
+    right: 0.85rem;
+    bottom: 0.85rem;
+    width: min(17rem, 72%);
+    border-radius: 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-accent) 34%, hsl(var(--border)) 66%);
+    background: hsl(var(--background) / 0.9);
+    padding: 0.75rem;
+    box-shadow: 0 18px 48px hsl(0 0% 0% / 0.34);
+    backdrop-filter: blur(18px);
+  }
+
+  .marklee-modal-title,
+  .marklee-floating-palette p {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-modal p {
+    margin-top: 0.45rem;
+    line-height: 1.45;
+    color: hsl(var(--muted-foreground) / 0.86);
+  }
+
+  .marklee-modal-options,
+  .marklee-modal-actions,
+  .marklee-floating-palette {
+    display: grid;
+    gap: 0.38rem;
+  }
+
+  .marklee-modal-option,
+  .marklee-palette-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    border-radius: 0.38rem;
+    border: 1px solid hsl(var(--border) / 0.34);
+    padding: 0.38rem 0.5rem;
+    color: hsl(var(--muted-foreground) / 0.82);
+  }
+
+  .marklee-modal-option.is-active,
+  .marklee-palette-row.is-active {
+    border-color: color-mix(in srgb, var(--hero-mockup-accent) 40%, hsl(var(--border)) 60%);
+    background: color-mix(in srgb, var(--hero-mockup-accent) 14%, transparent);
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-modal-actions {
+    margin-top: 0.5rem;
+    grid-template-columns: 1fr auto;
+  }
+
+  .marklee-modal-actions span {
+    border-radius: 0.36rem;
+    border: 1px solid hsl(var(--border) / 0.44);
+    padding: 0.36rem 0.58rem;
+    text-align: center;
+  }
+
+  .marklee-modal-actions span:first-child {
+    border-color: transparent;
+    background: var(--hero-mockup-accent);
+    color: hsl(var(--primary-foreground));
+  }
+
+  .marklee-floating-palette {
+    top: 50%;
+    right: 50%;
+    bottom: auto;
+    transform: translate(50%, -50%);
+  }
+
+  .marklee-floating-palette--small {
+    top: auto;
+    right: 0.85rem;
+    bottom: 0.85rem;
+    transform: none;
+    width: min(13rem, 68%);
+  }
+
+  .marklee-palette-input {
+    border-radius: 0.38rem;
+    border: 1px solid hsl(var(--border) / 0.44);
+    padding: 0.42rem 0.5rem;
+    color: hsl(var(--muted-foreground) / 0.72);
+  }
+
+  .marklee-theme-strip {
+    display: block;
+    height: 0.5rem;
+    width: min(18rem, 100%);
+    border-radius: 999px;
+    border: 1px solid hsl(0 0% 100% / 0.13);
+  }
+
+  .marklee-zen-page {
+    display: grid;
+    min-height: 100%;
+    place-content: center;
+    gap: 0.55rem;
+    text-align: center;
+    font-family: Georgia, "Times New Roman", serif;
+    color: hsl(var(--foreground) / 0.9);
+  }
+
+  .marklee-zen-page p,
+  .marklee-zen-page span {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: hsl(var(--muted-foreground) / 0.62);
+  }
+
+  .marklee-zen-page blockquote {
+    font-size: clamp(0.82rem, 2vw, 1.05rem);
+    line-height: 1.55;
+  }
+
   .hero-editor-caret {
     display: inline-block;
     height: 1em;
@@ -266,8 +675,45 @@
       aspect-ratio: 16 / 9;
     }
 
-    .hero-editor-mockup .w-\[132px\] {
-      width: 112px;
+    .marklee-titlebar {
+      min-height: 26px;
+    }
+
+    .marklee-toolbar,
+    .marklee-toolbar-icons {
+      display: none;
+    }
+
+    .marklee-body,
+    .marklee-body--split {
+      grid-template-columns: 6.3rem minmax(0, 1fr);
+    }
+
+    .marklee-preview {
+      display: none;
+    }
+
+    .marklee-sidebar {
+      padding: 0.4rem;
+    }
+
+    .marklee-tab {
+      max-width: 6.8rem;
+      padding-inline: 0.55rem;
+    }
+
+    .marklee-editor {
+      padding: 0.55rem;
+    }
+
+    .marklee-editor-line {
+      grid-template-columns: 1.2rem minmax(0, 1fr);
+      gap: 0.36rem;
+    }
+
+    .marklee-modal,
+    .marklee-floating-palette {
+      width: min(14rem, 82%);
     }
   }
 
