@@ -633,12 +633,75 @@
     list-style: disc;
   }
 
+  .marklee-preview-document,
+  .marklee-export-panel {
+    display: grid;
+    gap: 0.5rem;
+    font-size: 0.66rem;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--hero-mockup-muted) 82%, transparent);
+  }
+
+  .marklee-preview-document-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--hero-mockup-border) 62%, transparent);
+    padding-bottom: 0.4rem;
+    color: color-mix(in srgb, var(--hero-mockup-muted) 74%, transparent);
+  }
+
+  .marklee-preview-document-header span {
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-preview-document h4 {
+    color: color-mix(in srgb, var(--hero-mockup-fg) 92%, transparent);
+    font-weight: 700;
+  }
+
+  .marklee-preview-document code {
+    overflow: hidden;
+    border-radius: 0.32rem;
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
+    padding: 0.38rem 0.45rem;
+    color: var(--hero-mockup-accent);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .marklee-export-panel {
+    gap: 0.46rem;
+  }
+
+  .marklee-export-panel > p {
+    color: color-mix(in srgb, var(--hero-mockup-fg) 92%, transparent);
+    font-weight: 700;
+  }
+
+  .marklee-export-panel > span {
+    border-radius: 0.34rem;
+    background: color-mix(in srgb, var(--hero-mockup-panel) 54%, transparent);
+    padding: 0.34rem 0.42rem;
+  }
+
   .marklee-preview-pills span,
   .marklee-code-card span {
     border-radius: 0.32rem;
     border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     padding: 0.28rem 0.42rem;
     background: color-mix(in srgb, var(--hero-mockup-panel) 42%, transparent);
+  }
+
+  .marklee-preview-pills .is-active {
+    border-color: color-mix(in srgb, var(--hero-mockup-accent) 46%, var(--hero-mockup-border) 54%);
+    background: color-mix(in srgb, var(--hero-mockup-accent) 16%, transparent);
+    color: var(--hero-mockup-accent);
   }
 
   .marklee-code-card code {
@@ -694,6 +757,34 @@
 
   .marklee-main--no-sidebar .marklee-modal {
     width: min(20rem, 56%);
+  }
+
+  .marklee-window--feature .marklee-body--split {
+    grid-template-columns: minmax(0, 1.08fr) minmax(10rem, 0.54fr);
+  }
+
+  .marklee-window--feature .marklee-preview {
+    background: color-mix(in srgb, var(--hero-mockup-editor-bg) 86%, var(--hero-mockup-panel) 14%);
+  }
+
+  .marklee-preset-chip {
+    position: absolute;
+    right: 0.72rem;
+    bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.46rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-accent) 36%, var(--hero-mockup-border) 64%);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 82%, var(--hero-mockup-bg) 18%);
+    padding: 0.34rem 0.58rem;
+    box-shadow: 0 16px 36px hsl(0 0% 0% / 0.28);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 78%, transparent);
+    font-size: 0.58rem;
+  }
+
+  .marklee-preset-chip strong {
+    color: var(--hero-mockup-accent);
   }
 
   .marklee-modal-title,
@@ -862,6 +953,10 @@
 
     .marklee-body,
     .marklee-body--split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .marklee-window--feature .marklee-body--split {
       grid-template-columns: minmax(0, 1fr);
     }
 

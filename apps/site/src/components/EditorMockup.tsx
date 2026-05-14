@@ -523,15 +523,16 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
   const copy = mockupCopy[locale];
   const formats = [
-    { label: "Markdown", ext: ".md", active: true },
-    { label: "HTML", ext: ".html", active: false },
+    { label: "Markdown", ext: ".md", active: false },
+    { label: "HTML", ext: ".html", active: true },
     { label: "PDF", ext: ".pdf", active: false },
   ];
 
   return (
     <MarkLeeWindow
+      className="marklee-window--feature"
       showSidebar={false}
-      tabs={["release-notes.md", "preview.html"]}
+      tabs={["release-notes.md", "preview.html", "export.json"]}
       activeTab="release-notes.md"
       activeFile="release-notes.md"
       files={[
@@ -544,11 +545,16 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
       editor={renderEditorLines([
         { text: "# Release notes", tone: "heading" },
         { text: "Versao preparada para publicacao." },
-        { text: "Exportacao configurada com preset formatado." },
+        { text: "" },
+        { text: "## Saidas", tone: "accent" },
+        { text: "- HTML formatado para revisão" },
+        { text: "- Markdown preservado como fonte" },
+        { text: "- PDF gerado no fim do fluxo" },
       ])}
-      overlay={
-        <div className="marklee-modal">
+      rightPane={
+        <div className="marklee-export-panel">
           <div className="marklee-modal-title">{copy.exportTitle}</div>
+          <p>release-notes.html</p>
           <div className="marklee-modal-options">
             {formats.map((format) => (
               <div key={format.label} className={`marklee-modal-option ${format.active ? "is-active" : ""}`}>
@@ -557,13 +563,15 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
               </div>
             ))}
           </div>
+          <span>Preset: formatado</span>
+          <span>Inclui estilos e sumário</span>
           <div className="marklee-modal-actions">
             <span>{copy.exportButton}</span>
             <span>{copy.cancelButton}</span>
           </div>
         </div>
       }
-      status={["Markdown", cursorStatus(3, 46), "UTF-8"]}
+      status={["Markdown", cursorStatus(7, 31), "UTF-8"]}
     />
   );
 };
@@ -767,9 +775,11 @@ export const PreviewPresetMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
-      tabs={["preview.md", "preset-crud.md"]}
-      activeTab="preset-crud.md"
-      activeFile="preset-crud.md"
+      className="marklee-window--feature"
+      showSidebar={false}
+      tabs={["technical.md", "article.md", "release.md"]}
+      activeTab="technical.md"
+      activeFile="technical.md"
       files={[
         { name: "presets", kind: "folder" },
         { name: "technical.md", level: 1 },
@@ -777,24 +787,37 @@ export const PreviewPresetMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         { name: "preset-crud.md", level: 1 },
       ]}
       editor={renderEditorLines([
-        { text: `# ${copy.previewTitle}`, tone: "heading" },
-        { text: copy.previewDescription },
-        { text: "- Technical" },
-        { text: "- Article" },
-        { text: "- Release" },
+        { text: "# Technical Doc", tone: "heading" },
+        { text: "Preset atual: documentação técnica." },
+        { text: "" },
+        { text: "## Fluxo", tone: "accent" },
+        { text: "- Títulos compactos" },
+        { text: "- Código com contraste" },
+        { text: "- Preview sincronizado" },
       ])}
       rightPane={
-        <div className="marklee-rendered-preview">
-          <h4>CRUD</h4>
-          <p>{copy.previewDescription}</p>
+        <div className="marklee-preview-document">
+          <div className="marklee-preview-document-header">
+            <span>Preview</span>
+            <strong>Technical</strong>
+          </div>
+          <h4>Technical Doc</h4>
+          <p>Documentação técnica com leitura densa, títulos compactos e blocos de código legíveis.</p>
+          <code>watch_workspace(path)</code>
           <div className="marklee-preview-pills">
-            <span>Technical</span>
+            <span className="is-active">Technical</span>
             <span>Article</span>
             <span>Release</span>
           </div>
         </div>
       }
-      status={[copy.previewTitle, cursorStatus(5, 10), "UTF-8"]}
+      overlay={
+        <div className="marklee-preset-chip">
+          <span>{copy.previewTitle}</span>
+          <strong>Technical</strong>
+        </div>
+      }
+      status={[copy.previewTitle, cursorStatus(7, 24), "UTF-8"]}
     />
   );
 };
