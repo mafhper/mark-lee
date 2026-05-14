@@ -22,7 +22,7 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = ({ label, title, description, mockup }: HeroSectionProps) => (
-  <section className="relative min-h-[calc(92svh-3.5rem)] overflow-visible pb-4 md:pb-8">
+  <section className="relative min-h-[calc(92svh-3.5rem)] overflow-x-clip overflow-y-visible pb-4 md:pb-8">
     <HeroSpaceBackground />
     <div className="hero-space-gradient pointer-events-none absolute inset-0" />
     <div className="container relative flex min-h-[calc(92svh-3.5rem)] flex-col justify-center pt-14 pb-0 md:pt-20">

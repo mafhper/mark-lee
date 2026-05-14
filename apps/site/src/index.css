@@ -245,10 +245,16 @@
     --hero-mockup-bg: hsl(var(--card));
     --hero-mockup-panel: hsl(var(--secondary));
     --hero-mockup-accent: hsl(var(--primary));
+    --hero-mockup-accent-fg: hsl(var(--primary-foreground));
+    --hero-mockup-fg: hsl(var(--foreground));
+    --hero-mockup-muted: hsl(var(--muted-foreground));
+    --hero-mockup-border: hsl(var(--border));
+    --hero-mockup-editor-bg: var(--hero-mockup-bg);
+    --hero-mockup-editor-fg: var(--hero-mockup-fg);
     display: flex;
     min-height: 240px;
     flex-direction: column;
-    color: hsl(var(--foreground));
+    color: var(--hero-mockup-fg);
   }
 
   .marklee-titlebar,
@@ -257,7 +263,7 @@
   .marklee-statusbar {
     display: flex;
     align-items: center;
-    border-color: hsl(var(--border) / 0.42);
+    border-color: color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
     background: color-mix(in srgb, var(--hero-mockup-panel) 68%, transparent);
   }
 
@@ -265,7 +271,7 @@
     min-height: 32px;
     display: grid;
     grid-template-columns: minmax(7rem, 1fr) auto minmax(7rem, 1fr);
-    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    border-bottom: 1px solid color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
     padding: 0 0.35rem 0 0.62rem;
   }
 
@@ -280,7 +286,7 @@
     gap: 0.45rem;
     font-size: 0.72rem;
     font-weight: 700;
-    color: hsl(var(--foreground) / 0.88);
+    color: color-mix(in srgb, var(--hero-mockup-fg) 88%, transparent);
   }
 
   .marklee-brand-mark {
@@ -289,8 +295,12 @@
     width: 1.25rem;
     place-items: center;
     border-radius: 0.24rem;
-    border: 1px solid hsl(var(--foreground) / 0.18);
-    background: linear-gradient(145deg, hsl(var(--foreground) / 0.16), hsl(var(--background) / 0.66));
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-fg) 18%, transparent);
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--hero-mockup-fg) 16%, transparent),
+      color-mix(in srgb, var(--hero-mockup-bg) 66%, transparent)
+    );
     font-family: Georgia, "Times New Roman", serif;
     font-size: 0.86rem;
     line-height: 1;
@@ -301,7 +311,7 @@
     height: 2rem;
     width: 2.2rem;
     place-items: center;
-    color: hsl(var(--muted-foreground) / 0.78);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 78%, transparent);
   }
 
   .marklee-window-controls {
@@ -310,12 +320,12 @@
   }
 
   .marklee-window-control-close {
-    color: hsl(var(--destructive) / 0.8);
+    color: color-mix(in srgb, hsl(var(--destructive)) 82%, var(--hero-mockup-fg) 18%);
   }
 
   .marklee-window-title {
     font-size: 0.62rem;
-    color: hsl(var(--muted-foreground) / 0.75);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 75%, transparent);
   }
 
   .marklee-main {
@@ -339,14 +349,14 @@
   .marklee-toolbar {
     min-height: 28px;
     gap: 0.45rem;
-    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    border-bottom: 1px solid color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
     padding: 0.32rem 0.62rem;
   }
 
   .marklee-tabs {
     min-height: 40px;
     align-items: stretch;
-    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    border-bottom: 1px solid color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
   }
 
   .marklee-tab {
@@ -355,12 +365,12 @@
     max-width: 9rem;
     align-items: center;
     gap: 0.45rem;
-    border-right: 1px solid hsl(var(--border) / 0.38);
+    border-right: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     margin: 0.24rem 0 0.24rem 0.28rem;
-    border: 1px solid hsl(var(--border) / 0.38);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     border-radius: 0.38rem;
     padding: 0 0.62rem;
-    color: hsl(var(--muted-foreground) / 0.74);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 74%, transparent);
   }
 
   .marklee-tab span:first-child {
@@ -371,13 +381,13 @@
 
   .marklee-tab--active {
     background: color-mix(in srgb, var(--hero-mockup-accent) 16%, transparent);
-    border-color: color-mix(in srgb, var(--hero-mockup-accent) 26%, hsl(var(--border)) 74%);
-    color: hsl(var(--foreground));
+    border-color: color-mix(in srgb, var(--hero-mockup-accent) 26%, var(--hero-mockup-border) 74%);
+    color: var(--hero-mockup-fg);
   }
 
   .marklee-tab-close,
   .marklee-tab-add {
-    color: hsl(var(--muted-foreground) / 0.64);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 64%, transparent);
   }
 
   .marklee-tab-add {
@@ -404,7 +414,7 @@
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    border-right: 1px solid hsl(var(--border) / 0.38);
+    border-right: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     background: color-mix(in srgb, var(--hero-mockup-panel) 78%, transparent);
   }
 
@@ -413,7 +423,7 @@
     min-height: 40px;
     align-items: center;
     gap: 0.1rem;
-    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    border-bottom: 1px solid color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
     padding: 0 0.32rem;
   }
 
@@ -423,7 +433,7 @@
     width: 1.8rem;
     place-items: center;
     border-radius: 0.38rem;
-    color: hsl(var(--muted-foreground) / 0.72);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 72%, transparent);
   }
 
   .marklee-sidebar-actions .is-danger {
@@ -437,9 +447,9 @@
     margin: 0.5rem 0.5rem 0;
     min-width: 0;
     border-radius: 0.36rem;
-    background: hsl(0 0% 100% / 0.045);
+    background: color-mix(in srgb, var(--hero-mockup-fg) 4.5%, transparent);
     padding: 0.38rem 0.5rem;
-    color: hsl(var(--muted-foreground) / 0.52);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 52%, transparent);
     font-size: 0.58rem;
   }
 
@@ -464,7 +474,7 @@
     font-size: 0.56rem;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 55%, transparent);
   }
 
   .marklee-sidebar-header span:last-child {
@@ -485,20 +495,20 @@
     border-radius: 0.26rem;
     padding-block: 0.24rem;
     padding-right: 0.38rem;
-    color: hsl(var(--muted-foreground) / 0.72);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 72%, transparent);
   }
 
   .marklee-file-chevron {
     display: grid;
     width: 0.78rem;
     place-items: center;
-    color: hsl(var(--muted-foreground) / 0.45);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 45%, transparent);
   }
 
   .marklee-file-kind {
     flex: 0 0 auto;
     font-size: 0.54rem;
-    color: hsl(var(--muted-foreground) / 0.45);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 45%, transparent);
   }
 
   .marklee-file span:last-child {
@@ -517,7 +527,7 @@
   .marklee-preview {
     min-width: 0;
     overflow: hidden;
-    background: color-mix(in srgb, var(--hero-mockup-bg) 84%, #000 16%);
+    background: var(--hero-mockup-editor-bg);
   }
 
   .marklee-editor {
@@ -527,7 +537,7 @@
   }
 
   .marklee-preview {
-    border-left: 1px solid hsl(var(--border) / 0.34);
+    border-left: 1px solid color-mix(in srgb, var(--hero-mockup-border) 64%, transparent);
     padding: 0.75rem;
   }
 
@@ -545,13 +555,13 @@
 
   .marklee-line-number {
     text-align: right;
-    color: hsl(var(--muted-foreground) / 0.34);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 34%, transparent);
   }
 
   .marklee-line-text {
     min-width: 0;
     overflow-wrap: anywhere;
-    color: hsl(var(--muted-foreground) / 0.86);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 86%, var(--hero-mockup-editor-bg) 14%);
   }
 
   .marklee-line-text--heading,
@@ -561,16 +571,16 @@
   }
 
   .marklee-line-text--muted {
-    color: hsl(var(--muted-foreground) / 0.62);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 62%, var(--hero-mockup-editor-bg) 38%);
   }
 
   .marklee-line-text--dim {
-    color: hsl(var(--muted-foreground) / 0.42);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 42%, var(--hero-mockup-editor-bg) 58%);
   }
 
   .marklee-statusbar {
     min-height: 24px;
-    border-top: 1px solid hsl(var(--border) / 0.42);
+    border-top: 1px solid color-mix(in srgb, var(--hero-mockup-border) 72%, transparent);
     padding: 0.24rem 0.62rem;
     text-transform: none;
     letter-spacing: 0;
@@ -580,12 +590,12 @@
     display: inline-flex;
     overflow: hidden;
     border-radius: 0.34rem;
-    border: 1px solid hsl(var(--border) / 0.44);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 74%, transparent);
   }
 
   .marklee-segmented span {
     padding: 0.16rem 0.48rem;
-    color: hsl(var(--muted-foreground) / 0.68);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 68%, transparent);
   }
 
   .marklee-segmented .is-active {
@@ -600,13 +610,13 @@
     gap: 0.52rem;
     font-size: 0.68rem;
     line-height: 1.55;
-    color: hsl(var(--muted-foreground) / 0.8);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 80%, transparent);
   }
 
   .marklee-rendered-preview h4,
   .marklee-code-card p,
   .marklee-review-panel p {
-    color: hsl(var(--foreground) / 0.92);
+    color: color-mix(in srgb, var(--hero-mockup-fg) 92%, transparent);
     font-weight: 700;
   }
 
@@ -626,9 +636,9 @@
   .marklee-preview-pills span,
   .marklee-code-card span {
     border-radius: 0.32rem;
-    border: 1px solid hsl(var(--border) / 0.38);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     padding: 0.28rem 0.42rem;
-    background: hsl(var(--secondary) / 0.42);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 42%, transparent);
   }
 
   .marklee-code-card code {
@@ -642,9 +652,9 @@
     display: grid;
     gap: 0.2rem;
     border-radius: 0.38rem;
-    border: 1px solid hsl(var(--border) / 0.34);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 64%, transparent);
     padding: 0.44rem 0.5rem;
-    background: hsl(var(--secondary) / 0.32);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 32%, transparent);
   }
 
   .marklee-review-panel strong {
@@ -674,8 +684,9 @@
     bottom: 0.85rem;
     width: min(17rem, 72%);
     border-radius: 0.55rem;
-    border: 1px solid color-mix(in srgb, var(--hero-mockup-accent) 34%, hsl(var(--border)) 66%);
-    background: hsl(var(--background) / 0.9);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-accent) 34%, var(--hero-mockup-border) 66%);
+    background: color-mix(in srgb, var(--hero-mockup-panel) 88%, var(--hero-mockup-bg) 12%);
+    color: var(--hero-mockup-fg);
     padding: 0.75rem;
     box-shadow: 0 18px 48px hsl(0 0% 0% / 0.34);
     backdrop-filter: blur(18px);
@@ -697,7 +708,7 @@
   .marklee-modal p {
     margin-top: 0.45rem;
     line-height: 1.45;
-    color: hsl(var(--muted-foreground) / 0.86);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 86%, transparent);
   }
 
   .marklee-modal-options,
@@ -713,14 +724,14 @@
     justify-content: space-between;
     gap: 0.6rem;
     border-radius: 0.38rem;
-    border: 1px solid hsl(var(--border) / 0.34);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 64%, transparent);
     padding: 0.38rem 0.5rem;
-    color: hsl(var(--muted-foreground) / 0.82);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 82%, transparent);
   }
 
   .marklee-modal-option.is-active,
   .marklee-palette-row.is-active {
-    border-color: color-mix(in srgb, var(--hero-mockup-accent) 40%, hsl(var(--border)) 60%);
+    border-color: color-mix(in srgb, var(--hero-mockup-accent) 40%, var(--hero-mockup-border) 60%);
     background: color-mix(in srgb, var(--hero-mockup-accent) 14%, transparent);
     color: var(--hero-mockup-accent);
   }
@@ -732,7 +743,7 @@
 
   .marklee-modal-actions span {
     border-radius: 0.36rem;
-    border: 1px solid hsl(var(--border) / 0.44);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 74%, transparent);
     padding: 0.36rem 0.58rem;
     text-align: center;
   }
@@ -740,7 +751,7 @@
   .marklee-modal-actions span:first-child {
     border-color: transparent;
     background: var(--hero-mockup-accent);
-    color: hsl(var(--primary-foreground));
+    color: var(--hero-mockup-accent-fg);
   }
 
   .marklee-floating-palette {
@@ -761,9 +772,9 @@
 
   .marklee-palette-input {
     border-radius: 0.38rem;
-    border: 1px solid hsl(var(--border) / 0.44);
+    border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 74%, transparent);
     padding: 0.42rem 0.5rem;
-    color: hsl(var(--muted-foreground) / 0.72);
+    color: color-mix(in srgb, var(--hero-mockup-muted) 72%, transparent);
   }
 
   .marklee-zen-page {
@@ -773,7 +784,7 @@
     gap: 0.55rem;
     text-align: center;
     font-family: Georgia, "Times New Roman", serif;
-    color: hsl(var(--foreground) / 0.9);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 90%, transparent);
   }
 
   .marklee-zen-page p,
@@ -782,7 +793,7 @@
     font-size: 0.58rem;
     text-transform: uppercase;
     letter-spacing: 0.16em;
-    color: hsl(var(--muted-foreground) / 0.62);
+    color: color-mix(in srgb, var(--hero-mockup-editor-fg) 62%, var(--hero-mockup-editor-bg) 38%);
   }
 
   .marklee-zen-page blockquote {
@@ -816,11 +827,16 @@
 
   @media (max-width: 760px) {
     .hero-mockup-shell {
+      width: min(42rem, 136vw);
+      max-width: none;
       margin-bottom: -2.25rem;
     }
 
-    .hero-editor-mockup {
-      aspect-ratio: 16 / 9;
+    .hero-mockup-shell .mockup-card,
+    .hero-editor-mockup,
+    .hero-theme-cycle-mockup {
+      aspect-ratio: 4 / 3;
+      min-height: clamp(20rem, 86vw, 25.5rem);
     }
 
     .marklee-titlebar {
@@ -833,6 +849,7 @@
 
     .marklee-brand span:last-child,
     .marklee-window-title,
+    .marklee-sidebar,
     .marklee-sidebar-search,
     .marklee-sidebar-actions span:nth-child(3),
     .marklee-sidebar-actions span:nth-child(4) {
@@ -840,7 +857,7 @@
     }
 
     .marklee-main {
-      grid-template-columns: 6.3rem minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .marklee-body,
@@ -871,7 +888,7 @@
     }
 
     .marklee-editor {
-      padding: 0.55rem;
+      padding: 0.72rem;
     }
 
     .marklee-editor-line {
@@ -881,7 +898,23 @@
 
     .marklee-modal,
     .marklee-floating-palette {
-      width: min(14rem, 82%);
+      width: min(17rem, 66%);
+    }
+
+    .hero-mockup-shell .marklee-window--fit-mobile {
+      width: min(100%, calc(100vw - 2rem));
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .marklee-statusbar {
+      padding-inline: 0.5rem;
+    }
+
+    .marklee-statusbar span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 

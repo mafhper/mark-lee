@@ -205,6 +205,11 @@ interface MarkLeeWindowProps {
   accent?: string;
   bg?: string;
   panel?: string;
+  fg?: string;
+  border?: string;
+  editorBg?: string;
+  editorFg?: string;
+  accentForeground?: string;
   className?: string;
   showSidebar?: boolean;
 }
@@ -232,6 +237,23 @@ const builtInThemeTokens: Record<string, ThemeTokenSet> = {
   Synthwave: { bg: "#221833", fg: "#fef3ff", ui: "#2e1f45", border: "#8a39d3", editorBg: "#221833", editorFg: "#fef3ff", accent: "#ff89cf" },
   Terminal: { bg: "#000000", fg: "#87ffa5", ui: "#050505", border: "#1c4728", editorBg: "#000000", editorFg: "#87ffa5", accent: "#5bffa0" },
   Firenight: { bg: "#1b0f0d", fg: "#ffe1bf", ui: "#2a1713", border: "#8a4c31", editorBg: "#1b0f0d", editorFg: "#ffe1bf", accent: "#ffb86c" },
+};
+
+const cursorStatus = (line: number, column: number) => `Ln ${line}, Col ${Math.max(1, column)}`;
+
+const luminanceFromHex = (hex: string) => {
+  const value = hex.replace("#", "");
+  if (value.length !== 6) return 0;
+  const channels = [0, 2, 4].map((offset) => {
+    const channel = Number.parseInt(value.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+};
+
+const readableTextOn = (hex?: string) => {
+  if (!hex?.startsWith("#")) return undefined;
+  return luminanceFromHex(hex) > 0.48 ? "#111827" : "#f8fafc";
 };
 
 const fileLabel = (item: MarkLeeFile) => {
@@ -291,6 +313,11 @@ const MarkLeeWindow = ({
   accent,
   bg,
   panel,
+  fg,
+  border,
+  editorBg,
+  editorFg,
+  accentForeground,
   className = "",
   showSidebar = true,
 }: MarkLeeWindowProps) => (
@@ -301,6 +328,12 @@ const MarkLeeWindow = ({
         "--hero-mockup-bg": bg,
         "--hero-mockup-panel": panel,
         "--hero-mockup-accent": accent,
+        "--hero-mockup-fg": fg,
+        "--hero-mockup-muted": fg && (bg || panel) ? `color-mix(in srgb, ${fg} 62%, ${bg ?? panel} 38%)` : undefined,
+        "--hero-mockup-border": border,
+        "--hero-mockup-editor-bg": editorBg,
+        "--hero-mockup-editor-fg": editorFg,
+        "--hero-mockup-accent-fg": accentForeground,
       } as React.CSSProperties
     }
   >
@@ -387,6 +420,7 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
   const typedBody = scene.body.slice(0, typedLength);
   const visibleTabs = animated ? [scene.tab, ...scene.files.filter((file) => file !== scene.tab && file.includes(".")).slice(0, 2)] : tabs;
   const visibleTree = animated ? scene.files : sampleTree;
+  const sceneForeground = animated ? readableTextOn(scene.bg) : undefined;
 
   useEffect(() => {
     if (!animated) return;
@@ -418,7 +452,12 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
       accent={animated ? scene.accent : undefined}
       bg={animated ? scene.bg : undefined}
       panel={animated ? scene.panel : undefined}
-      status={[copy.statusMarkdown, copy.statusCursor, "UTF-8"]}
+      fg={sceneForeground}
+      border={animated ? scene.accent : undefined}
+      editorBg={animated ? scene.bg : undefined}
+      editorFg={sceneForeground}
+      accentForeground={animated ? readableTextOn(scene.accent) : undefined}
+      status={[copy.statusMarkdown, cursorStatus(2, animated ? typedBody.length + 1 : 41), "UTF-8"]}
       editor={renderEditorLines([
         { text: <># {animated ? scene.title : "Mark-Lee"}</>, tone: "heading" },
         {
@@ -476,7 +515,7 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           </p>
         </div>
       }
-      status={[copy.statusMarkdown, copy.statusCursor, "UTF-8"]}
+      status={[copy.statusMarkdown, cursorStatus(3, copy.splitDescriptionB.length + 1), "UTF-8"]}
     />
   );
 };
@@ -524,7 +563,7 @@ export const ExportMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           </div>
         </div>
       }
-      status={["Markdown", "Export preset", "UTF-8"]}
+      status={["Markdown", cursorStatus(3, 46), "UTF-8"]}
     />
   );
 };
@@ -680,13 +719,18 @@ export const ThemeCycleHeroMockup = ({
         accent={tokens.accent}
         bg={tokens.bg}
         panel={tokens.ui}
+        fg={tokens.fg}
+        border={tokens.border}
+        editorBg={tokens.editorBg}
+        editorFg={tokens.editorFg}
+        accentForeground={readableTextOn(tokens.accent)}
         editor={renderEditorLines([
           { text: `# ${theme?.name ?? "Theme"}`, tone: "heading" },
           { text: "Tokens reais aplicados ao shell, chrome e editor." },
           { text: "" },
           ...tokenRows.map(([label, value]) => ({ text: `${label}: ${value}` })),
         ])}
-        status={[theme?.name ?? "Theme", "Theme preview", "UTF-8"]}
+        status={[theme?.name ?? "Theme", cursorStatus(9, 16), "UTF-8"]}
       />
     </motion.div>
   );
@@ -713,7 +757,7 @@ export const FocusModeMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           <span>{copy.focusSubtitle}</span>
         </div>
       }
-      status={[copy.focusTitle, "Zen", "UTF-8"]}
+      status={[copy.focusTitle, cursorStatus(1, 24), "UTF-8"]}
     />
   );
 };
@@ -750,7 +794,7 @@ export const PreviewPresetMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           </div>
         </div>
       }
-      status={[copy.previewTitle, "Preset: CRUD", "UTF-8"]}
+      status={[copy.previewTitle, cursorStatus(5, 10), "UTF-8"]}
     />
   );
 };
@@ -775,7 +819,7 @@ export const WorkspaceContextMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         { text: "Preview: documentation preset" },
         { text: "Export queue: 1 pending", tone: "muted" },
       ])}
-      status={[copy.workspaceTitle, copy.filesLabel, "UTF-8"]}
+      status={[copy.workspaceTitle, cursorStatus(5, 32), "UTF-8"]}
     />
   );
 };
@@ -809,7 +853,7 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           <span>Release note</span>
         </div>
       }
-      status={[copy.snippetsTitle, copy.snippetsStatus, "UTF-8"]}
+      status={[copy.snippetsTitle, cursorStatus(6, 13), "UTF-8"]}
     />
   );
 };
@@ -851,7 +895,7 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
           ))}
         </div>
       }
-      status={[copy.commandTitle, "Ctrl+Shift+P", "UTF-8"]}
+      status={[copy.commandTitle, cursorStatus(2, 62), "UTF-8"]}
     />
   );
 };
@@ -873,6 +917,11 @@ export const EngineeringHeroMockup = () => {
       accent="#7dd3fc"
       bg="#101820"
       panel="#16232a"
+      fg="#e6f6ff"
+      border="#284454"
+      editorBg="#101820"
+      editorFg="#e6f6ff"
+      accentForeground={readableTextOn("#7dd3fc")}
       editor={renderEditorLines([
         { text: "pub async fn watch_workspace(path: PathBuf) -> Result<()> {", tone: "accent" },
         { text: "    let canonical = path.canonicalize()?;" },
@@ -885,7 +934,7 @@ export const EngineeringHeroMockup = () => {
         { text: "    tab.dirty || tab.conflicted_externally" },
         { text: "}" },
       ])}
-      status={["Rust", "Tauri + React", "CI"]}
+      status={["Rust", cursorStatus(10, 2), "UTF-8"]}
     />
   );
 };
@@ -932,6 +981,11 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
       accent="#f2b84b"
       bg="#101820"
       panel="#16232a"
+      fg="#f4f1e8"
+      border="#394653"
+      editorBg="#101820"
+      editorFg="#f4f1e8"
+      accentForeground={readableTextOn("#f2b84b")}
       editor={renderEditorLines([
         { text: "# Revisão de contribuição", tone: "heading" },
         { text: suggestions[active] },
@@ -961,14 +1015,14 @@ export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => 
           </ul>
         </motion.div>
       }
-      status={[copy.explorer, "Review", "UTF-8"]}
+      status={[copy.explorer, cursorStatus(8, 21), "UTF-8"]}
     />
   );
 };
 
 export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: string }) => (
   <MarkLeeWindow
-    className="hero-editor-mockup marklee-window--zen"
+    className="hero-editor-mockup marklee-window--zen marklee-window--fit-mobile"
     tabs={["faq.md", "poema.md"]}
     activeTab="poema.md"
     activeFile="poema.md"
@@ -980,6 +1034,11 @@ export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: stri
     accent="#f2c078"
     bg="#16130f"
     panel="#201a13"
+    fg="#f8ead4"
+    border="#473626"
+    editorBg="#16130f"
+    editorFg="#f8ead4"
+    accentForeground={readableTextOn("#f2c078")}
     editor={
       <div className="marklee-zen-page">
         {lines.map((line) => (
@@ -988,6 +1047,6 @@ export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: stri
         <span>{credit}</span>
       </div>
     }
-    status={["Zen", "FAQ", "UTF-8"]}
+    status={["Zen", cursorStatus(lines.length, Math.max(...lines.map((line) => line.length), 1)), "UTF-8"]}
   />
 );
