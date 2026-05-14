@@ -344,8 +344,8 @@ export default function SettingsPanel({
 
   if (!open) return null;
 
-  const panelClass = `${tConfig.ui} ${tConfig.fg} ${tConfig.uiBorder}`;
-  const inputClass = `w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg}`;
+  const panelClass = `${tConfig.ui} ${tConfig.fg}`;
+  const inputClass = `ml-settings-field w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${tConfig.fg}`;
   const contentSurfaceStyle: React.CSSProperties = {
     background: `color-mix(in srgb, ${tConfig.editorBgHex} 72%, ${tConfig.uiHex} 28%)`,
     borderColor: `color-mix(in srgb, ${tConfig.uiBorderHex} 78%, ${tConfig.editorBgHex} 22%)`,
@@ -452,16 +452,16 @@ export default function SettingsPanel({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`inline-flex h-7 w-12 items-center rounded-full border px-1 transition ${checked ? "justify-end" : "justify-start"} ${tConfig.uiBorder}`}
+      className={`inline-flex h-6 w-11 items-center rounded-full border px-0.5 transition ${checked ? "justify-end" : "justify-start"} ml-settings-field`}
       aria-pressed={checked}
     >
-      <span className={`h-5 w-5 rounded-full ${checked ? "bg-emerald-400" : "bg-white/30"}`} />
+      <span className={`h-5 w-5 rounded-full shadow-sm ${checked ? "bg-emerald-400" : "bg-[color-mix(in_srgb,var(--ml-fg,#111827)_18%,transparent)]"}`} />
     </button>
   );
 
   const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => (
-    <section className={`rounded-xl border p-4 ${panelClass}`}>
-      <div className="mb-4">
+    <section className={`ml-settings-group rounded-xl p-4 ${panelClass}`}>
+      <div className="mb-3">
         <h3 className="text-sm font-semibold opacity-85">{title}</h3>
         <p className="mt-1 text-sm opacity-70">{description}</p>
       </div>
@@ -511,7 +511,7 @@ export default function SettingsPanel({
     value: string;
     onChange: (next: string) => void;
   }) => (
-    <div className="space-y-3 rounded-lg border p-3">
+    <div className="ml-settings-row space-y-3 rounded-lg p-3">
       <div>
         <div className="text-sm font-medium">{label}</div>
         <div className="mt-1 text-xs opacity-65">{note}</div>
@@ -529,7 +529,7 @@ export default function SettingsPanel({
         <button
           type="button"
           onClick={() => colorInputRefs.current[pickerId]?.click()}
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-1"
+          className="ml-settings-field flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-1"
           title={tr("Abrir seletor de cor", "Open color picker", "Abrir selector de color")}
         >
           <span className="h-full w-full rounded-lg border border-black/10" style={{ backgroundColor: value }} />
@@ -544,7 +544,7 @@ export default function SettingsPanel({
   );
 
   const renderTabNav = (compact: boolean) => (
-    <div className={compact ? "flex gap-2 overflow-x-auto pb-1" : "grid gap-2"}>
+    <div className={compact ? "flex gap-1.5 overflow-x-auto pb-1" : "grid gap-1.5"}>
       {tabs.map((tab) => {
         const active = activeTab === tab.id;
         return (
@@ -553,10 +553,10 @@ export default function SettingsPanel({
             type="button"
             onClick={() => setActiveTab(tab.id)}
             style={active ? activeTabStyle : undefined}
-          className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "" : "border-transparent hover:bg-white/6"}`}
+            className={`ml-settings-nav-item flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "" : ""}`}
           >
             <span className={active ? "opacity-100" : "opacity-80"}>{tab.icon}</span>
-            <span className={active ? "font-medium" : ""}>{tabLabels[tab.id]}</span>
+            <span className={`min-w-0 truncate ${active ? "font-medium" : ""}`}>{tabLabels[tab.id]}</span>
           </button>
         );
       })}
@@ -592,7 +592,7 @@ export default function SettingsPanel({
                 ))}
               </select>
             </label>
-            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
               <div>
                 <p className="text-sm font-medium">{tr("Abas", "Tabs", "Pestañas")}</p>
                 <p className="text-xs opacity-70">
@@ -605,7 +605,7 @@ export default function SettingsPanel({
               </div>
               {renderSwitch(settings.tabsEnabled, (tabsEnabled) => onSettingsChange({ tabsEnabled }))}
             </div>
-            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
               <div>
                 <p className="text-sm font-medium">{tr("Janela única", "Single window", "Ventana única")}</p>
                 <p className="text-xs opacity-70">
@@ -628,7 +628,7 @@ export default function SettingsPanel({
             "Muestra u oculta la navegación lateral del proyecto."
           ),
           <div className="grid gap-4">
-            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
               <div>
                 <p className="text-sm font-medium">Sidebar</p>
                 <p className="text-xs opacity-70">
@@ -668,7 +668,7 @@ export default function SettingsPanel({
                     key={theme.id}
                     type="button"
                     onClick={() => selectTheme(theme.id)}
-                    className={`rounded-[18px] border p-2.5 text-left transition ${selected ? "ring-2 ring-white/45" : ""}`}
+                    className={`ml-settings-row rounded-xl p-2.5 text-left transition ${selected ? "ring-2 ring-current/20" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -705,7 +705,7 @@ export default function SettingsPanel({
             </div>
 
             {selectedTheme ? (
-              <div className="rounded-[24px] border p-4">
+              <div className="ml-settings-group rounded-xl p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-60">
@@ -723,7 +723,7 @@ export default function SettingsPanel({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" className="rounded-xl border px-3 py-2 text-sm" onClick={createCustomTheme}>
+                    <button type="button" className="ml-settings-field rounded-lg border px-3 py-2 text-sm" onClick={createCustomTheme}>
                       {tr("Novo tema", "New theme", "Nuevo tema")}
                     </button>
                   </div>
@@ -733,7 +733,7 @@ export default function SettingsPanel({
                   <button
                     type="button"
                     onClick={() => duplicateTheme(selectedTheme)}
-                    className="rounded-xl border px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
+                    className="ml-settings-field inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
                   >
                     <CopyPlus className="h-4 w-4" />
                     {tr("Duplicar", "Duplicate", "Duplicar")}
@@ -742,7 +742,7 @@ export default function SettingsPanel({
                     <button
                       type="button"
                       onClick={() => restoreBuiltInTheme(selectedTheme)}
-                      className="rounded-xl border px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
+                      className="ml-settings-field inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
                     >
                       <RotateCcw className="h-4 w-4" />
                       {tr("Restaurar padrão", "Restore default", "Restaurar predeterminado")}
@@ -751,7 +751,7 @@ export default function SettingsPanel({
                     <button
                       type="button"
                       onClick={() => removeCustomTheme(selectedTheme.id)}
-                      className="rounded-xl border px-4 py-2 text-sm font-medium text-rose-300 inline-flex items-center gap-2"
+                      className="ml-settings-field inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-rose-300"
                     >
                       <Trash2 className="h-4 w-4" />
                       {tr("Remover tema", "Remove theme", "Eliminar tema")}
@@ -840,7 +840,7 @@ export default function SettingsPanel({
               [tr("Corretor ortográfico", "Spell check", "Corrector ortográfico"), settings.spellCheck, (spellCheck: boolean) => onSettingsChange({ spellCheck })],
               [tr("Salvamento automático", "Auto save", "Guardado automático"), settings.autoSave, (autoSave: boolean) => onSettingsChange({ autoSave })],
             ].map(([label, checked, onToggle]) => (
-              <div key={String(label)} className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <div key={String(label)} className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
                 <span className="text-sm">{label as string}</span>
                 {renderSwitch(checked as boolean, onToggle as (next: boolean) => void)}
               </div>
@@ -925,7 +925,7 @@ export default function SettingsPanel({
             "Controla cuánto prioriza la toolbar el apoyo visual y los nombres explícitos."
           ),
           <div className="grid gap-4 xl:grid-cols-2">
-            <div className="rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row rounded-lg px-3.5 py-3">
               <p className="text-sm font-medium">{tr("Mostrar ícones junto do texto", "Show icons alongside text", "Mostrar iconos junto al texto")}</p>
               <p className="mb-3 text-xs opacity-70">
                 {tr(
@@ -938,7 +938,7 @@ export default function SettingsPanel({
                 onSettingsChange({ toolbarAlwaysShowIcons })
               )}
             </div>
-            <div className="rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row rounded-lg px-3.5 py-3">
               <p className="text-sm font-medium">{tr("Rótulos de categoria", "Category labels", "Etiquetas de categoría")}</p>
               <p className="mb-3 text-xs opacity-70">
                 {tr(
@@ -961,7 +961,7 @@ export default function SettingsPanel({
             "Activa o desactiva categorías completas y ajusta las acciones visibles dentro de cada una."
           ),
           <div className="grid gap-4 xl:grid-cols-3">
-            <div className="rounded-2xl border p-4">
+            <div className="ml-settings-row rounded-lg p-3.5">
               <p className="mb-3 text-sm font-semibold">{tr("Categorias", "Categories", "Categorías")}</p>
               <div className="grid gap-3">
                 {(["files", "editing", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
@@ -975,7 +975,7 @@ export default function SettingsPanel({
               </div>
             </div>
             {toolbarItemsBySection.map((group) => (
-              <div key={group.titleKey} className="rounded-2xl border p-4">
+              <div key={group.titleKey} className="ml-settings-row rounded-lg p-3.5">
                 <p className="mb-3 text-sm font-semibold">{toolbarSectionLabels[group.titleKey]}</p>
                 <div className="grid gap-3">
                   {group.items.map((item) => (
@@ -1016,7 +1016,7 @@ export default function SettingsPanel({
               ["Snippets", settings.commandPalette.includeSnippets, (includeSnippets: boolean) =>
                 onSettingsChange({ commandPalette: { ...settings.commandPalette, includeSnippets } })],
             ].map(([label, checked, onToggle]) => (
-              <div key={String(label)} className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <div key={String(label)} className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
                 <span className="text-sm">{label as string}</span>
                 {renderSwitch(checked as boolean, onToggle as (next: boolean) => void)}
               </div>
@@ -1070,7 +1070,7 @@ export default function SettingsPanel({
                 <option value="manage">{tr("Abrir gerenciador de snippets", "Open snippet manager", "Abrir gestor de snippets")}</option>
               </select>
             </label>
-            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
               <div>
                 <p className="text-sm font-medium">{tr("Fechar após executar", "Close after running", "Cerrar después de ejecutar")}</p>
                 <p className="text-xs opacity-70">
@@ -1085,7 +1085,7 @@ export default function SettingsPanel({
                 onSettingsChange({ commandPalette: { ...settings.commandPalette, closeAfterSelect } })
               )}
             </div>
-            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
               <div>
                 <p className="text-sm font-medium">{tr("Mostrar atalhos", "Show shortcuts", "Mostrar atajos")}</p>
                 <p className="text-xs opacity-70">
@@ -1117,7 +1117,7 @@ export default function SettingsPanel({
             "La vista previa y la exportación HTML comparten los mismos tokens estructurales."
           ),
           <div className="grid gap-4 xl:grid-cols-[minmax(0,260px)_1fr]">
-            <div className="rounded-2xl border p-4">
+            <div className="ml-settings-row rounded-lg p-3.5">
               <label className="space-y-2">
                 <span className="text-sm opacity-80">{t["settings.presets.active"] ?? tr("Preset ativo", "Active preset", "Preset activo")}</span>
                 <select
@@ -1146,7 +1146,7 @@ export default function SettingsPanel({
                       ),
                     ])
                   }
-                  className="w-full rounded-xl border px-4 py-2 text-sm font-medium"
+                  className="ml-settings-field w-full rounded-lg border px-3 py-2 text-sm font-medium"
                 >
                   {t["settings.presets.add"] ?? tr("Adicionar preset", "Add preset", "Agregar preset")}
                 </button>
@@ -1157,7 +1157,7 @@ export default function SettingsPanel({
                 const expanded = expandedPresetIds.includes(preset.id);
                 const contrast = contrastRatio(preset.surface.text, preset.surface.bg).toFixed(1);
                 return (
-                  <article key={preset.id} className="rounded-[24px] border p-4">
+                  <article key={preset.id} className="ml-settings-row rounded-xl p-4">
                     <button
                       type="button"
                       onClick={() =>
@@ -1171,7 +1171,7 @@ export default function SettingsPanel({
                         <div className="flex items-center gap-3">
                           <h3 className="text-base font-semibold">{preset.name}</h3>
                           {settings.publicationPresetId === preset.id ? (
-                            <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]">
+                            <span className="ml-settings-field rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]">
                               {tr("ativo", "active", "activo")}
                             </span>
                           ) : null}
@@ -1188,13 +1188,13 @@ export default function SettingsPanel({
                       </div>
                     </button>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs opacity-70">
-                      <span className="rounded-full border px-2 py-1">contraste {contrast}:1</span>
-                      <span className="rounded-full border px-2 py-1">{preset.spacing.columnWidth}px coluna</span>
-                      <span className="rounded-full border px-2 py-1">{preset.typography.fontFamily.split(",")[0]}</span>
+                      <span className="ml-settings-field rounded-full border px-2 py-1">contraste {contrast}:1</span>
+                      <span className="ml-settings-field rounded-full border px-2 py-1">{preset.spacing.columnWidth}px coluna</span>
+                      <span className="ml-settings-field rounded-full border px-2 py-1">{preset.typography.fontFamily.split(",")[0]}</span>
                     </div>
                     {expanded ? (
                       <div className="mt-4 grid gap-4 2xl:grid-cols-2">
-                        <div className="rounded-2xl border p-4">
+                        <div className="ml-settings-group rounded-lg p-3.5">
                           <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Metadados</h4>
                           <div className="grid gap-4">
                             <label className="space-y-2">
@@ -1217,7 +1217,7 @@ export default function SettingsPanel({
                             </label>
                           </div>
                         </div>
-                        <div className="rounded-2xl border p-4">
+                        <div className="ml-settings-group rounded-lg p-3.5">
                           <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">
                             {tr("Superfície", "Surface", "Superficie")}
                           </h4>
@@ -1250,7 +1250,7 @@ export default function SettingsPanel({
                             </div>
                           </div>
                         </div>
-                        <div className="rounded-2xl border p-4">
+                        <div className="ml-settings-group rounded-lg p-3.5">
                           <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Tipografia</h4>
                           <div className="grid gap-4">
                             {renderRangeField("Corpo", preset.typography.bodySize, 14, 24, 1, "px", (bodySize) =>
@@ -1270,7 +1270,7 @@ export default function SettingsPanel({
                             )}
                           </div>
                         </div>
-                        <div className="rounded-2xl border p-4">
+                        <div className="ml-settings-group rounded-lg p-3.5">
                           <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Layout e ações</h4>
                           <div className="grid gap-4">
                             {renderRangeField("Padding da página", preset.spacing.pagePadding, 12, 72, 2, "px", (pagePadding) =>
@@ -1283,7 +1283,7 @@ export default function SettingsPanel({
                               <button
                                 type="button"
                                 onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
-                                className="rounded-xl border px-4 py-2 text-sm font-medium"
+                                className="ml-settings-field rounded-lg border px-3 py-2 text-sm font-medium"
                               >
                                 Usar preset
                               </button>
@@ -1291,7 +1291,7 @@ export default function SettingsPanel({
                                 <button
                                   type="button"
                                   onClick={() => onPublicationPresetsChange((current) => current.filter((item) => item.id !== preset.id))}
-                                  className="rounded-xl border px-4 py-2 text-sm font-medium text-rose-300"
+                                  className="ml-settings-field rounded-lg border px-3 py-2 text-sm font-medium text-rose-300"
                                 >
                                   Remover
                                 </button>
@@ -1319,7 +1319,7 @@ export default function SettingsPanel({
           tr("Clique no campo e pressione a combinação desejada.", "Click the field and press the desired shortcut.", "Haz clic en el campo y presiona la combinación deseada."),
           <div className="grid gap-3 sm:grid-cols-2">
             {shortcutActionIds.map((actionId) => (
-              <label key={actionId} className="space-y-2 rounded-2xl border p-4">
+              <label key={actionId} className="ml-settings-row space-y-2 rounded-lg p-3.5">
                 <span className="text-sm font-medium">{shortcutLabels[actionId]}</span>
                 <input
                   className={inputClass}
@@ -1344,45 +1344,39 @@ export default function SettingsPanel({
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="absolute inset-[max(24px,4vh)]">
-        <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border shadow-xl xl:flex-row ${panelClass}`}>
-          <aside className={`hidden w-[220px] shrink-0 flex-col border-r xl:flex ${panelClass}`}>
-            <div className="flex items-center justify-between border-b px-5 py-4">
+      <div className="absolute inset-x-4 top-[max(16px,4vh)] bottom-[max(16px,4vh)] flex items-start justify-center">
+        <div className={`ml-settings-panel flex h-[min(760px,calc(100vh-48px))] w-full max-w-[1060px] min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
+          <div className="grid shrink-0 gap-4 px-5 py-4 md:px-6">
+            <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
                 <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferências"}</h2>
               </div>
-              <button type="button" onClick={onClose} className="rounded-xl border p-2">
+              <button type="button" onClick={onClose} className="ml-settings-field rounded-xl border p-2">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto p-3">{renderTabNav(false)}</nav>
-          </aside>
-          <section className={`flex min-h-0 min-w-0 flex-1 flex-col ${panelClass}`}>
-            <div className="border-b px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
-                    {tr("Painel ativo", "Active panel", "Panel activo")}
-                  </p>
-                  <h3 className="mt-1 text-xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
-                </div>
-                <button type="button" onClick={onClose} className="rounded-xl border p-2 xl:hidden">
-                  <X className="h-4 w-4" />
-                </button>
+            <nav>{renderTabNav(true)}</nav>
+          </div>
+          <section className={`flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
+            <div className="shrink-0 px-5 py-4 md:px-6">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
+                  {tr("Painel ativo", "Active panel", "Panel activo")}
+                </p>
+                <h3 className="mt-1 text-xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
               </div>
               <p className="mt-2 max-w-3xl text-sm opacity-70">
                 {tabDescriptions[activeTab]}
               </p>
-              <div className="mt-4 xl:hidden">{renderTabNav(true)}</div>
             </div>
-            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto p-5 md:p-6">
-              <div className={`min-h-full rounded-xl border p-4 md:p-5 ${tConfig.fg}`} style={contentSurfaceStyle}>
+            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-6 md:pb-6">
+              <div className={`mx-auto w-full max-w-[930px] rounded-xl p-0 ${tConfig.fg}`} style={contentSurfaceStyle}>
                 {content}
               </div>
             </div>
             {activePreset && activeTab === "presets" ? (
-              <div className="border-t px-6 py-4 text-xs opacity-70">
+              <div className="border-t ml-settings-soft-divider px-6 py-3 text-xs opacity-70">
                 {tr("Preset ativo:", "Active preset:", "Preset activo:")} <span className="font-semibold">{activePreset.name}</span>
               </div>
             ) : null}

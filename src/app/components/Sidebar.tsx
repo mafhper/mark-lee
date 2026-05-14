@@ -243,11 +243,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
-      <div className={`border-b ${tConfig.uiBorder} p-2`}>
+      <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => onCreateFile(selectedBasePath)}
             title={t["sidebar.newFile"] || "New file"}
             aria-label={t["sidebar.newFile"] || "New file"}
@@ -257,7 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             type="button"
-            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => onCreateFolder(selectedBasePath)}
             title={t["sidebar.newFolder"] || "New folder"}
             aria-label={t["sidebar.newFolder"] || "New folder"}
@@ -267,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             type="button"
-            className="h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => selectedNode && onRename(selectedNode.path)}
             title={t["sidebar.rename"] || "Rename"}
             aria-label={t["sidebar.rename"] || "Rename"}
@@ -277,7 +277,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             type="button"
-            className="h-8 w-8 rounded-md ml-btn-danger inline-flex items-center justify-center disabled:opacity-40"
+            className="h-10 w-8 rounded-md ml-btn-danger inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => selectedNode && onDelete(selectedNode.path)}
             title={t["sidebar.delete"] || "Delete"}
             aria-label={t["sidebar.delete"] || "Delete"}
@@ -287,7 +287,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             type="button"
-            className="ml-auto h-8 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            className="ml-auto h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
             onClick={() => onReveal(selectedNode?.path ?? workspacePath ?? "")}
             title={t["sidebar.reveal"] || "Reveal"}
             aria-label={t["sidebar.reveal"] || "Reveal"}

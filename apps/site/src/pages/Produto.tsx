@@ -56,7 +56,7 @@ const Produto = ({ locale }: ProdutoProps) => {
         label={copy.hero.label}
         title={copy.hero.title}
         description={copy.hero.description}
-        mockup={<EditorMockup locale={locale} />}
+        mockup={<EditorMockup locale={locale} animated />}
       />
 
       <section className="relative border-t border-border/50">

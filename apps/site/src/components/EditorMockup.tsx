@@ -132,12 +132,68 @@ interface LocaleProps {
   locale?: Locale;
 }
 
-export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: number } & LocaleProps) => {
+const writingScenes: Record<Locale, Array<{ title: string; body: string; tab: string; accent: string; bg: string; panel: string }>> = {
+  "pt-BR": [
+    { title: "Arquitetura de sincronização", body: "O watcher observa a raiz do workspace e reconcilia abas abertas sem sobrescrever buffers sujos.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Poema curto", body: "Entre a margem e o cursor, a frase encontra um lugar para respirar.", tab: "poema.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Notas de reunião", body: "Decisões: manter PR pequeno, validar janela única no Windows e revisar o fluxo de exportação.", tab: "notas.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Cena de novela", body: "Ela fechou o caderno antes que a cidade descobrisse o nome escrito na última página.", tab: "capitulo.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+  ],
+  "en-US": [
+    { title: "Sync architecture", body: "The watcher follows the workspace root and reconciles open tabs without overwriting dirty buffers.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Short poem", body: "Between margin and cursor, the sentence finds a quiet place to breathe.", tab: "poem.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Meeting notes", body: "Decisions: keep PRs small, validate single-window behavior on Windows, review export flow.", tab: "notes.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Novel scene", body: "She closed the notebook before the city learned the name written on the final page.", tab: "chapter.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Code snippet", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+  ],
+  "es-ES": [
+    { title: "Arquitectura de sincronización", body: "El watcher observa la raíz del workspace y reconcilia pestañas abiertas sin sobrescribir buffers sucios.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Poema breve", body: "Entre el margen y el cursor, la frase encuentra un lugar para respirar.", tab: "poema.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Notas de reunión", body: "Decisiones: mantener PR pequeño, validar ventana única en Windows y revisar exportación.", tab: "notas.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Escena de novela", body: "Ella cerró el cuaderno antes de que la ciudad descubriera el nombre de la última página.", tab: "capitulo.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+  ],
+};
+
+export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false }: { activeTab?: number; animated?: boolean } & LocaleProps) => {
   const tabs = ["readme.md", "changelog.md", "notes.md"];
   const copy = mockupCopy[locale];
+  const scenes = writingScenes[locale];
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [typedLength, setTypedLength] = useState(animated ? 0 : scenes[0].body.length);
+  const scene = scenes[sceneIndex];
+  const typedBody = scene.body.slice(0, typedLength);
+
+  useEffect(() => {
+    if (!animated) return;
+    const sceneText = scenes[sceneIndex].body;
+    const done = typedLength >= sceneText.length;
+    const delay = done ? 1500 : 28 + (typedLength % 8) * 7;
+    const timer = window.setTimeout(() => {
+      if (done) {
+        setSceneIndex((current) => (current + 1) % scenes.length);
+        setTypedLength(0);
+      } else {
+        setTypedLength((current) => current + 1);
+      }
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [animated, sceneIndex, scenes, typedLength]);
 
   return (
-    <div className="mockup-card text-[11px]">
+    <div
+      className={`mockup-card text-[11px] ${animated ? "hero-editor-mockup" : ""}`}
+      style={
+        animated
+          ? ({
+              "--hero-mockup-bg": scene.bg,
+              "--hero-mockup-panel": scene.panel,
+              "--hero-mockup-accent": scene.accent,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
       <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
@@ -148,7 +204,7 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: 
       </div>
 
       <div className="flex border-b border-border/40">
-        {tabs.map((tab, i) => (
+        {(animated ? [scene.tab, ...tabs.slice(1)] : tabs).map((tab, i) => (
           <div
             key={tab}
             className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${i === activeTab ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"
@@ -159,8 +215,8 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: 
         ))}
       </div>
 
-      <div className="flex min-h-[210px]">
-        <div className="w-[132px] shrink-0 space-y-1 border-r border-border/30 p-2">
+      <div className={animated ? "flex min-h-0 flex-1 overflow-hidden" : "flex min-h-[210px]"}>
+        <div className="w-[132px] shrink-0 space-y-1 overflow-hidden border-r border-border/30 p-2">
           <div className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">
             {copy.explorer}
           </div>
@@ -175,18 +231,21 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR" }: { activeTab?: 
           ))}
         </div>
 
-        <div className="flex-1 space-y-1.5 p-3 font-mono">
+        <div className="flex-1 space-y-1.5 overflow-hidden p-3 font-mono">
           <div className="flex gap-2">
             <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
-            <span className="font-semibold text-primary"># Mark-Lee</span>
+            <span className="min-w-0 break-words font-semibold text-primary"># {animated ? scene.title : "Mark-Lee"}</span>
           </div>
           <div className="flex gap-2">
             <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
-            <span className="text-muted-foreground/80">Escrita focada com preview integrado.</span>
+            <span className="min-w-0 break-words text-muted-foreground/80">
+              {animated ? typedBody : "Escrita focada com preview integrado."}
+              {animated && <span className="hero-editor-caret" />}
+            </span>
           </div>
           <div className="flex gap-2">
             <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
-            <span className="text-muted-foreground/80">Fluxo de publicação previsível.</span>
+            <span className="text-muted-foreground/80">{animated ? "" : "Fluxo de publicação previsível."}</span>
           </div>
           <div className="flex gap-2">
             <span className="w-4 text-right text-[9px] text-muted-foreground/30">4</span>
@@ -460,29 +519,29 @@ export const ThemeCycleHeroMockup = ({
   }, [theme]);
 
   return (
-    <div className="mockup-card overflow-hidden">
+    <div className="mockup-card hero-theme-cycle-mockup overflow-hidden">
       <motion.div
         animate={{ background: gradient }}
         transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
-        className="p-4"
+        className="flex min-h-[320px] items-center p-4 md:min-h-[380px]"
       >
-        <div className="rounded-lg border border-black/20 bg-black/20 p-4 backdrop-blur-sm">
+        <div className="w-full rounded-lg border border-black/20 bg-black/20 p-5 backdrop-blur-sm">
           <div className="flex items-center justify-between text-[10px] text-white/80">
             <span>Mark-Lee UI</span>
             <span>{theme?.name ?? "Theme"}</span>
           </div>
-          <div className="mt-3 grid grid-cols-[120px_1fr] gap-3">
-            <div className="space-y-2 rounded border border-white/15 bg-black/30 p-2">
-              <div className="h-2 w-20 rounded bg-white/30" />
-              <div className="h-2 w-16 rounded bg-white/20" />
-              <div className="h-2 w-24 rounded bg-white/20" />
-              <div className="h-2 w-14 rounded bg-white/20" />
+          <div className="mt-4 grid grid-cols-[150px_1fr] gap-4">
+            <div className="space-y-3 rounded border border-white/15 bg-black/30 p-3">
+              <div className="h-2.5 w-24 rounded bg-white/30" />
+              <div className="h-2.5 w-20 rounded bg-white/20" />
+              <div className="h-2.5 w-28 rounded bg-white/20" />
+              <div className="h-2.5 w-16 rounded bg-white/20" />
             </div>
-            <div className="space-y-2 rounded border border-white/15 bg-black/30 p-2">
-              <div className="h-2 w-full rounded bg-white/30" />
-              <div className="h-2 w-10/12 rounded bg-white/20" />
-              <div className="h-2 w-8/12 rounded bg-white/20" />
-              <div className="mt-3 h-14 rounded border border-white/15 bg-black/20" />
+            <div className="space-y-3 rounded border border-white/15 bg-black/30 p-3">
+              <div className="h-2.5 w-full rounded bg-white/30" />
+              <div className="h-2.5 w-10/12 rounded bg-white/20" />
+              <div className="h-2.5 w-8/12 rounded bg-white/20" />
+              <div className="mt-4 h-20 rounded border border-white/15 bg-black/20" />
             </div>
           </div>
           <div className="mt-3 flex gap-1.5">
@@ -654,19 +713,19 @@ export const EngineeringHeroMockup = () => {
   ];
 
   return (
-    <div className="mockup-card relative overflow-hidden p-4">
+    <div className="mockup-card relative min-h-[320px] overflow-hidden p-4 md:min-h-[380px]">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-blue-500/10" />
-      <div className="relative grid gap-3 md:grid-cols-[1fr_1fr]">
-        <div className="rounded-lg border border-border/40 bg-card/80 p-3">
+      <div className="relative grid h-full min-h-[288px] items-center gap-3 md:min-h-[348px] md:grid-cols-[1fr_1fr]">
+        <div className="rounded-lg border border-border/40 bg-card/80 p-4">
           <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground/50">Interface</div>
           <div className="space-y-2">
             <div className="h-2 w-10/12 rounded bg-muted" />
             <div className="h-2 w-full rounded bg-muted" />
             <div className="h-2 w-8/12 rounded bg-muted" />
-            <div className="mt-3 h-14 rounded border border-border/40 bg-secondary/60" />
+            <div className="mt-4 h-24 rounded border border-border/40 bg-secondary/60" />
           </div>
         </div>
-        <div className="rounded-lg border border-primary/20 bg-background/75 p-3 font-mono text-[10px] text-primary/85">
+        <div className="rounded-lg border border-primary/20 bg-background/75 p-4 font-mono text-[10px] leading-relaxed text-primary/85">
           <div className="mb-2 text-[10px] uppercase tracking-wider text-primary/60">Core code</div>
           <div className="space-y-1.5">
             {codeLines.map((line) => (
@@ -682,7 +741,7 @@ export const EngineeringHeroMockup = () => {
 };
 
 export const ZenPoemMockup = ({ lines, credit }: { lines: string[]; credit: string }) => (
-  <div className="mockup-card flex min-h-[240px] items-center justify-center p-8">
+  <div className="mockup-card flex min-h-[320px] items-center justify-center p-8 md:min-h-[380px]">
     <div className="max-w-xs text-center font-serif text-sm leading-relaxed text-foreground/90">
       {lines.map((line) => (
         <p key={line}>{line}</p>

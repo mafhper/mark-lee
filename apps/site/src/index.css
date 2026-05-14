@@ -126,7 +126,145 @@
     border: 1px solid hsl(220 14% 20%);
   }
 
+  .hero-space-backdrop {
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 62%, hsl(var(--primary) / 0.11), transparent 18rem),
+      linear-gradient(180deg, hsl(228 20% 7%), hsl(190 28% 8%) 66%, hsl(var(--background)) 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 74%, rgb(0 0 0 / 0.65) 88%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 74%, rgb(0 0 0 / 0.65) 88%, transparent 100%);
+  }
+
+  .hero-space-backdrop__fallback,
+  .hero-space-backdrop__canvas {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .hero-space-backdrop__fallback {
+    background:
+      radial-gradient(circle at 50% 62%, hsl(var(--primary) / 0.13), transparent 16rem),
+      radial-gradient(circle at 48% 58%, hsl(205 80% 54% / 0.15), transparent 24rem),
+      radial-gradient(ellipse at 42% 66%, hsl(178 70% 42% / 0.12), transparent 22rem),
+      radial-gradient(ellipse at 62% 52%, hsl(266 58% 42% / 0.12), transparent 25rem),
+      linear-gradient(180deg, #090b14 0%, #0d1724 58%, hsl(var(--background)) 100%);
+  }
+
+  .hero-space-backdrop__canvas {
+    display: block;
+  }
+
+  .hero-mockup-shell {
+    margin-bottom: clamp(-5rem, -6vw, -2.25rem);
+    transform-origin: 50% 70%;
+    filter: drop-shadow(0 28px 60px hsl(0 0% 0% / 0.38));
+  }
+
+  .hero-mockup-shell .mockup-card {
+    transition:
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      transform 220ms ease;
+  }
+
+  .hero-mockup-shell:hover .mockup-card {
+    border-color: hsl(var(--primary) / 0.46);
+    box-shadow:
+      var(--shadow-card),
+      0 0 46px hsl(var(--primary) / 0.16);
+  }
+
   .mockup-card {
-    @apply overflow-hidden rounded-lg border-gradient bg-gradient-card shadow-card;
+    @apply overflow-hidden rounded-lg border-gradient shadow-card;
+    position: relative;
+    background:
+      radial-gradient(circle at 18% 12%, hsl(var(--primary) / 0.08), transparent 13rem),
+      radial-gradient(circle at 88% 88%, hsl(205 80% 54% / 0.08), transparent 16rem),
+      var(--gradient-card);
+  }
+
+  .mockup-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, hsl(0 0% 100% / 0.035), transparent 34%),
+      radial-gradient(circle at 50% 0%, hsl(0 0% 100% / 0.045), transparent 18rem);
+    z-index: 0;
+  }
+
+  .mockup-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .feature-illustration-card {
+    @apply relative h-36 w-full overflow-hidden rounded-lg border border-border/35 bg-secondary/25;
+    background:
+      radial-gradient(circle at 24% 22%, hsl(var(--primary) / 0.13), transparent 7rem),
+      radial-gradient(circle at 78% 72%, hsl(205 80% 54% / 0.10), transparent 8rem),
+      linear-gradient(145deg, hsl(var(--secondary) / 0.58), hsl(var(--card) / 0.84));
+  }
+
+  .feature-illustration-card svg {
+    filter: drop-shadow(0 10px 22px hsl(0 0% 0% / 0.16));
+  }
+
+  .hero-editor-mockup {
+    display: flex;
+    min-height: clamp(320px, 34vw, 500px);
+    aspect-ratio: 16 / 9;
+    flex-direction: column;
+    background:
+      linear-gradient(145deg, color-mix(in srgb, var(--hero-mockup-panel) 92%, #ffffff 8%), var(--hero-mockup-bg));
+    border-color: color-mix(in srgb, var(--hero-mockup-accent) 28%, hsl(var(--border)) 72%);
+  }
+
+  .hero-editor-mockup > :last-child {
+    flex-shrink: 0;
+  }
+
+  .hero-editor-mockup .text-primary {
+    color: var(--hero-mockup-accent);
+  }
+
+  .hero-editor-caret {
+    display: inline-block;
+    height: 1em;
+    width: 0.55em;
+    margin-left: 0.12em;
+    border-right: 2px solid var(--hero-mockup-accent);
+    transform: translateY(0.16em);
+    animation: hero-caret-blink 0.9s steps(2, start) infinite;
+  }
+
+  @keyframes hero-caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .hero-mockup-shell {
+      margin-bottom: -2.25rem;
+    }
+
+    .hero-editor-mockup {
+      min-height: 250px;
+      aspect-ratio: 4 / 3;
+    }
+
+    .hero-editor-mockup .w-\[132px\] {
+      width: 112px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-editor-caret {
+      animation: none;
+    }
   }
 }

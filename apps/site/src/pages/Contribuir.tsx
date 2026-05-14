@@ -45,13 +45,13 @@ const Contribuir = ({ locale }: ContribuirProps) => {
         title={copy.hero.title}
         description={copy.hero.description}
         mockup={
-          <div className="mockup-card p-6">
+          <div className="mockup-card flex min-h-[320px] flex-col justify-center p-6 md:min-h-[380px]">
             <div className="mb-4 text-[10px] uppercase tracking-wider text-muted-foreground/50">{copy.hero.flowTitle}</div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr]">
               {copy.hero.flowSteps.map((item, i) => (
-                <div key={item} className="flex items-center gap-3">
+                <div key={item} className="contents">
                   <div
-                    className={`rounded-md border px-3 py-2 text-[11px] font-medium ${
+                    className={`rounded-md border px-3 py-3 text-center text-[11px] font-medium ${
                       i === 0
                         ? "border-primary/20 bg-primary/15 text-primary"
                         : i === copy.hero.flowSteps.length - 1
@@ -61,11 +61,11 @@ const Contribuir = ({ locale }: ContribuirProps) => {
                   >
                     {item}
                   </div>
-                  {i < copy.hero.flowSteps.length - 1 && <span className="text-xs text-muted-foreground/20">→</span>}
+                  {i < copy.hero.flowSteps.length - 1 && <span className="hidden self-center text-xs text-muted-foreground/20 sm:block">→</span>}
                 </div>
               ))}
             </div>
-            <div className="mt-6 space-y-2">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <div className="flex items-center gap-2 text-[10px]">
                 <div className="h-2 w-2 rounded-full bg-green-500/50" />
                 <span className="text-muted-foreground/60">{copy.hero.testsLabel}</span>

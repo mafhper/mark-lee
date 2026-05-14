@@ -22,10 +22,10 @@ interface HeroSectionProps {
 }
 
 export const HeroSection = ({ label, title, description, mockup }: HeroSectionProps) => (
-  <section className="relative min-h-[calc(100svh-3.5rem)] overflow-hidden">
-    <HeroCanvasBackground />
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,hsl(var(--primary)/0.18),transparent_34%),linear-gradient(180deg,transparent, hsl(var(--background))_96%)]" />
-    <div className="container relative flex min-h-[calc(100svh-3.5rem)] flex-col justify-center py-16 md:py-20">
+  <section className="relative min-h-[calc(92svh-3.5rem)] overflow-visible pb-4 md:pb-8">
+    <HeroSpaceBackground />
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,hsl(var(--primary)/0.18),transparent_24%),linear-gradient(180deg,hsl(var(--background)/0.14),transparent_32%,hsl(var(--background))_96%)]" />
+    <div className="container relative flex min-h-[calc(92svh-3.5rem)] flex-col justify-center pt-14 pb-0 md:pt-20">
       <div className="mx-auto max-w-3xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -46,7 +46,8 @@ export const HeroSection = ({ label, title, description, mockup }: HeroSectionPr
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="mx-auto mt-12 w-full max-w-5xl"
+            whileHover={{ y: -6, scale: 1.012 }}
+            className="hero-mockup-shell mx-auto mt-12 w-full max-w-4xl"
           >
             {mockup}
           </motion.div>
@@ -55,72 +56,207 @@ export const HeroSection = ({ label, title, description, mockup }: HeroSectionPr
   </section>
 );
 
-const HeroCanvasBackground = () => {
+const vertexShaderSource = `
+  attribute vec2 aPosition;
+  varying vec2 vUv;
+
+  void main() {
+    vUv = aPosition * 0.5 + 0.5;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+  }
+`;
+
+const fragmentShaderSource = `
+  precision highp float;
+
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform vec2 uResolution;
+  uniform vec2 uPointer;
+
+  float hash(vec2 p) {
+    p = fract(p * vec2(127.1, 311.7));
+    p += dot(p, p + 19.19);
+    return fract(p.x * p.y);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.54;
+    mat2 rotate = mat2(0.82, -0.57, 0.57, 0.82);
+    for (int i = 0; i < 5; i++) {
+      value += amplitude * noise(p);
+      p = rotate * p * 2.03 + vec2(0.19, 0.07);
+      amplitude *= 0.52;
+    }
+    return value;
+  }
+
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uResolution.xy;
+    vec2 center = vec2(0.5, 0.62) + (uPointer - 0.5) * 0.025;
+    vec2 p = uv - center;
+    p.x *= uResolution.x / uResolution.y;
+
+    float distanceFromCenter = length(p);
+    vec2 direction = normalize(p + 0.0001);
+    float angle = atan(direction.y, direction.x);
+
+    vec3 deep = vec3(0.018, 0.022, 0.040);
+    vec3 blue = vec3(0.040, 0.105, 0.205);
+    vec3 amber = vec3(0.78, 0.45, 0.16);
+    vec3 teal = vec3(0.09, 0.42, 0.43);
+    vec3 violet = vec3(0.20, 0.12, 0.35);
+
+    float tunnel = smoothstep(0.03, 0.78, distanceFromCenter);
+    vec3 color = mix(deep, blue, tunnel * 0.62);
+    color += amber * smoothstep(0.36, 0.0, distanceFromCenter) * 0.055;
+    color += teal * smoothstep(0.88, 0.18, distanceFromCenter) * 0.07;
+
+    float radial = 1.0 / max(distanceFromCenter, 0.055);
+    float travel = uTime * 0.78;
+    float lane = angle * 28.0;
+
+    vec2 gasA = vec2(lane * 0.055, radial * 0.52 - travel * 0.22);
+    vec2 gasB = vec2(p.x * 1.7 + sin(radial * 0.9 - travel) * 0.22, p.y * 1.25 - travel * 0.06);
+    float cloudA = fbm(gasA * 3.0 + gasB * 0.72);
+    float cloudB = fbm(gasB * 2.1 - vec2(travel * 0.12, travel * 0.035));
+    float veil = smoothstep(0.34, 0.86, cloudA + cloudB * 0.48);
+    float ribbon = smoothstep(0.18, 0.92, sin(lane * 0.42 + radial * 2.1 - travel * 1.7) * 0.5 + 0.5);
+    float gasFade = smoothstep(0.02, 0.22, distanceFromCenter) * (1.0 - smoothstep(1.15, 1.55, distanceFromCenter));
+    vec3 gasColor = mix(blue, teal, cloudB);
+    gasColor = mix(gasColor, violet, smoothstep(0.38, 0.94, cloudA) * 0.52);
+    gasColor = mix(gasColor, amber, ribbon * 0.18);
+    color = mix(color, gasColor, veil * gasFade * 0.58);
+
+    float dust = smoothstep(0.985, 1.0, hash(floor(vec2(lane * 3.0, radial * 13.0 - travel * 4.0))));
+    float dustLine = smoothstep(0.028, 0.0, abs(fract(radial * 13.0 - travel * 4.0) - 0.5));
+    color += vec3(0.52, 0.70, 0.82) * dust * dustLine * gasFade * 0.035;
+
+    float core = smoothstep(0.18, 0.0, distanceFromCenter);
+    color += vec3(1.0, 0.72, 0.34) * core * 0.055;
+    color *= 1.0 - smoothstep(0.56, 1.42, length(uv - vec2(0.5, 0.5))) * 0.66;
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const compileShader = (gl: WebGLRenderingContext, type: number, source: string) => {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error("Unable to create shader");
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const message = gl.getShaderInfoLog(shader) ?? "Shader compilation failed";
+    gl.deleteShader(shader);
+    throw new Error(message);
+  }
+  return shader;
+};
+
+const HeroSpaceBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const gl = canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      powerPreference: "high-performance",
+    });
+    if (!gl) return;
 
-    let frame = 0;
+    let program: WebGLProgram | null = null;
+    let buffer: WebGLBuffer | null = null;
+    try {
+      const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+      const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+      program = gl.createProgram();
+      if (!program) throw new Error("Unable to create WebGL program");
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error("WebGL program link failed");
+      buffer = gl.createBuffer();
+      if (!buffer) throw new Error("Unable to create WebGL buffer");
+    } catch {
+      return;
+    }
+    if (!program || !buffer) return;
+
     let raf = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
+    const meshProgram = program;
+    const meshBuffer = buffer;
+    const positionLocation = gl.getAttribLocation(meshProgram, "aPosition");
+    const timeLocation = gl.getUniformLocation(meshProgram, "uTime");
+    const resolutionLocation = gl.getUniformLocation(meshProgram, "uResolution");
+    const pointerLocation = gl.getUniformLocation(meshProgram, "uPointer");
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.useProgram(meshProgram);
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     const resize = () => {
       canvas.width = Math.floor(canvas.clientWidth * dpr);
       canvas.height = Math.floor(canvas.clientHeight * dpr);
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
-    const draw = () => {
-      frame += 0.006;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      context.clearRect(0, 0, width, height);
-
-      const gradient = context.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, "rgba(222, 148, 48, 0.16)");
-      gradient.addColorStop(0.5, "rgba(38, 112, 214, 0.10)");
-      gradient.addColorStop(1, "rgba(24, 185, 137, 0.10)");
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, width, height);
-
-      context.globalCompositeOperation = "screen";
-      for (let i = 0; i < 8; i += 1) {
-        const x = width * (0.15 + i * 0.105) + Math.sin(frame + i) * 28;
-        const y = height * (0.18 + ((i * 73) % 52) / 100) + Math.cos(frame * 1.3 + i) * 24;
-        const radius = Math.max(width, height) * (0.12 + (i % 3) * 0.018);
-        const glow = context.createRadialGradient(x, y, 0, x, y, radius);
-        glow.addColorStop(0, i % 2 === 0 ? "rgba(255, 180, 88, 0.18)" : "rgba(102, 161, 255, 0.15)");
-        glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-        context.fillStyle = glow;
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
-        context.fill();
-      }
-      context.globalCompositeOperation = "source-over";
-
+    const draw = (time: number) => {
+      pointer.x += (pointer.tx - pointer.x) * 0.06;
+      pointer.y += (pointer.ty - pointer.y) * 0.06;
+      gl.useProgram(meshProgram);
+      gl.uniform1f(timeLocation, time * 0.001);
+      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      gl.uniform2f(pointerLocation, pointer.x, pointer.y);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
       raf = requestAnimationFrame(draw);
     };
 
+    const handlePointerMove = (event: PointerEvent) => {
+      pointer.tx = event.clientX / Math.max(1, window.innerWidth);
+      pointer.ty = event.clientY / Math.max(1, window.innerHeight);
+    };
+
     resize();
-    draw();
+    raf = requestAnimationFrame(draw);
     window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", handlePointerMove);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", handlePointerMove);
+      gl.deleteBuffer(meshBuffer);
+      gl.deleteProgram(meshProgram);
     };
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-80"
-      aria-hidden="true"
-    />
+    <div className="hero-space-backdrop pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="hero-space-backdrop__fallback" />
+      <canvas ref={canvasRef} className="hero-space-backdrop__canvas" />
+    </div>
   );
 };
 
