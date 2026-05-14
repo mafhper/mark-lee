@@ -346,10 +346,6 @@ export default function SettingsPanel({
 
   const panelClass = `${tConfig.ui} ${tConfig.fg}`;
   const inputClass = `ml-settings-field w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${tConfig.fg}`;
-  const contentSurfaceStyle: React.CSSProperties = {
-    background: `color-mix(in srgb, ${tConfig.bgHex} 72%, ${tConfig.uiHex} 28%)`,
-    borderColor: `color-mix(in srgb, ${tConfig.uiBorderHex} 58%, transparent)`,
-  };
   const activeTabStyle: React.CSSProperties = {
     background: `color-mix(in srgb, ${tConfig.fgHex} 14%, transparent)`,
     borderColor: `color-mix(in srgb, ${tConfig.fgHex} 10%, transparent)`,
@@ -510,7 +506,7 @@ export default function SettingsPanel({
     value: string;
     onChange: (next: string) => void;
   }) => (
-    <div className="ml-settings-row flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:items-center">
+    <div className="ml-settings-color-row flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">{label}</div>
         <div className="mt-1 text-xs opacity-65">{note}</div>
@@ -667,7 +663,7 @@ export default function SettingsPanel({
                     key={theme.id}
                     type="button"
                     onClick={() => selectTheme(theme.id)}
-                    className={`ml-settings-row rounded-xl p-3 text-left transition ${selected ? "ring-2 ring-current/20" : ""}`}
+                    className={`ml-settings-row ml-settings-row--selectable rounded-xl p-3 text-left transition ${selected ? "ring-2 ring-current/20" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -700,7 +696,7 @@ export default function SettingsPanel({
             </div>
 
             {selectedTheme ? (
-              <div className="ml-settings-section rounded-xl p-4">
+              <div className="ml-settings-editor-pane rounded-2xl p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-60">
@@ -859,7 +855,7 @@ export default function SettingsPanel({
             "Define where the bar lives and how it distributes space between categories.",
             "Define dónde vive la barra y cómo distribuye el espacio entre categorías."
           ),
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-sm opacity-80">{tr("Posição da barra de ferramentas", "Toolbar anchor", "Ancla de la barra de herramientas")}</span>
               <select
@@ -919,7 +915,7 @@ export default function SettingsPanel({
             "Control how much the toolbar prioritizes visual support and explicit naming.",
             "Controla cuánto prioriza la barra de herramientas el apoyo visual y los nombres explícitos."
           ),
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="ml-settings-row rounded-lg px-3.5 py-3">
               <p className="text-sm font-medium">{tr("Mostrar ícones junto do texto", "Show icons alongside text", "Mostrar iconos junto al texto")}</p>
               <p className="mb-3 text-xs opacity-70">
@@ -955,12 +951,12 @@ export default function SettingsPanel({
             "Enable or disable full categories and refine the visible actions inside each one.",
             "Activa o desactiva categorías completas y ajusta las acciones visibles dentro de cada una."
           ),
-          <div className="grid gap-4 xl:grid-cols-3">
-            <div className="ml-settings-row rounded-lg p-3.5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
               <p className="mb-3 text-sm font-semibold">{tr("Categorias", "Categories", "Categorías")}</p>
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {(["files", "editing", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
-                  <div key={sectionKey} className="flex items-center justify-between">
+                  <div key={sectionKey} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md py-1.5">
                     <span className="text-sm">{toolbarSectionLabels[sectionKey]}</span>
                     {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>
                       onSettingsChange({ toolbarSections: { ...settings.toolbarSections, [sectionKey]: enabled } })
@@ -970,11 +966,11 @@ export default function SettingsPanel({
               </div>
             </div>
             {toolbarItemsBySection.map((group) => (
-              <div key={group.titleKey} className="ml-settings-row rounded-lg p-3.5">
+              <div key={group.titleKey} className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
                 <p className="mb-3 text-sm font-semibold">{toolbarSectionLabels[group.titleKey]}</p>
-                <div className="grid gap-3">
+                <div className="grid gap-2">
                   {group.items.map((item) => (
-                    <div key={item.key} className="flex items-center justify-between gap-3">
+                    <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md py-1.5">
                       <span className="text-sm">{toolbarItemLabels[item.labelKey]}</span>
                       {renderSwitch(settings.toolbarItems[item.key], (enabled) =>
                         onSettingsChange({ toolbarItems: { ...settings.toolbarItems, [item.key]: enabled } })
@@ -1355,18 +1351,18 @@ export default function SettingsPanel({
           </div>
           <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
             <div className="shrink-0 px-5 py-4 md:px-6">
-              <div>
+              <div className={`mx-auto w-full max-w-[1080px] ${tConfig.fg}`}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
                   {tr("Painel ativo", "Active panel", "Panel activo")}
                 </p>
                 <h3 className="mt-1 text-xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
+                <p className="mt-2 max-w-3xl text-sm opacity-70">
+                  {tabDescriptions[activeTab]}
+                </p>
               </div>
-              <p className="mt-2 max-w-3xl text-sm opacity-70">
-                {tabDescriptions[activeTab]}
-              </p>
             </div>
             <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-6 md:pb-6">
-              <div className={`mx-auto min-h-full w-full max-w-[980px] rounded-2xl border p-4 ${tConfig.fg}`} style={contentSurfaceStyle}>
+              <div className={`mx-auto min-h-full w-full max-w-[1080px] ${tConfig.fg}`}>
                 {content}
               </div>
             </div>
