@@ -440,7 +440,7 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
 
   return (
     <MarkLeeWindow
-      className={animated ? "hero-editor-mockup" : ""}
+      className={animated ? "hero-editor-mockup" : "marklee-window--home-feature"}
       tabs={visibleTabs}
       activeTab={visibleTabs[activeTab] ?? visibleTabs[0]}
       activeFile={animated ? scene.tab : "readme.md"}
@@ -484,6 +484,7 @@ export const SplitViewMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      className="marklee-window--home-feature"
       tabs={["readme.md", "preview.md"]}
       activeTab="readme.md"
       activeFile="readme.md"
@@ -827,6 +828,7 @@ export const WorkspaceContextMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      className="marklee-window--home-feature"
       tabs={["readme.md", "architecture.md", "draft.md"]}
       activeTab="readme.md"
       activeFile="readme.md"
@@ -853,6 +855,7 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
   return (
     <MarkLeeWindow
+      className="marklee-window--home-feature marklee-window--snippet-models"
       showSidebar={false}
       tabs={["modelos.md", "release-note.md"]}
       activeTab="modelos.md"
@@ -869,11 +872,13 @@ export const SnippetModelsMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         { text: copy.snippetsStatus },
         ...items.map((item) => ({ text: `- ${item}` })),
       ])}
-      overlay={
-        <div className="marklee-floating-palette marklee-floating-palette--small">
-          <strong>{copy.snippetsCreate}</strong>
-          <span>Architecture ADR</span>
-          <span>Release note</span>
+      rightPane={
+        <div className="marklee-snippet-detail">
+          <p>{copy.snippetsCreate}</p>
+          <strong>Architecture ADR</strong>
+          <span>Título</span>
+          <span>Contexto</span>
+          <span>Decisão</span>
         </div>
       }
       status={[copy.snippetsTitle, cursorStatus(6, 13), "UTF-8"]}
@@ -887,11 +892,11 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
     { label: "Export document", hint: "Ctrl+E", active: true },
     { label: "Open workspace", hint: "Ctrl+Shift+O" },
     { label: ">snip:release_note", hint: "Snippet" },
-    { label: "drafts/roadmap.md", hint: "Arquivo" },
   ];
 
   return (
     <MarkLeeWindow
+      className="marklee-window--home-feature marklee-window--command-palette"
       showSidebar={false}
       tabs={["roadmap.md", "drafts.md"]}
       activeTab="roadmap.md"
@@ -907,7 +912,7 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
         { text: "A paleta fica sobre a edicao sem deslocar abas ou workspace." },
       ])}
       overlay={
-        <div className="marklee-floating-palette">
+        <div className="marklee-floating-palette marklee-floating-palette--command">
           <div className="marklee-palette-input">{copy.commandHint}</div>
           <p>{copy.commandTitle}</p>
           {actions.map((action) => (

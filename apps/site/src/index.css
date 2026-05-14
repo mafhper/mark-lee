@@ -767,6 +767,40 @@
     background: color-mix(in srgb, var(--hero-mockup-editor-bg) 86%, var(--hero-mockup-panel) 14%);
   }
 
+  .marklee-window--home-feature {
+    min-height: 300px;
+  }
+
+  .marklee-window--home-feature .marklee-body {
+    min-height: 0;
+  }
+
+  .marklee-snippet-detail {
+    display: grid;
+    gap: 0.44rem;
+    font-size: 0.66rem;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--hero-mockup-muted) 82%, transparent);
+  }
+
+  .marklee-snippet-detail p {
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--hero-mockup-accent);
+  }
+
+  .marklee-snippet-detail strong {
+    color: color-mix(in srgb, var(--hero-mockup-fg) 92%, transparent);
+  }
+
+  .marklee-snippet-detail span {
+    border-radius: 0.34rem;
+    background: color-mix(in srgb, var(--hero-mockup-panel) 54%, transparent);
+    padding: 0.34rem 0.42rem;
+  }
+
   .marklee-preset-chip {
     position: absolute;
     right: 0.72rem;
@@ -851,6 +885,20 @@
     bottom: auto;
     width: min(24rem, 74%);
     transform: translate(50%, -50%);
+  }
+
+  .marklee-floating-palette--command {
+    width: min(21.5rem, 68%);
+    gap: 0.28rem;
+    padding: 0.62rem;
+  }
+
+  .marklee-floating-palette--command .marklee-palette-row {
+    padding-block: 0.32rem;
+  }
+
+  .marklee-floating-palette--command .marklee-palette-input {
+    padding-block: 0.34rem;
   }
 
   .marklee-floating-palette--small {
