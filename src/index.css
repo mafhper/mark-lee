@@ -375,12 +375,30 @@
   color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 68%, transparent);
 }
 
+.cm-activeLine {
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 9%, transparent) !important;
+}
+
+.cm-activeLineGutter {
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 10%, transparent) !important;
+}
+
+.cm-lineNumbers .cm-activeLineGutter {
+  color: var(--ml-editor-fg, #e5e7eb) !important;
+  border-radius: 4px;
+}
+
 [data-theme="golden"] .cm-editor {
   color: #1e1308 !important;
 }
 
 [data-theme="golden"] .cm-activeLine {
   background-color: rgba(30, 19, 8, 0.12) !important;
+}
+
+[data-theme="golden"] .cm-activeLineGutter {
+  background-color: rgba(30, 19, 8, 0.12) !important;
+  color: #1e1308 !important;
 }
 
 [data-theme="golden"] .cm-selectionBackground,
