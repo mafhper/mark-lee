@@ -1339,8 +1339,8 @@ export default function SettingsPanel({
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="absolute inset-x-4 top-[max(16px,4vh)] bottom-[max(16px,4vh)] flex items-start justify-center">
-        <div className={`ml-settings-panel flex h-[min(760px,calc(100vh-48px))] w-full max-w-[1100px] min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
+      <div className="absolute inset-x-4 top-[max(16px,3vh)] bottom-[max(16px,3vh)] flex items-stretch justify-center">
+        <div className={`ml-settings-panel flex h-full max-h-[920px] w-full max-w-[1100px] min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
           <div className="ml-settings-header grid shrink-0 gap-4 px-5 py-4 md:px-6">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -1366,7 +1366,7 @@ export default function SettingsPanel({
               </p>
             </div>
             <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-6 md:pb-6">
-              <div className={`mx-auto w-full max-w-[980px] rounded-2xl border p-4 ${tConfig.fg}`} style={contentSurfaceStyle}>
+              <div className={`mx-auto min-h-full w-full max-w-[980px] rounded-2xl border p-4 ${tConfig.fg}`} style={contentSurfaceStyle}>
                 {content}
               </div>
             </div>
