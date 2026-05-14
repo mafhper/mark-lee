@@ -208,8 +208,8 @@ export default function SettingsPanel({
     general: tr("Geral", "General", "General"),
     appearance: tr("Temas", "Themes", "Temas"),
     editor: tr("Editor", "Editor", "Editor"),
-    toolbar: tr("Toolbar", "Toolbar", "Toolbar"),
-    palette: tr("Command palette", "Command palette", "Command palette"),
+    toolbar: tr("Ferramentas", "Toolbar", "Barra de herramientas"),
+    palette: tr("Paleta de comandos", "Command palette", "Paleta de comandos"),
     presets: tr("Publicação", "Publishing", "Publicación"),
     shortcuts: tr("Atalhos", "Shortcuts", "Atajos"),
   };
@@ -230,14 +230,14 @@ export default function SettingsPanel({
       "Tipografía, lectura y comportamiento de escritura en el editor."
     ),
     toolbar: tr(
-      "Posição, densidade e ações visíveis da barra principal.",
+      "Posição, densidade e ações visíveis da barra de ferramentas.",
       "Position, density, and visible actions in the main toolbar.",
       "Posición, densidad y acciones visibles de la barra principal."
     ),
     palette: tr(
-      "Fontes de busca e comportamento do command palette.",
+      "Fontes de busca e comportamento da paleta de comandos.",
       "Search sources and command palette behavior.",
-      "Fuentes de búsqueda y comportamiento del command palette."
+      "Fuentes de búsqueda y comportamiento de la paleta de comandos."
     ),
     presets: tr(
       "Presets que controlam preview e exportação HTML.",
@@ -256,7 +256,7 @@ export default function SettingsPanel({
     "file-open-folder": tr("Abrir pasta", "Open folder", "Abrir carpeta"),
     "edit-find": tr("Buscar", "Find", "Buscar"),
     "edit-snippets": "Snippets",
-    "app-command-palette": "Command palette",
+    "app-command-palette": tr("Paleta de comandos", "Command palette", "Paleta de comandos"),
     "app-settings": tr("Configurações", "Settings", "Configuración"),
     "fmt-bold": tr("Negrito", "Bold", "Negrita"),
     "fmt-italic": tr("Itálico", "Italic", "Cursiva"),
@@ -347,9 +347,8 @@ export default function SettingsPanel({
   const panelClass = `${tConfig.ui} ${tConfig.fg}`;
   const inputClass = `ml-settings-field w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${tConfig.fg}`;
   const contentSurfaceStyle: React.CSSProperties = {
-    background: `color-mix(in srgb, ${tConfig.editorBgHex} 72%, ${tConfig.uiHex} 28%)`,
-    borderColor: `color-mix(in srgb, ${tConfig.uiBorderHex} 78%, ${tConfig.editorBgHex} 22%)`,
-    boxShadow: `inset 0 1px 0 color-mix(in srgb, ${tConfig.editorFgHex} 5%, transparent)`,
+    background: `color-mix(in srgb, ${tConfig.bgHex} 72%, ${tConfig.uiHex} 28%)`,
+    borderColor: `color-mix(in srgb, ${tConfig.uiBorderHex} 58%, transparent)`,
   };
   const activeTabStyle: React.CSSProperties = {
     background: `color-mix(in srgb, ${tConfig.fgHex} 14%, transparent)`,
@@ -460,7 +459,7 @@ export default function SettingsPanel({
   );
 
   const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => (
-    <section className={`ml-settings-group rounded-xl p-4 ${panelClass}`}>
+    <section className={`ml-settings-section rounded-xl p-4 ${panelClass}`}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold opacity-85">{title}</h3>
         <p className="mt-1 text-sm opacity-70">{description}</p>
@@ -511,12 +510,12 @@ export default function SettingsPanel({
     value: string;
     onChange: (next: string) => void;
   }) => (
-    <div className="ml-settings-row space-y-3 rounded-lg p-3">
-      <div>
+    <div className="ml-settings-row flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">{label}</div>
         <div className="mt-1 text-xs opacity-65">{note}</div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2 sm:w-[210px]">
         <input
           ref={(node) => {
             colorInputRefs.current[pickerId] = node;
@@ -529,13 +528,13 @@ export default function SettingsPanel({
         <button
           type="button"
           onClick={() => colorInputRefs.current[pickerId]?.click()}
-          className="ml-settings-field flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-1"
+          className="ml-settings-field flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-1"
           title={tr("Abrir seletor de cor", "Open color picker", "Abrir selector de color")}
         >
           <span className="h-full w-full rounded-lg border border-black/10" style={{ backgroundColor: value }} />
         </button>
         <input
-          className={`${inputClass} min-w-0 flex-1`}
+          className={`${inputClass} min-w-0 flex-1 font-mono text-xs`}
           value={normalizeHex(value, "#000000")}
           onChange={(event) => onChange(normalizeHex(event.target.value, value))}
         />
@@ -657,8 +656,8 @@ export default function SettingsPanel({
             "Built-in themes can be edited and restored. Custom themes can be duplicated and removed.",
             "Los temas predeterminados pueden editarse y restaurarse. Los temas personalizados pueden duplicarse y eliminarse."
           ),
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(420px,1.22fr)]">
+            <div className="grid content-start gap-2.5 sm:grid-cols-2">
               {settings.themeLibrary.map((theme) => {
                 const active = settings.theme === theme.id;
                 const selected = selectedTheme?.id === theme.id;
@@ -668,7 +667,7 @@ export default function SettingsPanel({
                     key={theme.id}
                     type="button"
                     onClick={() => selectTheme(theme.id)}
-                    className={`ml-settings-row rounded-xl p-2.5 text-left transition ${selected ? "ring-2 ring-current/20" : ""}`}
+                    className={`ml-settings-row rounded-xl p-3 text-left transition ${selected ? "ring-2 ring-current/20" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -680,24 +679,20 @@ export default function SettingsPanel({
                       </div>
                       {active ? <Check className="h-4 w-4 shrink-0" /> : null}
                     </div>
-                    <div className="mt-3 grid grid-cols-5 gap-1.5">
-                      {[theme.config.bgHex, theme.config.uiHex, theme.config.editorBgHex, theme.config.fgHex, theme.config.accentHex].map((color, index) => (
-                        <span key={`${theme.id}-${index}`} className="h-7 rounded-lg border" style={{ backgroundColor: color }} />
-                      ))}
-                    </div>
-                    <div className="mt-3 grid gap-1 text-[11px] opacity-72">
-                      <div className="flex items-center justify-between">
-                        <span>{tr("Acento", "Accent", "Acento")}</span>
-                        <span>{summary.accentContrast}:1</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{tr("Variação", "Variation", "Variación")}</span>
-                        <span>{summary.shellDelta > 0.08 ? tr("mais marcada", "more distinct", "más marcada") : tr("mais suave", "softer", "más suave")}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{tr("Contraste", "Contrast", "Contraste")}</span>
-                        <span>{summary.contrast}:1</span>
-                      </div>
+                    <div
+                      className="mt-3 h-3 rounded-full border ml-theme-strip"
+                      style={{
+                        background: `linear-gradient(90deg, ${theme.config.bgHex}, ${theme.config.uiHex}, ${theme.config.editorBgHex}, ${theme.config.fgHex}, ${theme.config.accentHex})`,
+                      }}
+                    />
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] opacity-72">
+                      <span>{tr("Acento", "Accent", "Acento")} {summary.accentContrast}:1</span>
+                      <span>{tr("Contraste", "Contrast", "Contraste")} {summary.contrast}:1</span>
+                      <span>
+                        {summary.shellDelta > 0.08
+                          ? tr("variação marcada", "distinct variation", "variación marcada")
+                          : tr("variação suave", "soft variation", "variación suave")}
+                      </span>
                     </div>
                   </button>
                 );
@@ -705,7 +700,7 @@ export default function SettingsPanel({
             </div>
 
             {selectedTheme ? (
-              <div className="ml-settings-group rounded-xl p-4">
+              <div className="ml-settings-section rounded-xl p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-60">
@@ -772,7 +767,7 @@ export default function SettingsPanel({
                   </label>
                 ) : null}
 
-                <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                <div className="mt-4 grid gap-2.5">
                   {themeColorFields.map((field) => (
                     <div key={String(field.key)}>
                       {renderColorField({
@@ -866,7 +861,7 @@ export default function SettingsPanel({
           ),
           <div className="grid gap-4 xl:grid-cols-3">
             <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Âncora da toolbar", "Toolbar anchor", "Ancla de la toolbar")}</span>
+              <span className="text-sm opacity-80">{tr("Posição da barra de ferramentas", "Toolbar anchor", "Ancla de la barra de herramientas")}</span>
               <select
                 className={inputClass}
                 value={settings.floatingToolbarAnchor}
@@ -920,16 +915,16 @@ export default function SettingsPanel({
         {renderSectionCard(
           tr("Leitura e rótulos", "Readability and labels", "Lectura y etiquetas"),
           tr(
-            "Controle o quanto a toolbar prioriza apoio visual e nomes explícitos.",
+            "Controle o quanto a barra de ferramentas prioriza apoio visual e nomes explícitos.",
             "Control how much the toolbar prioritizes visual support and explicit naming.",
-            "Controla cuánto prioriza la toolbar el apoyo visual y los nombres explícitos."
+            "Controla cuánto prioriza la barra de herramientas el apoyo visual y los nombres explícitos."
           ),
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="ml-settings-row rounded-lg px-3.5 py-3">
               <p className="text-sm font-medium">{tr("Mostrar ícones junto do texto", "Show icons alongside text", "Mostrar iconos junto al texto")}</p>
               <p className="mb-3 text-xs opacity-70">
                 {tr(
-                  "Mantém o apoio visual dos ícones quando a toolbar estiver em modo textual.",
+            "Mantém o apoio visual dos ícones quando a barra estiver em modo textual.",
                   "Keeps icons visible as visual support when the toolbar is in text mode.",
                   "Mantiene los iconos visibles como apoyo visual cuando la toolbar está en modo texto."
                 )}
@@ -942,7 +937,7 @@ export default function SettingsPanel({
               <p className="text-sm font-medium">{tr("Rótulos de categoria", "Category labels", "Etiquetas de categoría")}</p>
               <p className="mb-3 text-xs opacity-70">
                 {tr(
-                  "Mantém o nome das categorias visível quando fizer sentido.",
+                  "Mantém o nome das categorias visível quando fizer sentido na barra.",
                   "Keeps category names visible when that improves scanability.",
                   "Mantiene visibles los nombres de las categorías cuando mejora la lectura."
                 )}
@@ -1001,9 +996,9 @@ export default function SettingsPanel({
         {renderSectionCard(
           tr("Fontes de busca", "Search sources", "Fuentes de búsqueda"),
           tr(
-            "Controle o que o command palette indexa e entrega.",
+            "Controle o que a paleta de comandos indexa e entrega.",
             "Control what the command palette indexes and surfaces.",
-            "Controla qué indexa y muestra el command palette."
+            "Controla qué indexa y muestra la paleta de comandos."
           ),
           <div className="grid gap-3">
             {[
@@ -1029,9 +1024,9 @@ export default function SettingsPanel({
         {renderSectionCard(
           tr("Busca e execução", "Search and execution", "Búsqueda y ejecución"),
           tr(
-            "Ajustes para transformar o palette em um centro de comando mais útil.",
+            "Ajustes para transformar a paleta em um centro de comando mais útil.",
             "Settings to turn the palette into a more useful command surface.",
-            "Ajustes para convertir el palette en un centro de comandos más útil."
+            "Ajustes para convertir la paleta en un centro de comandos más útil."
           ),
           <div className="grid gap-4">
             <label className="space-y-2">
@@ -1345,8 +1340,8 @@ export default function SettingsPanel({
         onClick={onClose}
       />
       <div className="absolute inset-x-4 top-[max(16px,4vh)] bottom-[max(16px,4vh)] flex items-start justify-center">
-        <div className={`ml-settings-panel flex h-[min(760px,calc(100vh-48px))] w-full max-w-[1060px] min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
-          <div className="grid shrink-0 gap-4 px-5 py-4 md:px-6">
+        <div className={`ml-settings-panel flex h-[min(760px,calc(100vh-48px))] w-full max-w-[1100px] min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
+          <div className="ml-settings-header grid shrink-0 gap-4 px-5 py-4 md:px-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
@@ -1358,7 +1353,7 @@ export default function SettingsPanel({
             </div>
             <nav>{renderTabNav(true)}</nav>
           </div>
-          <section className={`flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
+          <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
             <div className="shrink-0 px-5 py-4 md:px-6">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
@@ -1371,7 +1366,7 @@ export default function SettingsPanel({
               </p>
             </div>
             <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-6 md:pb-6">
-              <div className={`mx-auto w-full max-w-[930px] rounded-xl p-0 ${tConfig.fg}`} style={contentSurfaceStyle}>
+              <div className={`mx-auto w-full max-w-[980px] rounded-2xl border p-4 ${tConfig.fg}`} style={contentSurfaceStyle}>
                 {content}
               </div>
             </div>

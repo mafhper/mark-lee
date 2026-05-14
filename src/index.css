@@ -97,6 +97,45 @@
   background: color-mix(in srgb, var(--ml-fg, #111827) 14%, transparent) !important;
 }
 
+.ml-toolbar-shortcut-tooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  z-index: 320;
+  display: inline-flex;
+  min-width: max-content;
+  max-width: 240px;
+  transform: translate(-50%, -4px);
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 94%, transparent);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.16);
+  color: var(--ml-fg, #111827);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0;
+  padding: 0.48rem 0.58rem;
+  pointer-events: none;
+  transition: opacity 120ms ease 520ms, transform 120ms ease 520ms;
+}
+
+.ml-toolbar-shortcut-tooltip span {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ml-fg, #111827) 9%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  padding: 0.18rem 0.34rem;
+}
+
+.ml-btn:hover .ml-toolbar-shortcut-tooltip,
+.ml-btn:focus-visible .ml-toolbar-shortcut-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .ml-btn-primary {
   background: #0f172a;
   border: 1px solid #020617;
@@ -124,16 +163,29 @@
 }
 
 .ml-settings-panel {
+  background: color-mix(in srgb, var(--ml-bg, #f8fafc) 78%, var(--ml-ui, #ffffff) 22%);
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 15%, transparent);
+  box-shadow:
+    0 22px 70px rgba(2, 6, 23, 0.22),
+    inset 0 1px 0 color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+}
+
+.ml-settings-header {
   background:
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--ml-ui, #ffffff) 96%, var(--ml-bg, #f8fafc) 4%),
-      color-mix(in srgb, var(--ml-ui, #ffffff) 88%, var(--ml-bg, #f8fafc) 12%)
+      color-mix(in srgb, var(--ml-ui, #ffffff) 90%, var(--ml-bg, #f8fafc) 10%)
     );
-  border-color: color-mix(in srgb, var(--ml-fg, #111827) 15%, transparent);
-  box-shadow:
-    0 22px 70px rgba(2, 6, 23, 0.22),
-    inset 0 1px 0 color-mix(in srgb, var(--ml-editor-bg, #ffffff) 26%, transparent);
+}
+
+.ml-settings-canvas {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ml-bg, #f8fafc) 82%, var(--ml-ui, #ffffff) 18%),
+      color-mix(in srgb, var(--ml-bg, #f8fafc) 92%, var(--ml-ui, #ffffff) 8%)
+    );
 }
 
 .ml-settings-nav-item {
@@ -145,10 +197,15 @@
   background: color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
 }
 
-.ml-settings-group {
+.ml-settings-section {
   background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 26%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ml-ui, #ffffff) 24%, transparent);
+}
+
+.ml-settings-group {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 19%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 10%, transparent);
 }
 
 .ml-settings-row {
@@ -163,6 +220,13 @@
 .ml-settings-field {
   border-color: color-mix(in srgb, var(--ml-fg, #111827) 17%, transparent);
   background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+}
+
+.ml-theme-strip {
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 10%, transparent);
 }
 
 .ml-settings-soft-divider {

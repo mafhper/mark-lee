@@ -24,16 +24,16 @@ interface HeroSectionProps {
 export const HeroSection = ({ label, title, description, mockup }: HeroSectionProps) => (
   <section className="relative min-h-[calc(92svh-3.5rem)] overflow-visible pb-4 md:pb-8">
     <HeroSpaceBackground />
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,hsl(var(--primary)/0.18),transparent_24%),linear-gradient(180deg,hsl(var(--background)/0.14),transparent_32%,hsl(var(--background))_96%)]" />
+    <div className="hero-space-gradient pointer-events-none absolute inset-0" />
     <div className="container relative flex min-h-[calc(92svh-3.5rem)] flex-col justify-center pt-14 pb-0 md:pt-20">
-      <div className="mx-auto max-w-3xl text-center">
+      <div className="mx-auto max-w-6xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
           <SectionLabel>{label}</SectionLabel>
-          <h1 className="mt-4 text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero md:text-[3.4rem]">
+          <h1 className="mx-auto mt-4 max-w-none text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero md:text-[3.4rem] lg:whitespace-nowrap">
             {title}
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
@@ -105,48 +105,52 @@ const fragmentShaderSource = `
 
   void main() {
     vec2 uv = gl_FragCoord.xy / uResolution.xy;
-    vec2 center = vec2(0.5, 0.62) + (uPointer - 0.5) * 0.025;
+    vec2 center = vec2(0.5, 0.70) + (uPointer - 0.5) * 0.025;
     vec2 p = uv - center;
     p.x *= uResolution.x / uResolution.y;
 
     float distanceFromCenter = length(p);
     vec2 direction = normalize(p + 0.0001);
-    float angle = atan(direction.y, direction.x);
 
-    vec3 deep = vec3(0.018, 0.022, 0.040);
-    vec3 blue = vec3(0.040, 0.105, 0.205);
-    vec3 amber = vec3(0.78, 0.45, 0.16);
-    vec3 teal = vec3(0.09, 0.42, 0.43);
-    vec3 violet = vec3(0.20, 0.12, 0.35);
+    vec3 deep = vec3(0.015, 0.014, 0.024);
+    vec3 midnight = vec3(0.025, 0.048, 0.085);
+    vec3 cyan = vec3(0.03, 0.70, 0.75);
+    vec3 emerald = vec3(0.02, 0.62, 0.42);
+    vec3 magenta = vec3(0.82, 0.06, 0.30);
+    vec3 violet = vec3(0.28, 0.12, 0.78);
+    vec3 amber = vec3(0.95, 0.56, 0.16);
 
-    float tunnel = smoothstep(0.03, 0.78, distanceFromCenter);
-    vec3 color = mix(deep, blue, tunnel * 0.62);
-    color += amber * smoothstep(0.36, 0.0, distanceFromCenter) * 0.055;
-    color += teal * smoothstep(0.88, 0.18, distanceFromCenter) * 0.07;
+    float travel = uTime * 0.22;
+    vec2 q = p;
+    q.x += fbm(p * 1.15 + vec2(travel * 0.28, -0.12)) * 0.18;
+    q.y += fbm(p.yx * 1.45 - vec2(0.18, travel * 0.22)) * 0.12;
 
-    float radial = 1.0 / max(distanceFromCenter, 0.055);
-    float travel = uTime * 0.78;
-    float lane = angle * 28.0;
+    vec3 color = mix(deep, midnight, smoothstep(-0.38, 0.78, q.y + q.x * 0.22));
+    float galaxy = smoothstep(0.78, 0.0, distanceFromCenter) * 0.18;
+    color += vec3(0.20, 0.34, 0.48) * galaxy;
 
-    vec2 gasA = vec2(lane * 0.055, radial * 0.52 - travel * 0.22);
-    vec2 gasB = vec2(p.x * 1.7 + sin(radial * 0.9 - travel) * 0.22, p.y * 1.25 - travel * 0.06);
-    float cloudA = fbm(gasA * 3.0 + gasB * 0.72);
-    float cloudB = fbm(gasB * 2.1 - vec2(travel * 0.12, travel * 0.035));
-    float veil = smoothstep(0.34, 0.86, cloudA + cloudB * 0.48);
-    float ribbon = smoothstep(0.18, 0.92, sin(lane * 0.42 + radial * 2.1 - travel * 1.7) * 0.5 + 0.5);
-    float gasFade = smoothstep(0.02, 0.22, distanceFromCenter) * (1.0 - smoothstep(1.15, 1.55, distanceFromCenter));
-    vec3 gasColor = mix(blue, teal, cloudB);
-    gasColor = mix(gasColor, violet, smoothstep(0.38, 0.94, cloudA) * 0.52);
-    gasColor = mix(gasColor, amber, ribbon * 0.18);
-    color = mix(color, gasColor, veil * gasFade * 0.58);
+    float curveA = 0.18 * sin(q.x * 2.15 + travel * 1.2) + 0.08 * sin(q.x * 5.4 - travel * 0.8) - 0.03;
+    float curveB = -0.22 + 0.12 * sin(q.x * 2.8 - travel * 0.9) + 0.06 * sin(q.x * 7.0 + 1.5);
+    float curveC = 0.34 + 0.10 * sin(q.x * 2.1 + 2.4) - 0.05 * cos(q.x * 5.2 - travel);
 
-    float dust = smoothstep(0.985, 1.0, hash(floor(vec2(lane * 3.0, radial * 13.0 - travel * 4.0))));
-    float dustLine = smoothstep(0.028, 0.0, abs(fract(radial * 13.0 - travel * 4.0) - 0.5));
-    color += vec3(0.52, 0.70, 0.82) * dust * dustLine * gasFade * 0.035;
+    float bandA = exp(-pow(abs(q.y - curveA) / 0.18, 2.0));
+    float bandB = exp(-pow(abs(q.y - curveB) / 0.23, 2.0));
+    float bandC = exp(-pow(abs(q.y - curveC) / 0.28, 2.0));
+    float veil = fbm(q * 2.0 + vec2(travel * 0.18, -travel * 0.08));
+    float fine = fbm(q * 5.2 - vec2(travel * 0.32, travel * 0.04));
 
-    float core = smoothstep(0.18, 0.0, distanceFromCenter);
-    color += vec3(1.0, 0.72, 0.34) * core * 0.055;
-    color *= 1.0 - smoothstep(0.56, 1.42, length(uv - vec2(0.5, 0.5))) * 0.66;
+    color += mix(cyan, emerald, smoothstep(0.18, 0.88, veil)) * bandA * 0.46;
+    color += mix(magenta, violet, smoothstep(0.12, 0.82, fine)) * bandB * 0.36;
+    color += mix(violet, amber, smoothstep(0.24, 0.92, veil)) * bandC * 0.22;
+
+    float distantGlow = smoothstep(0.36, 0.0, distanceFromCenter);
+    color += vec3(0.92, 0.58, 0.22) * distantGlow * 0.035;
+    color += cyan * smoothstep(0.72, 0.0, abs(q.x + 0.42)) * smoothstep(0.78, -0.16, q.y) * 0.035;
+    color += magenta * smoothstep(0.68, 0.0, abs(q.x - 0.54)) * smoothstep(0.66, -0.28, q.y) * 0.028;
+
+    float vignette = smoothstep(0.45, 1.28, length(uv - vec2(0.5, 0.48)));
+    color *= 1.0 - vignette * 0.72;
+    color = pow(color, vec3(0.92));
 
     gl_FragColor = vec4(color, 1.0);
   }

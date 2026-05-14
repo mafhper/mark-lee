@@ -158,7 +158,7 @@ const ptBR: Record<string, string> = {
   "export.markdown.minified.desc": "Remove linhas em branco e espaços excedentes preservando blocos protegidos.",
   "export.pdf.desc": "Usa a impressão do sistema para gerar PDF a partir da visualização atual.",
   "export.html.desc": "Gera um HTML com o preset de publicação ativo.",
-  "palette.title": "Command Palette",
+  "palette.title": "Paleta de comandos",
   "palette.placeholder": "Buscar comandos, arquivos e snippets...",
   "palette.empty": "Nenhum resultado encontrado.",
   "palette.group.actions": "Ações",

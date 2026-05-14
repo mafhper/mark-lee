@@ -132,27 +132,37 @@ interface LocaleProps {
   locale?: Locale;
 }
 
-const writingScenes: Record<Locale, Array<{ title: string; body: string; tab: string; accent: string; bg: string; panel: string }>> = {
+type WritingScene = {
+  title: string;
+  body: string;
+  tab: string;
+  files: string[];
+  accent: string;
+  bg: string;
+  panel: string;
+};
+
+const writingScenes: Record<Locale, WritingScene[]> = {
   "pt-BR": [
-    { title: "Arquitetura de sincronização", body: "O watcher observa a raiz do workspace e reconcilia abas abertas sem sobrescrever buffers sujos.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
-    { title: "Poema curto", body: "Entre a margem e o cursor, a frase encontra um lugar para respirar.", tab: "poema.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
-    { title: "Notas de reunião", body: "Decisões: manter PR pequeno, validar janela única no Windows e revisar o fluxo de exportação.", tab: "notas.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
-    { title: "Cena de novela", body: "Ela fechou o caderno antes que a cidade descobrisse o nome escrito na última página.", tab: "capitulo.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
-    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+    { title: "Arquitetura de sincronização", body: "O watcher observa a raiz do workspace e reconcilia abas abertas sem sobrescrever buffers sujos.", tab: "technical.md", files: ["docs", "technical.md", "watcher.md", "security.md", "release-notes.md"], accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Poema curto", body: "Entre a margem e o cursor, a frase encontra um lugar para respirar.", tab: "poema.md", files: ["poemas", "poema.md", "rascunhos.md", "haicais.md", "leituras.md"], accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Notas de reunião", body: "Decisões: manter PR pequeno, validar janela única no Windows e revisar o fluxo de exportação.", tab: "notas.md", files: ["reunioes", "notas.md", "acoes.md", "decisoes.md", "follow-up.md"], accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Cena de novela", body: "Ela fechou o caderno antes que a cidade descobrisse o nome escrito na última página.", tab: "capitulo.md", files: ["romance", "capitulo.md", "personagens.md", "cenas.md", "linha-tempo.md"], accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", files: ["snippets", "snippet.ts", "workspace.ts", "preview.ts", "tests.md"], accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
   ],
   "en-US": [
-    { title: "Sync architecture", body: "The watcher follows the workspace root and reconciles open tabs without overwriting dirty buffers.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
-    { title: "Short poem", body: "Between margin and cursor, the sentence finds a quiet place to breathe.", tab: "poem.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
-    { title: "Meeting notes", body: "Decisions: keep PRs small, validate single-window behavior on Windows, review export flow.", tab: "notes.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
-    { title: "Novel scene", body: "She closed the notebook before the city learned the name written on the final page.", tab: "chapter.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
-    { title: "Code snippet", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+    { title: "Sync architecture", body: "The watcher follows the workspace root and reconciles open tabs without overwriting dirty buffers.", tab: "technical.md", files: ["docs", "technical.md", "watcher.md", "security.md", "release-notes.md"], accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Short poem", body: "Between margin and cursor, the sentence finds a quiet place to breathe.", tab: "poem.md", files: ["poems", "poem.md", "drafts.md", "haiku.md", "reading.md"], accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Meeting notes", body: "Decisions: keep PRs small, validate single-window behavior on Windows, review export flow.", tab: "notes.md", files: ["meetings", "notes.md", "actions.md", "decisions.md", "follow-up.md"], accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Novel scene", body: "She closed the notebook before the city learned the name written on the final page.", tab: "chapter.md", files: ["novel", "chapter.md", "characters.md", "scenes.md", "timeline.md"], accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Code snippet", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", files: ["snippets", "snippet.ts", "workspace.ts", "preview.ts", "tests.md"], accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
   ],
   "es-ES": [
-    { title: "Arquitectura de sincronización", body: "El watcher observa la raíz del workspace y reconcilia pestañas abiertas sin sobrescribir buffers sucios.", tab: "technical.md", accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
-    { title: "Poema breve", body: "Entre el margen y el cursor, la frase encuentra un lugar para respirar.", tab: "poema.md", accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
-    { title: "Notas de reunión", body: "Decisiones: mantener PR pequeño, validar ventana única en Windows y revisar exportación.", tab: "notas.md", accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
-    { title: "Escena de novela", body: "Ella cerró el cuaderno antes de que la ciudad descubriera el nombre de la última página.", tab: "capitulo.md", accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
-    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
+    { title: "Arquitectura de sincronización", body: "El watcher observa la raíz del workspace y reconcilia pestañas abiertas sin sobrescribir buffers sucios.", tab: "technical.md", files: ["docs", "technical.md", "watcher.md", "security.md", "release-notes.md"], accent: "#7dd3fc", bg: "#16191e", panel: "#1d2229" },
+    { title: "Poema breve", body: "Entre el margen y el cursor, la frase encuentra un lugar para respirar.", tab: "poema.md", files: ["poemas", "poema.md", "borradores.md", "haikus.md", "lecturas.md"], accent: "#f4c68f", bg: "#2b231f", panel: "#3a2f29" },
+    { title: "Notas de reunión", body: "Decisiones: mantener PR pequeño, validar ventana única en Windows y revisar exportación.", tab: "notas.md", files: ["reuniones", "notas.md", "acciones.md", "decisiones.md", "seguimiento.md"], accent: "#90f0a8", bg: "#17241b", panel: "#203124" },
+    { title: "Escena de novela", body: "Ella cerró el cuaderno antes de que la ciudad descubriera el nombre de la última página.", tab: "capitulo.md", files: ["novela", "capitulo.md", "personajes.md", "escenas.md", "linea-tiempo.md"], accent: "#8fb5ff", bg: "#111827", panel: "#0b1220" },
+    { title: "Snippet de código", body: "const draft = workspace.open(file).then(syncPreview).catch(markExternalChange);", tab: "snippet.ts", files: ["snippets", "snippet.ts", "workspace.ts", "preview.ts", "tests.md"], accent: "#57ff9e", bg: "#040b04", panel: "#061207" },
   ],
 };
 
@@ -164,6 +174,8 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
   const [typedLength, setTypedLength] = useState(animated ? 0 : scenes[0].body.length);
   const scene = scenes[sceneIndex];
   const typedBody = scene.body.slice(0, typedLength);
+  const visibleTabs = animated ? [scene.tab, ...scene.files.filter((file) => file !== scene.tab && file.includes(".")).slice(0, 2)] : tabs;
+  const visibleTree = animated ? scene.files : sampleTree;
 
   useEffect(() => {
     if (!animated) return;
@@ -204,7 +216,7 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
       </div>
 
       <div className="flex border-b border-border/40">
-        {(animated ? [scene.tab, ...tabs.slice(1)] : tabs).map((tab, i) => (
+        {visibleTabs.map((tab, i) => (
           <div
             key={tab}
             className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${i === activeTab ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"
@@ -220,13 +232,16 @@ export const EditorMockup = ({ activeTab = 0, locale = "pt-BR", animated = false
           <div className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">
             {copy.explorer}
           </div>
-          {sampleTree.map((item, i) => (
+          {visibleTree.map((item, i) => (
             <div
               key={`${item}-${i}`}
-              className={`truncate rounded px-1.5 py-0.5 text-[10px] ${i === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/60"
-                }`}
+              className={`truncate rounded px-1.5 py-0.5 text-[10px] ${
+                (animated && item === scene.tab) || (!animated && i === 1)
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground/60"
+              }`}
             >
-              {item}
+              {animated ? `${item.includes(".") ? "[MD] " : "[DIR] "}${item}` : item}
             </div>
           ))}
         </div>
@@ -515,39 +530,70 @@ export const ThemeCycleHeroMockup = ({
   const theme = themes[activeTheme] ?? themes[0];
   const gradient = useMemo(() => {
     if (!theme) return "linear-gradient(140deg, #131313, #1f1f1f)";
-    return `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]}, ${theme.colors[2]}33)`;
+    return `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]}, ${theme.colors[2]}55)`;
   }, [theme]);
+  const palette = theme?.colors ?? ["#131313", "#222222", "#ffffff", "#f4b942", "#4f46e5"];
 
   return (
     <div className="mockup-card hero-theme-cycle-mockup overflow-hidden">
       <motion.div
         animate={{ background: gradient }}
         transition={{ duration: reducedMotion ? 0 : 0.8, ease: "easeInOut" }}
-        className="flex min-h-[320px] items-center p-4 md:min-h-[380px]"
+        className="flex h-full min-h-0 items-center p-4"
       >
-        <div className="w-full rounded-lg border border-black/20 bg-black/20 p-5 backdrop-blur-sm">
-          <div className="flex items-center justify-between text-[10px] text-white/80">
-            <span>Mark-Lee UI</span>
-            <span>{theme?.name ?? "Theme"}</span>
-          </div>
-          <div className="mt-4 grid grid-cols-[150px_1fr] gap-4">
-            <div className="space-y-3 rounded border border-white/15 bg-black/30 p-3">
-              <div className="h-2.5 w-24 rounded bg-white/30" />
-              <div className="h-2.5 w-20 rounded bg-white/20" />
-              <div className="h-2.5 w-28 rounded bg-white/20" />
-              <div className="h-2.5 w-16 rounded bg-white/20" />
+        <div className="w-full overflow-hidden rounded-lg border border-black/25 bg-black/35 text-[10px] text-white/78 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-red-400/70" />
+                <span className="h-2 w-2 rounded-full bg-amber-300/70" />
+                <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
+              </div>
+              <span className="opacity-70">Mark-Lee</span>
             </div>
-            <div className="space-y-3 rounded border border-white/15 bg-black/30 p-3">
-              <div className="h-2.5 w-full rounded bg-white/30" />
-              <div className="h-2.5 w-10/12 rounded bg-white/20" />
-              <div className="h-2.5 w-8/12 rounded bg-white/20" />
-              <div className="mt-4 h-20 rounded border border-white/15 bg-black/20" />
-            </div>
+            <span className="font-medium text-white/85">{theme?.name ?? "Theme"}</span>
           </div>
-          <div className="mt-3 flex gap-1.5">
-            {(theme?.colors ?? []).slice(0, 5).map((color) => (
-              <span key={color} className="h-2.5 w-6 rounded" style={{ backgroundColor: color }} />
+          <div className="flex border-b border-white/10">
+            {["tema.md", "preview.md", "export.md"].map((tab, index) => (
+              <div key={tab} className={`border-r border-white/10 px-3 py-1.5 ${index === 0 ? "bg-white/10 text-white" : "text-white/45"}`}>
+                {tab}
+              </div>
             ))}
+          </div>
+          <div className="grid min-h-0 flex-1 grid-cols-[138px_1fr]">
+            <div className="border-r border-white/10 p-3">
+              <p className="mb-3 uppercase tracking-[0.16em] text-white/35">Workspace</p>
+              {["docs", "readme.md", "themes.md", "export.md", "snippets"].map((item, index) => (
+                <div
+                  key={item}
+                  className={`mb-1 rounded px-2 py-1 ${index === 2 ? "bg-white/12 text-white" : "text-white/48"}`}
+                >
+                  {index === 0 || index === 4 ? "[DIR] " : "[MD] "}{item}
+                </div>
+              ))}
+            </div>
+            <div className="p-4 font-mono">
+              <div className="flex gap-2">
+                <span className="w-4 text-right text-white/24">1</span>
+                <span style={{ color: palette[3] }} className="font-semibold"># {theme?.name ?? "Theme"}</span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <span className="w-4 text-right text-white/24">2</span>
+                <span className="text-white/72">A interface muda de tom, mas a leitura continua estável.</span>
+              </div>
+              <div className="mt-5 rounded-md border border-white/10 bg-black/22 p-3">
+                <div
+                  className="h-2 rounded-full border border-white/10"
+                  style={{ background: `linear-gradient(90deg, ${palette.join(", ")})` }}
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Shell</span>
+                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Editor</span>
+                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Preview</span>
+                  <span className="rounded border border-white/10 px-2 py-1 text-white/58">Export</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -706,34 +752,156 @@ export const CommandPaletteMockup = ({ locale = "pt-BR" }: LocaleProps) => {
 
 export const EngineeringHeroMockup = () => {
   const codeLines = [
-    "const result = await invoke('export_markdown', payload)",
-    "if (result.ok) setStatus('published')",
-    "const nodes = parseMarkdown(document)",
-    "renderPreview(nodes, { preset: activePreset })",
+    "watch_workspace(path).await?",
+    "emit('workspace-fs-change', payload)",
+    "sanitize_markdown(document)",
+    "export_html(activePreset)",
   ];
 
   return (
-    <div className="mockup-card relative min-h-[320px] overflow-hidden p-4 md:min-h-[380px]">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-blue-500/10" />
-      <div className="relative grid h-full min-h-[288px] items-center gap-3 md:min-h-[348px] md:grid-cols-[1fr_1fr]">
-        <div className="rounded-lg border border-border/40 bg-card/80 p-4">
-          <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground/50">Interface</div>
-          <div className="space-y-2">
-            <div className="h-2 w-10/12 rounded bg-muted" />
-            <div className="h-2 w-full rounded bg-muted" />
-            <div className="h-2 w-8/12 rounded bg-muted" />
-            <div className="mt-4 h-24 rounded border border-border/40 bg-secondary/60" />
+    <div className="mockup-card relative flex min-h-0 flex-col overflow-hidden text-[11px]">
+      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500/55" />
+            <span className="h-2.5 w-2.5 rounded-full bg-primary/55" />
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500/55" />
           </div>
+          <span className="text-muted-foreground/60">Mark-Lee</span>
         </div>
-        <div className="rounded-lg border border-primary/20 bg-background/75 p-4 font-mono text-[10px] leading-relaxed text-primary/85">
-          <div className="mb-2 text-[10px] uppercase tracking-wider text-primary/60">Core code</div>
-          <div className="space-y-1.5">
-            {codeLines.map((line) => (
-              <p key={line} className="truncate">
-                {line}
-              </p>
+        <span className="rounded border border-primary/20 px-2 py-0.5 font-mono text-[10px] text-primary">Tauri + React</span>
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-[130px_1fr]">
+        <div className="border-r border-border/30 p-2">
+          <p className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">Workspace</p>
+          {["src-tauri", "watcher.rs", "security.rs", "src/app", "SettingsPanel.tsx"].map((item, index) => (
+            <div key={item} className={`truncate rounded px-1.5 py-1 ${index === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/62"}`}>
+              {index === 0 || index === 3 ? "[DIR] " : ""}{item}
+            </div>
+          ))}
+        </div>
+        <div className="grid min-w-0 grid-rows-[auto_1fr]">
+          <div className="flex border-b border-border/35">
+            {["watcher.rs", "security.rs", "PLAN.md"].map((tab, index) => (
+              <div key={tab} className={`border-r border-border/30 px-3 py-1.5 ${index === 0 ? "bg-secondary/80 text-foreground" : "text-muted-foreground/55"}`}>
+                {tab}
+              </div>
             ))}
           </div>
+          <div className="grid min-h-0 gap-3 p-3 md:grid-cols-[1fr_0.84fr]">
+            <div className="min-w-0 rounded-lg border border-border/35 bg-background/35 p-3 font-mono text-[10px] leading-relaxed">
+              <p className="mb-2 text-primary/85"># Fluxo de arquivo externo</p>
+              <p className="text-muted-foreground/78">1. Receber intenção de abertura.</p>
+              <p className="text-muted-foreground/78">2. Preservar workspace explícito.</p>
+              <p className="text-muted-foreground/78">3. Atualizar sidebar por watcher.</p>
+              <p className="mt-3 text-muted-foreground/45">Sem sobrescrever buffer sujo.</p>
+            </div>
+            <div className="min-w-0 rounded-lg border border-primary/20 bg-background/60 p-3 font-mono text-[10px] leading-relaxed text-primary/85">
+              <p className="mb-2 text-[9px] uppercase tracking-[0.16em] text-primary/58">Core path</p>
+              {codeLines.map((line) => (
+                <p key={line} className="truncate">
+                  {line}
+                </p>
+              ))}
+              <div className="mt-4 rounded border border-border/30 bg-secondary/30 px-2 py-1 text-muted-foreground/70">
+                CI: build, site smoke, rust check
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ContributionWritingMockup = ({ locale = "pt-BR" }: LocaleProps) => {
+  const copy = mockupCopy[locale];
+  const suggestions = {
+    "pt-BR": [
+      "Sugestão: explicar melhor o modo janela única.",
+      "Sugestão: reduzir bordas no painel de temas.",
+      "Sugestão: validar watcher com arquivo renomeado.",
+    ],
+    "en-US": [
+      "Suggestion: clarify single-window behavior.",
+      "Suggestion: reduce borders in the themes panel.",
+      "Suggestion: validate watcher after file rename.",
+    ],
+    "es-ES": [
+      "Sugerencia: aclarar la ventana única.",
+      "Sugerencia: reducir bordes en temas.",
+      "Sugerencia: validar watcher al renombrar archivo.",
+    ],
+  }[locale];
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setActive((current) => (current + 1) % suggestions.length), 2600);
+    return () => window.clearInterval(timer);
+  }, [suggestions.length]);
+
+  return (
+    <div
+      className="mockup-card hero-editor-mockup text-[11px]"
+      style={
+        {
+          "--hero-mockup-bg": "#101820",
+          "--hero-mockup-panel": "#16232a",
+          "--hero-mockup-accent": "#f2b84b",
+        } as React.CSSProperties
+      }
+    >
+      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
+        <div className="flex gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+          <div className="h-2.5 w-2.5 rounded-full bg-primary/50" />
+          <div className="h-2.5 w-2.5 rounded-full bg-green-500/50" />
+        </div>
+        <span className="ml-2 text-[10px] text-muted-foreground/60">Mark-Lee</span>
+      </div>
+      <div className="flex border-b border-border/40">
+        {["feedback.md", "pull-request.md", "ci.md"].map((tab, index) => (
+          <div key={tab} className={`border-r border-border/30 px-3 py-1.5 text-[10px] ${index === 0 ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground/60"}`}>
+            {tab}
+          </div>
+        ))}
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-[132px_1fr] overflow-hidden">
+        <div className="space-y-1 overflow-hidden border-r border-border/30 p-2">
+          <div className="mb-2 px-1 text-[9px] uppercase tracking-wider text-muted-foreground/40">{copy.explorer}</div>
+          {["issues", "feedback.md", "design.md", "tests", "ci-checks.md"].map((item, index) => (
+            <div key={item} className={`truncate rounded px-1.5 py-0.5 text-[10px] ${index === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground/60"}`}>
+              {index === 0 || index === 3 ? "[DIR] " : "[MD] "}{item}
+            </div>
+          ))}
+        </div>
+        <div className="relative min-w-0 overflow-hidden p-3 font-mono">
+          <div className="flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">1</span>
+            <span className="font-semibold text-primary"># Revisão de contribuição</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">2</span>
+            <span className="text-muted-foreground/80">{suggestions[active]}</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <span className="w-4 text-right text-[9px] text-muted-foreground/30">3</span>
+            <span className="text-muted-foreground/50">Validar localmente antes do PR.</span>
+          </div>
+          <motion.div
+            key={active}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28 }}
+            className="absolute bottom-5 right-5 w-[min(260px,70%)] rounded-lg border border-primary/25 bg-background/85 p-3 shadow-card backdrop-blur"
+          >
+            <p className="text-[9px] uppercase tracking-[0.16em] text-primary/70">Sugestão recebida</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground/85">{suggestions[active]}</p>
+            <div className="mt-3 flex gap-2">
+              <span className="rounded bg-primary px-2 py-1 text-[9px] text-primary-foreground">Aplicar</span>
+              <span className="rounded border border-border/50 px-2 py-1 text-[9px] text-muted-foreground">Reescrever</span>
+            </div>
+          </motion.div>
         </div>
       </div>
     </div>

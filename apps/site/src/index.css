@@ -129,10 +129,19 @@
   .hero-space-backdrop {
     overflow: hidden;
     background:
-      radial-gradient(circle at 50% 62%, hsl(var(--primary) / 0.11), transparent 18rem),
-      linear-gradient(180deg, hsl(228 20% 7%), hsl(190 28% 8%) 66%, hsl(var(--background)) 100%);
+      radial-gradient(circle at 50% 70%, hsl(var(--primary) / 0.07), transparent 20rem),
+      radial-gradient(ellipse at 30% 46%, hsl(340 88% 34% / 0.26), transparent 34rem),
+      radial-gradient(ellipse at 62% 32%, hsl(183 86% 38% / 0.20), transparent 32rem),
+      radial-gradient(ellipse at 78% 60%, hsl(262 78% 42% / 0.18), transparent 34rem),
+      linear-gradient(180deg, hsl(228 20% 7%), hsl(190 28% 8%) 68%, hsl(var(--background)) 100%);
     -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 74%, rgb(0 0 0 / 0.65) 88%, transparent 100%);
     mask-image: linear-gradient(to bottom, #000 0%, #000 74%, rgb(0 0 0 / 0.65) 88%, transparent 100%);
+  }
+
+  .hero-space-gradient {
+    background:
+      radial-gradient(circle at 50% 68%, hsl(var(--primary) / 0.07), transparent 24rem),
+      radial-gradient(ellipse at 52% 92%, hsl(var(--background) / 0.68), transparent 28rem);
   }
 
   .hero-space-backdrop__fallback,
@@ -145,10 +154,10 @@
 
   .hero-space-backdrop__fallback {
     background:
-      radial-gradient(circle at 50% 62%, hsl(var(--primary) / 0.13), transparent 16rem),
-      radial-gradient(circle at 48% 58%, hsl(205 80% 54% / 0.15), transparent 24rem),
-      radial-gradient(ellipse at 42% 66%, hsl(178 70% 42% / 0.12), transparent 22rem),
-      radial-gradient(ellipse at 62% 52%, hsl(266 58% 42% / 0.12), transparent 25rem),
+      radial-gradient(circle at 50% 70%, hsl(var(--primary) / 0.08), transparent 18rem),
+      radial-gradient(ellipse at 30% 44%, hsl(340 88% 34% / 0.24), transparent 32rem),
+      radial-gradient(ellipse at 64% 34%, hsl(183 86% 38% / 0.20), transparent 30rem),
+      radial-gradient(ellipse at 76% 62%, hsl(262 78% 42% / 0.16), transparent 34rem),
       linear-gradient(180deg, #090b14 0%, #0d1724 58%, hsl(var(--background)) 100%);
   }
 
@@ -163,6 +172,8 @@
   }
 
   .hero-mockup-shell .mockup-card {
+    aspect-ratio: 16 / 9;
+    min-height: 0;
     transition:
       border-color 220ms ease,
       box-shadow 220ms ease,
@@ -215,7 +226,6 @@
 
   .hero-editor-mockup {
     display: flex;
-    min-height: clamp(320px, 34vw, 500px);
     aspect-ratio: 16 / 9;
     flex-direction: column;
     background:
@@ -253,8 +263,7 @@
     }
 
     .hero-editor-mockup {
-      min-height: 250px;
-      aspect-ratio: 4 / 3;
+      aspect-ratio: 16 / 9;
     }
 
     .hero-editor-mockup .w-\[132px\] {

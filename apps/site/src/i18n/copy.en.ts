@@ -57,7 +57,7 @@ export const enUSCopy: SiteCopy = {
     home: {
       hero: {
         label: "Desktop editor for focused writing",
-        title: "Create, edit, and export. The right tool for your text.",
+        title: "The right tool for your text.",
         description: "Editing, preview, and export in one place, with full control over the workspace.",
       },
       statsSection: {

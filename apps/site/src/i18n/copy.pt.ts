@@ -57,7 +57,7 @@ export const ptBRCopy: SiteCopy = {
     home: {
       hero: {
         label: "Editor desktop para escrita focada",
-        title: "Crie, edite e exporte. A ferramenta certa para o seu texto.",
+        title: "A ferramenta certa para o seu texto.",
         description: "Edição, preview e exportação no mesmo fluxo, com controle total do ambiente.",
       },
       statsSection: {

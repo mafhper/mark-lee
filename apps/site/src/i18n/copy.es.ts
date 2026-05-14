@@ -57,7 +57,7 @@ export const esESCopy: SiteCopy = {
     home: {
       hero: {
         label: "Editor de escritorio para escritura enfocada",
-        title: "Crea, edita y exporta. La herramienta correcta para tu texto.",
+        title: "La herramienta correcta para tu texto.",
         description: "Edición, preview y exportación en un solo flujo, con control total del entorno.",
       },
       statsSection: {
