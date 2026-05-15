@@ -196,26 +196,39 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
   const getHorizontalOverflowMetrics = (sectionKey: ToolbarSectionKey) => {
     if (isVertical || typeof window === "undefined") {
-      return { panelWidth: undefined, shouldWrap: true };
+      return { panelWidth: undefined, columnCount: 1 };
     }
 
+    const section = enabledSections.find((item) => item.key === sectionKey);
+    const actions = section?.actions ?? [];
+    const actionCount = actions.length;
+    const columnCount = actionCount <= 4 ? Math.max(1, actionCount) : Math.ceil(actionCount / 2);
+    const gap = 6;
+    const paddingX = 16;
     const buttonWidths =
       measureButtonRefs.current[sectionKey]
-        ?.map((button) => Math.ceil(button?.getBoundingClientRect().width ?? 0))
-        .filter((width) => width > 0) ?? [];
+        ?.map((button, index) => {
+          const measured = Math.ceil(button?.getBoundingClientRect().width ?? 0);
+          if (measured > 0) return measured + 8;
+          const label = actions[index]?.label ?? "";
+          return Math.max(72, label.length * 7.4 + 38);
+        }) ?? actions.map((action) => Math.max(72, action.label.length * 7.4 + 38));
     const titleWidth = Math.ceil(sectionTitleRefs.current[sectionKey]?.getBoundingClientRect().width ?? 0);
-    const viewportWidth = Math.max(220, Math.floor(window.innerWidth - 32));
-    const preferredMaxWidth = Math.min(Math.floor(window.innerWidth * 0.78), 620);
-    const contentWidth =
-      buttonWidths.reduce((sum, width) => sum + width, 0) +
-      Math.max(0, buttonWidths.length - 1) * 4 +
-      12;
-    const desiredWidth = Math.max(220, titleWidth + 18, contentWidth);
-    const constrainedWidth = Math.min(desiredWidth, preferredMaxWidth, viewportWidth);
+    const columnWidths = Array.from({ length: columnCount }, () => 0);
+    buttonWidths.forEach((width, index) => {
+      const column = index % columnCount;
+      columnWidths[column] = Math.max(columnWidths[column], width);
+    });
+    const gridWidth =
+      columnWidths.reduce((sum, width) => sum + width, 0) +
+      Math.max(0, columnCount - 1) * gap;
+    const headerWidth = titleWidth + 96;
+    const desiredWidth = Math.ceil(Math.max(gridWidth + paddingX, headerWidth + paddingX, 180));
+    const viewportWidth = Math.max(220, Math.floor(window.innerWidth - 16));
 
     return {
-      panelWidth: constrainedWidth,
-      shouldWrap: desiredWidth > constrainedWidth,
+      panelWidth: Math.min(desiredWidth, viewportWidth),
+      columnCount,
     };
   };
 
@@ -702,7 +715,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const buttonClass =
       variant === "popover"
-        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 px-3 justify-start"} inline-flex min-w-0 items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""}`
+        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-max flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""}`
         : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
     return (
       <button
@@ -717,7 +730,11 @@ const TopChrome: React.FC<TopChromeProps> = ({
         style={noDragStyle}
       >
         {showIcon && action.icon}
-        {showLabel && <span className="max-w-[142px] truncate whitespace-nowrap">{action.label}</span>}
+        {showLabel && (
+          <span className={variant === "popover" ? "whitespace-nowrap" : "max-w-[142px] truncate whitespace-nowrap"}>
+            {action.label}
+          </span>
+        )}
         {variant === "toolbar" && showShortcutHints && shortcutText && (
           <span className="ml-toolbar-shortcut-tooltip" role="tooltip">
             {action.label}
@@ -733,8 +750,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const clampedVisibleCount = Math.max(0, Math.min(visibleCount, section.actions.length));
     const collapsed = clampedVisibleCount < section.actions.length;
     const visibleActions = collapsed ? section.actions.slice(0, clampedVisibleCount) : section.actions;
-
     const horizontalOverflow = getHorizontalOverflowMetrics(section.key);
+    const popoverColumnCount = horizontalOverflow.columnCount;
+    const popoverGridStyle: React.CSSProperties = isVertical
+      ? {}
+      : {
+        gridTemplateColumns: `repeat(${popoverColumnCount}, max-content)`,
+      };
 
     return (
       <div
@@ -806,7 +828,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         {collapsed && openSection === section.key && (
           <div
-            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-24px)] overflow-y-auto rounded-[16px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${isVertical ? "w-[118px]" : "min-w-[250px]"} ${tConfig.uiBorder}`}
+            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-x-hidden overflow-y-auto rounded-[16px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${isVertical ? "w-[118px]" : "w-max"} ${tConfig.uiBorder}`}
             ref={(el) => {
               overflowPanelRefs.current[section.key] = el;
               if (el) {
@@ -836,10 +858,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
               className={
                 isVertical
                   ? "grid w-full grid-cols-1 gap-1.5"
-                  : horizontalOverflow.shouldWrap
-                    ? "flex max-w-full flex-wrap items-center gap-1.5"
-                    : "flex max-w-full items-center gap-1.5 flex-nowrap"
+                  : "grid max-w-full items-center gap-1.5"
               }
+              style={popoverGridStyle}
             >
               {section.actions.map((action) => renderActionButton(action, "popover"))}
             </div>

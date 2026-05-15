@@ -400,29 +400,85 @@
 }
 
 .cm-editor {
+  position: relative !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  outline: none !important;
   font-size: var(--ml-editor-font-size, 14px);
   background-color: var(--ml-editor-bg, #111827) !important;
   color: var(--ml-editor-fg, #e5e7eb);
 }
 
+.cm-editor.cm-focused {
+  outline: none !important;
+}
+
 .cm-scroller {
+  position: relative !important;
+  z-index: 0;
+  display: flex !important;
+  align-items: flex-start !important;
+  overflow: auto !important;
   font-family: var(--ml-editor-font, "JetBrains Mono"), "Fira Code", Consolas, monospace;
   background-color: var(--ml-editor-bg, #111827) !important;
   color: var(--ml-editor-fg, #e5e7eb);
 }
 
 .cm-gutters {
+  position: sticky !important;
+  left: 0;
+  z-index: 200;
+  display: flex !important;
+  flex-shrink: 0;
+  height: 100%;
   border-right: none !important;
   background-color: transparent !important;
   color: var(--ml-editor-fg, #e5e7eb);
 }
 
 .cm-content {
-  padding: 1.2rem 1.2rem 1.2rem 24px;
+  flex-grow: 2;
+  flex-shrink: 0;
+  display: block;
+  outline: none !important;
+  white-space: pre;
+  word-wrap: normal;
+  padding: 1.2rem 1.2rem 1.2rem 0;
   min-height: 100%;
   line-height: var(--ml-editor-line-height, 1.6);
   box-sizing: border-box;
   background-color: transparent;
+}
+
+.cm-content:focus,
+.cm-content:focus-visible {
+  outline: none !important;
+}
+
+.cm-content.cm-lineWrapping {
+  flex-shrink: 1;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.cm-line {
+  display: block;
+}
+
+.cm-gutter {
+  display: flex !important;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.cm-gutterElement {
+  box-sizing: border-box;
 }
 
 .cm-gutters {
@@ -430,7 +486,17 @@
 }
 
 .cm-lineNumbers .cm-gutterElement {
+  min-width: 2em;
+  padding: 0 0.35rem 0 0.35rem;
+  text-align: right;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 68%, transparent);
+}
+
+.cm-foldGutter .cm-gutterElement {
+  min-width: 1.15em;
+  padding: 0 0.2rem;
+  text-align: center;
 }
 
 .cm-activeLine {
