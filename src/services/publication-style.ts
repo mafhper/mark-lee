@@ -220,8 +220,8 @@ export function createPublicationPreset(
       accent: surfaceAccent,
       muted: colors.muted,
       border: colors.border ?? rgba(surfaceText, 0.16),
-      radius: 20,
-      shadow: "editorial",
+      radius: 14,
+      shadow: "soft",
     },
     typography: {
       fontFamily: "'Source Sans 3', 'Segoe UI', sans-serif",

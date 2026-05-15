@@ -5,6 +5,7 @@ import { migratePublicationPreset } from "./publication-style";
 
 const SNIPPETS_FILE = "snippets.json";
 const PRESETS_FILE = "publication-presets.json";
+const BUILT_IN_PRESET_IDS = new Set(PUBLICATION_PRESET_DEFAULTS.map((preset) => preset.id));
 
 function normalizeSnippetToken(value: string) {
   return value
@@ -52,7 +53,17 @@ export async function loadPublicationPresets(): Promise<PublicationPreset[]> {
     const raw = await readUserDataFile(PRESETS_FILE);
     if (!raw) return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
     const parsed = JSON.parse(raw) as PublicationPreset[];
-    const migrated = parsed.map((preset) => migratePublicationPreset(preset));
+    const migrated = parsed.map((preset) => {
+      const defaultPreset = PUBLICATION_PRESET_DEFAULTS.find((item) => item.id === preset.id);
+      return defaultPreset && BUILT_IN_PRESET_IDS.has(preset.id)
+        ? migratePublicationPreset(defaultPreset)
+        : migratePublicationPreset(preset);
+    });
+    for (const defaultPreset of PUBLICATION_PRESET_DEFAULTS) {
+      if (!migrated.some((preset) => preset.id === defaultPreset.id)) {
+        migrated.push(migratePublicationPreset(defaultPreset));
+      }
+    }
     return migrated.length > 0 ? migrated : PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
   } catch {
     return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));

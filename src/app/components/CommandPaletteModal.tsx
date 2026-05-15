@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Braces, FileText, Wrench } from "lucide-react";
 import { ThemeConfig } from "../../types";
 
@@ -92,6 +92,11 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     itemRefs.current[selectedIndex]?.scrollIntoView({ block: "nearest" });
   }, [open, selectedIndex]);
 
+  const runItem = useCallback((item: CommandPaletteItem) => {
+    if (closeAfterSelect) onClose();
+    Promise.resolve(item.onSelect());
+  }, [closeAfterSelect, onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -119,15 +124,13 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         const next = filteredItems[selectedIndex];
         if (!next) return;
         event.preventDefault();
-        Promise.resolve(next.onSelect()).finally(() => {
-          if (closeAfterSelect) onClose();
-        });
+        runItem(next);
       }
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [closeAfterSelect, filteredItems, onClose, open, selectedIndex]);
+  }, [filteredItems, open, runItem, selectedIndex]);
 
   if (!open) return null;
 
@@ -184,9 +187,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       }`}
                       onMouseEnter={() => setSelectedIndex(itemIndex)}
                       onClick={() => {
-                        Promise.resolve(item.onSelect()).finally(() => {
-                          if (closeAfterSelect) onClose();
-                        });
+                        runItem(item);
                       }}
                       type="button"
                     >

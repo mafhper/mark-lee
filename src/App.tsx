@@ -66,7 +66,7 @@ import WindowTitleBar from "./app/components/WindowTitleBar";
 import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
-import SettingsPanel from "./app/components/SettingsPanel";
+import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
 import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import CodePreview from "./components/CodePreview";
@@ -296,6 +296,8 @@ function App() {
   const [showExport, setShowExport] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTabId>("general");
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>("tab-general");
   const [isZenMode, setIsZenMode] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
@@ -465,13 +467,27 @@ function App() {
     setShowCommandPalette(false);
   }, []);
 
+  const openSettingsPanel = useCallback((tab: SettingsTabId = "general", focusTarget = `tab-${tab}`) => {
+    setSettingsInitialTab(tab);
+    setSettingsFocusTarget(focusTarget);
+    setShowSettings(true);
+    setShowFindReplace(false);
+    setShowExport(false);
+    setShowSnippets(false);
+    setShowCommandPalette(false);
+  }, []);
+
   const openDialog = useCallback((dialog: "settings" | "find" | "export" | "snippets" | "palette") => {
-    setShowSettings(dialog === "settings");
+    if (dialog === "settings") {
+      openSettingsPanel();
+      return;
+    }
+    setShowSettings(false);
     setShowFindReplace(dialog === "find");
     setShowExport(dialog === "export");
     setShowSnippets(dialog === "snippets");
     setShowCommandPalette(dialog === "palette");
-  }, []);
+  }, [openSettingsPanel]);
 
   const updateSettings = (patch: Partial<AppSettings>) => {
     setSettings((previous) => {
@@ -516,6 +532,30 @@ function App() {
       )
     );
   };
+
+  const transformActiveMarkdown = useCallback((mode: "format" | "minify") => {
+    const tab = tabsRef.current.find((item) => item.id === activeTabId) ?? tabsRef.current[0];
+    if (!tab) return;
+    const nextContent = mode === "format" ? formatMarkdown(tab.content) : minifyMarkdown(tab.content);
+    if (nextContent === tab.content) return;
+
+    const view = editorRef.current;
+    if (view) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: nextContent },
+        selection: EditorSelection.cursor(0),
+      });
+      view.focus();
+      return;
+    }
+
+    setSaveError(null);
+    setTabs((previous) =>
+      previous.map((item) =>
+        item.id === tab.id ? { ...item, content: nextContent, dirty: true } : item
+      )
+    );
+  }, [activeTabId]);
 
   const insertSnippet = useCallback((snippet: Snippet) => {
     const view = editorRef.current;
@@ -979,6 +1019,18 @@ function App() {
     const actionSection = t["palette.group.actions"] || "Actions";
     const fileSection = t["palette.group.files"] || "Files";
     const snippetSection = t["palette.group.snippets"] || "Snippets";
+    const settingsSection = t["settings.title"] || "Preferences";
+    const themeSection = t["settings.appearance"] || "Themes";
+    const presetSection = t["settings.presets"] || "Publication presets";
+    const settingsTabs: Array<{ id: SettingsTabId; label: string; keywords: string }> = [
+      { id: "general", label: t["settings.tab.general"] || "General", keywords: "preferences settings general language tabs sidebar" },
+      { id: "appearance", label: t["settings.tab.appearance"] || "Themes", keywords: "preferences settings appearance themes colors" },
+      { id: "editor", label: t["settings.tab.editor"] || "Editor", keywords: "preferences settings editor typography wrap autosave" },
+      { id: "toolbar", label: t["settings.tab.toolbar"] || "Toolbar", keywords: "preferences settings toolbar tools buttons actions" },
+      { id: "palette", label: t["settings.tab.palette"] || "Command palette", keywords: "preferences settings command palette search" },
+      { id: "presets", label: t["settings.tab.presets"] || "Publishing", keywords: "preferences settings publication presets html preview" },
+      { id: "shortcuts", label: t["settings.tab.shortcuts"] || "Shortcuts", keywords: "preferences settings shortcuts keyboard hotkeys" },
+    ];
     const items: CommandPaletteItem[] = [];
 
     if (settings.commandPalette.includeActions) {
@@ -1072,8 +1124,143 @@ function App() {
           hint: shortcutLabels["view-sidebar"],
           keywords: "sidebar toggle",
           onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+        },
+        {
+          id: "palette-view-editor",
+          label: t["view.editor"] || "Editor",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-edit"],
+          keywords: "view mode editor edit",
+          onSelect: () => {
+            setViewMode("edit");
+            updateSettings({ viewMode: "edit" });
+          },
+        },
+        {
+          id: "palette-view-split",
+          label: t["view.split"] || "Split",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-split"],
+          keywords: "view mode split preview editor",
+          onSelect: () => {
+            setViewMode("split");
+            updateSettings({ viewMode: "split" });
+          },
+        },
+        {
+          id: "palette-view-preview",
+          label: t["view.preview"] || "Preview",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-preview"],
+          keywords: "view mode preview render",
+          onSelect: () => {
+            setViewMode("preview");
+            updateSettings({ viewMode: "preview" });
+          },
+        },
+        {
+          id: "palette-zen",
+          label: t["view.zen"] || "Zen mode",
+          section: actionSection,
+          kind: "action",
+          hint: shortcutLabels["view-zen"],
+          keywords: "zen focus immersive",
+          onSelect: () => setIsZenMode((previous) => !previous),
+        },
+        {
+          id: "palette-format-markdown",
+          label: t["tool.formatMarkdown"] || "Format Markdown",
+          section: actionSection,
+          kind: "action",
+          keywords: "format markdown prettier beautify apply document",
+          onSelect: () => transformActiveMarkdown("format"),
+        },
+        {
+          id: "palette-minify-markdown",
+          label: t["tool.minifyMarkdown"] || "Minify Markdown",
+          section: actionSection,
+          kind: "action",
+          keywords: "minify markdown compact apply document",
+          onSelect: () => transformActiveMarkdown("minify"),
         }
       );
+
+      for (const tab of settingsTabs) {
+        items.push({
+          id: `settings-tab-${tab.id}`,
+          label: `${settingsSection}: ${tab.label}`,
+          section: settingsSection,
+          kind: "action",
+          keywords: tab.keywords,
+          onSelect: () => openSettingsPanel(tab.id, `tab-${tab.id}`),
+        });
+      }
+
+      items.push(
+        {
+          id: "settings-toggle-word-wrap",
+          label: t["settings.wordWrap"] || "Word wrap",
+          subtitle: settings.wordWrap ? (t["settings.state.on"] || "On") : (t["settings.state.off"] || "Off"),
+          section: settingsSection,
+          kind: "action",
+          keywords: "preferences editor word wrap line wrap toggle",
+          onSelect: () => updateSettings({ wordWrap: !settings.wordWrap }),
+        },
+        {
+          id: "settings-toggle-autosave",
+          label: t["settings.autoSave"] || "Auto save",
+          subtitle: settings.autoSave ? (t["settings.state.on"] || "On") : (t["settings.state.off"] || "Off"),
+          section: settingsSection,
+          kind: "action",
+          keywords: "preferences editor autosave auto save toggle",
+          onSelect: () => updateSettings({ autoSave: !settings.autoSave }),
+        },
+        {
+          id: "settings-toggle-tabs",
+          label: t["settings.tabs"] || "Tabs",
+          subtitle: settings.tabsEnabled ? (t["settings.state.on"] || "On") : (t["settings.state.off"] || "Off"),
+          section: settingsSection,
+          kind: "action",
+          keywords: "preferences general tabs toggle",
+          onSelect: () => updateSettings({ tabsEnabled: !settings.tabsEnabled }),
+        },
+        {
+          id: "settings-toggle-sidebar",
+          label: t["view.sidebar"] || "Sidebar",
+          subtitle: settings.sidebarEnabled ? (t["settings.state.on"] || "On") : (t["settings.state.off"] || "Off"),
+          section: settingsSection,
+          kind: "action",
+          keywords: "preferences general sidebar toggle",
+          onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+        }
+      );
+
+      for (const theme of settings.themeLibrary) {
+        items.push({
+          id: `theme-${theme.id}`,
+          label: theme.name,
+          subtitle: theme.id === settings.theme ? (t["settings.presets.activeTag"] || "Active") : themeSection,
+          section: themeSection,
+          kind: "action",
+          keywords: `theme appearance colors ${theme.name} ${theme.id}`,
+          onSelect: () => updateSettings({ theme: theme.id }),
+        });
+      }
+
+      for (const preset of publicationPresets) {
+        items.push({
+          id: `publication-preset-${preset.id}`,
+          label: preset.name,
+          subtitle: preset.id === settings.publicationPresetId ? (t["settings.presets.activeTag"] || "Active") : preset.description,
+          section: presetSection,
+          kind: "action",
+          keywords: `publication preset html preview export ${preset.name} ${preset.description}`,
+          onSelect: () => updateSettings({ publicationPresetId: preset.id }),
+        });
+      }
     }
 
     if (settings.commandPalette.includeOpenTabs) {
@@ -1137,14 +1324,16 @@ function App() {
     insertSnippet,
     handleOpenIntent,
     openDialog,
+    openSettingsPanel,
+    publicationPresets,
     recentFiles,
     saveTab,
-    settings.commandPalette,
-    settings.sidebarEnabled,
+    settings,
     shortcutLabels,
     snippets,
     t,
     tabs,
+    transformActiveMarkdown,
     updateSettings,
   ]);
 
@@ -1630,6 +1819,7 @@ function App() {
         updateSettings({ viewMode: mode });
       }}
       onFormatAction={handleFormatAction}
+      onTransformMarkdown={transformActiveMarkdown}
     />
   );
   const topChromeBlock = topChromeComponent;
@@ -1931,6 +2121,8 @@ function App() {
         t={t}
         tConfig={tConfig}
         publicationPresets={publicationPresets}
+        initialTab={settingsInitialTab}
+        focusTarget={settingsFocusTarget}
         onClose={closeAllDialogs}
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
