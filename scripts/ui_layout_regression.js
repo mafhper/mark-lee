@@ -96,11 +96,11 @@ async function runEditorSelectionRegression(page) {
 
   const editor = page.locator('.cm-content').first();
   await editor.click();
-  await page.keyboard.press('Control+A');
+  await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.type(editorFixture);
   await page.waitForTimeout(250);
 
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('ControlOrMeta+Home');
   for (let i = 0; i < 9; i += 1) {
     await page.keyboard.press('Shift+ArrowRight');
   }
@@ -108,7 +108,7 @@ async function runEditorSelectionRegression(page) {
   await assertSelectionBackgroundsInsideEditor(page, 'simple-selection');
   await page.screenshot({ path: path.join(outDir, 'editor_selection_simple.png') });
 
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('ControlOrMeta+Home');
   for (let i = 0; i < 3; i += 1) {
     await page.keyboard.press('ArrowDown');
   }
@@ -120,7 +120,7 @@ async function runEditorSelectionRegression(page) {
   await assertSelectionBackgroundsInsideEditor(page, 'long-line-selection');
   await page.screenshot({ path: path.join(outDir, 'editor_selection_long_line.png') });
 
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('ControlOrMeta+Home');
   for (let i = 0; i < 2; i += 1) {
     await page.keyboard.press('ArrowDown');
   }
