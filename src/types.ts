@@ -362,6 +362,7 @@ export interface PublicationPreset {
   id: string;
   name: string;
   description: string;
+  builtIn?: boolean;
   surface: PublicationSurfaceStyle;
   typography: PublicationTypographyStyle;
   spacing: PublicationSpacingStyle;

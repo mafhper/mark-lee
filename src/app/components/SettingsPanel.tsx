@@ -1085,6 +1085,18 @@ export default function SettingsPanel({
     );
   }
 
+  const duplicatePreset = (preset: PublicationPreset) => {
+    const nextPreset: PublicationPreset = {
+      ...preset,
+      id: `custom-${crypto.randomUUID()}`,
+      name: `${preset.name} ${tr("cópia", "copy", "copia")}`,
+      builtIn: false,
+    };
+    onPublicationPresetsChange((current) => [...current, nextPreset]);
+    onSettingsChange({ publicationPresetId: nextPreset.id });
+    setExpandedPresetIds([nextPreset.id]);
+  };
+
   if (activeTab === "presets") {
     content = (
       <div className="grid gap-5">
@@ -1095,48 +1107,17 @@ export default function SettingsPanel({
             "Preview and HTML export share the same structural tokens.",
             "La vista previa y la exportación HTML comparten los mismos tokens estructurales."
           ),
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,260px)_1fr]">
-            <div className="ml-settings-row rounded-lg p-3.5">
-              <label className="space-y-2">
-                <span className="text-sm opacity-80">{t["settings.presets.active"] ?? tr("Preset ativo", "Active preset", "Preset activo")}</span>
-                <select
-                  className={inputClass}
-                  value={settings.publicationPresetId}
-                  onChange={(event) => onSettingsChange({ publicationPresetId: event.target.value })}
+          <div className="grid gap-4">
+            {publicationPresets.map((preset) => {
+              const expanded = expandedPresetIds.includes(preset.id);
+              const active = settings.publicationPresetId === preset.id;
+              const contrast = contrastRatio(preset.surface.text, preset.surface.bg).toFixed(1);
+              return (
+                <article
+                  key={preset.id}
+                  className={`ml-settings-row relative rounded-xl border p-4 transition-all duration-200 group ${active ? "ring-2 ring-current/10" : ""}`}
                 >
-                  {publicationPresets.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="mt-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    onPublicationPresetsChange((current) => [
-                      ...current,
-                      createPublicationPreset(
-                        crypto.randomUUID(),
-                        `Preset ${current.length + 1}`,
-                        tr("Novo preset customizável", "New customizable preset", "Nuevo preset personalizable"),
-                        { bg: "#f8fafc", text: "#111827", accent: "#1d4ed8", muted: "#475569" }
-                      ),
-                    ])
-                  }
-                  className="ml-settings-field w-full rounded-lg border px-3 py-2 text-sm font-medium"
-                >
-                  {t["settings.presets.add"] ?? tr("Adicionar preset", "Add preset", "Agregar preset")}
-                </button>
-              </div>
-            </div>
-            <div className="grid gap-4">
-              {publicationPresets.map((preset) => {
-                const expanded = expandedPresetIds.includes(preset.id);
-                const contrast = contrastRatio(preset.surface.text, preset.surface.bg).toFixed(1);
-                return (
-                  <article key={preset.id} className="ml-settings-row rounded-xl p-4">
+                  <div className="flex w-full items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={() =>
@@ -1144,123 +1125,196 @@ export default function SettingsPanel({
                           current.includes(preset.id) ? current.filter((id) => id !== preset.id) : [...current, preset.id]
                         )
                       }
-                      className="flex w-full items-center justify-between gap-4"
+                      className="min-w-0 flex-1 text-left"
                     >
-                      <div className="min-w-0 text-left">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-base font-semibold">{preset.name}</h3>
-                          {settings.publicationPresetId === preset.id ? (
-                            <span className="ml-settings-field rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]">
-                              {tr("ativo", "active", "activo")}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 text-sm opacity-70">{preset.description}</p>
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-base font-semibold">{preset.name}</h3>
+                        {active ? (
+                          <span className="ml-settings-field flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em]">
+                            <Check className="h-2.5 w-2.5" />
+                            {tr("ativo", "active", "activo")}
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="flex min-w-[150px] items-center gap-3 sm:min-w-[210px]">
+                      <p className="mt-1 text-sm opacity-70">{preset.description}</p>
+                    </button>
+
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => duplicatePreset(preset)}
+                          className="ml-settings-field flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                          title={tr("Duplicar", "Duplicate", "Duplicar")}
+                        >
+                          <CopyPlus className="h-4 w-4" />
+                        </button>
+                        {!preset.builtIn && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onPublicationPresetsChange((current) => current.filter((item) => item.id !== preset.id))
+                            }
+                            className="ml-settings-field flex h-8 w-8 items-center justify-center rounded-lg border text-rose-300 transition-colors hover:bg-rose-500/10"
+                            title={tr("Remover", "Remove", "Eliminar")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {!active && (
+                          <button
+                            type="button"
+                            onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
+                            className="ml-settings-field flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:bg-emerald-500/10"
+                            title={tr("Ativar", "Activate", "Activar")}
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
                         <span
-                          className="ml-theme-strip h-4 min-w-0 flex-1 rounded-full border"
+                          className="ml-theme-strip h-4 w-24 rounded-full border sm:w-32"
                           style={{
                             background: `linear-gradient(90deg, ${preset.surface.bg}, ${preset.surface.text}, ${preset.surface.accent}, ${preset.surface.muted}, ${preset.surface.border})`,
                           }}
-                          aria-label={tr("Resumo de cores do preset", "Preset color summary", "Resumen de colores del preset")}
                         />
-                        <ChevronDown className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
+                        <ChevronDown className={`h-4 w-4 shrink-0 transition ${expanded ? "rotate-180" : ""}`} />
                       </div>
-                    </button>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs opacity-70">
-                      <span className="ml-settings-field rounded-full border px-2 py-1">contraste {contrast}:1</span>
-                      <span className="ml-settings-field rounded-full border px-2 py-1">{preset.spacing.columnWidth}px coluna</span>
-                      <span className="ml-settings-field rounded-full border px-2 py-1">{preset.typography.fontFamily.split(",")[0]}</span>
                     </div>
-                    {expanded ? (
-                      <div className="mt-4 grid gap-4 2xl:grid-cols-2">
-                        <div className="ml-settings-group rounded-lg p-3.5">
-                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Metadados</h4>
-                          <div className="grid gap-4">
-                            <label className="space-y-2">
-                              <span className="text-sm opacity-80">Nome</span>
-                              <input
-                                className={inputClass}
-                                value={preset.name}
-                                onChange={(event) => updatePreset(preset.id, (current) => ({ ...current, name: event.target.value }))}
-                              />
-                            </label>
-                            <label className="space-y-2">
-                              <span className="text-sm opacity-80">Descrição</span>
-                              <input
-                                className={inputClass}
-                                value={preset.description}
-                                onChange={(event) =>
-                                  updatePreset(preset.id, (current) => ({ ...current, description: event.target.value }))
-                                }
-                              />
-                            </label>
-                          </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs opacity-70">
+                    <span className="ml-settings-field rounded-full border px-2 py-1">contraste {contrast}:1</span>
+                    <span className="ml-settings-field rounded-full border px-2 py-1">
+                      {preset.spacing.columnWidth}px coluna
+                    </span>
+                    <span className="ml-settings-field rounded-full border px-2 py-1">
+                      {preset.typography.fontFamily.split(",")[0].replace(/'/g, "")}
+                    </span>
+                  </div>
+
+                  {expanded && (
+                    <div className="mt-4 grid gap-4 2xl:grid-cols-2">
+                      <div className="ml-settings-group rounded-lg p-3.5">
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Metadados</h4>
+                        <div className="grid gap-4">
+                          <label className="space-y-2">
+                            <span className="text-sm opacity-80">Nome</span>
+                            <input
+                              className={inputClass}
+                              value={preset.name}
+                              onChange={(event) =>
+                                updatePreset(preset.id, (current) => ({ ...current, name: event.target.value }))
+                              }
+                            />
+                          </label>
+                          <label className="space-y-2">
+                            <span className="text-sm opacity-80">Descrição</span>
+                            <input
+                              className={inputClass}
+                              value={preset.description}
+                              onChange={(event) =>
+                                updatePreset(preset.id, (current) => ({ ...current, description: event.target.value }))
+                              }
+                            />
+                          </label>
                         </div>
-                        <div className="ml-settings-group rounded-lg p-3.5">
-                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">
-                            {tr("Superfície", "Surface", "Superficie")}
-                          </h4>
-                          <div className="grid gap-3">
-                            {([
-                              ["bg", "Fundo", "Base visual da página"],
-                              ["text", "Texto", "Leitura principal"],
-                              ["accent", "Acento", "Links e destaques"],
-                              ["muted", "Tom secundário", "Metadados e elementos de apoio"],
-                              ["border", "Borda", "Contornos de superfícies"],
-                            ] as const).map(([key, label, note]) => (
-                              <div key={key}>
-                                {renderColorField({
-                                  pickerId: `preset-${preset.id}-${key}`,
-                                  label,
-                                  note,
-                                  value: preset.surface[key],
-                                  onChange: (next) =>
-                                    updatePreset(preset.id, (current) => ({
-                                      ...current,
-                                      surface: { ...current.surface, [key]: normalizeHex(next, current.surface[key]) },
-                                    })),
-                                })}
-                              </div>
-                            ))}
-                            <div className="sm:col-span-2">
-                              {renderRangeField("Raio da superfície", preset.surface.radius, 0, 32, 1, "px", (radius) =>
-                                updatePreset(preset.id, (current) => ({ ...current, surface: { ...current.surface, radius } }))
-                              )}
+                      </div>
+                      <div className="ml-settings-group rounded-lg p-3.5">
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">
+                          {tr("Superfície", "Surface", "Superficie")}
+                        </h4>
+                        <div className="grid gap-3">
+                          {([
+                            ["bg", "Fundo", "Base visual da página"],
+                            ["text", "Texto", "Leitura principal"],
+                            ["accent", "Acento", "Links e destaques"],
+                            ["muted", "Tom secundário", "Metadados e elementos de apoio"],
+                            ["border", "Borda", "Contornos de superfícies"],
+                          ] as const).map(([key, label, note]) => (
+                            <div key={key}>
+                              {renderColorField({
+                                pickerId: `preset-${preset.id}-${key}`,
+                                label,
+                                note,
+                                value: preset.surface[key],
+                                onChange: (next) =>
+                                  updatePreset(preset.id, (current) => ({
+                                    ...current,
+                                    surface: { ...current.surface, [key]: normalizeHex(next, current.surface[key]) },
+                                  })),
+                              })}
                             </div>
-                          </div>
-                        </div>
-                        <div className="ml-settings-group rounded-lg p-3.5">
-                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Tipografia</h4>
-                          <div className="grid gap-4">
-                            {renderRangeField("Corpo", preset.typography.bodySize, 14, 24, 1, "px", (bodySize) =>
-                              updatePreset(preset.id, (current) => ({ ...current, typography: { ...current.typography, bodySize } }))
-                            )}
-                            {renderRangeField(tr("Altura de linha", "Line height", "Altura de línea"), preset.typography.lineHeight, 1.2, 2.1, 0.05, "", (lineHeight) =>
-                              updatePreset(preset.id, (current) => ({ ...current, typography: { ...current.typography, lineHeight } }))
-                            )}
-                            {renderRangeField("H1", preset.elements.h1.size, 26, 62, 1, "px", (size) =>
-                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, h1: { ...current.elements.h1, size } } }))
-                            )}
-                            {renderRangeField("H2", preset.elements.h2.size, 22, 48, 1, "px", (size) =>
-                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, h2: { ...current.elements.h2, size } } }))
-                            )}
-                            {renderRangeField("Parágrafo", preset.elements.p.size, 14, 24, 1, "px", (size) =>
-                              updatePreset(preset.id, (current) => ({ ...current, elements: { ...current.elements, p: { ...current.elements.p, size } } }))
+                          ))}
+                          <div className="sm:col-span-2">
+                            {renderRangeField("Raio da superfície", preset.surface.radius, 0, 32, 1, "px", (radius) =>
+                              updatePreset(preset.id, (current) => ({
+                                ...current,
+                                surface: { ...current.surface, radius },
+                              }))
                             )}
                           </div>
                         </div>
-                        <div className="ml-settings-group rounded-lg p-3.5">
-                          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Layout e ações</h4>
-                          <div className="grid gap-4">
-                            {renderRangeField("Padding da página", preset.spacing.pagePadding, 12, 72, 2, "px", (pagePadding) =>
-                              updatePreset(preset.id, (current) => ({ ...current, spacing: { ...current.spacing, pagePadding } }))
-                            )}
-                            {renderRangeField("Largura de coluna", preset.spacing.columnWidth, 520, 1080, 10, "px", (columnWidth) =>
-                              updatePreset(preset.id, (current) => ({ ...current, spacing: { ...current.spacing, columnWidth } }))
-                            )}
-                            <div className="flex flex-wrap gap-3">
+                      </div>
+                      <div className="ml-settings-group rounded-lg p-3.5">
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Tipografia</h4>
+                        <div className="grid gap-4">
+                          {renderRangeField("Corpo", preset.typography.bodySize, 14, 24, 1, "px", (bodySize) =>
+                            updatePreset(preset.id, (current) => ({
+                              ...current,
+                              typography: { ...current.typography, bodySize },
+                            }))
+                          )}
+                          {renderRangeField(
+                            tr("Altura de linha", "Line height", "Altura de línea"),
+                            preset.typography.lineHeight,
+                            1.2,
+                            2.1,
+                            0.05,
+                            "",
+                            (lineHeight) =>
+                              updatePreset(preset.id, (current) => ({
+                                ...current,
+                                typography: { ...current.typography, lineHeight },
+                              }))
+                          )}
+                          {renderRangeField("H1", preset.elements.h1.size, 26, 62, 1, "px", (size) =>
+                            updatePreset(preset.id, (current) => ({
+                              ...current,
+                              elements: { ...current.elements, h1: { ...current.elements.h1, size } },
+                            }))
+                          )}
+                          {renderRangeField("H2", preset.elements.h2.size, 22, 48, 1, "px", (size) =>
+                            updatePreset(preset.id, (current) => ({
+                              ...current,
+                              elements: { ...current.elements, h2: { ...current.elements.h2, size } },
+                            }))
+                          )}
+                          {renderRangeField("Parágrafo", preset.elements.p.size, 14, 24, 1, "px", (size) =>
+                            updatePreset(preset.id, (current) => ({
+                              ...current,
+                              elements: { ...current.elements, p: { ...current.elements.p, size } },
+                            }))
+                          )}
+                        </div>
+                      </div>
+                      <div className="ml-settings-group rounded-lg p-3.5">
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">
+                          Layout e ações
+                        </h4>
+                        <div className="grid gap-4">
+                          {renderRangeField("Padding da página", preset.spacing.pagePadding, 12, 72, 2, "px", (pagePadding) =>
+                            updatePreset(preset.id, (current) => ({ ...current, spacing: { ...current.spacing, pagePadding } }))
+                          )}
+                          {renderRangeField("Largura de coluna", preset.spacing.columnWidth, 520, 1080, 10, "px", (columnWidth) =>
+                            updatePreset(preset.id, (current) => ({
+                              ...current,
+                              spacing: { ...current.spacing, columnWidth },
+                            }))
+                          )}
+                          <div className="flex flex-wrap gap-3">
+                            {!active && (
                               <button
                                 type="button"
                                 onClick={() => onSettingsChange({ publicationPresetId: preset.id })}
@@ -1268,24 +1322,44 @@ export default function SettingsPanel({
                               >
                                 Usar preset
                               </button>
-                              {publicationPresets.length > 1 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onPublicationPresetsChange((current) => current.filter((item) => item.id !== preset.id))}
-                                  className="ml-settings-field rounded-lg border px-3 py-2 text-sm font-medium text-rose-300"
-                                >
-                                  Remover
-                                </button>
-                              ) : null}
-                            </div>
+                            )}
+                            {publicationPresets.length > 1 && !preset.builtIn && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onPublicationPresetsChange((current) => current.filter((item) => item.id !== preset.id))
+                                }
+                                className="ml-settings-field rounded-lg border px-3 py-2 text-sm font-medium text-rose-300"
+                              >
+                                Remover
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() =>
+                onPublicationPresetsChange((current) => [
+                  ...current,
+                  createPublicationPreset(
+                    crypto.randomUUID(),
+                    `Preset ${current.length + 1}`,
+                    tr("Novo preset customizável", "New customizable preset", "Nuevo preset personalizable"),
+                    { bg: "#f8fafc", text: "#111827", accent: "#1d4ed8", muted: "#475569" }
+                  ),
+                ])
+              }
+              className="ml-settings-field flex w-full items-center justify-center gap-2 rounded-xl border border-dashed py-6 text-sm font-medium opacity-60 transition-opacity hover:opacity-100"
+            >
+              <CopyPlus className="h-5 w-5" />
+              {t["settings.presets.add"] ?? tr("Adicionar preset", "Add preset", "Agregar preset")}
+            </button>
           </div>
         )}
       </div>
