@@ -25,7 +25,7 @@ import {
   ThemeDefinition,
 } from "../../types";
 
-type SettingsTabId =
+export type SettingsTabId =
   | "general"
   | "appearance"
   | "editor"
@@ -40,6 +40,8 @@ type SettingsPanelProps = {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   publicationPresets: PublicationPreset[];
+  initialTab?: SettingsTabId;
+  focusTarget?: string | null;
   onClose: () => void;
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onPublicationPresetsChange: React.Dispatch<React.SetStateAction<PublicationPreset[]>>;
@@ -96,6 +98,8 @@ const toolbarItemsBySection: Array<{
       { key: "sysPreview", labelKey: "preview" },
       { key: "sysZen", labelKey: "zen" },
       { key: "sysSettings", labelKey: "settings" },
+      { key: "sysFormatMarkdown", labelKey: "formatMarkdown" },
+      { key: "sysMinifyMarkdown", labelKey: "minifyMarkdown" },
     ],
   },
   {
@@ -182,6 +186,8 @@ export default function SettingsPanel({
   t,
   tConfig,
   publicationPresets,
+  initialTab,
+  focusTarget,
   onClose,
   onSettingsChange,
   onPublicationPresetsChange,
@@ -191,10 +197,6 @@ export default function SettingsPanel({
   const [selectedThemeId, setSelectedThemeId] = useState(settings.theme);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const colorInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const activePreset = useMemo(
-    () => publicationPresets.find((preset) => preset.id === settings.publicationPresetId) ?? publicationPresets[0] ?? null,
-    [publicationPresets, settings.publicationPresetId]
-  );
   const selectedTheme = useMemo(
     () => settings.themeLibrary.find((theme) => theme.id === selectedThemeId) ?? settings.themeLibrary[0] ?? null,
     [selectedThemeId, settings.themeLibrary]
@@ -212,43 +214,6 @@ export default function SettingsPanel({
     palette: tr("Paleta de comandos", "Command palette", "Paleta de comandos"),
     presets: tr("Publicação", "Publishing", "Publicación"),
     shortcuts: tr("Atalhos", "Shortcuts", "Atajos"),
-  };
-  const tabDescriptions: Record<SettingsTabId, string> = {
-    general: tr(
-      "Preferências centrais do app, da janela e da navegação lateral.",
-      "Core app, window, and sidebar preferences.",
-      "Preferencias centrales de la app, la ventana y la navegación lateral."
-    ),
-    appearance: tr(
-      "Biblioteca de temas, edição de cores e restauração dos padrões.",
-      "Theme library, color editing, and default restoration.",
-      "Biblioteca de temas, edición de colores y restauración de los predeterminados."
-    ),
-    editor: tr(
-      "Tipografia, leitura e comportamento da escrita no editor.",
-      "Typography, reading, and writing behavior in the editor.",
-      "Tipografía, lectura y comportamiento de escritura en el editor."
-    ),
-    toolbar: tr(
-      "Posição, densidade e ações visíveis da barra de ferramentas.",
-      "Position, density, and visible actions in the main toolbar.",
-      "Posición, densidad y acciones visibles de la barra principal."
-    ),
-    palette: tr(
-      "Fontes de busca e comportamento da paleta de comandos.",
-      "Search sources and command palette behavior.",
-      "Fuentes de búsqueda y comportamiento de la paleta de comandos."
-    ),
-    presets: tr(
-      "Presets que controlam preview e exportação HTML.",
-      "Presets that control preview and HTML export.",
-      "Presets que controlan la vista previa y la exportación HTML."
-    ),
-    shortcuts: tr(
-      "Atalhos personalizados para as ações principais do app.",
-      "Custom shortcuts for the app's main actions.",
-      "Atajos personalizados para las acciones principales de la app."
-    ),
   };
   const shortcutLabels: Record<(typeof shortcutActionIds)[number], string> = {
     "file-save": tr("Salvar", "Save", "Guardar"),
@@ -282,6 +247,8 @@ export default function SettingsPanel({
     preview: t["view.preview"] ?? tr("Visualização", "Preview", "Vista previa"),
     zen: t["view.zen"] ?? tr("Modo zen", "Zen mode", "Modo zen"),
     settings: t.settings ?? tr("Configurações", "Settings", "Configuración"),
+    formatMarkdown: t["tool.formatMarkdown"] ?? tr("Formatar Markdown", "Format Markdown", "Formatear Markdown"),
+    minifyMarkdown: t["tool.minifyMarkdown"] ?? tr("Minificar Markdown", "Minify Markdown", "Minificar Markdown"),
     bold: t["tool.bold"] ?? tr("Negrito", "Bold", "Negrita"),
     italic: t["tool.italic"] ?? tr("Itálico", "Italic", "Cursiva"),
     code: t["tool.code"] ?? tr("Código", "Code", "Código"),
@@ -339,8 +306,23 @@ export default function SettingsPanel({
   }, [open, settings.theme]);
 
   useEffect(() => {
+    if (!open) return;
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab, open]);
+
+  useEffect(() => {
     contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!open || !focusTarget) return;
+    const timer = window.setTimeout(() => {
+      const target = contentScrollRef.current?.querySelector<HTMLElement>(`[data-settings-focus="${focusTarget}"]`);
+      target?.scrollIntoView({ block: "center", behavior: "smooth" });
+      target?.focus({ preventScroll: true });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, focusTarget, open]);
 
   if (!open) return null;
 
@@ -539,7 +521,13 @@ export default function SettingsPanel({
   );
 
   const renderTabNav = (compact: boolean) => (
-    <div className={compact ? "flex gap-1.5 overflow-x-auto pb-1" : "grid gap-1.5"}>
+    <div
+      className={
+        compact
+          ? "ml-settings-tab-scroll ml-scrollbar -mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 pb-2"
+          : "grid gap-1.5"
+      }
+    >
       {tabs.map((tab) => {
         const active = activeTab === tab.id;
         return (
@@ -548,7 +536,7 @@ export default function SettingsPanel({
             type="button"
             onClick={() => setActiveTab(tab.id)}
             style={active ? activeTabStyle : undefined}
-            className={`ml-settings-nav-item flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""} ${active ? "" : ""}`}
+            className={`ml-settings-nav-item flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""}`}
           >
             <span className={active ? "opacity-100" : "opacity-80"}>{tab.icon}</span>
             <span className={`min-w-0 truncate ${active ? "font-medium" : ""}`}>{tabLabels[tab.id]}</span>
@@ -1169,12 +1157,14 @@ export default function SettingsPanel({
                         </div>
                         <p className="mt-1 text-sm opacity-70">{preset.description}</p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="grid grid-cols-5 gap-2">
-                          {[preset.surface.bg, preset.surface.text, preset.surface.accent, preset.surface.muted, preset.surface.border].map((color, index) => (
-                            <span key={`${preset.id}-${index}`} className="h-7 w-7 rounded-lg border" style={{ backgroundColor: color }} />
-                          ))}
-                        </div>
+                      <div className="flex min-w-[150px] items-center gap-3 sm:min-w-[210px]">
+                        <span
+                          className="ml-theme-strip h-4 min-w-0 flex-1 rounded-full border"
+                          style={{
+                            background: `linear-gradient(90deg, ${preset.surface.bg}, ${preset.surface.text}, ${preset.surface.accent}, ${preset.surface.muted}, ${preset.surface.border})`,
+                          }}
+                          aria-label={tr("Resumo de cores do preset", "Preset color summary", "Resumen de colores del preset")}
+                        />
                         <ChevronDown className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
                       </div>
                     </button>
@@ -1352,27 +1342,15 @@ export default function SettingsPanel({
             </div>
           </div>
           <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
-            <div className="shrink-0 px-5 py-4 md:px-6">
-              <div className={`mx-auto w-full max-w-[1080px] ${tConfig.fg}`}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
-                  {tr("Painel ativo", "Active panel", "Panel activo")}
-                </p>
-                <h3 className="mt-1 text-xl font-semibold">{tabs.find((tab) => tab.id === activeTab) ? tabLabels[activeTab] : ""}</h3>
-                <p className="mt-2 max-w-3xl text-sm opacity-70">
-                  {tabDescriptions[activeTab]}
-                </p>
-              </div>
-            </div>
-            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-6 md:pb-6">
-              <div className={`mx-auto min-h-full w-full max-w-[1080px] ${tConfig.fg}`}>
+            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
+              <div
+                className={`mx-auto min-h-full w-full max-w-[1080px] outline-none ${tConfig.fg}`}
+                data-settings-focus={`tab-${activeTab}`}
+                tabIndex={-1}
+              >
                 {content}
               </div>
             </div>
-            {activePreset && activeTab === "presets" ? (
-              <div className="border-t ml-settings-soft-divider px-6 py-3 text-xs opacity-70">
-                {tr("Preset ativo:", "Active preset:", "Preset activo:")} <span className="font-semibold">{activePreset.name}</span>
-              </div>
-            ) : null}
           </section>
         </div>
       </div>

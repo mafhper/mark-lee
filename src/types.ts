@@ -107,6 +107,8 @@ export interface AppSettings {
     sysPreview: boolean;
     sysZen: boolean;
     sysSettings: boolean;
+    sysFormatMarkdown: boolean;
+    sysMinifyMarkdown: boolean;
     editBold: boolean;
     editItalic: boolean;
     editCode: boolean;

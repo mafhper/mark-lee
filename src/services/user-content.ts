@@ -53,6 +53,11 @@ export async function loadPublicationPresets(): Promise<PublicationPreset[]> {
     if (!raw) return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
     const parsed = JSON.parse(raw) as PublicationPreset[];
     const migrated = parsed.map((preset) => migratePublicationPreset(preset));
+    for (const defaultPreset of PUBLICATION_PRESET_DEFAULTS) {
+      if (!migrated.some((preset) => preset.id === defaultPreset.id)) {
+        migrated.push(migratePublicationPreset(defaultPreset));
+      }
+    }
     return migrated.length > 0 ? migrated : PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));
   } catch {
     return PUBLICATION_PRESET_DEFAULTS.map((preset) => migratePublicationPreset(preset));

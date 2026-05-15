@@ -7,6 +7,7 @@ import {
   Columns2,
   Download,
   Eye,
+  FileText,
   FileInput,
   FilePlus2,
   FolderOpen,
@@ -72,6 +73,7 @@ interface TopChromeProps {
   onToggleZen: () => void;
   onViewModeChange: (mode: "edit" | "split" | "preview") => void;
   onFormatAction: (action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task") => void;
+  onTransformMarkdown: (mode: "format" | "minify") => void;
 }
 
 const TopChrome: React.FC<TopChromeProps> = ({
@@ -103,6 +105,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onToggleZen,
   onViewModeChange,
   onFormatAction,
+  onTransformMarkdown,
 }) => {
   const canControlWindow = isTauriRuntime();
   const isVertical = floatingToolbarAnchor === "left" || floatingToolbarAnchor === "right";
@@ -200,11 +203,16 @@ const TopChrome: React.FC<TopChromeProps> = ({
     }
 
     const section = enabledSections.find((item) => item.key === sectionKey);
-    const actions = section?.actions ?? [];
+    const allActions = section?.actions ?? [];
+    const visibleCount = visibleCounts[sectionKey] ?? allActions.length;
+    const actions = allActions.slice(Math.max(0, Math.min(visibleCount, allActions.length)));
     const gap = 6;
     const paddingX = 16;
+    const hiddenMeasureButtons = measureButtonRefs.current[sectionKey]?.slice(
+      Math.max(0, Math.min(visibleCount, allActions.length))
+    );
     const buttonWidths =
-      measureButtonRefs.current[sectionKey]
+      hiddenMeasureButtons
         ?.map((button, index) => {
           const measured = Math.ceil(button?.getBoundingClientRect().width ?? 0);
           if (measured > 0) return measured + 8;
@@ -215,8 +223,8 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const actionsWidth =
       buttonWidths.reduce((sum, width) => sum + width, 0) +
       Math.max(0, buttonWidths.length - 1) * gap;
-    const headerWidth = titleWidth + 96;
-    const desiredWidth = Math.ceil(Math.max(actionsWidth + paddingX, headerWidth + paddingX, 180));
+    const headerWidth = titleWidth + 56;
+    const desiredWidth = Math.ceil(Math.max(actionsWidth + paddingX, headerWidth + paddingX, 132));
     const viewportWidth = Math.max(220, Math.floor(window.innerWidth - 16));
 
     return {
@@ -492,6 +500,22 @@ const TopChrome: React.FC<TopChromeProps> = ({
             onClick: onOpenSettings,
             shortcutId: "app-settings",
           },
+          toolbarItems.sysFormatMarkdown
+            ? {
+              id: "sys-format-markdown",
+              label: t["tool.formatMarkdown"] || "Format Markdown",
+              icon: toolIcon(FileText),
+              onClick: () => onTransformMarkdown("format"),
+            }
+            : null,
+          toolbarItems.sysMinifyMarkdown
+            ? {
+              id: "sys-minify-markdown",
+              label: t["tool.minifyMarkdown"] || "Minify Markdown",
+              icon: toolIcon(Code),
+              onClick: () => onTransformMarkdown("minify"),
+            }
+            : null,
         ].filter(Boolean) as ToolbarAction[],
       },
     ],
@@ -509,6 +533,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
       onToggleSidebar,
       onToggleZen,
       onViewModeChange,
+      onTransformMarkdown,
       sidebarEnabled,
       t,
       toolbarItems,
@@ -742,6 +767,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const clampedVisibleCount = Math.max(0, Math.min(visibleCount, section.actions.length));
     const collapsed = clampedVisibleCount < section.actions.length;
     const visibleActions = collapsed ? section.actions.slice(0, clampedVisibleCount) : section.actions;
+    const overflowActions = collapsed ? section.actions.slice(clampedVisibleCount) : [];
 
     return (
       <div
@@ -813,7 +839,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         {collapsed && openSection === section.key && (
           <div
-            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[16px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${isVertical ? "w-[118px]" : "w-max"} ${tConfig.uiBorder}`}
+            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[14px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${isVertical ? "w-[118px]" : "w-fit"} ${tConfig.uiBorder}`}
             ref={(el) => {
               overflowPanelRefs.current[section.key] = el;
               if (el) {
@@ -835,7 +861,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               </div>
               {!isVertical && (
                 <span className="rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-55">
-                  {section.actions.length} acoes
+                  {overflowActions.length} acoes
                 </span>
               )}
             </div>
@@ -846,7 +872,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
                   : "flex max-w-full flex-wrap items-center gap-1.5"
               }
             >
-              {section.actions.map((action) => renderActionButton(action, "popover"))}
+              {overflowActions.map((action) => renderActionButton(action, "popover"))}
             </div>
           </div>
         )}
