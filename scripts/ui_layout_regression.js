@@ -133,6 +133,76 @@ async function runEditorSelectionRegression(page) {
   await page.screenshot({ path: path.join(outDir, 'editor_selection_multiline.png') });
 }
 
+async function assertOpenPopoverFits(page, label) {
+  const result = await page.evaluate((popoverLabel) => {
+    const panel = document.querySelector('[data-overflow-panel]');
+    if (!panel) {
+      return { ok: false, label: popoverLabel, reason: 'missing open overflow panel' };
+    }
+
+    const panelRect = panel.getBoundingClientRect();
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    const tolerance = 2;
+    const panelOverflow =
+      panel.scrollWidth > panel.clientWidth + tolerance ||
+      panelRect.left < 0 - tolerance ||
+      panelRect.right > viewport.width + tolerance ||
+      panelRect.top < 0 - tolerance ||
+      panelRect.bottom > viewport.height + tolerance;
+
+    const outsideButtons = Array.from(panel.querySelectorAll('button'))
+      .map((button) => {
+        const rect = button.getBoundingClientRect();
+        return {
+          label: button.textContent?.trim() ?? '',
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+        };
+      })
+      .filter((rect) =>
+        rect.left < panelRect.left - tolerance ||
+        rect.right > panelRect.right + tolerance
+      );
+
+    return {
+      ok: !panelOverflow && outsideButtons.length === 0,
+      label: popoverLabel,
+      panel: {
+        left: Math.round(panelRect.left),
+        top: Math.round(panelRect.top),
+        right: Math.round(panelRect.right),
+        bottom: Math.round(panelRect.bottom),
+        width: Math.round(panelRect.width),
+        height: Math.round(panelRect.height),
+        clientWidth: panel.clientWidth,
+        scrollWidth: panel.scrollWidth,
+      },
+      viewport,
+      outsideButtons: outsideButtons.map((rect) => ({
+        label: rect.label,
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      })),
+      panelOverflow,
+    };
+  }, label);
+
+  if (!result.ok) {
+    throw new Error(`Toolbar popover layout regression failed for ${label}: ${JSON.stringify(result, null, 2)}`);
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
@@ -158,11 +228,15 @@ async function runEditorSelectionRegression(page) {
 
       await page.screenshot({ path: path.join(outDir, `toolbar_${pos}_${size.name}.png`) });
 
-      const trigger = page.locator('[data-overflow-trigger]').first();
-      if ((await trigger.count()) > 0) {
+      const triggers = page.locator('[data-overflow-trigger]');
+      const triggerCount = await triggers.count();
+      for (let index = 0; index < triggerCount; index += 1) {
+        const trigger = triggers.nth(index);
+        const section = (await trigger.getAttribute('data-overflow-trigger')) || `section_${index}`;
         await trigger.hover();
         await page.waitForTimeout(220);
-        await page.screenshot({ path: path.join(outDir, `toolbar_${pos}_${size.name}_hover.png`) });
+        await assertOpenPopoverFits(page, `toolbar_${pos}_${size.name}_${section}_hover`);
+        await page.screenshot({ path: path.join(outDir, `toolbar_${pos}_${size.name}_${section}_hover.png`) });
       }
     }
   }
