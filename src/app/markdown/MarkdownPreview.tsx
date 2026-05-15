@@ -76,6 +76,15 @@ function removeInvalidTableText(children: React.ReactNode) {
   );
 }
 
+function MediaPlaceholder({ label, children }: { label: string; children?: React.ReactNode }) {
+  return (
+    <div className="ml-preview-media-placeholder">
+      <span className="ml-preview-media-placeholder-title">{label}</span>
+      {children ? <span className="ml-preview-media-placeholder-detail">{children}</span> : null}
+    </div>
+  );
+}
+
 function extractNodeText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
   const value = (node as { value?: unknown }).value;
@@ -171,6 +180,14 @@ export default function MarkdownPreview({
                 ),
               table: ({ node: _node, children, ...props }) => (
                 <table {...props}>{removeInvalidTableText(children)}</table>
+              ),
+              video: ({ node: _node, children: _children, poster, width }) => (
+                <MediaPlaceholder label="Video">
+                  {poster ? `Poster: ${poster}` : width ? `Width: ${width}` : "HTML video element"}
+                </MediaPlaceholder>
+              ),
+              audio: () => (
+                <MediaPlaceholder label="Audio">HTML audio element</MediaPlaceholder>
               ),
             }}
           >

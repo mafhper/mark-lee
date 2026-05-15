@@ -13,10 +13,8 @@ const ALLOWED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"
 /// This bypasses the asset:// protocol issues in Tauri webview
 #[command]
 pub fn load_image(path: String) -> Result<String, String> {
-    // Windows accepts forward slashes in many APIs, but normalizing here keeps
-    // paths displayed in errors consistent without breaking Unix targets.
     let normalized_path = if cfg!(windows) {
-        path.replace('/', "\\").replace("\\\\", "\\")
+        path.replace('/', "\\")
     } else {
         path
     };

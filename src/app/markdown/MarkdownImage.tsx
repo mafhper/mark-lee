@@ -30,7 +30,7 @@ function resolveLocalImagePath(src: string, basePath?: string | null) {
     const baseDir = basePath.replace(/[/\\][^/\\]*$/, "");
     cleanPath = `${baseDir}/${cleanPath.replace(/^\.\//, "")}`;
   }
-  return cleanPath;
+  return cleanPath.replace(/^\\\\\?\\/, "");
 }
 
 function mayHaveTransparency(src: string) {

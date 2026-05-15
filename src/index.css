@@ -672,7 +672,83 @@
 }
 
 .ml-preview-pane {
+  position: relative;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ml-fg, #111827) 10%, transparent);
+}
+
+.ml-preview-pane:hover,
+.ml-preview-pane--active {
+  scrollbar-color:
+    color-mix(in srgb, var(--ml-fg, #111827) 34%, transparent)
+    transparent;
+}
+
+.ml-preview-pane::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.ml-preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ml-preview-pane::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  background-clip: content-box;
+}
+
+.ml-preview-pane:hover::-webkit-scrollbar-thumb,
+.ml-preview-pane--active::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 32%, transparent);
+  background-clip: content-box;
+}
+
+.ml-preview-pane::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 48%, transparent);
+  background-clip: content-box;
+}
+
+.ml-preview-to-top {
+  position: fixed;
+  right: 1.15rem;
+  bottom: 3.5rem;
+  z-index: 220;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 92%, transparent);
+  box-shadow:
+    0 10px 26px rgba(2, 6, 23, 0.16),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent);
+  color: var(--ml-fg, #111827);
+  font-size: 1.1rem;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+
+.ml-preview-to-top--visible {
+  opacity: 0.88;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ml-preview-to-top:hover {
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 78%, var(--ml-accent, #60a5fa) 22%);
+  opacity: 1;
 }
 
 .ml-preview-prose {
@@ -976,6 +1052,31 @@
   margin-bottom: 0;
 }
 
+.ml-preview-extension-block {
+  margin: 0 0 var(--ml-preview-block-gap, 22px);
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ml-preview-border, color-mix(in srgb, var(--ml-preview-text, #111827) 16%, transparent));
+  border-left: 3px solid var(--ml-preview-accent, #172554);
+  border-radius: min(var(--ml-preview-radius, 14px), 14px);
+  background: color-mix(in srgb, var(--ml-preview-accent, #172554) 7%, transparent);
+}
+
+.ml-preview-extension-block::before {
+  content: attr(data-extension);
+  display: block;
+  margin-bottom: 0.65rem;
+  color: var(--ml-preview-accent, #172554);
+  font-size: 0.72em;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ml-preview-extension-block > :last-child {
+  margin-bottom: 0;
+}
+
 .ml-preview-prose hr {
   margin: var(--ml-preview-rule-margin, 24px) 0;
   border: none;
@@ -1029,6 +1130,27 @@
 .ml-preview-prose sup a {
   color: var(--ml-preview-accent, #1d4ed8);
   text-decoration: none;
+}
+
+.ml-preview-citation,
+.ml-preview-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ml-preview-accent, #172554) 10%, transparent);
+  color: var(--ml-preview-accent, #172554);
+  font-size: 0.86em;
+  font-style: normal;
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.ml-preview-citation {
+  padding: 0.08em 0.46em;
+}
+
+.ml-preview-tag {
+  padding: 0.06em 0.42em;
 }
 
 .ml-preview-prose section[data-footnotes],
@@ -1124,6 +1246,27 @@
   overflow-wrap: anywhere;
   color: var(--ml-preview-muted, #64748b);
   font-size: 0.78em;
+}
+
+.ml-preview-media-placeholder {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 var(--ml-preview-block-gap, 22px);
+  padding: 1rem;
+  border: 1px dashed var(--ml-preview-border, color-mix(in srgb, var(--ml-preview-text, #111827) 16%, transparent));
+  border-radius: var(--ml-preview-image-radius, 18px);
+  background: color-mix(in srgb, var(--ml-preview-text, #111827) 4%, transparent);
+  color: var(--ml-preview-muted, #64748b);
+}
+
+.ml-preview-media-placeholder-title {
+  color: var(--ml-preview-text, #111827);
+  font-weight: 760;
+}
+
+.ml-preview-media-placeholder-detail {
+  overflow-wrap: anywhere;
+  font-size: 0.84em;
 }
 
 .ml-frontmatter-card {

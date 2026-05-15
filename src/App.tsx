@@ -219,6 +219,8 @@ function App() {
   const [isZenMode, setIsZenMode] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
+  const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
+  const [previewCanScrollTop, setPreviewCanScrollTop] = useState(false);
   const [viewMode, setViewMode] = useState(settings.viewMode);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -239,6 +241,7 @@ function App() {
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const previewControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1280
@@ -284,6 +287,22 @@ function App() {
     if (!preset) return undefined;
     return getPublicationStyleObject(preset) as React.CSSProperties;
   }, [activePublicationPreset]);
+  const revealPreviewControls = useCallback(() => {
+    setPreviewControlsVisible(true);
+    const preview = previewRef.current;
+    setPreviewCanScrollTop(Boolean(preview && preview.scrollTop > 180));
+    if (previewControlsTimerRef.current) {
+      clearTimeout(previewControlsTimerRef.current);
+    }
+    previewControlsTimerRef.current = setTimeout(() => {
+      setPreviewControlsVisible(false);
+    }, 1700);
+  }, []);
+  const scrollPreviewToTop = useCallback(() => {
+    previewRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    setPreviewCanScrollTop(false);
+    revealPreviewControls();
+  }, [revealPreviewControls]);
   const saveTimeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(settings.language, {
@@ -419,6 +438,14 @@ function App() {
     const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewControlsTimerRef.current) {
+        clearTimeout(previewControlsTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -1901,7 +1928,12 @@ function App() {
             <div
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
+                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} ${previewControlsVisible ? "ml-preview-pane--active" : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
+              onMouseMove={revealPreviewControls}
+              onScroll={(event) => {
+                setPreviewCanScrollTop(event.currentTarget.scrollTop > 180);
+                revealPreviewControls();
+              }}
               style={{
                 backgroundColor: tConfig.bgHex,
                 display: effectiveViewMode === "edit" ? "none" : undefined,
@@ -1917,6 +1949,16 @@ function App() {
                   surfaceStyle={previewSurfaceStyle}
                 />
               )}
+              {!isCodeDocument && effectiveViewMode !== "edit" ? (
+                <button
+                  aria-label="Voltar ao topo"
+                  className={`ml-preview-to-top ${previewControlsVisible && previewCanScrollTop ? "ml-preview-to-top--visible" : ""}`}
+                  onClick={scrollPreviewToTop}
+                  type="button"
+                >
+                  ↑
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
