@@ -468,6 +468,27 @@
   display: block;
 }
 
+.cm-editor .cm-layer {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  contain: size style;
+  pointer-events: none;
+}
+
+.cm-editor .cm-layer > * {
+  position: absolute !important;
+}
+
+.cm-editor .cm-selectionLayer,
+.cm-editor .cm-cursorLayer {
+  pointer-events: none;
+}
+
+.cm-editor .cm-selectionBackground {
+  box-sizing: border-box;
+}
+
 .cm-gutter {
   display: flex !important;
   flex-direction: column;
@@ -525,7 +546,7 @@
   color: #1e1308 !important;
 }
 
-[data-theme="golden"] .cm-selectionBackground,
+[data-theme="golden"] .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
 [data-theme="golden"] .cm-content ::selection {
   background-color: rgba(56, 84, 139, 0.25) !important;
 }
