@@ -5,6 +5,7 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import MarkdownImage from "./MarkdownImage";
 import { frontmatterValueToText, parseMarkdownFrontmatter } from "./frontmatter";
+import { preprocessMarkdown } from "./preprocessMarkdown";
 import { markdownSanitizeSchema } from "./sanitizeSchema";
 
 type MarkdownPreviewProps = {
@@ -112,6 +113,7 @@ export default function MarkdownPreview({
   surfaceStyle,
 }: MarkdownPreviewProps) {
   const { meta, body } = parseMarkdownFrontmatter(content);
+  const processedBody = preprocessMarkdown(body);
   const hasMeta = Object.keys(meta).length > 0;
 
   return (
@@ -172,7 +174,7 @@ export default function MarkdownPreview({
               ),
             }}
           >
-            {body}
+            {processedBody}
           </ReactMarkdown>
         </article>
       </div>

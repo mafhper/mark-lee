@@ -106,6 +106,7 @@ export default function MarkdownImage({
       <div className="ml-preview-image-placeholder" role="img" aria-label={alt ?? "Image not found"}>
         <span className="ml-preview-image-placeholder-title">Image not found</span>
         <code>{decodeImagePath(originalSrc)}</code>
+        <span className="ml-preview-image-placeholder-detail">{state.message}</span>
       </div>
     );
 
