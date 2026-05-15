@@ -1769,6 +1769,7 @@ function App() {
             <div
               className={`${effectiveViewMode === "preview" ? "hidden" : "block"
                 } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
+              style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
             >
               <CodeMirror
                 value={activeContent}
@@ -1793,7 +1794,10 @@ function App() {
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
                 } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
-              style={{ backgroundColor: tConfig.bgHex }}
+              style={{
+                backgroundColor: tConfig.bgHex,
+                display: effectiveViewMode === "edit" ? "none" : undefined,
+              }}
             >
               {isCodeDocument ? (
                 <CodePreview content={activeContent} fileName={activeTab?.name ?? "Untitled.ts"} tConfig={tConfig} />
