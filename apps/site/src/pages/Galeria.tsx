@@ -88,8 +88,8 @@ const Galeria = ({ locale }: GaleriaProps) => {
                 {copy.themesSection.items[activeTheme].description}
               </p>
               <div className="mt-6 flex gap-3">
-                {copy.themesSection.items[activeTheme].colors.map((color) => (
-                  <div key={color} className="flex flex-col items-center gap-1.5">
+                {copy.themesSection.items[activeTheme].colors.map((color, index) => (
+                  <div key={`${copy.themesSection.items[activeTheme].name}-${color}-${index}`} className="flex flex-col items-center gap-1.5">
                     <div
                       className="h-10 w-10 rounded-lg border border-border/50 shadow-sm"
                       style={{ backgroundColor: color }}

@@ -36,7 +36,7 @@ export const HeroSection = ({ label, title, description, mockup }: HeroSectionPr
           <h1 className="mx-auto mt-4 max-w-none text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero md:text-[3.4rem] lg:whitespace-nowrap">
             {title}
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="hero-description mx-auto mt-5 max-w-2xl text-base leading-relaxed md:text-lg">
             {description}
           </p>
         </motion.div>

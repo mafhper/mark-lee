@@ -98,6 +98,11 @@
     background-clip: text;
   }
 
+  .hero-description {
+    color: hsl(210 20% 88% / 0.86);
+    text-shadow: 0 1px 18px hsl(220 35% 4% / 0.42);
+  }
+
   .bg-gradient-hero {
     background: var(--gradient-hero);
   }

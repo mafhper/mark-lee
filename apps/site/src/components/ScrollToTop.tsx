@@ -12,11 +12,15 @@ const ScrollToTop = () => {
 
     reset();
     const frame = window.requestAnimationFrame(reset);
-    const timer = window.setTimeout(reset, 0);
+    const timers = [
+      window.setTimeout(reset, 0),
+      window.setTimeout(reset, 80),
+      window.setTimeout(reset, 180),
+    ];
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [location.pathname, location.key]);
 
