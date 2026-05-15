@@ -66,7 +66,7 @@ import CommandPaletteModal, { CommandPaletteItem } from "./app/components/Comman
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
-import { DoorOpen } from "lucide-react";
+import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import "./index.css";
 
 const CODE_FILE_EXTENSIONS = new Set([
@@ -221,6 +221,8 @@ function App() {
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
   const [previewCanScrollTop, setPreviewCanScrollTop] = useState(false);
+  const [splitScrollSyncEnabled, setSplitScrollSyncEnabled] = useState(false);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [viewMode, setViewMode] = useState(settings.viewMode);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -242,6 +244,7 @@ function App() {
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const previewControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollSyncLockRef = useRef(false);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1280
@@ -395,6 +398,43 @@ function App() {
   const clampedSidebarWidth = Math.min(sidebarWidth, dynamicSidebarMax);
   const effectiveViewMode: "edit" | "split" | "preview" =
     isNarrowViewport && viewMode === "split" ? "edit" : viewMode;
+  const syncSplitScroll = useCallback((source: "editor" | "preview") => {
+    const editorScroll = editorRef.current?.scrollDOM;
+    const previewScroll = previewRef.current;
+    if (!editorScroll || !previewScroll) return;
+
+    const sourceScroll = source === "editor" ? editorScroll : previewScroll;
+    const targetScroll = source === "editor" ? previewScroll : editorScroll;
+    const sourceMax = sourceScroll.scrollHeight - sourceScroll.clientHeight;
+    const targetMax = targetScroll.scrollHeight - targetScroll.clientHeight;
+    if (sourceMax <= 0 || targetMax <= 0) return;
+
+    const nextTop = (sourceScroll.scrollTop / sourceMax) * targetMax;
+    if (Math.abs(targetScroll.scrollTop - nextTop) < 1) return;
+
+    scrollSyncLockRef.current = true;
+    targetScroll.scrollTop = nextTop;
+    requestAnimationFrame(() => {
+      scrollSyncLockRef.current = false;
+    });
+  }, []);
+  const handleSyncedScroll = useCallback(
+    (source: "editor" | "preview") => {
+      if (!splitScrollSyncEnabled || effectiveViewMode !== "split") return;
+      if (scrollSyncLockRef.current) return;
+      syncSplitScroll(source);
+    },
+    [effectiveViewMode, splitScrollSyncEnabled, syncSplitScroll]
+  );
+  const toggleSplitScrollSync = useCallback(() => {
+    setSplitScrollSyncEnabled((enabled) => {
+      const next = !enabled;
+      if (next) {
+        requestAnimationFrame(() => syncSplitScroll("editor"));
+      }
+      return next;
+    });
+  }, [syncSplitScroll]);
 
   const closeAllDialogs = useCallback(() => {
     setShowSettings(false);
@@ -447,6 +487,14 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const scrollElement = editorView?.scrollDOM;
+    if (!scrollElement) return;
+    const onEditorScroll = () => handleSyncedScroll("editor");
+    scrollElement.addEventListener("scroll", onEditorScroll, { passive: true });
+    return () => scrollElement.removeEventListener("scroll", onEditorScroll);
+  }, [editorView, handleSyncedScroll]);
 
   useEffect(() => {
     if (settings.sidebarWidth > dynamicSidebarMax) {
@@ -1921,6 +1969,7 @@ function App() {
                 theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
                 onCreateEditor={(view) => {
                   editorRef.current = view;
+                  setEditorView(view);
                 }}
               />
             </div>
@@ -1933,12 +1982,32 @@ function App() {
               onScroll={(event) => {
                 setPreviewCanScrollTop(event.currentTarget.scrollTop > 180);
                 revealPreviewControls();
+                handleSyncedScroll("preview");
               }}
               style={{
                 backgroundColor: tConfig.bgHex,
                 display: effectiveViewMode === "edit" ? "none" : undefined,
               }}
             >
+              {!isCodeDocument && effectiveViewMode === "split" ? (
+                <button
+                  aria-label={
+                    splitScrollSyncEnabled
+                      ? "Desativar rolagem sincronizada"
+                      : "Ativar rolagem sincronizada"
+                  }
+                  className={`ml-preview-sync-scroll ${splitScrollSyncEnabled ? "ml-preview-sync-scroll--active" : ""}`}
+                  onClick={toggleSplitScrollSync}
+                  title={
+                    splitScrollSyncEnabled
+                      ? "Desativar rolagem sincronizada"
+                      : "Ativar rolagem sincronizada"
+                  }
+                  type="button"
+                >
+                  {splitScrollSyncEnabled ? <Link2 size={16} /> : <Unlink2 size={16} />}
+                </button>
+              ) : null}
               {isCodeDocument ? (
                 <CodePreview content={activeContent} fileName={activeTab?.name ?? "Untitled.ts"} tConfig={tConfig} />
               ) : (

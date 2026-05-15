@@ -42,7 +42,7 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
       }}
     >
       {tabs.map((tab) => (
-        <button
+        <div
           key={tab.id}
           onClick={() => onActivate(tab.id)}
           onContextMenu={(event) => {
@@ -50,6 +50,14 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
             setContextTabId(tab.id);
             setMenuPosition({ x: event.clientX, y: event.clientY });
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onActivate(tab.id);
+            }
+          }}
+          role="button"
+          tabIndex={0}
           className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border ${tab.id === activeTabId
               ? "ml-btn-active"
               : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
@@ -122,7 +130,7 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
               </button>
             </div>
           )}
-        </button>
+        </div>
       ))}
       <button
         onClick={onNewTab}
