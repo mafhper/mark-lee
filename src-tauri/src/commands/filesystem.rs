@@ -52,6 +52,26 @@ fn is_ignored_directory(name: &str) -> bool {
     )
 }
 
+fn canonical_existing(path: &str) -> Result<PathBuf, String> {
+    let p = PathBuf::from(path);
+    p.canonicalize().map_err(|e| e.to_string())
+}
+
+fn ensure_safe_parent(path: &str) -> Result<PathBuf, String> {
+    let p = PathBuf::from(path);
+    let parent = p
+        .parent()
+        .ok_or_else(|| "Path has no parent directory".to_string())?;
+    if !parent.exists() || !parent.is_dir() {
+        return Err("Parent directory does not exist".to_string());
+    }
+    let canonical_parent = parent.canonicalize().map_err(|e| e.to_string())?;
+    let file_name = p
+        .file_name()
+        .ok_or_else(|| "Path has no file name".to_string())?;
+    Ok(canonical_parent.join(file_name))
+}
+
 fn build_tree(path: &Path, depth: usize, state: &mut BuildState) -> Result<WorkspaceNode, String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     let is_symlink = metadata.file_type().is_symlink();
@@ -149,22 +169,26 @@ fn build_tree(path: &Path, depth: usize, state: &mut BuildState) -> Result<Works
 
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {
-    let p = Path::new(&path);
+    let p = canonical_existing(&path)?;
     fs::read_to_string(p).map_err(|e| e.to_string())
 }
 
 #[command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
-    let p = Path::new(&path);
+    let p = if Path::new(&path).exists() {
+        canonical_existing(&path)?
+    } else {
+        ensure_safe_parent(&path)?
+    };
     fs::write(p, content).map_err(|e| e.to_string())
 }
 
 #[command]
 pub fn list_dir(path: String) -> Result<Vec<String>, String> {
-    let p = Path::new(&path);
+    let p = canonical_existing(&path)?;
     let mut items = vec![];
-    if p.exists() && p.is_dir() {
-        for entry in fs::read_dir(p).map_err(|e| e.to_string())? {
+    if p.is_dir() {
+        for entry in fs::read_dir(&p).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             items.push(entry.path().display().to_string());
         }
@@ -175,29 +199,38 @@ pub fn list_dir(path: String) -> Result<Vec<String>, String> {
 #[command]
 pub fn read_workspace_tree(path: String) -> Result<WorkspaceNode, String> {
     let mut state = BuildState::default();
-    build_tree(Path::new(&path), 0, &mut state)
+    let root = canonical_existing(&path)?;
+    if !root.is_dir() {
+        return Err("Workspace path is not a directory".to_string());
+    }
+    build_tree(&root, 0, &mut state)
 }
 
 #[command]
 pub fn create_workspace_file(path: String) -> Result<(), String> {
-    let p = Path::new(&path);
+    let p = ensure_safe_parent(&path)?;
+    if p.exists() {
+        return Err("File already exists".to_string());
+    }
     fs::write(p, "").map_err(|e| e.to_string())
 }
 
 #[command]
 pub fn create_workspace_directory(path: String) -> Result<(), String> {
-    let p = Path::new(&path);
-    fs::create_dir_all(p).map_err(|e| e.to_string())
+    let p = ensure_safe_parent(&path)?;
+    fs::create_dir(p).map_err(|e| e.to_string())
 }
 
 #[command]
 pub fn rename_workspace_path(old_path: String, new_path: String) -> Result<(), String> {
-    fs::rename(old_path, new_path).map_err(|e| e.to_string())
+    let old = canonical_existing(&old_path)?;
+    let new = ensure_safe_parent(&new_path)?;
+    fs::rename(old, new).map_err(|e| e.to_string())
 }
 
 #[command]
 pub fn delete_workspace_path(path: String) -> Result<(), String> {
-    let p = Path::new(&path);
+    let p = canonical_existing(&path)?;
     if p.is_dir() {
         fs::remove_dir_all(p).map_err(|e| e.to_string())
     } else {
@@ -207,7 +240,7 @@ pub fn delete_workspace_path(path: String) -> Result<(), String> {
 
 #[command]
 pub fn reveal_in_file_manager(path: String) -> Result<(), String> {
-    let target = PathBuf::from(path);
+    let target = canonical_existing(&path)?;
 
     #[cfg(target_os = "windows")]
     {

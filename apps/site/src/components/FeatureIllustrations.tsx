@@ -1,7 +1,7 @@
 // SVG/CSS illustrations for feature stat cards
 
 export const MarkdownIllustration = () => (
-  <div className="relative w-full h-32 rounded-lg bg-secondary/30 border border-border/30 overflow-hidden">
+  <div className="feature-illustration-card">
     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
     <svg viewBox="0 0 200 100" className="w-full h-full" fill="none">
       {/* Markdown icon */}
@@ -19,7 +19,7 @@ export const MarkdownIllustration = () => (
 );
 
 export const MultiplatformIllustration = () => (
-  <div className="relative w-full h-32 rounded-lg bg-secondary/30 border border-border/30 overflow-hidden">
+  <div className="feature-illustration-card">
     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent" />
     <svg viewBox="0 0 200 100" className="w-full h-full" fill="none">
       {/* Desktop monitor */}
@@ -55,7 +55,7 @@ export const MultiplatformIllustration = () => (
 );
 
 export const OpenSourceIllustration = () => (
-  <div className="relative w-full h-32 rounded-lg bg-secondary/30 border border-border/30 overflow-hidden">
+  <div className="feature-illustration-card">
     <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent" />
     <svg viewBox="0 0 200 100" className="w-full h-full" fill="none">
       {/* Git branch visualization */}
@@ -79,7 +79,7 @@ export const OpenSourceIllustration = () => (
 );
 
 export const LightweightIllustration = () => (
-  <div className="relative w-full h-32 rounded-lg bg-secondary/30 border border-border/30 overflow-hidden">
+  <div className="feature-illustration-card">
     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
     <svg viewBox="0 0 200 100" className="w-full h-full" fill="none">
       {/* Performance meter */}

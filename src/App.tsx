@@ -9,6 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import remarkGfm from "remark-gfm";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import {
   addRecentFile,
@@ -31,6 +32,8 @@ import {
   renameWorkspacePath,
   revealInFileManager,
   saveFileDialog,
+  unwatchWorkspace,
+  watchWorkspace,
   writeFile,
 } from "./services/filesystem";
 import {
@@ -49,8 +52,10 @@ import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from ".
 import {
   AppSettings,
   DocumentTab,
+  OpenIntent,
   PublicationPreset,
   Snippet,
+  TauriOpenIntentPayload,
   WorkspaceNode,
 } from "./types";
 import { TRANSLATIONS } from "./translations";
@@ -115,6 +120,22 @@ function isCodeFile(name: string) {
 const markdownLanguage = markdown();
 const tsLanguage = javascript({ typescript: true, jsx: true });
 
+const markdownSanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [...(defaultSchema.attributes?.a ?? []), "target", "rel"],
+    img: [...(defaultSchema.attributes?.img ?? []), "src", "alt", "title"],
+    code: [...(defaultSchema.attributes?.code ?? []), "className"],
+    span: [...(defaultSchema.attributes?.span ?? []), "className"],
+  },
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ["http", "https", "mailto"],
+    src: ["http", "https", "data"],
+  },
+};
+
 interface LocalImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   basePath?: string | null;
 }
@@ -167,6 +188,7 @@ function makeNewTab(name = "Untitled.md", content = INITIAL_MARKDOWN): DocumentT
     path: null,
     content,
     dirty: false,
+    origin: "untitled",
   };
 }
 
@@ -286,6 +308,14 @@ function App() {
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const workspacePathRef = useRef(workspacePath);
+  useEffect(() => {
+    workspacePathRef.current = workspacePath;
+  }, [workspacePath]);
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -501,17 +531,34 @@ function App() {
     view.focus();
   }, []);
 
-  const openPathInTab = async (path: string) => {
+  const resolveTabOrigin = useCallback((path: string): DocumentTab["origin"] => {
+    const root = workspacePathRef.current;
+    if (root && isPathInsideWorkspace(path, root)) return "workspace";
+    return "external";
+  }, []);
+
+  const openPathInTab = useCallback(async (path: string) => {
     try {
       setSaveError(null);
       const content = await readFile(path);
       const name = path.split(/[\\/]/).pop() || "Untitled.md";
-      const existing = tabs.find((tab) => tab.path === path);
+      const origin = resolveTabOrigin(path);
+      const existing = tabsRef.current.find((tab) => tab.path === path);
       if (existing) {
         setActiveTabId(existing.id);
         setTabs((previous) =>
           previous.map((tab) =>
-            tab.id === existing.id ? { ...tab, content, name, dirty: false } : tab
+            tab.id === existing.id
+              ? {
+                  ...tab,
+                  content,
+                  name,
+                  dirty: false,
+                  origin,
+                  deletedExternally: false,
+                  conflictedExternally: false,
+                }
+              : tab
           )
         );
       } else {
@@ -521,31 +568,41 @@ function App() {
           path,
           content,
           dirty: false,
+          origin,
         };
         setTabs((previous) => [...previous, next]);
         setActiveTabId(next.id);
       }
       addRecentFile(path, name);
       setRecentFiles(getRecentFiles());
-
-      if (!workspacePath) {
-        // Fallback to setting the file's directory as the workspace
-        const dir = path.substring(0, Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/")));
-        if (dir) {
-          setWorkspacePath(dir);
-          saveWorkspacePath(dir);
-          try {
-            const tree = await readWorkspaceTree(dir);
-            setWorkspaceTree(tree);
-          } catch (e) {
-            console.error("Failed to load generic workspace", e);
-          }
-        }
-      }
     } catch (error) {
       console.error("Failed to open file:", error);
     }
-  };
+  }, [resolveTabOrigin]);
+
+  const handleOpenIntent = useCallback(
+    async (intent: OpenIntent) => {
+      if (intent.kind === "new-file") {
+        createNewTabInCurrentWindow();
+        return;
+      }
+
+      if (intent.kind === "open-workspace") {
+        setWorkspacePath(intent.path);
+        saveWorkspacePath(intent.path);
+        try {
+          const tree = await readWorkspaceTree(intent.path);
+          setWorkspaceTree(tree);
+        } catch (error) {
+          console.error("Failed to read workspace tree:", error);
+        }
+        return;
+      }
+
+      await openPathInTab(intent.path);
+    },
+    [openPathInTab]
+  );
 
   const closeTabWithPrompt = async (tabId: string) => {
     const tab = tabs.find((item) => item.id === tabId);
@@ -583,7 +640,17 @@ function App() {
       const name = path.split(/[\\/]/).pop() || tab.name;
       setTabs((previous) =>
         previous.map((item) =>
-          item.id === tab.id ? { ...item, path, name, dirty: false } : item
+          item.id === tab.id
+            ? {
+                ...item,
+                path,
+                name,
+                dirty: false,
+                origin: resolveTabOrigin(path),
+                deletedExternally: false,
+                conflictedExternally: false,
+              }
+            : item
         )
       );
       addRecentFile(path, name);
@@ -638,24 +705,17 @@ function App() {
     const selected = await openFileDialog();
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (!path) return;
-    await openPathInTab(path);
+    await handleOpenIntent({ kind: "open-file", path, source: "dialog" });
   };
 
   const handleOpenFolder = async () => {
     const selected = await openFileDialog({ directory: true, multiple: false });
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (!path) return;
-    setWorkspacePath(path);
-    saveWorkspacePath(path);
-    try {
-      const tree = await readWorkspaceTree(path);
-      setWorkspaceTree(tree);
-    } catch (error) {
-      console.error("Failed to read workspace tree:", error);
-    }
+    await handleOpenIntent({ kind: "open-workspace", path, source: "dialog" });
   };
 
-  const refreshWorkspace = async () => {
+  const refreshWorkspace = useCallback(async () => {
     if (!workspacePath) return;
     try {
       const tree = await readWorkspaceTree(workspacePath);
@@ -663,7 +723,44 @@ function App() {
     } catch (error) {
       console.error("Failed to refresh workspace:", error);
     }
-  };
+  }, [workspacePath]);
+
+  const syncOpenTabsFromDisk = useCallback(async () => {
+    const currentTabs = tabsRef.current;
+    const updates: Array<Partial<DocumentTab> & { id: string }> = [];
+
+    for (const tab of currentTabs) {
+      if (!tab.path) continue;
+      try {
+        const diskContent = await readFile(tab.path);
+        if (diskContent !== tab.content) {
+          updates.push(
+            tab.dirty
+              ? { id: tab.id, conflictedExternally: true, deletedExternally: false }
+              : {
+                  id: tab.id,
+                  content: diskContent,
+                  dirty: false,
+                  conflictedExternally: false,
+                  deletedExternally: false,
+                }
+          );
+        } else if (tab.deletedExternally || tab.conflictedExternally) {
+          updates.push({ id: tab.id, deletedExternally: false, conflictedExternally: false });
+        }
+      } catch {
+        updates.push({ id: tab.id, deletedExternally: true });
+      }
+    }
+
+    if (updates.length === 0) return;
+    setTabs((previous) =>
+      previous.map((tab) => {
+        const update = updates.find((item) => item.id === tab.id);
+        return update ? { ...tab, ...update } : tab;
+      })
+    );
+  }, []);
 
   const handleWorkspaceCreateFile = async (basePath: string) => {
     const name = window.prompt("New file name");
@@ -1002,7 +1099,7 @@ function App() {
           section: fileSection,
           kind: "file",
           keywords: `recent file ${file.name} ${file.path}`,
-          onSelect: () => openPathInTab(file.path),
+          onSelect: () => handleOpenIntent({ kind: "open-file", path: file.path, source: "recent" }),
         });
       }
     }
@@ -1038,7 +1135,7 @@ function App() {
     handleOpenFile,
     handleOpenFolder,
     insertSnippet,
-    openPathInTab,
+    handleOpenIntent,
     openDialog,
     recentFiles,
     saveTab,
@@ -1147,27 +1244,7 @@ function App() {
 
   // Listen for window focus to refresh files modified externally
   useEffect(() => {
-    const handleFocus = async () => {
-      const currentTabs = tabsRef.current;
-      const updates: { id: string; content: string }[] = [];
-      for (const tab of currentTabs) {
-        if (!tab.path || tab.dirty) continue;
-        try {
-          const diskContent = await readFile(tab.path);
-          if (diskContent !== tab.content) {
-            updates.push({ id: tab.id, content: diskContent });
-          }
-        } catch {} // ignore
-      }
-      if (updates.length > 0) {
-        setTabs((prev) =>
-          prev.map((tab) => {
-            const update = updates.find((u) => u.id === tab.id);
-            return update && !tab.dirty ? { ...tab, content: update.content } : tab;
-          })
-        );
-      }
-    };
+    const handleFocus = () => syncOpenTabsFromDisk();
 
     const handleWebFocus = () => handleFocus();
     window.addEventListener("focus", handleWebFocus);
@@ -1189,7 +1266,7 @@ function App() {
       window.removeEventListener("focus", handleWebFocus);
       if (unlistenTauri) unlistenTauri();
     };
-  }, []);
+  }, [syncOpenTabsFromDisk]);
 
   useEffect(() => {
     saveSnippets(snippets).catch(() => undefined);
@@ -1269,15 +1346,107 @@ function App() {
         const matches = await getMatches();
         const fileArg = matches.args.file;
         if (fileArg?.value && typeof fileArg.value === "string") {
-          await openPathInTab(fileArg.value);
+          await handleOpenIntent({ kind: "open-file", path: fileArg.value, source: "cli" });
         }
       } catch {
         // no-op
       }
     };
     loadFromCli();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleOpenIntent]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    const openParam = new URLSearchParams(window.location.search).get("open");
+    if (!openParam) return;
+    handleOpenIntent({ kind: "open-file", path: openParam, source: "window" });
+  }, [handleOpenIntent]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+
+    const firstPathFromArgs = (args: string[]) => {
+      const ignored = new Set(["-f", "--file"]);
+      for (let index = 1; index < args.length; index += 1) {
+        const current = args[index];
+        if (!current || current.startsWith("-")) continue;
+        if (ignored.has(args[index - 1])) return current;
+        if (/\.(md|markdown|txt|json|html?|css|js|jsx|ts|tsx|yml|yaml)$/i.test(current)) return current;
+      }
+      return null;
+    };
+
+    import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<TauriOpenIntentPayload>("mark-lee-open-intent", async ({ payload }) => {
+          const path = firstPathFromArgs(payload.args);
+          if (!path) return;
+
+          if (settingsRef.current.singleInstance) {
+            await handleOpenIntent({ kind: "open-file", path, source: "association" });
+            return;
+          }
+
+          const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+          const label = `editor-${Date.now()}`;
+          new WebviewWindow(label, {
+            url: `index.html?open=${encodeURIComponent(path)}`,
+            title: "Mark-Lee",
+            width: 1200,
+            height: 800,
+          });
+        })
+      )
+      .then((cleanup) => {
+        unlisten = cleanup;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      unlisten?.();
+    };
+  }, [handleOpenIntent]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+
+    const refreshFromWatcher = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshWorkspace();
+        syncOpenTabsFromDisk();
+      }, 100);
+    };
+
+    const start = async () => {
+      if (!workspacePath) {
+        await unwatchWorkspace().catch(() => undefined);
+        return;
+      }
+
+      try {
+        await watchWorkspace(workspacePath);
+        const { listen } = await import("@tauri-apps/api/event");
+        if (disposed) return;
+        unlisten = await listen("workspace-fs-change", refreshFromWatcher);
+      } catch (error) {
+        console.error("Failed to watch workspace:", error);
+      }
+    };
+
+    start();
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      unlisten?.();
+      unwatchWorkspace().catch(() => undefined);
+    };
+  }, [refreshWorkspace, syncOpenTabsFromDisk, workspacePath]);
 
   useEffect(() => {
     if (!isZenMode) {
@@ -1472,6 +1641,15 @@ function App() {
             {activeTab?.name}
             {activeTab?.dirty ? "*" : ""}
           </div>
+          {activeTab?.origin === "external" && (
+            <div className="rounded-full border border-current/10 px-2 py-0.5 opacity-75">External</div>
+          )}
+          {activeTab?.deletedExternally && (
+            <div className="rounded-full border border-rose-500/30 px-2 py-0.5 text-rose-500">Deleted on disk</div>
+          )}
+          {activeTab?.conflictedExternally && (
+            <div className="rounded-full border border-amber-500/30 px-2 py-0.5 text-amber-600">Changed on disk</div>
+          )}
           <div className={`inline-flex items-center gap-1.5 rounded-full border border-current/10 px-2 py-0.5 ${saveStatus.toneClass}`}>
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
             <span>{saveStatus.label}</span>
@@ -1542,7 +1720,8 @@ function App() {
                 tConfig={tConfig}
                 workspacePath={workspacePath}
                 workspaceTree={workspaceTree}
-                onOpenFile={openPathInTab}
+                onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "sidebar" })}
+                onOpenFolder={handleOpenFolder}
                 onCreateFile={handleWorkspaceCreateFile}
                 onCreateFolder={handleWorkspaceCreateFolder}
                 onRename={handleWorkspaceRename}
@@ -1661,7 +1840,7 @@ function App() {
                       <div className="ml-preview-prose">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw]}
+                          rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
                           components={{
                             img: (props) => (
                               <LocalImage

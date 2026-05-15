@@ -53,7 +53,7 @@ const Downloads = ({ locale }: DownloadsProps) => {
             <h1 className="mt-4 text-4xl font-bold leading-[1.1] tracking-tight text-gradient-hero md:text-[3.25rem]">
               {copy.hero.title}
             </h1>
-            <p className="mt-5 text-base leading-relaxed text-muted-foreground">{copy.hero.description}</p>
+            <p className="hero-description mt-5 text-base leading-relaxed">{copy.hero.description}</p>
           </motion.div>
         </div>
       </section>

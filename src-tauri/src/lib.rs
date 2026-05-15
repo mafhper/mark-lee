@@ -1,4 +1,14 @@
 mod commands;
+mod watcher;
+
+use serde::Serialize;
+use tauri::{Emitter, Manager};
+
+#[derive(Clone, Debug, Serialize)]
+struct OpenIntentPayload {
+    args: Vec<String>,
+    cwd: String,
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -8,6 +18,14 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            let _ = app.emit("mark-lee-open-intent", OpenIntentPayload { args, cwd });
+        }))
+        .manage(watcher::FileWatcher::new())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -28,7 +46,9 @@ pub fn run() {
             commands::filesystem::read_user_data_file,
             commands::filesystem::write_user_data_file,
             commands::filesystem::copy_image_to_document_dir,
-            commands::image_loader::load_image
+            commands::image_loader::load_image,
+            watcher::watch_workspace,
+            watcher::unwatch_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running mark-lee application");

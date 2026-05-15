@@ -157,6 +157,26 @@ export interface DocumentTab {
   path: string | null;
   content: string;
   dirty: boolean;
+  origin?: "workspace" | "external" | "untitled";
+  deletedExternally?: boolean;
+  conflictedExternally?: boolean;
+}
+
+export interface WorkspaceState {
+  rootPath: string | null;
+  displayName: string | null;
+  tree: WorkspaceNode | null;
+  watcherStatus: "idle" | "starting" | "watching" | "error";
+}
+
+export type OpenIntent =
+  | { kind: "open-file"; path: string; source: "cli" | "association" | "dialog" | "sidebar" | "recent" | "window" }
+  | { kind: "open-workspace"; path: string; source: "dialog" | "restore-session" }
+  | { kind: "new-file"; workspaceRoot?: string };
+
+export interface TauriOpenIntentPayload {
+  args: string[];
+  cwd: string;
 }
 
 export interface WorkspaceNode {

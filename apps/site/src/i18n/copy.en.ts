@@ -57,7 +57,7 @@ export const enUSCopy: SiteCopy = {
     home: {
       hero: {
         label: "Desktop editor for focused writing",
-        title: "Create, edit, and export. The right tool for your text.",
+        title: "The right tool for your text.",
         description: "Editing, preview, and export in one place, with full control over the workspace.",
       },
       statsSection: {
@@ -131,32 +131,32 @@ export const enUSCopy: SiteCopy = {
           {
             name: "Firenight",
             description: "Deep amber for long sessions and strong contrast.",
-            colors: ["#1a1410", "#2a2018", "#d4943a", "#8b7355", "#6b8a3a"],
+            colors: ["#1b0f0d", "#2a1713", "#1b0f0d", "#ffe1bf", "#ffb86c"],
           },
           {
             name: "Forest",
             description: "Deep green with softer reading contrast.",
-            colors: ["#0f1a14", "#1a2e20", "#4a8b5c", "#7ab88a", "#2d5a3a"],
+            colors: ["#17241b", "#203124", "#17241b", "#e8fbe9", "#90f0a8"],
           },
           {
             name: "Golden",
             description: "Warm golden palette with heading emphasis.",
-            colors: ["#1a1508", "#2e2510", "#c4a035", "#8b7830", "#d4b84a"],
+            colors: ["#f4d49a", "#e7be73", "#f4d49a", "#1e1308", "#2a1808"],
           },
           {
             name: "Light",
             description: "Clean light option for bright environments.",
-            colors: ["#fafafa", "#f0f0f0", "#333333", "#666666", "#0066cc"],
+            colors: ["#ffffff", "#f9fafb", "#ffffff", "#0f172a", "#4f46e5"],
           },
           {
             name: "Neomatrix",
             description: "Terminal-inspired neon green style.",
-            colors: ["#0a0f0a", "#0d1a0d", "#00ff41", "#008f11", "#003b00"],
+            colors: ["#040b04", "#061207", "#040b04", "#8afcc7", "#57ff9e"],
           },
           {
             name: "Nord",
             description: "Balanced cold blues for steady focus.",
-            colors: ["#2e3440", "#3b4252", "#88c0d0", "#81a1c1", "#5e81ac"],
+            colors: ["#2E3440", "#262f40", "#2E3440", "#ECEFF4", "#88C0D0"],
           },
         ],
       },

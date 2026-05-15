@@ -19,16 +19,27 @@ const formats: ExportFormat[] = [
   "html",
 ];
 
-const labels: Record<ExportFormat, string> = {
-  markdown: "Markdown",
-  markdown_formatted: "Markdown (Formatted)",
-  markdown_minified: "Markdown (Minified)",
-  pdf: "PDF",
-  html: "HTML",
-};
-
 const ExportModal: React.FC<ExportModalProps> = ({ open, t, tConfig, onClose, onConfirm }) => {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("markdown");
+  const labels: Record<ExportFormat, string> = {
+    markdown: t["export.markdown.original"] || "Original Markdown",
+    markdown_formatted: t["export.markdown.formatted"] || "Formatted Markdown",
+    markdown_minified: t["export.markdown.minified"] || "Minified Markdown",
+    pdf: "PDF",
+    html: "HTML",
+  };
+  const descriptions: Record<ExportFormat, string> = {
+    markdown:
+      t["export.markdown.original.desc"] || "Keeps the content exactly as it is in the editor.",
+    markdown_formatted:
+      t["export.markdown.formatted.desc"] ||
+      "Standardizes spacing, lists, and headings while preserving protected blocks.",
+    markdown_minified:
+      t["export.markdown.minified.desc"] ||
+      "Removes blank lines and extra whitespace while preserving protected blocks.",
+    pdf: t["export.pdf.desc"] || "Uses system printing to generate a PDF from the current preview.",
+    html: t["export.html.desc"] || "Generates HTML with the active publication preset.",
+  };
 
   if (!open) return null;
 
@@ -48,14 +59,15 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, t, tConfig, onClose, on
           {formats.map((format) => (
             <button
               key={format}
-              className={`w-full text-left px-3 py-2 rounded border text-sm ${
+              className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition ${
                 selectedFormat === format
                   ? "ml-btn-active"
                   : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
               }`}
               onClick={() => setSelectedFormat(format)}
             >
-              {labels[format]}
+              <span className="block font-medium">{labels[format]}</span>
+              <span className="mt-1 block text-xs leading-relaxed opacity-70">{descriptions[format]}</span>
             </button>
           ))}
         </div>

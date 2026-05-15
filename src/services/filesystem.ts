@@ -82,6 +82,16 @@ export async function copyImageToDocumentDir(
   return invoke("copy_image_to_document_dir", { imagePath, documentPath });
 }
 
+export async function watchWorkspace(path: string): Promise<void> {
+  requireTauri("Watch workspace");
+  await invoke("watch_workspace", { path });
+}
+
+export async function unwatchWorkspace(): Promise<void> {
+  requireTauri("Stop watching workspace");
+  await invoke("unwatch_workspace");
+}
+
 export interface FileDialogOptions {
   title?: string;
   defaultPath?: string;

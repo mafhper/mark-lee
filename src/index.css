@@ -97,6 +97,45 @@
   background: color-mix(in srgb, var(--ml-fg, #111827) 14%, transparent) !important;
 }
 
+.ml-toolbar-shortcut-tooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  z-index: 320;
+  display: inline-flex;
+  min-width: max-content;
+  max-width: 240px;
+  transform: translate(-50%, -4px);
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 94%, transparent);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.16);
+  color: var(--ml-fg, #111827);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0;
+  padding: 0.48rem 0.58rem;
+  pointer-events: none;
+  transition: opacity 120ms ease 520ms, transform 120ms ease 520ms;
+}
+
+.ml-toolbar-shortcut-tooltip span {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ml-fg, #111827) 9%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  padding: 0.18rem 0.34rem;
+}
+
+.ml-btn:hover .ml-toolbar-shortcut-tooltip,
+.ml-btn:focus-visible .ml-toolbar-shortcut-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .ml-btn-primary {
   background: #0f172a;
   border: 1px solid #020617;
@@ -123,6 +162,129 @@
   outline-offset: 1px;
 }
 
+.ml-settings-panel {
+  background: color-mix(in srgb, var(--ml-bg, #f8fafc) 78%, var(--ml-ui, #ffffff) 22%);
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 15%, transparent);
+  box-shadow:
+    0 22px 70px rgba(2, 6, 23, 0.22),
+    inset 0 1px 0 color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+}
+
+.ml-settings-shell {
+  --ml-settings-viewport-gap: clamp(16px, 4vmin, 56px);
+
+  inset: var(--ml-settings-viewport-gap);
+}
+
+.ml-settings-header {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ml-ui, #ffffff) 96%, var(--ml-bg, #f8fafc) 4%),
+      color-mix(in srgb, var(--ml-ui, #ffffff) 90%, var(--ml-bg, #f8fafc) 10%)
+    );
+}
+
+.ml-settings-canvas {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ml-bg, #f8fafc) 82%, var(--ml-ui, #ffffff) 18%),
+      color-mix(in srgb, var(--ml-bg, #f8fafc) 92%, var(--ml-ui, #ffffff) 8%)
+    );
+}
+
+.ml-settings-nav-item {
+  border: 1px solid transparent;
+  color: color-mix(in srgb, var(--ml-fg, #111827) 82%, transparent);
+}
+
+.ml-settings-nav-item:hover {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
+}
+
+.ml-settings-section {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 14%, transparent);
+  border: 0;
+  box-shadow: none;
+}
+
+.ml-settings-group {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 9%, transparent);
+  border: 0;
+}
+
+.ml-settings-row {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.ml-settings-row + .ml-settings-row {
+  margin-top: 0.55rem;
+}
+
+.ml-settings-row--selectable {
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 13%, transparent);
+}
+
+.ml-settings-field-block {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 7%, transparent);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.ml-settings-inline-row + .ml-settings-inline-row,
+.ml-settings-field-block + .ml-settings-field-block {
+  border-top: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+}
+
+.ml-settings-editor-pane {
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+}
+
+.ml-settings-color-row + .ml-settings-color-row {
+  border-top: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+}
+
+@media (hover: hover) {
+  .ml-settings-row:hover,
+  .ml-settings-field-block:hover {
+    background:
+      linear-gradient(0deg, color-mix(in srgb, var(--ml-accent, #60a5fa) 10%, transparent), color-mix(in srgb, var(--ml-accent, #60a5fa) 10%, transparent)),
+      color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+    border-color: color-mix(in srgb, var(--ml-accent, #60a5fa) 28%, var(--ml-fg, #111827) 8%);
+  }
+
+  .ml-settings-inline-row:hover,
+  .ml-settings-color-row:hover {
+    background: color-mix(in srgb, var(--ml-accent, #60a5fa) 12%, transparent);
+    border-radius: 0.5rem;
+  }
+}
+
+.ml-settings-field {
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 17%, transparent);
+  background: color-mix(in srgb, var(--ml-editor-bg, #ffffff) 22%, transparent);
+}
+
+.ml-theme-strip {
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 10%, transparent);
+}
+
+.ml-settings-soft-divider {
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 12%, transparent);
+}
+
 .ml-color-input {
   appearance: none;
   -webkit-appearance: none;
@@ -141,6 +303,12 @@
 .ml-color-input::-moz-color-swatch {
   border: none;
   border-radius: 10px;
+}
+
+@media (max-width: 720px), (max-height: 640px) {
+  .ml-settings-shell {
+    --ml-settings-viewport-gap: clamp(10px, 3vmin, 18px);
+  }
 }
 
 .ml-scrollbar {
@@ -265,12 +433,30 @@
   color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 68%, transparent);
 }
 
+.cm-activeLine {
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 9%, transparent) !important;
+}
+
+.cm-activeLineGutter {
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 10%, transparent) !important;
+}
+
+.cm-lineNumbers .cm-activeLineGutter {
+  color: var(--ml-editor-fg, #e5e7eb) !important;
+  border-radius: 4px;
+}
+
 [data-theme="golden"] .cm-editor {
   color: #1e1308 !important;
 }
 
 [data-theme="golden"] .cm-activeLine {
   background-color: rgba(30, 19, 8, 0.12) !important;
+}
+
+[data-theme="golden"] .cm-activeLineGutter {
+  background-color: rgba(30, 19, 8, 0.12) !important;
+  color: #1e1308 !important;
 }
 
 [data-theme="golden"] .cm-selectionBackground,

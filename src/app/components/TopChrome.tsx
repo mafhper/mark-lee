@@ -519,23 +519,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
     () => sections.filter((section) => !toolbarSections[section.key]),
     [sections, toolbarSections]
   );
-  const shortcutOverlayItems = useMemo(
-    () =>
-      enabledSections
-        .flatMap((section) =>
-          section.actions
-            .filter((action) => Boolean(action.shortcutId && shortcutLabels[action.shortcutId!]))
-            .slice(0, 5)
-            .map((action) => ({
-              id: action.id,
-              label: action.label,
-              shortcut: formatShortcutCompact(shortcutLabels[action.shortcutId!]),
-            }))
-        )
-        .slice(0, 10),
-    [enabledSections, shortcutLabels]
-  );
-
   const setMeasureButtonRef = (sectionKey: ToolbarSectionKey, index: number, el: HTMLButtonElement | null) => {
     if (!measureButtonRefs.current[sectionKey]) {
       measureButtonRefs.current[sectionKey] = [];
@@ -717,12 +700,10 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
   const renderActionButton = (action: ToolbarAction, variant: "toolbar" | "popover" = "toolbar") => {
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
-    const compactShortcutText = shortcutText ? formatShortcutCompact(shortcutText) : undefined;
-    const shouldShowShortcut = variant === "toolbar" && Boolean(showShortcutHints && shortcutText);
     const buttonClass =
       variant === "popover"
-        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 px-3 justify-start"} inline-flex min-w-0 items-center gap-2 rounded-xl border border-current/10 bg-[color-mix(in_srgb,var(--ml-fg,#111827)_7%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_11%,transparent)] ${action.active ? "ml-btn-active" : ""}`
-        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 px-2.5"} min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
+        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 px-3 justify-start"} inline-flex min-w-0 items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""}`
+        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
     return (
       <button
         key={action.id}
@@ -736,10 +717,11 @@ const TopChrome: React.FC<TopChromeProps> = ({
         style={noDragStyle}
       >
         {showIcon && action.icon}
-        {showLabel && <span className="truncate">{action.label}</span>}
-        {shouldShowShortcut && !isVertical && (
-          <span className="ml-1 rounded-md border border-current/10 px-1.5 py-0.5 text-[10px] opacity-70 whitespace-nowrap">
-            {compactShortcutText}
+        {showLabel && <span className="max-w-[142px] truncate whitespace-nowrap">{action.label}</span>}
+        {variant === "toolbar" && showShortcutHints && shortcutText && (
+          <span className="ml-toolbar-shortcut-tooltip" role="tooltip">
+            {action.label}
+            <span>{compactHorizontal ? formatShortcutCompact(shortcutText) : shortcutText}</span>
           </span>
         )}
       </button>
@@ -855,7 +837,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
                 isVertical
                   ? "grid w-full grid-cols-1 gap-1.5"
                   : horizontalOverflow.shouldWrap
-                    ? "grid gap-1.5 [grid-template-columns:repeat(auto-fit,minmax(132px,1fr))]"
+                    ? "flex max-w-full flex-wrap items-center gap-1.5"
                     : "flex max-w-full items-center gap-1.5 flex-nowrap"
               }
             >
@@ -944,23 +926,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
       )}
       <div className="sr-only">{sidebarEnabled ? "sidebar-enabled" : "sidebar-disabled"}</div>
       <div className="sr-only">{viewMode}</div>
-      {showShortcutHints && shortcutOverlayItems.length > 0 && (
-        <div className="pointer-events-none fixed left-1/2 top-[44px] -translate-x-1/2 z-[280] rounded-lg border px-3 py-2 shadow-[0_8px_20px_rgba(2,6,23,0.18)] text-[11px] backdrop-blur-sm"
-          style={{ backgroundColor: "color-mix(in srgb, var(--ml-ui, #ffffff) 92%, transparent)", borderColor: "color-mix(in srgb, var(--ml-fg, #111827) 20%, transparent)" }}>
-          <div className="font-semibold uppercase tracking-wide mb-1 opacity-80">Shortcuts</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {shortcutOverlayItems.map((item) => (
-              <div key={item.id} className="inline-flex items-center justify-between gap-2 whitespace-nowrap">
-                <span className="opacity-85">{item.label}</span>
-                <span className="rounded px-1.5 py-0.5 border"
-                  style={{ borderColor: "color-mix(in srgb, var(--ml-fg, #111827) 18%, transparent)" }}>
-                  {item.shortcut}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
