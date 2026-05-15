@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { resetPageScroll } from "@/lib/scroll";
 
 const ScrollToTop = () => {
   const location = useLocation();
@@ -8,14 +9,13 @@ const ScrollToTop = () => {
     if (typeof window === "undefined") return;
 
     window.history.scrollRestoration = "manual";
-    const reset = () => window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-
-    reset();
-    const frame = window.requestAnimationFrame(reset);
+    resetPageScroll();
+    const frame = window.requestAnimationFrame(resetPageScroll);
     const timers = [
-      window.setTimeout(reset, 0),
-      window.setTimeout(reset, 80),
-      window.setTimeout(reset, 180),
+      window.setTimeout(resetPageScroll, 0),
+      window.setTimeout(resetPageScroll, 80),
+      window.setTimeout(resetPageScroll, 180),
+      window.setTimeout(resetPageScroll, 360),
     ];
 
     return () => {

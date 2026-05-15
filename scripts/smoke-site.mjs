@@ -165,14 +165,17 @@ async function assertScrollResetOnNavigation(page, baseUrl) {
     throw new Error("Could not establish deep scroll before navigation.");
   }
 
-  await page
-    .locator("header nav[aria-label='Primary']")
-    .getByRole("link", { name: /^Engenharia$/i })
-    .first()
-    .click();
+  await Promise.all([
+    page.waitForURL(/\/pt-BR\/engenharia\/?$/i, { timeout: 8000 }),
+    page
+      .locator("header nav[aria-label='Primary']")
+      .getByRole("link", { name: /^Engenharia$/i })
+      .first()
+      .click(),
+  ]);
 
   await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => window.scrollY <= 30, null, { timeout: 1500 });
 
   const after = await page.evaluate(() => window.scrollY);
   if (after > 30) {

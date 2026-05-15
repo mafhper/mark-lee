@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import logo from "@/assets/logo-light.svg";
+import { resetPageScroll } from "@/lib/scroll";
 import {
   DEFAULT_LOCALE,
   NAV_PAGE_ORDER,
@@ -29,6 +30,10 @@ const Header = () => {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  const resetScrollForNavigation = (target: string) => {
+    if (target !== location.pathname) resetPageScroll();
+  };
+
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-border/50 bg-background/85 backdrop-blur-xl">
       <div className="container flex h-14 items-center justify-between gap-3">
@@ -48,6 +53,7 @@ const Header = () => {
               <Link
                 key={pageKey}
                 to={target}
+                onClick={() => resetScrollForNavigation(target)}
                 className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none ${
                   isActive
                     ? "bg-secondary text-foreground"
@@ -101,6 +107,7 @@ const Header = () => {
                 <Link
                   key={pageKey}
                   to={pathFor(locale, pageKey)}
+                  onClick={() => resetScrollForNavigation(pathFor(locale, pageKey))}
                   className={`rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none ${
                     isActive ? "bg-secondary text-foreground" : "text-muted-foreground"
                   }`}
