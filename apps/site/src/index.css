@@ -92,7 +92,7 @@
   }
 
   .text-gradient-hero {
-    background: linear-gradient(135deg, hsl(210 20% 98%), hsl(210 15% 70%));
+    background: linear-gradient(to bottom right, #ffffff 30%, hsl(210 25% 92%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
