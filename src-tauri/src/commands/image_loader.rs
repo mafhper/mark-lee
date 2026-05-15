@@ -13,8 +13,13 @@ const ALLOWED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"
 /// This bypasses the asset:// protocol issues in Tauri webview
 #[command]
 pub fn load_image(path: String) -> Result<String, String> {
-    // Normalize path separators
-    let normalized_path = path.replace('/', "\\").replace("\\\\", "\\");
+    // Windows accepts forward slashes in many APIs, but normalizing here keeps
+    // paths displayed in errors consistent without breaking Unix targets.
+    let normalized_path = if cfg!(windows) {
+        path.replace('/', "\\").replace("\\\\", "\\")
+    } else {
+        path
+    };
     let image_path = PathBuf::from(&normalized_path);
 
     // Check if file exists

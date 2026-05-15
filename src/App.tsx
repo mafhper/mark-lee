@@ -5,11 +5,6 @@ import { javascript } from "@codemirror/lang-javascript";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { invoke } from "@tauri-apps/api/core";
-import remarkGfm from "remark-gfm";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import {
   addRecentFile,
@@ -69,6 +64,7 @@ import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
 import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
+import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
 import { DoorOpen } from "lucide-react";
 import "./index.css";
@@ -119,67 +115,6 @@ function isCodeFile(name: string) {
 
 const markdownLanguage = markdown();
 const tsLanguage = javascript({ typescript: true, jsx: true });
-
-const markdownSanitizeSchema = {
-  ...defaultSchema,
-  attributes: {
-    ...defaultSchema.attributes,
-    a: [...(defaultSchema.attributes?.a ?? []), "target", "rel"],
-    img: [...(defaultSchema.attributes?.img ?? []), "src", "alt", "title"],
-    code: [...(defaultSchema.attributes?.code ?? []), "className"],
-    span: [...(defaultSchema.attributes?.span ?? []), "className"],
-  },
-  protocols: {
-    ...defaultSchema.protocols,
-    href: ["http", "https", "mailto"],
-    src: ["http", "https", "data"],
-  },
-};
-
-interface LocalImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  basePath?: string | null;
-}
-
-const LocalImage: React.FC<LocalImageProps> = ({ src, basePath, ...props }) => {
-  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (!src) return;
-    if (src.startsWith("http") || src.startsWith("data:")) {
-      setResolvedSrc(src);
-      return;
-    }
-    if (!isTauriRuntime()) {
-      setResolvedSrc(src);
-      return;
-    }
-
-    let mounted = true;
-
-    const resolve = async () => {
-      try {
-        let cleanPath = src.replace(/^</, "").replace(/>$/, "");
-        if (!cleanPath.match(/^[a-zA-Z]:\\/i) && !cleanPath.startsWith("/") && basePath) {
-          const baseDir = basePath.replace(/[/\\][^/\\]*$/, "");
-          cleanPath = `${baseDir}/${cleanPath.replace(/^\.\//, "")}`;
-        }
-        cleanPath = cleanPath.replace(/\//g, "\\");
-        const dataUrl = await invoke<string>("load_image", { path: cleanPath });
-        if (mounted) setResolvedSrc(dataUrl);
-      } catch {
-        if (mounted) setResolvedSrc(undefined);
-      }
-    };
-
-    resolve();
-    return () => {
-      mounted = false;
-    };
-  }, [basePath, src]);
-
-  if (!resolvedSrc) return null;
-  return <img {...props} src={resolvedSrc} />;
-};
 
 function makeNewTab(name = "Untitled.md", content = INITIAL_MARKDOWN): DocumentTab {
   return {
@@ -257,23 +192,6 @@ function isPathInsideWorkspace(path: string, workspacePath: string) {
   const normalizedFile = normalizeFsPath(path);
   const normalizedWorkspace = normalizeFsPath(workspacePath);
   return normalizedFile === normalizedWorkspace || normalizedFile.startsWith(`${normalizedWorkspace}/`);
-}
-
-function parseFrontmatter(content: string): { meta: Record<string, string>; body: string } {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-  if (!match) return { meta: {}, body: content };
-  const raw = match[1];
-  const meta: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const idx = line.indexOf(":");
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    let value = line.slice(idx + 1).trim();
-    value = value.replace(/^["']|["']$/g, "");
-    if (key) meta[key] = value;
-  }
-  const body = content.slice(match[0].length);
-  return { meta, body };
 }
 
 function App() {
@@ -1991,67 +1909,14 @@ function App() {
             >
               {isCodeDocument ? (
                 <CodePreview content={activeContent} fileName={activeTab?.name ?? "Untitled.ts"} tConfig={tConfig} />
-              ) : (() => {
-                const { meta, body } = parseFrontmatter(activeContent);
-                const hasMeta = Object.keys(meta).length > 0;
-                return (
-                  <div
-                    className="min-h-full p-5"
-                    style={{ backgroundColor: tConfig.bgHex }}
-                  >
-                    <div
-                      className="ml-preview-surface mx-auto"
-                      style={previewSurfaceStyle}
-                    >
-                      {hasMeta && (
-                        <div
-                          className="ml-frontmatter-card mb-6 rounded-lg border px-5 py-4"
-                          style={{
-                            borderColor: "color-mix(in srgb, var(--ml-preview-text, #111827) 20%, transparent)",
-                            background: "color-mix(in srgb, var(--ml-preview-text, #111827) 5%, transparent)",
-                          }}
-                        >
-                          <div className="ml-frontmatter-title mb-2">
-                            Metadata
-                          </div>
-                          <dl className="grid gap-x-4 gap-y-1" style={{ gridTemplateColumns: "auto 1fr" }}>
-                            {Object.entries(meta).map(([key, value]) => (
-                              <React.Fragment key={key}>
-                                <dt
-                                  className="text-xs font-semibold capitalize"
-                                  style={{ color: "var(--ml-preview-muted, #64748b)" }}
-                                >
-                                  {key}
-                                </dt>
-                                <dd className="text-xs" style={{ color: "var(--ml-preview-text, #111827)" }}>
-                                  {value}
-                                </dd>
-                              </React.Fragment>
-                            ))}
-                          </dl>
-                        </div>
-                      )}
-                      <div className="ml-preview-prose">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
-                          components={{
-                            img: (props) => (
-                              <LocalImage
-                                {...props}
-                                className="max-w-full h-auto rounded-md"
-                                basePath={activeTab?.path ?? null}
-                              />
-                            ),
-                          }}
-                        >
-                          {body}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+              ) : (
+                <MarkdownPreview
+                  activePath={activeTab?.path ?? null}
+                  content={activeContent}
+                  shellBackground={tConfig.bgHex}
+                  surfaceStyle={previewSurfaceStyle}
+                />
+              )}
             </div>
           </div>
         </div>

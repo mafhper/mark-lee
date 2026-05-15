@@ -1,0 +1,55 @@
+import { defaultSchema } from "rehype-sanitize";
+
+const defaultTagNames = defaultSchema.tagNames ?? [];
+
+export const markdownSanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...defaultTagNames,
+    "abbr",
+    "cite",
+    "del",
+    "details",
+    "dfn",
+    "figcaption",
+    "figure",
+    "ins",
+    "kbd",
+    "mark",
+    "small",
+    "sub",
+    "summary",
+    "sup",
+    "time",
+    "u",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [...(defaultSchema.attributes?.a ?? []), "target", "rel", "aria-label"],
+    abbr: ["title"],
+    blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "cite", "className", "data-callout"],
+    code: [...(defaultSchema.attributes?.code ?? []), "className"],
+    details: ["open"],
+    figure: ["className"],
+    img: [
+      ...(defaultSchema.attributes?.img ?? []),
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "className",
+    ],
+    input: [["type", "checkbox"], ["checked", true, false], ["disabled", true]],
+    span: [...(defaultSchema.attributes?.span ?? []), "className"],
+    td: [...(defaultSchema.attributes?.td ?? []), "align"],
+    th: [...(defaultSchema.attributes?.th ?? []), "align", "scope"],
+    time: ["dateTime"],
+  },
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ["http", "https", "mailto"],
+    src: ["http", "https", "data"],
+  },
+};
