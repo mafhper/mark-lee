@@ -228,7 +228,29 @@ function App() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
+  const lastEditorUserScrollAtRef = useRef(0);
+  const lastPreviewUserScrollAtRef = useRef(0);
+
+  const markUserScrollIntent = useCallback((source: "editor" | "preview") => {
+    const now = performance.now();
+    if (source === "editor") {
+      lastEditorUserScrollAtRef.current = now;
+    } else {
+      lastPreviewUserScrollAtRef.current = now;
+    }
+  }, []);
+
+  const hasRecentUserScrollIntent = useCallback((source: "editor" | "preview") => {
+    const now = performance.now();
+    const last =
+      source === "editor"
+        ? lastEditorUserScrollAtRef.current
+        : lastPreviewUserScrollAtRef.current;
+    return now - last < 250;
+  }, []);
+
   const tabsRef = useRef(tabs);
+
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
@@ -422,9 +444,10 @@ function App() {
     (source: "editor" | "preview") => {
       if (!splitScrollSyncEnabled || effectiveViewMode !== "split") return;
       if (scrollSyncLockRef.current) return;
+      if (!hasRecentUserScrollIntent(source)) return;
       syncSplitScroll(source);
     },
-    [effectiveViewMode, splitScrollSyncEnabled, syncSplitScroll]
+    [effectiveViewMode, hasRecentUserScrollIntent, splitScrollSyncEnabled, syncSplitScroll]
   );
   const toggleSplitScrollSync = useCallback(() => {
     setSplitScrollSyncEnabled((enabled) => {
@@ -491,10 +514,39 @@ function App() {
   useEffect(() => {
     const scrollElement = editorView?.scrollDOM;
     if (!scrollElement) return;
+
     const onEditorScroll = () => handleSyncedScroll("editor");
+    const onUserInteraction = () => markUserScrollIntent("editor");
+
     scrollElement.addEventListener("scroll", onEditorScroll, { passive: true });
-    return () => scrollElement.removeEventListener("scroll", onEditorScroll);
-  }, [editorView, handleSyncedScroll]);
+    scrollElement.addEventListener("wheel", onUserInteraction, { passive: true });
+    scrollElement.addEventListener("pointerdown", onUserInteraction, { passive: true });
+    scrollElement.addEventListener("keydown", onUserInteraction, { passive: true });
+
+    return () => {
+      scrollElement.removeEventListener("scroll", onEditorScroll);
+      scrollElement.removeEventListener("wheel", onUserInteraction);
+      scrollElement.removeEventListener("pointerdown", onUserInteraction);
+      scrollElement.removeEventListener("keydown", onUserInteraction);
+    };
+  }, [editorView, handleSyncedScroll, markUserScrollIntent]);
+
+  useEffect(() => {
+    const previewElement = previewRef.current;
+    if (!previewElement) return;
+
+    const onUserInteraction = () => markUserScrollIntent("preview");
+
+    previewElement.addEventListener("wheel", onUserInteraction, { passive: true });
+    previewElement.addEventListener("pointerdown", onUserInteraction, { passive: true });
+    previewElement.addEventListener("keydown", onUserInteraction, { passive: true });
+
+    return () => {
+      previewElement.removeEventListener("wheel", onUserInteraction);
+      previewElement.removeEventListener("pointerdown", onUserInteraction);
+      previewElement.removeEventListener("keydown", onUserInteraction);
+    };
+  }, [markUserScrollIntent]);
 
   useEffect(() => {
     if (settings.sidebarWidth > dynamicSidebarMax) {
@@ -2040,7 +2092,7 @@ function App() {
           type="button"
           title={t["view.zen.exit"] || "Exit Zen mode"}
           onClick={() => setIsZenMode(false)}
-          className="fixed top-3 right-3 z-[200] h-9 w-9 rounded-full border ml-btn-primary inline-flex items-center justify-center"
+          className="fixed bottom-4 left-4 z-[200] h-9 w-9 rounded-full border ml-btn-primary inline-flex items-center justify-center shadow-lg"
         >
           <DoorOpen size={16} />
         </button>

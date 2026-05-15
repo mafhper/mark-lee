@@ -121,8 +121,8 @@ export default function MarkdownPreview({
   shellBackground,
   surfaceStyle,
 }: MarkdownPreviewProps) {
-  const { meta, body } = parseMarkdownFrontmatter(content);
-  const processedBody = preprocessMarkdown(body);
+  const { meta, body } = React.useMemo(() => parseMarkdownFrontmatter(content), [content]);
+  const processedBody = React.useMemo(() => preprocessMarkdown(body), [body]);
   const hasMeta = Object.keys(meta).length > 0;
 
   return (

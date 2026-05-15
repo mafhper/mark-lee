@@ -2,6 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "../../services/runtime";
 
+type CachedImage =
+  | { status: "ready"; src: string; width: number; height: number }
+  | { status: "error"; message: string };
+
+const localImageCache = new Map<string, CachedImage>();
+
 type ImageState =
   | { status: "loading" }
   | { status: "ready"; src: string }
@@ -24,13 +30,23 @@ function decodeImagePath(src: string) {
   }
 }
 
+function normalizeWindowsExtendedPath(path: string) {
+  if (path.startsWith("\\\\?\\UNC\\")) {
+    return `\\\\${path.slice("\\\\?\\UNC\\".length)}`;
+  }
+  if (path.startsWith("\\\\?\\")) {
+    return path.slice("\\\\?\\".length);
+  }
+  return path;
+}
+
 function resolveLocalImagePath(src: string, basePath?: string | null) {
   let cleanPath = decodeImagePath(src);
   if (!/^[a-zA-Z]:\\/i.test(cleanPath) && !cleanPath.startsWith("/") && basePath) {
     const baseDir = basePath.replace(/[/\\][^/\\]*$/, "");
     cleanPath = `${baseDir}/${cleanPath.replace(/^\.\//, "")}`;
   }
-  return cleanPath.replace(/^\\\\\?\\/, "");
+  return normalizeWindowsExtendedPath(cleanPath);
 }
 
 function mayHaveTransparency(src: string) {
@@ -44,10 +60,30 @@ export default function MarkdownImage({
   title,
   className,
   basePath,
+  width: attrWidth,
+  height: attrHeight,
   ...props
 }: MarkdownImageProps) {
-  const [state, setState] = useState<ImageState>({ status: "loading" });
   const originalSrc = typeof src === "string" ? src : "";
+  const cacheKey = useMemo(() => {
+    if (isRemoteImage(originalSrc) || !isTauriRuntime()) return originalSrc;
+    return resolveLocalImagePath(originalSrc, basePath);
+  }, [originalSrc, basePath]);
+
+  const [state, setState] = useState<ImageState>(() => {
+    const cached = localImageCache.get(cacheKey);
+    if (cached) return cached;
+    return { status: "loading" };
+  });
+
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(() => {
+    const cached = localImageCache.get(cacheKey);
+    if (cached && cached.status === "ready") {
+      return { width: cached.width, height: cached.height };
+    }
+    return null;
+  });
+
   const caption = title || (alt && alt !== originalSrc ? alt : "");
   const transparent = useMemo(() => mayHaveTransparency(originalSrc), [originalSrc]);
 
@@ -62,20 +98,49 @@ export default function MarkdownImage({
       return;
     }
 
+    const cached = localImageCache.get(cacheKey);
+    if (cached) {
+      setState(cached);
+      if (cached.status === "ready") {
+        setDimensions({ width: cached.width, height: cached.height });
+      }
+      return;
+    }
+
     let mounted = true;
     setState({ status: "loading" });
 
     const loadImage = async () => {
       try {
-        const path = resolveLocalImagePath(originalSrc, basePath);
-        const dataUrl = await invoke<string>("load_image", { path });
-        if (mounted) setState({ status: "ready", src: dataUrl });
+        const dataUrl = await invoke<string>("load_image", { path: cacheKey });
+        
+        // Pre-load to get dimensions and avoid flicker
+        const img = new Image();
+        img.src = dataUrl;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        if (!mounted) return;
+
+        const result: CachedImage = {
+          status: "ready",
+          src: dataUrl,
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        };
+        localImageCache.set(cacheKey, result);
+        setDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+        setState(result);
       } catch (error) {
         if (!mounted) return;
-        setState({
+        const errorResult: CachedImage = {
           status: "error",
           message: error instanceof Error ? error.message : String(error),
-        });
+        };
+        localImageCache.set(cacheKey, errorResult);
+        setState(errorResult);
       }
     };
 
@@ -83,7 +148,32 @@ export default function MarkdownImage({
     return () => {
       mounted = false;
     };
-  }, [basePath, originalSrc]);
+  }, [cacheKey, originalSrc]);
+
+  const figureStyle = useMemo(() => {
+    const style: React.CSSProperties = {};
+
+    // 1. Determine the intrinsic ratio (must come from a consistent source)
+    const intrinsicW = dimensions?.width || (attrWidth && attrHeight ? Number(attrWidth) : 0);
+    const intrinsicH = dimensions?.height || (attrWidth && attrHeight ? Number(attrHeight) : 0);
+
+    if (intrinsicW > 0 && intrinsicH > 0) {
+      style.aspectRatio = `${intrinsicW} / ${intrinsicH}`;
+    }
+
+    // 2. Determine the display width constraint
+    const displayW = attrWidth || (dimensions?.width ? `${dimensions.width}px` : undefined);
+    if (displayW) {
+      const numericWidth = Number(displayW);
+      if (!isNaN(numericWidth)) {
+        style.width = `${numericWidth}px`;
+      } else {
+        style.width = displayW;
+      }
+    }
+
+    return Object.keys(style).length > 0 ? style : undefined;
+  }, [attrWidth, attrHeight, dimensions]);
 
   const content =
     state.status === "ready" ? (
@@ -93,10 +183,13 @@ export default function MarkdownImage({
         className={["ml-preview-img", transparent ? "ml-preview-img--transparent" : "", className ?? ""]
           .filter(Boolean)
           .join(" ")}
-        loading="lazy"
+        loading={isRemoteImage(originalSrc) ? "lazy" : "eager"}
+        decoding="async"
         onError={() => setState({ status: "error", message: "Image failed to load" })}
         src={state.src}
         title={title}
+        width={attrWidth}
+        height={attrHeight}
       />
     ) : state.status === "loading" ? (
       <div className="ml-preview-image-placeholder ml-preview-image-placeholder--loading" aria-hidden="true">
@@ -111,7 +204,7 @@ export default function MarkdownImage({
     );
 
   return (
-    <figure className="ml-preview-figure">
+    <figure className="ml-preview-figure" style={figureStyle}>
       {content}
       {caption ? <figcaption className="ml-preview-figcaption">{caption}</figcaption> : null}
     </figure>

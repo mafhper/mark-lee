@@ -1,3 +1,24 @@
+function protectCode(markdown: string) {
+  const codeBlocks: string[] = [];
+  const placeholder = (content: string) => {
+    const id = codeBlocks.length;
+    codeBlocks.push(content);
+    return `\uE000${id}\uE001`;
+  };
+
+  // Protect fenced code blocks
+  let protectedMd = markdown.replace(/((?:^|\n)(?:`{3,}|~{3,})[\s\S]*?(?:\n(?:`{3,}|~{3,})|$))/g, (match) => placeholder(match));
+  
+  // Protect inline code spans
+  protectedMd = protectedMd.replace(/(`+)([\s\S]*?)\1/g, (match) => placeholder(match));
+
+  return { protectedMd, codeBlocks };
+}
+
+function restoreCode(markdown: string, codeBlocks: string[]) {
+  return markdown.replace(/\uE000(\d+)\uE001/g, (_match, id) => codeBlocks[Number(id)]);
+}
+
 function parseDimensionAttributes(rawAttributes: string) {
   const width = rawAttributes.match(/\bwidth\s*=\s*"?([0-9]+%?)"?/i)?.[1];
   const height = rawAttributes.match(/\bheight\s*=\s*"?([0-9]+%?)"?/i)?.[1];
@@ -84,8 +105,12 @@ function normalizePandocFencedDivs(markdown: string) {
 
       const meta = rawMeta.trim();
       if (!meta) {
-        output.push("</div>");
-        stack.pop();
+        if (stack.length > 0) {
+          output.push("</div>");
+          stack.pop();
+        } else {
+          output.push(line);
+        }
         continue;
       }
 
@@ -119,21 +144,21 @@ function normalizeMkDocsAdmonitions(markdown: string) {
       continue;
     }
 
-    const [, , marker, rawKind, title] = match;
+    const [indent, , marker, rawKind, title] = match;
     const kind = rawKind.toUpperCase();
     const collapsible = marker === "???";
-    output.push(`> [!${kind}]${collapsible ? " Collapsible" : ""}${title ? ` ${title}` : ""}`);
+    output.push(`${indent}> [!${kind}]${collapsible ? " Collapsible" : ""}${title ? ` ${title}` : ""}`);
 
     while (index + 1 < lines.length) {
       const next = lines[index + 1];
       if (!next.trim()) {
-        output.push(">");
+        output.push(`${indent}>`);
         index += 1;
         continue;
       }
       const content = next.match(/^(?: {4}|\t)(.*)$/);
       if (!content) break;
-      output.push(`> ${content[1]}`);
+      output.push(`${indent}> ${content[1]}`);
       index += 1;
     }
   }
@@ -145,22 +170,24 @@ function normalizeMystDirectives(markdown: string) {
   const lines = markdown.split(/\r?\n/);
   const output: string[] = [];
   let directive: string | null = null;
+  let directiveIndent = "";
 
   for (const line of lines) {
-    const open = line.match(/^:::\{([\w-]+)\}\s*$/);
+    const open = line.match(/^(\s*):::\{([\w-]+)\}\s*$/);
     if (open) {
-      directive = open[1].toUpperCase();
-      output.push(`> [!${directive}]`);
+      directiveIndent = open[1];
+      directive = open[2].toUpperCase();
+      output.push(`${directiveIndent}> [!${directive}]`);
       continue;
     }
 
-    if (directive && line.match(/^:::\s*$/)) {
-      output.push(">");
+    if (directive && line.match(/^\s*:::\s*$/)) {
+      output.push(`${directiveIndent}>`);
       directive = null;
       continue;
     }
 
-    output.push(directive ? `> ${line}` : line);
+    output.push(directive ? `${directiveIndent}> ${line.trimStart()}` : line);
   }
 
   return output.join("\n");
@@ -182,17 +209,21 @@ function normalizeInlineExtensions(markdown: string) {
 }
 
 export function preprocessMarkdown(content: string) {
-  return normalizeInlineExtensions(
+  const { protectedMd, codeBlocks } = protectCode(content);
+
+  const processed = normalizeInlineExtensions(
     normalizeTags(
       normalizeCitations(
         normalizeWikilinks(
           normalizeMystDirectives(
             normalizeMkDocsAdmonitions(
-              normalizePandocFencedDivs(normalizeObsidianImages(normalizeImageAttributes(content)))
+              normalizePandocFencedDivs(normalizeObsidianImages(normalizeImageAttributes(protectedMd)))
             )
           )
         )
       )
     )
   );
+
+  return restoreCode(processed, codeBlocks);
 }
