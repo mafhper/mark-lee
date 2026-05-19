@@ -14,7 +14,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, tConfig, langu
   if (!isOpen) return null;
 
   const t = TRANSLATIONS[language];
-  const version = '1.0.0';
+  const version = __APP_VERSION__;
 
   return (
     <div 

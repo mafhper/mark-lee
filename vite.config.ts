@@ -1,5 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
+
+const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")) as {
+  version?: string;
+};
+const tauriConfig = JSON.parse(readFileSync(new URL("./src-tauri/tauri.conf.json", import.meta.url), "utf-8")) as {
+  version?: string;
+};
+const appVersion = tauriConfig.version ?? packageJson.version ?? "0.0.0";
 
 const tauriHost = process.env.TAURI_DEV_HOST || "127.0.0.1";
 const devPort = Number(process.env.TAURI_DEV_PORT || "5173");
@@ -9,6 +18,9 @@ const isTauriRuntime = Boolean(process.env.TAURI_DEV_HOST);
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

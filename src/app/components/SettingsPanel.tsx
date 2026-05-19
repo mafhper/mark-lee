@@ -1405,7 +1405,9 @@ export default function SettingsPanel({
             <div className={`mx-auto grid w-full max-w-[1080px] gap-4 ${tConfig.fg}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">Mark-Lee</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
+                    Mark-Lee v{__APP_VERSION__}
+                  </p>
                   <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferências"}</h2>
                 </div>
                 <button type="button" onClick={onClose} className="ml-settings-field rounded-xl border p-2">

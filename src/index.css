@@ -535,6 +535,19 @@
   outline: none !important;
 }
 
+.cm-announced {
+  position: fixed !important;
+  top: -10000px !important;
+  left: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+}
+
 .cm-content.cm-lineWrapping {
   flex-shrink: 1;
   white-space: pre-wrap;

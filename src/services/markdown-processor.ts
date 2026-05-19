@@ -27,33 +27,37 @@ class ParserState {
 
 // Helper functions for detection
 const detectCodeBlock = (line: string, state: ParserState) => {
-  const codeFenceMatch = line.match(/^(`{3,} | ~{3,})/);
-  
+  const codeFenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+
   if (codeFenceMatch) {
+    const fence = codeFenceMatch[1];
     if (!state.inCodeBlock) {
       state.inCodeBlock = true;
-      state.codeFence = codeFenceMatch[1];
-    } else if (line.startsWith(state.codeFence || '')) {
+      state.codeFence = fence[0].repeat(fence.length);
+    } else if (line.trimStart().startsWith(state.codeFence || '')) {
       state.inCodeBlock = false;
       state.codeFence = null;
     }
+    return true;
   }
-  
+
   return state.inCodeBlock;
 };
 
 const detectHTMLBlock = (line: string, state: ParserState) => {
-  const htmlStartMatch = line.match(/^<(\w+).* >$/);
-  const htmlEndMatch = line.match(/^<\/(\w+)>$/);
-  
+  const htmlStartMatch = line.match(/^\s*<([A-Za-z][\w:-]*)(?:\s[^>]*)?>\s*$/);
+  const htmlEndMatch = line.match(/^\s*<\/([A-Za-z][\w:-]*)>\s*$/);
+
   if (htmlStartMatch && !state.inHTMLBlock) {
     state.inHTMLBlock = true;
     state.htmlTag = htmlStartMatch[1];
+    return true;
   } else if (htmlEndMatch && state.inHTMLBlock && htmlEndMatch[1] === state.htmlTag) {
     state.inHTMLBlock = false;
     state.htmlTag = null;
+    return true;
   }
-  
+
   return state.inHTMLBlock;
 };
 

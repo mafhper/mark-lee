@@ -3,7 +3,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import {
@@ -107,6 +107,7 @@ const CODE_FILE_EXTENSIONS = new Set([
   "txt",
   "log",
 ]);
+const APP_VERSION = __APP_VERSION__;
 
 function isCodeFile(name: string) {
   const extension = name.split(".").pop()?.toLowerCase() || "";
@@ -115,6 +116,43 @@ function isCodeFile(name: string) {
 
 const markdownLanguage = markdown();
 const tsLanguage = javascript({ typescript: true, jsx: true });
+const editorAnnouncementCleanup = ViewPlugin.fromClass(
+  class {
+    private clearTimer: ReturnType<typeof setTimeout> | null = null;
+    private observer: MutationObserver | null = null;
+
+    constructor(private view: EditorView) {
+      requestAnimationFrame(() => this.attachObserver());
+    }
+
+    update() {
+      this.scheduleClear();
+    }
+
+    private attachObserver() {
+      const announcer = this.view.dom.querySelector<HTMLElement>(".cm-announced");
+      if (!announcer || this.observer) return;
+      this.observer = new MutationObserver(() => this.scheduleClear());
+      this.observer.observe(announcer, { childList: true, characterData: true, subtree: true });
+      this.scheduleClear();
+    }
+
+    private scheduleClear() {
+      const announcer = this.view.dom.querySelector<HTMLElement>(".cm-announced");
+      if (!announcer?.textContent) return;
+      if (this.clearTimer) clearTimeout(this.clearTimer);
+      this.clearTimer = setTimeout(() => {
+        announcer.textContent = "";
+        this.clearTimer = null;
+      }, 1800);
+    }
+
+    destroy() {
+      if (this.clearTimer) clearTimeout(this.clearTimer);
+      this.observer?.disconnect();
+    }
+  }
+);
 
 function makeNewTab(name = "Untitled.md", content = INITIAL_MARKDOWN): DocumentTab {
   return {
@@ -194,6 +232,11 @@ function isPathInsideWorkspace(path: string, workspacePath: string) {
   return normalizedFile === normalizedWorkspace || normalizedFile.startsWith(`${normalizedWorkspace}/`);
 }
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true'], .cm-editor"));
+}
+
 function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [tabs, setTabs] = useState<DocumentTab[]>(() => {
@@ -230,6 +273,8 @@ function App() {
 
   const lastEditorUserScrollAtRef = useRef(0);
   const lastPreviewUserScrollAtRef = useRef(0);
+  const activeTabIdRef = useRef(activeTabId);
+  const tabScrollPositionsRef = useRef<Record<string, { editor: number; preview: number }>>({});
 
   const markUserScrollIntent = useCallback((source: "editor" | "preview") => {
     const now = performance.now();
@@ -252,6 +297,10 @@ function App() {
   const tabsRef = useRef(tabs);
 
   useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
+  useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
   const settingsRef = useRef(settings);
@@ -268,6 +317,18 @@ function App() {
   const previewControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollSyncLockRef = useRef(false);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rememberScrollPosition = useCallback((source: "editor" | "preview") => {
+    const tabId = activeTabIdRef.current;
+    if (!tabId) return;
+    const previous = tabScrollPositionsRef.current[tabId] ?? { editor: 0, preview: 0 };
+    tabScrollPositionsRef.current[tabId] = {
+      ...previous,
+      [source]:
+        source === "editor"
+          ? editorRef.current?.scrollDOM.scrollTop ?? previous.editor
+          : previewRef.current?.scrollTop ?? previous.preview,
+    };
+  }, []);
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1280
   );
@@ -402,6 +463,7 @@ function App() {
     const core = [
       history(),
       snippetCommandExtension,
+      editorAnnouncementCleanup,
       keymap.of([...defaultKeymap, ...historyKeymap]),
       lineNumbers(),
       EditorState.allowMultipleSelections.of(false),
@@ -515,7 +577,10 @@ function App() {
     const scrollElement = editorView?.scrollDOM;
     if (!scrollElement) return;
 
-    const onEditorScroll = () => handleSyncedScroll("editor");
+    const onEditorScroll = () => {
+      rememberScrollPosition("editor");
+      handleSyncedScroll("editor");
+    };
     const onUserInteraction = () => markUserScrollIntent("editor");
 
     scrollElement.addEventListener("scroll", onEditorScroll, { passive: true });
@@ -529,7 +594,7 @@ function App() {
       scrollElement.removeEventListener("pointerdown", onUserInteraction);
       scrollElement.removeEventListener("keydown", onUserInteraction);
     };
-  }, [editorView, handleSyncedScroll, markUserScrollIntent]);
+  }, [editorView, handleSyncedScroll, markUserScrollIntent, rememberScrollPosition]);
 
   useEffect(() => {
     const previewElement = previewRef.current;
@@ -547,6 +612,29 @@ function App() {
       previewElement.removeEventListener("keydown", onUserInteraction);
     };
   }, [markUserScrollIntent]);
+
+  useEffect(() => {
+    if (!activeTabId) return;
+    let frameOne = 0;
+    let frameTwo = 0;
+
+    frameOne = requestAnimationFrame(() => {
+      frameTwo = requestAnimationFrame(() => {
+        const position = tabScrollPositionsRef.current[activeTabId] ?? { editor: 0, preview: 0 };
+        const editorScroll = editorRef.current?.scrollDOM;
+        if (editorScroll) editorScroll.scrollTop = position.editor;
+        if (previewRef.current) {
+          previewRef.current.scrollTop = position.preview;
+          setPreviewCanScrollTop(position.preview > 180);
+        }
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frameOne);
+      cancelAnimationFrame(frameTwo);
+    };
+  }, [activeTabId, editorView, effectiveViewMode]);
 
   useEffect(() => {
     if (settings.sidebarWidth > dynamicSidebarMax) {
@@ -616,6 +704,17 @@ function App() {
     view.focus();
   }, []);
 
+  const selectAllEditorContent = useCallback(() => {
+    const view = editorRef.current;
+    if (!view) return false;
+    view.dispatch({
+      selection: EditorSelection.range(0, view.state.doc.length),
+      effects: EditorView.scrollIntoView(0, { y: "start" }),
+    });
+    view.focus();
+    return true;
+  }, []);
+
   const resolveTabOrigin = useCallback((path: string): DocumentTab["origin"] => {
     const root = workspacePathRef.current;
     if (root && isPathInsideWorkspace(path, root)) return "workspace";
@@ -632,19 +731,27 @@ function App() {
       if (existing) {
         setActiveTabId(existing.id);
         setTabs((previous) =>
-          previous.map((tab) =>
-            tab.id === existing.id
-              ? {
-                  ...tab,
-                  content,
-                  name,
-                  dirty: false,
-                  origin,
-                  deletedExternally: false,
-                  conflictedExternally: false,
-                }
-              : tab
-          )
+          previous.map((tab) => {
+            if (tab.id !== existing.id) return tab;
+            if (tab.dirty) {
+              return {
+                ...tab,
+                name,
+                origin,
+                deletedExternally: false,
+                conflictedExternally: content !== tab.content,
+              };
+            }
+            return {
+              ...tab,
+              content,
+              name,
+              dirty: false,
+              origin,
+              deletedExternally: false,
+              conflictedExternally: false,
+            };
+          })
         );
       } else {
         const next: DocumentTab = {
@@ -760,7 +867,7 @@ function App() {
         const label = `editor-${Date.now()}`;
         new WebviewWindow(label, {
           url: "index.html",
-          title: "Mark-Lee",
+          title: `Mark-Lee v${APP_VERSION}`,
           width: 1200,
           height: 800,
         });
@@ -1397,7 +1504,9 @@ function App() {
   }, [settings]);
 
   useEffect(() => {
-    const title = activeTab ? `${activeTab.name}${activeTab.dirty ? "*" : ""} - Mark-Lee` : "Mark-Lee";
+    const title = activeTab
+      ? `${activeTab.name}${activeTab.dirty ? "*" : ""} - Mark-Lee v${APP_VERSION}`
+      : `Mark-Lee v${APP_VERSION}`;
     if (isTauriRuntime()) {
       import("@tauri-apps/api/window")
         .then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title))
@@ -1626,7 +1735,7 @@ function App() {
           const label = `editor-${Date.now()}`;
           new WebviewWindow(label, {
             url: `index.html?open=${encodeURIComponent(path)}`,
-            title: "Mark-Lee",
+            title: `Mark-Lee v${APP_VERSION}`,
             width: 1200,
             height: 800,
           });
@@ -1717,6 +1826,16 @@ function App() {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toUpperCase();
+      const isSelectAll =
+        key === "A" && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+      if (isSelectAll && !isEditableShortcutTarget(event.target)) {
+        if (selectAllEditorContent()) {
+          event.preventDefault();
+        }
+        return;
+      }
+
       if (testShortcut(event, getShortcut("app-command-palette", "CTRL+P"))) {
         event.preventDefault();
         openDialog("palette");
@@ -1800,7 +1919,7 @@ function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeTab, closeAllDialogs, handleFormatAction, openDialog, settings, shortcutLabels, tabs]);
+  }, [activeTab, closeAllDialogs, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
 
   useEffect(() => {
     if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
@@ -1933,6 +2052,7 @@ function App() {
           >
             <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded border ${tConfig.uiBorder}`} />
             <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
+            <span className="text-[11px] font-semibold opacity-60">v{APP_VERSION}</span>
           </div>
           <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
@@ -2032,6 +2152,7 @@ function App() {
                 } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} ${previewControlsVisible ? "ml-preview-pane--active" : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
               onMouseMove={revealPreviewControls}
               onScroll={(event) => {
+                rememberScrollPosition("preview");
                 setPreviewCanScrollTop(event.currentTarget.scrollTop > 180);
                 revealPreviewControls();
                 handleSyncedScroll("preview");
