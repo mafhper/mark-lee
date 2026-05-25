@@ -1,0 +1,59 @@
+name: Dependency Guard
+
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "apps/site/package.json"
+      - "apps/site/package-lock.json"
+      - ".github/dependabot.yml"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            apps/site/package-lock.json
+
+      - name: Install root without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install site without lifecycle scripts
+        run: npm ci --ignore-scripts
+        working-directory: apps/site
+
+      - name: Verify npm registry signatures
+        run: npm audit signatures
+
+      - name: Verify site npm registry signatures
+        run: npm audit signatures
+        working-directory: apps/site
+
+      - name: Audit known vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Audit site known vulnerabilities
+        run: npm audit --audit-level=high
+        working-directory: apps/site
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
