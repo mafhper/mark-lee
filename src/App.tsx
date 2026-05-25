@@ -2129,7 +2129,7 @@ function App() {
               <CodeMirror
                 value={activeContent}
                 height="100%"
-                className="h-full"
+                className="h-full ml-editor-shell"
                 extensions={editorExtensions}
                 onChange={(value) => {
                   updateActiveTabContent(value);

@@ -499,9 +499,34 @@
   display: flex !important;
   align-items: flex-start !important;
   overflow: auto !important;
+  scrollbar-color:
+    color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 52%, var(--ml-editor-bg, #111827) 48%)
+    transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   font-family: var(--ml-editor-font, "JetBrains Mono"), "Fira Code", Consolas, monospace;
   background-color: var(--ml-editor-bg, #111827) !important;
   color: var(--ml-editor-fg, #e5e7eb);
+}
+
+.ml-editor-shell .cm-scroller::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.ml-editor-shell .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ml-editor-shell .cm-scroller::-webkit-scrollbar-thumb {
+  border: 2px solid var(--ml-editor-bg, #111827);
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 52%, var(--ml-editor-bg, #111827) 48%);
+}
+
+.ml-editor-shell .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--ml-editor-fg, #e5e7eb) 64%, var(--ml-editor-bg, #111827) 36%);
 }
 
 .cm-gutters {
