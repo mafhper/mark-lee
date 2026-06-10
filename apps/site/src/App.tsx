@@ -109,10 +109,7 @@ const RouteChunkWarmup = () => {
 };
 
 const App = () => (
-  <BrowserRouter
-    basename={import.meta.env.BASE_URL}
-    future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-  >
+  <BrowserRouter basename={import.meta.env.BASE_URL}>
     <ScrollToTop />
     <RouteChunkWarmup />
     <Suspense
