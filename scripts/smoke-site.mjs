@@ -98,12 +98,11 @@ function createServerProcess(port) {
 
 async function assertLandingRedirect(page, baseUrl) {
   await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(900);
 
-  const url = page.url();
-  const redirected = /\/(pt-BR|en-US|es-ES)\/?$/i.test(url);
-  if (!redirected) {
-    throw new Error(`Landing did not redirect to locale route. Current URL: ${url}`);
+  try {
+    await page.waitForURL(/\/(pt-BR|en-US|es-ES)\/?$/i, { timeout: 5000 });
+  } catch {
+    throw new Error(`Landing did not redirect to locale route. Current URL: ${page.url()}`);
   }
 }
 
