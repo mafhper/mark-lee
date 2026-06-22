@@ -19,7 +19,7 @@ import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
-import { openFileDialog, copyImageToDocumentDir } from "../../../services/filesystem";
+import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
 import { JournalEmptyState } from "./JournalEmptyState";
 
 interface JournalEntryPanelProps {
@@ -47,6 +47,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
+  const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -149,6 +150,21 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       console.error("Failed to insert image:", e);
     }
   };
+
+  useEffect(() => {
+    if (!entry) { setImageDataUrls([]); return; }
+    const refs: string[] = [];
+    const re = /!\[.*?\]\((.+?)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(body)) !== null) {
+      const rel = m[1];
+      if (!/^(https?:\/|data:)/.test(rel)) {
+        const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+        refs.push(dir + "/" + rel);
+      }
+    }
+    Promise.all(refs.map((p) => loadImage(p).catch(() => ""))).then(setImageDataUrls);
+  }, [body, entry]);
 
   useEffect(() => {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
@@ -285,12 +301,22 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {showEntry ? (
-          <textarea
-            ref={textareaRef}
-            value={body} onChange={(e) => handleBodyChange(e.target.value)}
-            className="w-full h-full min-h-[200px] px-6 py-4 text-sm leading-relaxed bg-transparent border-none outline-none resize-none"
-            style={{ color: tConfig.fgHex }} placeholder="Start writing..."
-          />
+          <>
+            <textarea
+              ref={textareaRef}
+              value={body} onChange={(e) => handleBodyChange(e.target.value)}
+              className="w-full min-h-[200px] px-6 py-4 text-sm leading-relaxed bg-transparent border-none outline-none resize-none"
+              style={{ color: tConfig.fgHex }} placeholder="Start writing..."
+            />
+            {imageDataUrls.length > 0 && (
+              <div className="px-6 pb-4 flex flex-wrap gap-3">
+                {imageDataUrls.map((url, i) => url ? (
+                  <img key={i} src={url} alt="" className="max-w-[200px] max-h-[200px] rounded-lg object-cover border"
+                    style={{ borderColor: tConfig.uiBorderHex }} />
+                ) : null)}
+              </div>
+            )}
+          </>
         ) : (
           <div className="px-6 py-4">
             <JournalEmptyState icon={<BookOpen size={36} />}

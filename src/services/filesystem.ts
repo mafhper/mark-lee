@@ -83,6 +83,11 @@ export async function writeUserDataFile(fileName: string, content: string): Prom
   await invoke("write_user_data_file", { fileName, content });
 }
 
+export async function loadImage(path: string): Promise<string> {
+  requireTauri("Load image");
+  return invoke("load_image", { path });
+}
+
 export async function copyImageToDocumentDir(
   imagePath: string,
   documentPath: string
