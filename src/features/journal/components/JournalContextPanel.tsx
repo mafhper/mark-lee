@@ -54,7 +54,7 @@ export function JournalContextPanel({
             searchQuery={searchQuery}
           />
         )}
-        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} />}
+        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
         {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} />}
       </div>
     </div>
