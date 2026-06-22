@@ -9,7 +9,7 @@ import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog"
 import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
-import { createEntry, deleteEntry, duplicateEntry } from "./domain/entry-service";
+import { createEntry, deleteEntry, duplicateEntry, readEntry } from "./domain/entry-service";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
@@ -48,6 +48,12 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile }
     };
     await addJournal(descriptor);
     reload();
+  };
+
+  const handleReloadEntry = async () => {
+    if (!selectedEntry) return;
+    const reloaded = await readEntry(selectedEntry.path);
+    if (reloaded) setSelectedEntry(reloaded);
   };
 
   const handleDuplicateEntry = async (entry: EntryRecord) => {
@@ -120,6 +126,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile }
           onOpenInEditor={onOpenFile}
           onDeleteEntry={handleDeleteEntry}
           onDuplicateEntry={handleDuplicateEntry}
+          onReloadEntry={handleReloadEntry}
         />
       </div>
 

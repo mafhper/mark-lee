@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
-import type { EntryRecord } from "../domain/entry-service";
+import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
 
@@ -15,9 +15,10 @@ interface JournalEntryPanelProps {
   onOpenInEditor?: (path: string) => void;
   onDeleteEntry?: (entry: EntryRecord) => void;
   onDuplicateEntry?: (entry: EntryRecord) => void;
+  onReloadEntry?: () => void;
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -26,6 +27,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflict, setConflict] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const journalName = journal?.name ?? (t["journal.noJournalTitle"] || "No journal open");
@@ -42,13 +44,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     }
   }, [entry?.metadata.id, entry?.path]);
 
-  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, rec: EntryRecord) => {
+  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, rec: EntryRecord, force = false) => {
     setSaving(true);
     const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav };
-    await saveEntry(rec.path, updated, b);
-    const wordCount = b.trim() ? b.trim().split(/\s+/).length : 0;
-    onEntryUpdated({ path: rec.path, metadata: updated, body: b, wordCount });
-    setDirty(false);
+    try {
+      await saveEntry(rec.path, updated, b, force);
+      setConflict(false);
+      const wordCount = b.trim() ? b.trim().split(/\s+/).length : 0;
+      onEntryUpdated({ path: rec.path, metadata: updated, body: b, wordCount });
+      setDirty(false);
+    } catch (e) {
+      if ((e as ConflictError).name === "ConflictError") {
+        setConflict(true);
+      }
+    }
     setSaving(false);
   }, [onEntryUpdated]);
 
@@ -142,6 +151,16 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
             </div>
           )}
         </div>
+        {conflict && (
+          <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#f59e0b20", color: "#f59e0b" }}>
+            <AlertTriangle size={12} />
+            <span className="flex-1">File modified externally. Save blocked.</span>
+            <button type="button" onClick={async () => { await doSave(title, body, tags, favorite, entry!, true); }}
+              className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>Overwrite</button>
+            <button type="button" onClick={() => { setConflict(false); onReloadEntry?.(); }}
+              className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>Discard</button>
+          </div>
+        )}
         <div className="flex items-center gap-3 mt-3 text-xs flex-wrap" style={{ color: tConfig.fgHex + "70" }}>
           {showEntry ? (
             <>

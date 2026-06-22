@@ -11,6 +11,15 @@ function requireTauri(action: string) {
   }
 }
 
+export interface FileMetadata {
+  mtime: number;
+}
+
+export async function getFileMetadata(path: string): Promise<FileMetadata> {
+  requireTauri("Get file metadata");
+  return invoke("get_file_metadata", { path });
+}
+
 export async function readFile(path: string): Promise<string> {
   requireTauri("Read file");
   return invoke("read_file", { path });

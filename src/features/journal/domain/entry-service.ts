@@ -1,4 +1,4 @@
-import { readFile, writeFile, createWorkspaceDirectory, listDir, deleteWorkspacePath } from "../../../services/filesystem";
+import { getFileMetadata, readFile, writeFile, createWorkspaceDirectory, listDir, deleteWorkspacePath } from "../../../services/filesystem";
 import { parseJournalEntry } from "./journal-entry.parser";
 import { serializeJournalEntry } from "./journal-entry.serializer";
 import type { JournalEntryMetadata } from "./journal-entry.types";
@@ -11,6 +11,32 @@ export interface EntryRecord {
   metadata: JournalEntryMetadata;
   body: string;
   wordCount: number;
+}
+
+export class ConflictError extends Error {
+  constructor(public readonly path: string) {
+    super(`External conflict detected: ${path} was modified outside the app`);
+    this.name = "ConflictError";
+  }
+}
+
+const lastMtimes = new Map<string, number>();
+
+function getStoredMtime(path: string): number | undefined {
+  return lastMtimes.get(path);
+}
+
+function setStoredMtime(path: string, mtime: number): void {
+  lastMtimes.set(path, mtime);
+}
+
+async function captureMtime(path: string): Promise<number> {
+  try {
+    const meta = await getFileMetadata(path);
+    return meta.mtime;
+  } catch {
+    return 0;
+  }
 }
 
 function pad(n: number): string {
@@ -59,6 +85,9 @@ export async function createEntry(
 
   await writeFile(path, content);
 
+  const newMtime = await captureMtime(path);
+  if (newMtime) setStoredMtime(path, newMtime);
+
   return { path, metadata, body, wordCount: 0 };
 }
 
@@ -68,19 +97,31 @@ export async function readEntry(path: string): Promise<EntryRecord | null> {
     const result = parseJournalEntry(raw);
     if ("error" in result) return null;
     const wordCount = result.body.trim() ? result.body.trim().split(/\s+/).length : 0;
+    const mtime = await captureMtime(path);
+    if (mtime) setStoredMtime(path, mtime);
     return { path, metadata: result.metadata, body: result.body, wordCount };
   } catch {
     return null;
   }
 }
 
-export async function saveEntry(path: string, metadata: JournalEntryMetadata, body: string): Promise<void> {
+export async function saveEntry(path: string, metadata: JournalEntryMetadata, body: string, force = false): Promise<void> {
+  if (!force) {
+    const beforeMtime = await captureMtime(path);
+    const stored = getStoredMtime(path);
+    if (stored !== undefined && beforeMtime !== 0 && beforeMtime !== stored) {
+      throw new ConflictError(path);
+    }
+  }
   const updated: JournalEntryMetadata = {
     ...metadata,
     updatedAt: new Date().toISOString(),
   };
   const content = serializeJournalEntry(updated, body);
   await writeFile(path, content);
+  // update stored mtime after write
+  const afterMtime = await captureMtime(path);
+  if (afterMtime) setStoredMtime(path, afterMtime);
 }
 
 async function collectEntriesRecursive(baseDir: string, prefix: string): Promise<string[]> {
@@ -151,6 +192,9 @@ export async function duplicateEntry(
   const dir = path.substring(0, path.lastIndexOf("/"));
   await createWorkspaceDirectory(dir);
   await writeFile(path, content);
+
+  const dupMtime = await captureMtime(path);
+  if (dupMtime) setStoredMtime(path, dupMtime);
 
   return { path, metadata, body: source.body, wordCount: source.wordCount };
 }

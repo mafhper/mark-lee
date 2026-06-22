@@ -34,6 +34,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::filesystem::read_file,
+            commands::filesystem::get_file_metadata,
             commands::filesystem::write_file,
             commands::filesystem::list_dir,
             commands::filesystem::read_workspace_tree,

@@ -167,6 +167,24 @@ fn build_tree(path: &Path, depth: usize, state: &mut BuildState) -> Result<Works
     Ok(node)
 }
 
+#[derive(Debug, Serialize)]
+pub struct FileMetadata {
+    pub mtime: u128,
+}
+
+#[command]
+pub fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
+    let p = canonical_existing(&path)?;
+    let meta = fs::metadata(&p).map_err(|e| e.to_string())?;
+    let mtime = meta
+        .modified()
+        .map_err(|e| e.to_string())?
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis();
+    Ok(FileMetadata { mtime })
+}
+
 #[command]
 pub fn read_file(path: String) -> Result<String, String> {
     let p = canonical_existing(&path)?;
