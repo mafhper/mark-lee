@@ -4,14 +4,21 @@ import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, undoDepth, redoDepth } from "@codemirror/commands";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
+import { readText, writeText } from "./services/clipboard";
 import {
+  applyBold as applyBoldCommand,
+  applyInlineCode as applyInlineCodeCommand,
+  applyItalic as applyItalicCommand,
   applyLinePrefix as applyLinePrefixCommand,
+  applyLink as applyLinkCommand,
   applyWrapSelection as applyWrapSelectionCommand,
   insertSnippetContent as insertSnippetContentCommand,
   selectAllEditorContent as selectAllEditorContentCommand,
   transformMarkdown as transformMarkdownCommand,
+  undoEditor as undoEditorCommand,
+  redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
 import {
   addRecentFile,
@@ -73,7 +80,7 @@ import CommandPaletteModal, { CommandPaletteItem } from "./app/components/Comman
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
-import { ContextMenuProvider } from "./app/components/context-menu";
+import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import "./index.css";
 
@@ -245,6 +252,53 @@ function isEditableShortcutTarget(target: EventTarget | null) {
   return Boolean(target.closest("input, textarea, select, [contenteditable='true'], .cm-editor"));
 }
 
+function EditorContextMenuWrapper({
+  editorRef,
+  buildItems,
+  resolveKeyboardAnchor,
+  children,
+}: {
+  editorRef: React.MutableRefObject<EditorView | null>;
+  buildItems: (hasSelection: boolean) => ContextMenuEntry[];
+  resolveKeyboardAnchor: (element: HTMLElement) => ContextMenuAnchor;
+  children: React.ReactNode;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const { onContextMenu } = useContextMenuTrigger<HTMLDivElement>({
+    ref: wrapperRef,
+    resolveItems: () => {
+      const view = editorRef.current;
+      if (!view) return [];
+      return buildItems(!view.state.selection.main.empty);
+    },
+    resolveKeyboardAnchor,
+  });
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const view = editorRef.current;
+    if (!view) return;
+    const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (position == null) return;
+
+    const selection = view.state.selection.main;
+    const clickedInsideSelection =
+      !selection.empty &&
+      position >= selection.from &&
+      position <= selection.to;
+
+    if (!clickedInsideSelection) {
+      view.dispatch({ selection: EditorSelection.cursor(position) });
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event);
+  };
+
+  return <div ref={wrapperRef} onContextMenu={handleContextMenu} className="contents">{children}</div>;
+}
+
 function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [tabs, setTabs] = useState<DocumentTab[]>(() => {
@@ -262,6 +316,7 @@ function App() {
   const [publicationPresets, setPublicationPresets] = useState<PublicationPreset[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findInitialQuery, setFindInitialQuery] = useState<string | undefined>(undefined);
   const [showExport, setShowExport] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -553,11 +608,26 @@ function App() {
       return;
     }
     setShowSettings(false);
+    if (dialog === "find") setFindInitialQuery(undefined);
     setShowFindReplace(dialog === "find");
     setShowExport(dialog === "export");
     setShowSnippets(dialog === "snippets");
     setShowCommandPalette(dialog === "palette");
   }, [openSettingsPanel]);
+
+  const openFindWithQuery = useCallback((initialQuery: string) => {
+    setFindInitialQuery(initialQuery);
+    setShowSettings(false);
+    setShowFindReplace(true);
+    setShowExport(false);
+    setShowSnippets(false);
+    setShowCommandPalette(false);
+  }, []);
+
+  const showClipboardError = useCallback((reason: "unavailable" | "denied" | "failed") => {
+    const key = reason === "unavailable" ? "ctx.clipboardUnavailable" : reason === "denied" ? "ctx.clipboardDenied" : "ctx.clipboardFailed";
+    setSaveError(t[key] || reason);
+  }, [t]);
 
   const updateSettings = (patch: Partial<AppSettings>) => {
     setSettings((previous) => {
@@ -850,6 +920,139 @@ function App() {
       setIsSaving(false);
     }
   };
+
+  const buildEditorContextMenuItems = useCallback(
+    (hasSelection: boolean): ContextMenuEntry[] => {
+      const view = editorRef.current;
+      if (!view) return [];
+      const canUndo = undoDepth(view.state) > 0;
+      const canRedo = redoDepth(view.state) > 0;
+
+      const items: ContextMenuEntry[] = [];
+
+      if (hasSelection) {
+        items.push(
+          { type: "item", id: "cut", label: t["edit.cut"] || "Cut", shortcut: "Ctrl+X", onSelect: async () => {
+            const view = editorRef.current;
+            if (!view) return;
+            const sel = view.state.selection.main;
+            const text = view.state.doc.sliceString(sel.from, sel.to);
+            const result = await writeText(text);
+            if (!result.ok) { showClipboardError(result.reason); return; }
+            view.dispatch({ changes: { from: sel.from, to: sel.to, insert: "" }, selection: EditorSelection.cursor(sel.from) });
+            view.focus();
+          }},
+          { type: "item", id: "copy", label: t["edit.copy"] || "Copy", shortcut: "Ctrl+C", onSelect: async () => {
+            const view = editorRef.current;
+            if (!view) return;
+            const sel = view.state.selection.main;
+            const text = view.state.doc.sliceString(sel.from, sel.to);
+            const result = await writeText(text);
+            if (!result.ok) { showClipboardError(result.reason); return; }
+            view.focus();
+          }}
+        );
+      }
+
+      items.push(
+        { type: "item", id: "paste", label: t["edit.paste"] || "Paste", shortcut: "Ctrl+V", onSelect: async () => {
+          const view = editorRef.current;
+          if (!view) return;
+          const result = await readText();
+          if (!result.ok) { showClipboardError(result.reason); return; }
+          const sel = view.state.selection.main;
+          view.dispatch({ changes: { from: sel.from, to: sel.to, insert: result.value }, selection: EditorSelection.cursor(sel.from + result.value.length) });
+          view.focus();
+        }}
+      );
+
+      items.push({ type: "separator", id: "sep-undo" });
+
+      items.push(
+        { type: "item", id: "undo", label: t["edit.undo"] || "Undo", shortcut: "Ctrl+Z", disabled: !canUndo, onSelect: () => {
+          const view = editorRef.current;
+          if (view) undoEditorCommand(view);
+        }},
+        { type: "item", id: "redo", label: t["edit.redo"] || "Redo", shortcut: "Ctrl+Y", disabled: !canRedo, onSelect: () => {
+          const view = editorRef.current;
+          if (view) redoEditorCommand(view);
+        }}
+      );
+
+      if (!isCodeDocument) {
+        items.push(
+          { type: "separator", id: "sep-fmt" },
+          { type: "item", id: "bold", label: t["tool.bold"] || "Bold", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyBoldCommand(view);
+          }},
+          { type: "item", id: "italic", label: t["tool.italic"] || "Italic", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyItalicCommand(view);
+          }},
+          { type: "item", id: "code", label: t["tool.code"] || "Code", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyInlineCodeCommand(view);
+          }},
+          { type: "item", id: "link", label: t["tool.link"] || "Link", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyLinkCommand(view);
+          }}
+        );
+      }
+
+      items.push(
+        { type: "separator", id: "sep-actions" },
+        { type: "item", id: "find", label: t["edit.find"] || "Find", shortcut: "Ctrl+F", onSelect: () => {
+          const view = editorRef.current;
+          const sel = view?.state.selection.main;
+          const text = sel && !sel.empty ? view!.state.doc.sliceString(sel.from, sel.to) : undefined;
+          if (text) openFindWithQuery(text);
+          else openDialog("find");
+        }},
+        { type: "item", id: "snippets", label: t["ctx.manageSnippets"] || "Manage snippets…", onSelect: () => openDialog("snippets") }
+      );
+
+      if (!isCodeDocument) {
+        items.push(
+          { type: "separator", id: "sep-transform" },
+          { type: "item", id: "format", label: t["tool.formatMarkdown"] || "Format Markdown", onSelect: () => transformActiveMarkdown("format") },
+          { type: "item", id: "minify", label: t["tool.minifyMarkdown"] || "Minify Markdown", onSelect: () => transformActiveMarkdown("minify") }
+        );
+      }
+
+      items.push(
+        { type: "separator", id: "sep-final" },
+        { type: "item", id: "select-all", label: t["ctx.selectAll"] || "Select all", onSelect: () => {
+          const view = editorRef.current;
+          if (view) selectAllEditorContentCommand(view);
+        }}
+      );
+
+      if (activeTab) {
+        items.push(
+          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => saveTab(activeTab, false) }
+        );
+      }
+
+      return items;
+    },
+    [activeTab, isCodeDocument, openDialog, openFindWithQuery, saveTab, showClipboardError, t, transformActiveMarkdown]
+  );
+
+  const resolveEditorKeyboardAnchor = useCallback((element: HTMLElement): ContextMenuAnchor => {
+    const view = editorRef.current;
+    if (!view) return { type: "element", element };
+    const sel = view.state.selection.main;
+    const head = sel.head;
+    try {
+      const coords = view.coordsAtPos(head);
+      if (!coords) return { type: "element", element };
+      return { type: "point", x: coords.left, y: coords.bottom };
+    } catch {
+      return { type: "element", element };
+    }
+  }, []);
 
   const handleNewFile = async () => {
     if (!settings.singleInstance) {
@@ -2091,30 +2294,36 @@ function App() {
           )}
 
           <div className="flex-1 min-h-0 h-full flex flex-row">
-            <div
-              className={`${effectiveViewMode === "preview" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
-              style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
+            <EditorContextMenuWrapper
+              editorRef={editorRef}
+              buildItems={buildEditorContextMenuItems}
+              resolveKeyboardAnchor={resolveEditorKeyboardAnchor}
             >
-              <CodeMirror
-                value={activeContent}
-                height="100%"
-                className="h-full ml-editor-shell"
-                extensions={editorExtensions}
-                onChange={(value) => {
-                  updateActiveTabContent(value);
-                }}
-                basicSetup={{
-                  foldGutter: true,
-                  highlightActiveLine: true,
-                }}
-                theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
-                onCreateEditor={(view) => {
-                  editorRef.current = view;
-                  setEditorView(view);
-                }}
-              />
-            </div>
+              <div
+                className={`${effectiveViewMode === "preview" ? "hidden" : "block"
+                  } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
+                style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
+              >
+                <CodeMirror
+                  value={activeContent}
+                  height="100%"
+                  className="h-full ml-editor-shell"
+                  extensions={editorExtensions}
+                  onChange={(value) => {
+                    updateActiveTabContent(value);
+                  }}
+                  basicSetup={{
+                    foldGutter: true,
+                    highlightActiveLine: true,
+                  }}
+                  theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
+                  onCreateEditor={(view) => {
+                    editorRef.current = view;
+                    setEditorView(view);
+                  }}
+                />
+              </div>
+            </EditorContextMenuWrapper>
 
             <div
               ref={previewRef}
@@ -2194,6 +2403,7 @@ function App() {
         t={t}
         tConfig={tConfig}
         content={activeContent}
+        initialQuery={findInitialQuery}
         options={settings.findReplace}
         onClose={closeAllDialogs}
         onOptionsChange={(options) => updateSettings({ findReplace: options })}
