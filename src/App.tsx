@@ -7,6 +7,13 @@ import { EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import {
+  applyLinePrefix as applyLinePrefixCommand,
+  applyWrapSelection as applyWrapSelectionCommand,
+  insertSnippetContent as insertSnippetContentCommand,
+  selectAllEditorContent as selectAllEditorContentCommand,
+  transformMarkdown as transformMarkdownCommand,
+} from "./features/editor/editor-commands";
+import {
   addRecentFile,
   getRecentFiles,
   loadLastTabs,
@@ -675,11 +682,7 @@ function App() {
 
     const view = editorRef.current;
     if (view) {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: nextContent },
-        selection: EditorSelection.cursor(0),
-      });
-      view.focus();
+      transformMarkdownCommand(view, nextContent);
       return;
     }
 
@@ -694,26 +697,13 @@ function App() {
   const insertSnippet = useCallback((snippet: Snippet) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    view.dispatch({
-      changes: {
-        from: selection.from,
-        to: selection.to,
-        insert: snippet.content,
-      },
-    });
-    view.focus();
+    insertSnippetContentCommand(view, snippet.content);
   }, []);
 
   const selectAllEditorContent = useCallback(() => {
     const view = editorRef.current;
     if (!view) return false;
-    view.dispatch({
-      selection: EditorSelection.range(0, view.state.doc.length),
-      effects: EditorView.scrollIntoView(0, { y: "start" }),
-    });
-    view.focus();
-    return true;
+    return selectAllEditorContentCommand(view);
   }, []);
 
   const resolveTabOrigin = useCallback((path: string): DocumentTab["origin"] => {
@@ -988,26 +978,13 @@ function App() {
   const applyWrapSelection = (before: string, after = before) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    const selected = view.state.doc.sliceString(selection.from, selection.to);
-    const next = `${before}${selected}${after}`;
-    view.dispatch({
-      changes: { from: selection.from, to: selection.to, insert: next },
-      selection: EditorSelection.cursor(selection.from + before.length + selected.length),
-    });
-    view.focus();
+    applyWrapSelectionCommand(view, before, after);
   };
 
   const applyLinePrefix = (prefix: string) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    const line = view.state.doc.lineAt(selection.from);
-    view.dispatch({
-      changes: { from: line.from, to: line.from, insert: prefix },
-      selection: EditorSelection.cursor(selection.from + prefix.length),
-    });
-    view.focus();
+    applyLinePrefixCommand(view, prefix);
   };
 
   const handleFormatAction = async (

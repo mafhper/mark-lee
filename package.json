@@ -22,6 +22,7 @@
     "smoke:static:quick": "node scripts/smoke-static.mjs",
     "test:context-menu:unit": "node --experimental-strip-types --test src/app/components/context-menu/positionContextMenu.test.ts",
     "test:clipboard": "node --experimental-strip-types --test src/services/clipboard.test.ts",
+    "test:editor-commands": "node --experimental-strip-types --test src/features/editor/editor-commands.test.ts",
     "test:context-menu:playwright": "node scripts/test-context-menu.mjs",
     "test:context-menu": "npm run test:context-menu:unit && npm run test:context-menu:playwright",
     "test:ui-layout": "node scripts/ui_layout_regression_with_server.js",
