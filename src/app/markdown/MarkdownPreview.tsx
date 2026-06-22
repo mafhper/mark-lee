@@ -151,6 +151,7 @@ export default function MarkdownPreview({
                 <a
                   {...props}
                   href={href}
+                  data-ml-original-href={href || undefined}
                   rel={isExternalHref(href) ? "noopener noreferrer" : props.rel}
                   target={isExternalHref(href) ? "_blank" : props.target}
                 />
