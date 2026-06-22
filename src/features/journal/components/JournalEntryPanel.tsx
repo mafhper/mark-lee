@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -45,6 +45,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const [showInspector, setShowInspector] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const journalName = journal?.name ?? (t["journal.noJournalTitle"] || "No journal open");
@@ -159,6 +160,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                   <Copy size={14} />
                 </button>
               )}
+              <button type="button" onClick={() => setShowInspector(!showInspector)}
+                className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ color: showInspector ? tConfig.accentHex : tConfig.fgHex + "60" }} title="Entry metadata">
+                <Info size={14} />
+              </button>
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                   style={{ color: tConfig.fgHex + "60" }} title={t["journal.editor"] || "Open in Editor"}
@@ -259,6 +265,28 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
           </div>
         )}
       </div>
+
+      {showInspector && showEntry && entry && (
+        <div className="border-t px-6 py-3 text-xs space-y-1.5 overflow-y-auto max-h-[200px]" style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.accentHex + "04" }}>
+          {[
+            ["ID", entry.metadata.id],
+            ["Schema", `${entry.metadata.schema} v${entry.metadata.schemaVersion}`],
+            ["Date", entry.metadata.date],
+            ["Created", entry.metadata.createdAt],
+            ["Updated", entry.metadata.updatedAt],
+            ["Title", entry.metadata.title],
+            ["Tags", entry.metadata.tags.join(", ") || "(none)"],
+            ["Mood", entry.metadata.mood || "(none)"],
+            ["Favorite", String(entry.metadata.favorite ?? false)],
+            ["Word count", String(body.trim() ? body.trim().split(/\s+/).length : 0)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-start gap-3">
+              <span className="shrink-0 font-medium" style={{ color: tConfig.fgHex + "50", minWidth: "70px" }}>{label}</span>
+              <span className="truncate" style={{ color: tConfig.fgHex + "80" }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="px-6 py-2 border-t text-xs flex items-center gap-4 flex-wrap" style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "70" }}>
         <span>{showEntry ? journalName : "--"}</span>
