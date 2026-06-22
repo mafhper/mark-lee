@@ -184,6 +184,8 @@ export async function saveFileDialog(currentName?: string): Promise<string | nul
       ? { name: "PDF", extensions: ["pdf"] }
       : ext === "html" || ext === "htm"
       ? { name: "HTML", extensions: ["html", "htm"] }
+      : ext === "zip"
+      ? { name: "ZIP Archive", extensions: ["zip"] }
       : { name: "Markdown", extensions: ["md", "markdown"] };
 
   const selected = await save({
@@ -193,6 +195,7 @@ export async function saveFileDialog(currentName?: string): Promise<string | nul
       { name: "Markdown", extensions: ["md", "markdown"] },
       { name: "HTML", extensions: ["html", "htm"] },
       { name: "PDF", extensions: ["pdf"] },
+      { name: "ZIP Archive", extensions: ["zip"] },
       { name: "Text", extensions: ["txt", "text", "log"] },
       { name: "JSON", extensions: ["json"] },
       { name: "TypeScript", extensions: ["ts", "tsx"] },
