@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -19,6 +19,7 @@ import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
+import { openFileDialog, copyImageToDocumentDir } from "../../../services/filesystem";
 import { JournalEmptyState } from "./JournalEmptyState";
 
 interface JournalEntryPanelProps {
@@ -47,6 +48,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const journalName = journal?.name ?? (t["journal.noJournalTitle"] || "No journal open");
   const showEntry = entry !== null && journal !== null;
@@ -121,6 +123,33 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     if (entry) markDirty(title, body, tags, favorite, next, entry);
   };
 
+  const handleInsertImage = async () => {
+    if (!entry || !journal) return;
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
+    });
+    const imgPath = Array.isArray(selected) ? selected[0] : selected;
+    if (!imgPath) return;
+    try {
+      const relative = await copyImageToDocumentDir(imgPath, entry.path);
+      const imgMd = `![image](${relative})`;
+      const ta = textareaRef.current;
+      if (ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = body.slice(0, start);
+        const after = body.slice(end);
+        const newBody = before + imgMd + (after ? (before ? "" : "") : "");
+        setBody(newBody);
+        if (entry) markDirty(title, newBody, tags, favorite, mood, entry);
+        requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + imgMd.length; ta.focus(); });
+      }
+    } catch (e) {
+      console.error("Failed to insert image:", e);
+    }
+  };
+
   useEffect(() => {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, []);
@@ -164,6 +193,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                 style={{ color: showInspector ? tConfig.accentHex : tConfig.fgHex + "60" }} title="Entry metadata">
                 <Info size={14} />
+              </button>
+              <button type="button" onClick={handleInsertImage}
+                className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ color: tConfig.fgHex + "60" }} title="Insert image">
+                <Image size={14} />
               </button>
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
@@ -252,6 +286,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {showEntry ? (
           <textarea
+            ref={textareaRef}
             value={body} onChange={(e) => handleBodyChange(e.target.value)}
             className="w-full h-full min-h-[200px] px-6 py-4 text-sm leading-relaxed bg-transparent border-none outline-none resize-none"
             style={{ color: tConfig.fgHex }} placeholder="Start writing..."
