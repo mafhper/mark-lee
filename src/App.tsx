@@ -66,6 +66,7 @@ import CommandPaletteModal, { CommandPaletteItem } from "./app/components/Comman
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
+import { ContextMenuProvider } from "./app/components/context-menu";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import "./index.css";
 
@@ -1576,15 +1577,6 @@ function App() {
     loadStartupData();
   }, []);
 
-  // Suppress default browser/Tauri context menu
-  useEffect(() => {
-    const suppress = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("contextmenu", suppress);
-    return () => window.removeEventListener("contextmenu", suppress);
-  }, []);
-
   // Listen for window focus to refresh files modified externally
   useEffect(() => {
     const handleFocus = () => syncOpenTabsFromDisk();
@@ -2018,6 +2010,7 @@ function App() {
     ) : null;
 
   return (
+    <ContextMenuProvider themeConfig={tConfig}>
     <div
       data-theme={themeDataTheme}
       className={`h-screen w-screen overflow-hidden rounded-[8px] flex flex-col transition-colors duration-300 ${tConfig.bg} ${tConfig.fg}`}
@@ -2277,6 +2270,7 @@ function App() {
         onPublicationPresetsChange={setPublicationPresets}
       />
     </div>
+    </ContextMenuProvider>
   );
 }
 
