@@ -102,6 +102,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
       <div className="flex-1 min-w-0 h-full flex flex-col">
         <JournalEntryPanel
           t={t} tConfig={tConfig} journal={activeJournal} entry={selectedEntry}
+          onEntryUpdated={setSelectedEntry}
         />
       </div>
 
