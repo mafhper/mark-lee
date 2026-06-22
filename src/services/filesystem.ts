@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { writeFile as fsWriteFile } from "@tauri-apps/plugin-fs";
 import { WorkspaceNode } from "../types";
 import { isTauriRuntime } from "./runtime";
 
@@ -28,6 +29,11 @@ export async function readFile(path: string): Promise<string> {
 export async function writeFile(path: string, content: string): Promise<void> {
   requireTauri("Write file");
   await invoke("write_file", { path, content });
+}
+
+export async function writeBinaryFile(path: string, data: Uint8Array): Promise<void> {
+  requireTauri("Write binary file");
+  await fsWriteFile(path, data);
 }
 
 export async function listDir(path: string): Promise<string[]> {

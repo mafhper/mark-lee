@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { X, Download, AlertTriangle } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
-import { openFileDialog } from "../../../services/filesystem";
-import { exportJournal } from "../domain/export-service";
+import { openFileDialog, saveFileDialog } from "../../../services/filesystem";
+import { exportJournal, exportJournalAsZip } from "../domain/export-service";
 
 interface ExportJournalDialogProps {
   open: boolean;
@@ -12,13 +12,37 @@ interface ExportJournalDialogProps {
 }
 
 export function ExportJournalDialog({ open, tConfig, journalRootPath, onClose }: ExportJournalDialogProps) {
-  const [format, setFormat] = useState<"markdown" | "html">("markdown");
+  const [format, setFormat] = useState<"markdown" | "html" | "zip">("markdown");
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleExport = async () => {
     setError(null);
+
+    if (format === "zip") {
+      const path = await saveFileDialog("journal-export.zip");
+      if (!path) return;
+      setExporting(true);
+      setProgress({ done: 0, total: 0 });
+      try {
+        const result = await exportJournalAsZip(journalRootPath, path, (done, total) => {
+          setProgress({ done, total });
+        });
+        if (result.errors.length > 0) {
+          setError(`${result.exported} exported, ${result.errors.length} failed.`);
+        }
+        if (result.exported === 0 && result.errors.length === 0) {
+          setError("No entries found in this journal.");
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Export failed");
+      }
+      setExporting(false);
+      setProgress(null);
+      return;
+    }
+
     const dir = await openFileDialog({ directory: true, multiple: false, title: "Export journal to..." });
     const destDir = Array.isArray(dir) ? dir[0] : dir;
     if (!destDir) return;
@@ -56,7 +80,9 @@ export function ExportJournalDialog({ open, tConfig, journalRootPath, onClose }:
 
         <div className="p-5 space-y-4">
           <p className="text-xs" style={{ color: tConfig.fgHex + "70" }}>
-            All entries will be exported preserving the original folder structure (entries/YYYY/MM/).
+            {format === "zip"
+              ? "All entries plus images will be packed into a ZIP archive."
+              : "All entries will be exported preserving the original folder structure (entries/YYYY/MM/)."}
           </p>
 
           <div>
@@ -69,6 +95,10 @@ export function ExportJournalDialog({ open, tConfig, journalRootPath, onClose }:
               <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                 <input type="radio" name="fmt" checked={format === "html"} onChange={() => setFormat("html")} />
                 HTML
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="radio" name="fmt" checked={format === "zip"} onChange={() => setFormat("zip")} />
+                ZIP
               </label>
             </div>
           </div>

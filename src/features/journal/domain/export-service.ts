@@ -1,7 +1,8 @@
-import { readFile, writeFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
+import { readFile, writeFile, writeBinaryFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
 import type { EntryRecord } from "./entry-service";
 import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
+import JSZip from "jszip";
 
 export async function pickExportDirectory(): Promise<string | null> {
   const result = await openFileDialog({ directory: true, multiple: false, title: "Select export destination" });
@@ -127,4 +128,63 @@ export async function exportJournal(
   }
 
   return { exported, errors };
+}
+
+export async function exportJournalAsZip(
+  journalRoot: string,
+  destPath: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ExportRangeResult> {
+  const all = await listEntries(journalRoot);
+  const entries = all.entries;
+  entries.sort((a, b) => new Date(a.metadata.date).getTime() - new Date(b.metadata.date).getTime());
+
+  const errors: { path: string; error: string }[] = [];
+  const zip = new JSZip();
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    try {
+      const rel = entry.path.startsWith(journalRoot + "/entries/")
+        ? entry.path.slice((journalRoot + "/entries/").length)
+        : entryFileName(entry);
+      const content = await readFile(entry.path);
+      zip.file(`entries/${rel}`, content);
+
+      const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+      const imgRegex = /!\[.*?\]\((.+?)\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = imgRegex.exec(entry.body)) !== null) {
+        const imgRel = m[1];
+        if (/^(https?:\/|data:)/.test(imgRel)) continue;
+        try {
+          const imgContent = await readFile(`${entryDir}/${imgRel}`);
+          zip.file(`entries/${rel.replace(/[^/]+$/, "")}${imgRel}`, imgContent);
+        } catch {
+          // skip missing images
+        }
+      }
+
+      if (entry.metadata.cover) {
+        try {
+          const coverContent = await readFile(`${entryDir}/${entry.metadata.cover}`);
+          zip.file(`entries/${rel.replace(/[^/]+$/, "")}${entry.metadata.cover}`, coverContent);
+        } catch {
+          // skip missing cover
+        }
+      }
+    } catch (e) {
+      errors.push({ path: entry.path, error: e instanceof Error ? e.message : String(e) });
+    }
+    onProgress?.(i + 1, entries.length);
+  }
+
+  try {
+    const zipData = await zip.generateAsync({ type: "uint8array" });
+    await writeBinaryFile(destPath, zipData);
+  } catch (e) {
+    errors.push({ path: destPath, error: e instanceof Error ? e.message : String(e) });
+  }
+
+  return { exported: entries.length - errors.length, errors };
 }
