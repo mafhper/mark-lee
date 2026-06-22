@@ -84,6 +84,8 @@ import SelectionToolbar from "./app/components/SelectionToolbar";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
+import { AppModeSwitcher } from "./app/components/AppModeSwitcher";
+import { JournalWorkspace } from "./features/journal";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
@@ -2418,11 +2420,21 @@ function App() {
             <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
             <span className="text-[11px] font-semibold opacity-60">v{APP_VERSION}</span>
           </div>
+          <div
+            className="flex items-center gap-2"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          >
+            <AppModeSwitcher
+              mode={settings.appMode}
+              onModeChange={(mode) => updateSettings({ appMode: mode })}
+            />
+          </div>
           <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
       )}
       {!isZenMode && settings.floatingToolbarAnchor !== "bottom" && topChromeBlock}
 
+      {settings.appMode === "editor" ? (
       <div
         className={`flex-1 min-h-0 flex ${!isZenMode && settings.floatingToolbarAnchor === "left" ? "pl-[72px]" : ""
           } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
@@ -2586,6 +2598,9 @@ function App() {
           </div>
         </div>
       </div>
+      ) : (
+        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} />
+      )}
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
       {statusBar}
 

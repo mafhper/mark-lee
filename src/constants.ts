@@ -1,4 +1,5 @@
 import {
+  AppMode,
   AppSettings,
   PublicationPreset,
   Snippet,
@@ -728,6 +729,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showHints: true,
     maxResults: 18,
   },
+  appMode: "editor" as AppMode,
 };
 
 export const INITIAL_MARKDOWN = `# Mark-Lee
