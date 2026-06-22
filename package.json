@@ -26,6 +26,7 @@
     "test:preview-link": "node --experimental-strip-types --test src/app/markdown/resolvePreviewLink.test.ts",
     "test:commands": "node --experimental-strip-types --test src/app/commands/command.test.ts",
     "test:journal-entry": "node --experimental-strip-types --test src/features/journal/domain/journal-entry.test.ts",
+    "test:md-to-html": "node --experimental-strip-types --test src/features/journal/domain/md-to-html.test.ts",
     "test:context-menu:playwright": "node scripts/test-context-menu.mjs",
     "test:context-menu": "npm run test:context-menu:unit && npm run test:context-menu:playwright",
     "test:ui-layout": "node scripts/ui_layout_regression_with_server.js",
