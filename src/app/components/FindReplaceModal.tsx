@@ -13,6 +13,7 @@ interface FindReplaceModalProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   content: string;
+  initialQuery?: string;
   options: {
     caseSensitive: boolean;
     wholeWord: boolean;
@@ -52,6 +53,7 @@ const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
   t,
   tConfig,
   content,
+  initialQuery,
   options,
   onClose,
   onOptionsChange,
@@ -86,8 +88,10 @@ const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
     if (!open) {
       setQuery("");
       setReplacement("");
+    } else if (initialQuery) {
+      setQuery(initialQuery);
     }
-  }, [open]);
+  }, [open, initialQuery]);
 
   if (!open) return null;
 

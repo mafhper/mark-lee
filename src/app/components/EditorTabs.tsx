@@ -1,6 +1,10 @@
-import React, { useState } from "react";
+import React, { useCallback, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { DocumentTab, ThemeConfig } from "../../types";
+import {
+  useContextMenuTrigger,
+  type ContextMenuEntry,
+} from "./context-menu";
 
 interface EditorTabsProps {
   tabs: DocumentTab[];
@@ -16,6 +20,98 @@ interface EditorTabsProps {
   onNewTab: () => void;
 }
 
+const EditorTab: React.FC<{
+  tab: DocumentTab;
+  isActive: boolean;
+  t: Record<string, string>;
+  tConfig: ThemeConfig;
+  onActivate: (id: string) => void;
+  onClose: (id: string) => void;
+  onCloseOthers: (id: string) => void;
+  onCloseRight: (id: string) => void;
+  onCloseSaved: () => void;
+  onCloseAll: () => void;
+}> = ({ tab, isActive, t, tConfig, onActivate, onClose, onCloseOthers, onCloseRight, onCloseSaved, onCloseAll }) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  const resolveItems = useCallback(
+    (): ContextMenuEntry[] => [
+      {
+        type: "item",
+        id: "close",
+        label: t["tabs.close"] || "Close",
+        onSelect: () => onClose(tab.id),
+      },
+      {
+        type: "item",
+        id: "close-others",
+        label: t["tabs.closeOthers"] || "Close Others",
+        onSelect: () => onCloseOthers(tab.id),
+      },
+      {
+        type: "item",
+        id: "close-right",
+        label: t["tabs.closeRight"] || "Close to the Right",
+        onSelect: () => onCloseRight(tab.id),
+      },
+      {
+        type: "item",
+        id: "close-saved",
+        label: t["tabs.closeSaved"] || "Close Saved",
+        onSelect: () => onCloseSaved(),
+      },
+      {
+        type: "item",
+        id: "close-all",
+        label: t["tabs.closeAll"] || "Close All",
+        onSelect: () => onCloseAll(),
+      },
+    ],
+    [t, tab.id, onClose, onCloseOthers, onCloseRight, onCloseSaved, onCloseAll]
+  );
+
+  const { onContextMenu } = useContextMenuTrigger<HTMLDivElement>({
+    ref,
+    resolveItems,
+  });
+
+  return (
+    <div
+      ref={ref}
+      onClick={() => onActivate(tab.id)}
+      onContextMenu={onContextMenu}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onActivate(tab.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border ${isActive
+          ? "ml-btn-active"
+          : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
+        }`}
+    >
+      <span className="truncate max-w-[140px]">
+        {tab.name}
+        {tab.dirty ? "*" : ""}
+      </span>
+      <button
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose(tab.id);
+        }}
+        className="ml-btn inline-flex items-center justify-center h-5 w-5"
+        title={t["tabs.close"] || "Close"}
+        type="button"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+};
+
 const EditorTabs: React.FC<EditorTabsProps> = ({
   tabs,
   activeTabId,
@@ -29,9 +125,6 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
   onCloseAll,
   onNewTab,
 }) => {
-  const [contextTabId, setContextTabId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-
   return (
     <div
       data-tauri-drag-region
@@ -42,95 +135,19 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
       }}
     >
       {tabs.map((tab) => (
-        <div
+        <EditorTab
           key={tab.id}
-          onClick={() => onActivate(tab.id)}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setContextTabId(tab.id);
-            setMenuPosition({ x: event.clientX, y: event.clientY });
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onActivate(tab.id);
-            }
-          }}
-          role="button"
-          tabIndex={0}
-          className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border ${tab.id === activeTabId
-              ? "ml-btn-active"
-              : `${tConfig.uiBorder} hover:bg-black/5 dark:hover:bg-white/10`
-            }`}
-        >
-          <span className="truncate max-w-[140px]">
-            {tab.name}
-            {tab.dirty ? "*" : ""}
-          </span>
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              onClose(tab.id);
-            }}
-            className="ml-btn inline-flex items-center justify-center h-5 w-5"
-            title={t["tabs.close"] || "Close"}
-            type="button"
-          >
-            <X size={12} />
-          </button>
-          {contextTabId === tab.id && (
-            <div
-              className={`fixed z-[120] min-w-[180px] rounded-md border shadow-xl ${tConfig.ui} ${tConfig.uiBorder}`}
-              style={{ top: menuPosition.y, left: menuPosition.x }}
-            >
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => {
-                  onClose(tab.id);
-                  setContextTabId(null);
-                }}
-              >
-                {t["tabs.close"] || "Close"}
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => {
-                  onCloseOthers(tab.id);
-                  setContextTabId(null);
-                }}
-              >
-                {t["tabs.closeOthers"] || "Close Others"}
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => {
-                  onCloseRight(tab.id);
-                  setContextTabId(null);
-                }}
-              >
-                {t["tabs.closeRight"] || "Close to the Right"}
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => {
-                  onCloseSaved();
-                  setContextTabId(null);
-                }}
-              >
-                {t["tabs.closeSaved"] || "Close Saved"}
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                onClick={() => {
-                  onCloseAll();
-                  setContextTabId(null);
-                }}
-              >
-                {t["tabs.closeAll"] || "Close All"}
-              </button>
-            </div>
-          )}
-        </div>
+          tab={tab}
+          isActive={tab.id === activeTabId}
+          t={t}
+          tConfig={tConfig}
+          onActivate={onActivate}
+          onClose={onClose}
+          onCloseOthers={onCloseOthers}
+          onCloseRight={onCloseRight}
+          onCloseSaved={onCloseSaved}
+          onCloseAll={onCloseAll}
+        />
       ))}
       <button
         onClick={onNewTab}
@@ -140,13 +157,6 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
       >
         <Plus size={14} />
       </button>
-      {contextTabId && (
-        <button
-          className="fixed inset-0 z-[110] cursor-default"
-          onClick={() => setContextTabId(null)}
-          aria-label="close-tab-menu"
-        />
-      )}
     </div>
   );
 };

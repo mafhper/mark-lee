@@ -4,8 +4,22 @@ import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, undoDepth, redoDepth } from "@codemirror/commands";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
+import { readText, writeText } from "./services/clipboard";
+import {
+  applyBold as applyBoldCommand,
+  applyInlineCode as applyInlineCodeCommand,
+  applyItalic as applyItalicCommand,
+  applyLinePrefix as applyLinePrefixCommand,
+  applyLink as applyLinkCommand,
+  applyWrapSelection as applyWrapSelectionCommand,
+  insertSnippetContent as insertSnippetContentCommand,
+  selectAllEditorContent as selectAllEditorContentCommand,
+  transformMarkdown as transformMarkdownCommand,
+  undoEditor as undoEditorCommand,
+  redoEditor as redoEditorCommand,
+} from "./features/editor/editor-commands";
 import {
   addRecentFile,
   getRecentFiles,
@@ -51,6 +65,7 @@ import {
   PublicationPreset,
   Snippet,
   TauriOpenIntentPayload,
+  ThemeConfig,
   WorkspaceNode,
 } from "./types";
 import { TRANSLATIONS } from "./translations";
@@ -64,8 +79,12 @@ import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
 import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
+import { useEditorSelectionToolbar } from "./app/hooks/useEditorSelectionToolbar";
+import SelectionToolbar from "./app/components/SelectionToolbar";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
+import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
+import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import "./index.css";
 
@@ -237,6 +256,248 @@ function isEditableShortcutTarget(target: EventTarget | null) {
   return Boolean(target.closest("input, textarea, select, [contenteditable='true'], .cm-editor"));
 }
 
+function EditorContextMenuWrapper({
+  editorRef,
+  buildItems,
+  resolveKeyboardAnchor,
+  children,
+}: {
+  editorRef: React.MutableRefObject<EditorView | null>;
+  buildItems: (hasSelection: boolean) => ContextMenuEntry[];
+  resolveKeyboardAnchor: (element: HTMLElement) => ContextMenuAnchor;
+  children: React.ReactNode;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const { onContextMenu } = useContextMenuTrigger<HTMLDivElement>({
+    ref: wrapperRef,
+    resolveItems: () => {
+      const view = editorRef.current;
+      if (!view) return [];
+      return buildItems(!view.state.selection.main.empty);
+    },
+    resolveKeyboardAnchor,
+  });
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const view = editorRef.current;
+    if (!view) return;
+    const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (position == null) return;
+
+    const selection = view.state.selection.main;
+    const clickedInsideSelection =
+      !selection.empty &&
+      position >= selection.from &&
+      position <= selection.to;
+
+    if (!clickedInsideSelection) {
+      view.dispatch({ selection: EditorSelection.cursor(position) });
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event);
+  };
+
+  return <div ref={wrapperRef} onContextMenu={handleContextMenu} className="contents">{children}</div>;
+}
+
+function PreviewContextMenuWrapper({
+  previewRef,
+  t,
+  activePath,
+  onScrollToTop,
+  onOpenFile,
+  onReveal,
+  onFindWithQuery,
+  onClipboardError,
+  children,
+}: {
+  previewRef: React.RefObject<HTMLDivElement | null>;
+  t: Record<string, string>;
+  activePath: string | null;
+  onScrollToTop: () => void;
+  onOpenFile: (path: string) => void;
+  onReveal: (path: string) => void;
+  onFindWithQuery: (query: string) => void;
+  onClipboardError: (reason: "unavailable" | "denied" | "failed") => void;
+  children: React.ReactNode;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const resolveItems = useCallback((): ContextMenuEntry[] => {
+    const preview = previewRef.current;
+    if (!preview) return [];
+
+    const eventTarget = (document.activeElement ?? preview) as HTMLElement;
+
+    const items: ContextMenuEntry[] = [];
+
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const insidePreview = range && preview.contains(range.commonAncestorContainer);
+    const selectedText = insidePreview ? selection?.toString() ?? "" : "";
+
+    const imageEl = eventTarget.closest<HTMLElement>('[data-ml-media="image"]');
+    const anchorEl = eventTarget.closest<HTMLAnchorElement>("a[data-ml-original-href]");
+
+    if (imageEl) {
+      const originalSrc = imageEl.getAttribute("data-ml-original-src") || "";
+      const resolvedPath = imageEl.getAttribute("data-ml-resolved-path") || undefined;
+      const alt = imageEl.getAttribute("data-ml-alt") || "";
+
+      items.push(
+        { type: "item", id: "copy-md-path", label: t["ctx.copyMarkdownPath"] || "Copy Markdown path", onSelect: async () => {
+          const result = await writeText(originalSrc);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-abs-path", label: t["ctx.copyAbsolutePath"] || "Copy absolute path", disabled: !resolvedPath, onSelect: async () => {
+          if (!resolvedPath) return;
+          const result = await writeText(resolvedPath);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-as-md", label: t["ctx.copyAsMarkdown"] || "Copy as Markdown", onSelect: async () => {
+          const md = `![${alt}](${originalSrc})`;
+          const result = await writeText(md);
+          if (!result.ok) onClipboardError(result.reason);
+        }}
+      );
+
+      if (resolvedPath && isTauriRuntime()) {
+        items.push(
+          { type: "item", id: "open-in-explorer", label: t["ctx.openInExplorer"] || "Open in explorer", onSelect: () => onReveal(resolvedPath) }
+        );
+      }
+
+      return items;
+    }
+
+    if (anchorEl) {
+      const originalHref = anchorEl.getAttribute("data-ml-original-href") || "";
+      const resolvedHref = anchorEl.href;
+      const text = anchorEl.textContent?.trim() || "";
+      const link = resolvePreviewLink(originalHref, resolvedHref);
+
+      items.push(
+        { type: "item", id: "open-link", label: t["ctx.openLink"] || "Open link", disabled: link.kind === "unsupported", onSelect: () => {
+          if (link.kind === "external") {
+            if (isTauriRuntime()) {
+              import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(link.resolvedHref)).catch(() => undefined);
+            } else {
+              window.open(link.resolvedHref, "_blank", "noopener noreferrer");
+            }
+          } else if (link.kind === "email") {
+            if (isTauriRuntime()) {
+              import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(link.originalHref)).catch(() => undefined);
+            } else {
+              window.location.href = link.originalHref;
+            }
+          } else if (link.kind === "anchor") {
+            const hash = link.originalHref.slice(1);
+            try {
+              const el = preview.querySelector(`#${CSS.escape(hash)}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            } catch {
+              // ignore
+            }
+          } else if (link.kind === "local-file") {
+            onOpenFile(link.originalHref);
+          }
+        }},
+        { type: "item", id: "copy-address", label: t["ctx.copyAddress"] || "Copy address", onSelect: async () => {
+          const result = await writeText(link.resolvedHref);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-original-link", label: t["ctx.copyOriginalLink"] || "Copy original link", onSelect: async () => {
+          const result = await writeText(link.originalHref);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-as-md-link", label: t["ctx.copyAsMarkdown"] || "Copy as Markdown", onSelect: async () => {
+          const md = `[${text}](${originalHref})`;
+          const result = await writeText(md);
+          if (!result.ok) onClipboardError(result.reason);
+        }}
+      );
+
+      return items;
+    }
+
+    if (selectedText) {
+      items.push(
+        { type: "item", id: "copy-text", label: t["edit.copy"] || "Copy", onSelect: async () => {
+          const result = await writeText(selectedText);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "find-in-editor", label: t["ctx.searchWithSelection"] || "Find selection", onSelect: () => onFindWithQuery(selectedText) }
+      );
+      return items;
+    }
+
+    items.push(
+      { type: "item", id: "select-all", label: t["ctx.selectAll"] || "Select all", onSelect: () => {
+        const range = document.createRange();
+        range.selectNodeContents(preview);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }},
+      { type: "item", id: "back-to-top", label: t["ctx.backToTop"] || "Back to top", onSelect: () => onScrollToTop() }
+    );
+
+    if (activePath) {
+      items.push(
+        { type: "item", id: "open-in-editor", label: t["ctx.openInEditor"] || "Open in Editor", onSelect: () => onOpenFile(activePath) }
+      );
+    }
+
+    return items;
+  }, [previewRef, t, activePath, onScrollToTop, onOpenFile, onReveal, onFindWithQuery, onClipboardError]);
+
+  const { onContextMenu } = useContextMenuTrigger<HTMLDivElement>({
+    ref: wrapperRef,
+    resolveItems,
+  });
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event);
+  };
+
+  return <div ref={wrapperRef} onContextMenu={handleContextMenu} className="contents">{children}</div>;
+}
+
+function SelectionToolbarContainer({
+  editorView,
+  editorRef,
+  enabled,
+  isCodeDocument,
+  t,
+  tConfig,
+}: {
+  editorView: EditorView | null;
+  editorRef: React.MutableRefObject<EditorView | null>;
+  enabled: boolean;
+  isCodeDocument: boolean;
+  t: Record<string, string>;
+  tConfig: ThemeConfig;
+}) {
+  const { position, visible } = useEditorSelectionToolbar(editorView, enabled);
+  return (
+    <SelectionToolbar
+      visible={visible}
+      position={position}
+      editorRef={editorRef}
+      isCodeDocument={isCodeDocument}
+      t={t}
+      tConfig={tConfig}
+    />
+  );
+}
+
 function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [tabs, setTabs] = useState<DocumentTab[]>(() => {
@@ -254,6 +515,7 @@ function App() {
   const [publicationPresets, setPublicationPresets] = useState<PublicationPreset[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findInitialQuery, setFindInitialQuery] = useState<string | undefined>(undefined);
   const [showExport, setShowExport] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -545,11 +807,26 @@ function App() {
       return;
     }
     setShowSettings(false);
+    if (dialog === "find") setFindInitialQuery(undefined);
     setShowFindReplace(dialog === "find");
     setShowExport(dialog === "export");
     setShowSnippets(dialog === "snippets");
     setShowCommandPalette(dialog === "palette");
   }, [openSettingsPanel]);
+
+  const openFindWithQuery = useCallback((initialQuery: string) => {
+    setFindInitialQuery(initialQuery);
+    setShowSettings(false);
+    setShowFindReplace(true);
+    setShowExport(false);
+    setShowSnippets(false);
+    setShowCommandPalette(false);
+  }, []);
+
+  const showClipboardError = useCallback((reason: "unavailable" | "denied" | "failed") => {
+    const key = reason === "unavailable" ? "ctx.clipboardUnavailable" : reason === "denied" ? "ctx.clipboardDenied" : "ctx.clipboardFailed";
+    setSaveError(t[key] || reason);
+  }, [t]);
 
   const updateSettings = (patch: Partial<AppSettings>) => {
     setSettings((previous) => {
@@ -674,11 +951,7 @@ function App() {
 
     const view = editorRef.current;
     if (view) {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: nextContent },
-        selection: EditorSelection.cursor(0),
-      });
-      view.focus();
+      transformMarkdownCommand(view, nextContent);
       return;
     }
 
@@ -693,26 +966,13 @@ function App() {
   const insertSnippet = useCallback((snippet: Snippet) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    view.dispatch({
-      changes: {
-        from: selection.from,
-        to: selection.to,
-        insert: snippet.content,
-      },
-    });
-    view.focus();
+    insertSnippetContentCommand(view, snippet.content);
   }, []);
 
   const selectAllEditorContent = useCallback(() => {
     const view = editorRef.current;
     if (!view) return false;
-    view.dispatch({
-      selection: EditorSelection.range(0, view.state.doc.length),
-      effects: EditorView.scrollIntoView(0, { y: "start" }),
-    });
-    view.focus();
-    return true;
+    return selectAllEditorContentCommand(view);
   }, []);
 
   const resolveTabOrigin = useCallback((path: string): DocumentTab["origin"] => {
@@ -860,6 +1120,139 @@ function App() {
     }
   };
 
+  const buildEditorContextMenuItems = useCallback(
+    (hasSelection: boolean): ContextMenuEntry[] => {
+      const view = editorRef.current;
+      if (!view) return [];
+      const canUndo = undoDepth(view.state) > 0;
+      const canRedo = redoDepth(view.state) > 0;
+
+      const items: ContextMenuEntry[] = [];
+
+      if (hasSelection) {
+        items.push(
+          { type: "item", id: "cut", label: t["edit.cut"] || "Cut", shortcut: "Ctrl+X", onSelect: async () => {
+            const view = editorRef.current;
+            if (!view) return;
+            const sel = view.state.selection.main;
+            const text = view.state.doc.sliceString(sel.from, sel.to);
+            const result = await writeText(text);
+            if (!result.ok) { showClipboardError(result.reason); return; }
+            view.dispatch({ changes: { from: sel.from, to: sel.to, insert: "" }, selection: EditorSelection.cursor(sel.from) });
+            view.focus();
+          }},
+          { type: "item", id: "copy", label: t["edit.copy"] || "Copy", shortcut: "Ctrl+C", onSelect: async () => {
+            const view = editorRef.current;
+            if (!view) return;
+            const sel = view.state.selection.main;
+            const text = view.state.doc.sliceString(sel.from, sel.to);
+            const result = await writeText(text);
+            if (!result.ok) { showClipboardError(result.reason); return; }
+            view.focus();
+          }}
+        );
+      }
+
+      items.push(
+        { type: "item", id: "paste", label: t["edit.paste"] || "Paste", shortcut: "Ctrl+V", onSelect: async () => {
+          const view = editorRef.current;
+          if (!view) return;
+          const result = await readText();
+          if (!result.ok) { showClipboardError(result.reason); return; }
+          const sel = view.state.selection.main;
+          view.dispatch({ changes: { from: sel.from, to: sel.to, insert: result.value }, selection: EditorSelection.cursor(sel.from + result.value.length) });
+          view.focus();
+        }}
+      );
+
+      items.push({ type: "separator", id: "sep-undo" });
+
+      items.push(
+        { type: "item", id: "undo", label: t["edit.undo"] || "Undo", shortcut: "Ctrl+Z", disabled: !canUndo, onSelect: () => {
+          const view = editorRef.current;
+          if (view) undoEditorCommand(view);
+        }},
+        { type: "item", id: "redo", label: t["edit.redo"] || "Redo", shortcut: "Ctrl+Y", disabled: !canRedo, onSelect: () => {
+          const view = editorRef.current;
+          if (view) redoEditorCommand(view);
+        }}
+      );
+
+      if (!isCodeDocument) {
+        items.push(
+          { type: "separator", id: "sep-fmt" },
+          { type: "item", id: "bold", label: t["tool.bold"] || "Bold", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyBoldCommand(view);
+          }},
+          { type: "item", id: "italic", label: t["tool.italic"] || "Italic", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyItalicCommand(view);
+          }},
+          { type: "item", id: "code", label: t["tool.code"] || "Code", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyInlineCodeCommand(view);
+          }},
+          { type: "item", id: "link", label: t["tool.link"] || "Link", onSelect: () => {
+            const view = editorRef.current;
+            if (view) applyLinkCommand(view);
+          }}
+        );
+      }
+
+      items.push(
+        { type: "separator", id: "sep-actions" },
+        { type: "item", id: "find", label: t["edit.find"] || "Find", shortcut: "Ctrl+F", onSelect: () => {
+          const view = editorRef.current;
+          const sel = view?.state.selection.main;
+          const text = sel && !sel.empty ? view!.state.doc.sliceString(sel.from, sel.to) : undefined;
+          if (text) openFindWithQuery(text);
+          else openDialog("find");
+        }},
+        { type: "item", id: "snippets", label: t["ctx.manageSnippets"] || "Manage snippets…", onSelect: () => openDialog("snippets") }
+      );
+
+      if (!isCodeDocument) {
+        items.push(
+          { type: "separator", id: "sep-transform" },
+          { type: "item", id: "format", label: t["tool.formatMarkdown"] || "Format Markdown", onSelect: () => transformActiveMarkdown("format") },
+          { type: "item", id: "minify", label: t["tool.minifyMarkdown"] || "Minify Markdown", onSelect: () => transformActiveMarkdown("minify") }
+        );
+      }
+
+      items.push(
+        { type: "separator", id: "sep-final" },
+        { type: "item", id: "select-all", label: t["ctx.selectAll"] || "Select all", onSelect: () => {
+          const view = editorRef.current;
+          if (view) selectAllEditorContentCommand(view);
+        }}
+      );
+
+      if (activeTab) {
+        items.push(
+          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => saveTab(activeTab, false) }
+        );
+      }
+
+      return items;
+    },
+    [activeTab, isCodeDocument, openDialog, openFindWithQuery, saveTab, showClipboardError, t, transformActiveMarkdown]
+  );
+
+  const resolveEditorKeyboardAnchor = useCallback((element: HTMLElement): ContextMenuAnchor => {
+    const view = editorRef.current;
+    if (!view) return { type: "element", element };
+    const sel = view.state.selection.main;
+    const head = sel.head;
+    try {
+      const coords = view.coordsAtPos(head);
+      if (!coords) return { type: "element", element };
+      return { type: "point", x: coords.left, y: coords.bottom };
+    } catch {
+      return { type: "element", element };
+    }
+  }, []);
+
   const handleNewFile = async () => {
     if (!settings.singleInstance) {
       if (isTauriRuntime()) {
@@ -987,26 +1380,13 @@ function App() {
   const applyWrapSelection = (before: string, after = before) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    const selected = view.state.doc.sliceString(selection.from, selection.to);
-    const next = `${before}${selected}${after}`;
-    view.dispatch({
-      changes: { from: selection.from, to: selection.to, insert: next },
-      selection: EditorSelection.cursor(selection.from + before.length + selected.length),
-    });
-    view.focus();
+    applyWrapSelectionCommand(view, before, after);
   };
 
   const applyLinePrefix = (prefix: string) => {
     const view = editorRef.current;
     if (!view) return;
-    const selection = view.state.selection.main;
-    const line = view.state.doc.lineAt(selection.from);
-    view.dispatch({
-      changes: { from: line.from, to: line.from, insert: prefix },
-      selection: EditorSelection.cursor(selection.from + prefix.length),
-    });
-    view.focus();
+    applyLinePrefixCommand(view, prefix);
   };
 
   const handleFormatAction = async (
@@ -1576,15 +1956,6 @@ function App() {
     loadStartupData();
   }, []);
 
-  // Suppress default browser/Tauri context menu
-  useEffect(() => {
-    const suppress = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("contextmenu", suppress);
-    return () => window.removeEventListener("contextmenu", suppress);
-  }, []);
-
   // Listen for window focus to refresh files modified externally
   useEffect(() => {
     const handleFocus = () => syncOpenTabsFromDisk();
@@ -2018,6 +2389,7 @@ function App() {
     ) : null;
 
   return (
+    <ContextMenuProvider themeConfig={tConfig}>
     <div
       data-theme={themeDataTheme}
       className={`h-screen w-screen overflow-hidden rounded-[8px] flex flex-col transition-colors duration-300 ${tConfig.bg} ${tConfig.fg}`}
@@ -2121,31 +2493,47 @@ function App() {
           )}
 
           <div className="flex-1 min-h-0 h-full flex flex-row">
-            <div
-              className={`${effectiveViewMode === "preview" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
-              style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
+            <EditorContextMenuWrapper
+              editorRef={editorRef}
+              buildItems={buildEditorContextMenuItems}
+              resolveKeyboardAnchor={resolveEditorKeyboardAnchor}
             >
-              <CodeMirror
-                value={activeContent}
-                height="100%"
-                className="h-full ml-editor-shell"
-                extensions={editorExtensions}
-                onChange={(value) => {
-                  updateActiveTabContent(value);
-                }}
-                basicSetup={{
-                  foldGutter: true,
-                  highlightActiveLine: true,
-                }}
-                theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
-                onCreateEditor={(view) => {
-                  editorRef.current = view;
-                  setEditorView(view);
-                }}
-              />
-            </div>
+              <div
+                className={`${effectiveViewMode === "preview" ? "hidden" : "block"
+                  } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
+                style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
+              >
+                <CodeMirror
+                  value={activeContent}
+                  height="100%"
+                  className="h-full ml-editor-shell"
+                  extensions={editorExtensions}
+                  onChange={(value) => {
+                    updateActiveTabContent(value);
+                  }}
+                  basicSetup={{
+                    foldGutter: true,
+                    highlightActiveLine: true,
+                  }}
+                  theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
+                  onCreateEditor={(view) => {
+                    editorRef.current = view;
+                    setEditorView(view);
+                  }}
+                />
+              </div>
+            </EditorContextMenuWrapper>
 
+            <PreviewContextMenuWrapper
+              previewRef={previewRef}
+              t={t}
+              activePath={activeTab?.path ?? null}
+              onScrollToTop={scrollPreviewToTop}
+              onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "preview" })}
+              onReveal={revealInFileManager}
+              onFindWithQuery={openFindWithQuery}
+              onClipboardError={showClipboardError}
+            >
             <div
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
@@ -2202,6 +2590,7 @@ function App() {
                 </button>
               ) : null}
             </div>
+            </PreviewContextMenuWrapper>
           </div>
         </div>
       </div>
@@ -2219,11 +2608,21 @@ function App() {
         </button>
       )}
 
+      <SelectionToolbarContainer
+        editorView={editorView}
+        editorRef={editorRef}
+        enabled={settings.selectionToolbarEnabled}
+        isCodeDocument={isCodeDocument}
+        t={t}
+        tConfig={tConfig}
+      />
+
       <FindReplaceModal
         open={showFindReplace}
         t={t}
         tConfig={tConfig}
         content={activeContent}
+        initialQuery={findInitialQuery}
         options={settings.findReplace}
         onClose={closeAllDialogs}
         onOptionsChange={(options) => updateSettings({ findReplace: options })}
@@ -2277,6 +2676,7 @@ function App() {
         onPublicationPresetsChange={setPublicationPresets}
       />
     </div>
+    </ContextMenuProvider>
   );
 }
 

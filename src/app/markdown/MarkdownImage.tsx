@@ -190,6 +190,9 @@ export default function MarkdownImage({
         title={title}
         width={attrWidth}
         height={attrHeight}
+        data-ml-original-src={originalSrc || undefined}
+        data-ml-resolved-path={!isRemoteImage(originalSrc) && isTauriRuntime() ? cacheKey : undefined}
+        data-ml-alt={alt || undefined}
       />
     ) : state.status === "loading" ? (
       <div className="ml-preview-image-placeholder ml-preview-image-placeholder--loading" aria-hidden="true">
@@ -204,7 +207,14 @@ export default function MarkdownImage({
     );
 
   return (
-    <figure className="ml-preview-figure" style={figureStyle}>
+    <figure
+      className="ml-preview-figure"
+      data-ml-media="image"
+      data-ml-original-src={originalSrc || undefined}
+      data-ml-resolved-path={!isRemoteImage(originalSrc) && isTauriRuntime() ? cacheKey : undefined}
+      data-ml-alt={alt || undefined}
+      style={figureStyle}
+    >
       {content}
       {caption ? <figcaption className="ml-preview-figcaption">{caption}</figcaption> : null}
     </figure>

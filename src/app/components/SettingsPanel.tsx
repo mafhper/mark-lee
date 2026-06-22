@@ -818,6 +818,7 @@ export default function SettingsPanel({
               [tr("Modo foco", "Focus mode", "Modo foco"), settings.focusMode, (focusMode: boolean) => onSettingsChange({ focusMode })],
               [tr("Corretor ortográfico", "Spell check", "Corrector ortográfico"), settings.spellCheck, (spellCheck: boolean) => onSettingsChange({ spellCheck })],
               [tr("Salvamento automático", "Auto save", "Guardado automático"), settings.autoSave, (autoSave: boolean) => onSettingsChange({ autoSave })],
+              [tr("Toolbar de seleção", "Selection toolbar", "Barra de selección"), settings.selectionToolbarEnabled, (selectionToolbarEnabled: boolean) => onSettingsChange({ selectionToolbarEnabled })],
             ].map(([label, checked, onToggle]) => (
               <div key={String(label)} className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
                 <span className="text-sm">{label as string}</span>
