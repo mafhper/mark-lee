@@ -1,3 +1,12 @@
+export interface TrackerDefinition {
+  id: string;
+  name: string;
+  type: "number" | "string" | "boolean";
+  unit?: string;
+  icon?: string;
+  color?: string;
+}
+
 export interface JournalManifest {
   schema: "marklee-journal";
   schemaVersion: number;
@@ -8,6 +17,7 @@ export interface JournalManifest {
   entryDirectory: string;
   assetDirectory: string;
   defaultLanguage: string;
+  trackerDefinitions?: TrackerDefinition[];
 }
 
 export interface JournalDescriptor {

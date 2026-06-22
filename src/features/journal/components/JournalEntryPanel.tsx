@@ -20,6 +20,7 @@ import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
+import { TrackerManagerDialog } from "./TrackerManagerDialog";
 import { JournalEmptyState } from "./JournalEmptyState";
 
 interface JournalEntryPanelProps {
@@ -49,6 +50,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [showInspector, setShowInspector] = useState(false);
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [showTrackerManager, setShowTrackerManager] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -268,6 +270,13 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 title={coverUrl ? "Change cover" : "Set cover image"}>
                 {coverUrl ? "Cover" : "Cover"}
               </button>
+              {journal && (
+                <button type="button" onClick={() => setShowTrackerManager(true)}
+                  className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
+                  style={{ color: tConfig.fgHex + "60" }} title="Manage trackers">
+                  Trackers
+                </button>
+              )}
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                   style={{ color: tConfig.fgHex + "60" }} title={t["journal.editor"] || "Open in Editor"}
@@ -409,6 +418,10 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
         <span className="ml-auto opacity-50">{saving ? "Saving..." : dirty ? "Unsaved changes" : "Saved"}</span>
       </div>
 
+      {showTrackerManager && journal && (
+        <TrackerManagerDialog open={showTrackerManager} tConfig={tConfig}
+          journalRootPath={journal.rootPath} onClose={() => setShowTrackerManager(false)} />
+      )}
       {confirmDelete && entry && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-[360px] max-w-[90vw] rounded-lg shadow-2xl border p-5" style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}>

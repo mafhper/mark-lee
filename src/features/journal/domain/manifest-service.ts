@@ -68,6 +68,12 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
       return { found: true, valid: false, error: "Missing journal name." };
     }
 
+    const trackerDefinitions = Array.isArray(parsed.trackerDefinitions)
+      ? parsed.trackerDefinitions.filter(
+          (d: unknown) => d && typeof d === "object" && typeof (d as Record<string, unknown>).id === "string"
+        )
+      : undefined;
+
     const manifest: JournalManifest = {
       schema: SCHEMA,
       schemaVersion: parsed.schemaVersion,
@@ -78,6 +84,7 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
       entryDirectory: parsed.entryDirectory || "entries",
       assetDirectory: parsed.assetDirectory || "assets",
       defaultLanguage: parsed.defaultLanguage || "en-US",
+      trackerDefinitions,
     };
 
     return { found: true, valid: true, manifest };
