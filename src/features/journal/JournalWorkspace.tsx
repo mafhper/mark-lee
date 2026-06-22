@@ -6,6 +6,7 @@ import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
 import { CreateJournalDialog } from "./components/CreateJournalDialog";
 import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog";
+import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
 import { openFileDialog } from "../../services/filesystem";
@@ -23,7 +24,8 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const { journals, activeJournal, selectJournal, addJournal: addToLib, reload } = useJournalLibrary();
+  const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
+  const { journals, activeJournal, selectJournal, addJournal: addToLib, removeJournal: removeFromLib, reload } = useJournalLibrary();
 
   const handleRelocate = async (journalId: string) => {
     const selected = await openFileDialog({ directory: true, multiple: false });
@@ -46,6 +48,12 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
 
     await addJournal(descriptor);
     reload();
+  };
+
+  const handleRemoveConfirm = async () => {
+    if (!removeTarget) return;
+    await removeFromLib(removeTarget.id);
+    setRemoveTarget(null);
   };
 
   return (
@@ -72,6 +80,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
           onCreateJournal={() => setShowCreateDialog(true)}
           onAddJournal={() => setShowAddDialog(true)}
           onRelocateJournal={handleRelocate}
+          onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
           loading={false}
         />
       </div>
@@ -114,6 +123,15 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
         tConfig={tConfig}
         onClose={() => setShowAddDialog(false)}
         onAdded={addToLib}
+      />
+
+      <RemoveJournalDialog
+        open={removeTarget !== null}
+        journalName={removeTarget?.name ?? ""}
+        journalPath={removeTarget?.rootPath ?? ""}
+        tConfig={tConfig}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={handleRemoveConfirm}
       />
     </div>
   );

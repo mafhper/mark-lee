@@ -1,6 +1,7 @@
 import { BookOpen, Calendar, Heart, Settings, Search, Plus, FolderOpen, AlertTriangle } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
+import { useContextMenu } from "../../../app/components/context-menu";
 
 interface JournalNavigationProps {
   t: Record<string, string>;
@@ -13,18 +14,36 @@ interface JournalNavigationProps {
   onCreateJournal: () => void;
   onAddJournal: () => void;
   onRelocateJournal: (journalId: string) => void;
+  onRemoveJournal: (journalId: string) => void;
   loading: boolean;
 }
 
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange,
-  journals, activeJournalId, onSelectJournal, onCreateJournal, onAddJournal, onRelocateJournal, loading,
+  journals, activeJournalId, onSelectJournal, onCreateJournal, onAddJournal,
+  onRelocateJournal, onRemoveJournal, loading,
 }: JournalNavigationProps) {
+  const { openContextMenu } = useContextMenu();
   const topItems = [
     { id: "entries", label: t["journal.entries"] || "Entries", icon: <BookOpen size={15} /> },
     { id: "today", label: t["journal.today"] || "On this day", icon: <Calendar size={15} /> },
     { id: "favorites", label: t["journal.favorites"] || "Favorites", icon: <Heart size={15} /> },
   ];
+
+  const handleJournalContextMenu = (event: React.MouseEvent, journal: JournalDescriptor) => {
+    event.preventDefault();
+    openContextMenu({
+      anchor: { type: "point", x: event.clientX, y: event.clientY },
+      items: [
+        {
+          type: "item",
+          id: "remove-journal",
+          label: "Remove from library",
+          onSelect: () => onRemoveJournal(journal.id),
+        },
+      ],
+    });
+  };
 
   return (
     <div
@@ -95,6 +114,7 @@ export function JournalNavigation({
                 onSelectJournal(journal.id);
               }
             }}
+            onContextMenu={(e) => handleJournalContextMenu(e, journal)}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left group"
             style={{
               color: journal.unavailable
