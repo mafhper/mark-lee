@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -18,8 +18,9 @@ const MOODS: { key: string; emoji: string }[] = [
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
-import { saveEntry } from "../domain/entry-service";
+import { saveEntry, readEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
+import { exportEntryAsMarkdown } from "../domain/export-service";
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
 import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
@@ -228,6 +229,21 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     onEntryUpdated({ path: entry.path, metadata: updated, body, wordCount: wc });
   };
 
+  const handleExportEntry = async () => {
+    if (!entry) return;
+    try {
+      const dir = await openFileDialog({ directory: true, multiple: false, title: "Export entry to..." });
+      const destDir = Array.isArray(dir) ? dir[0] : dir;
+      if (!destDir) return;
+      await exportEntryAsMarkdown(entry, destDir);
+      // Reload entry to get latest body
+      const reloaded = await readEntry(entry.path);
+      if (reloaded) onEntryUpdated(reloaded);
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
+  };
+
   useEffect(() => {
     if (!entry) { setImageDataUrls([]); return; }
     const refs: string[] = [];
@@ -322,6 +338,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                     className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
                     style={{ color: tConfig.fgHex + "60" }} title="Tracker statistics">
                     Stats
+                  </button>
+                  <button type="button" onClick={handleExportEntry}
+                    className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                    style={{ color: tConfig.fgHex + "60" }} title="Export entry as Markdown">
+                    <Download size={14} />
                   </button>
                 </>
               )}
