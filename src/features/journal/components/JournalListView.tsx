@@ -84,6 +84,14 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   const hasActiveFilters = filterTag !== "" || filterFavorites;
 
+  const today = new Date();
+  const onThisDayEntries = useMemo(() => {
+    return entries.filter((e) => {
+      const d = new Date(e.metadata.date);
+      return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() !== today.getFullYear();
+    });
+  }, [entries]);
+
   if (!journal) {
     return (
       <JournalEmptyState
@@ -125,6 +133,44 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   const months = groupByMonth(filtered);
 
+  const entryButton = (entry: EntryRecord) => (
+    <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
+      className="w-full flex flex-col items-start gap-0.5 px-3 py-2.5 text-left transition-colors border-b"
+      style={{
+        borderColor: tConfig.uiBorderHex,
+        backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
+        borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
+      }}>
+      <div className="flex items-center gap-1.5 w-full min-w-0">
+        <span className="text-[11px] font-medium shrink-0" style={{ color: tConfig.fgHex + "50" }}>
+          {new Date(entry.metadata.date).getDate()}
+        </span>
+        {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
+          <span className="text-sm shrink-0">{MOOD_EMOJI[entry.metadata.mood]}</span>
+        )}
+        <span className="text-sm font-medium truncate"
+          style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}>
+          {entry.metadata.title || "Untitled"}
+        </span>
+        {entry.metadata.favorite && (
+          <Heart size={11} className="shrink-0" style={{ color: tConfig.accentHex }} />
+        )}
+      </div>
+      {entry.metadata.summary && (
+        <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "60" }}>{entry.metadata.summary}</p>
+      )}
+      {!entry.metadata.summary && entry.body.trim() && (
+        <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "50" }}>{getExcerpt(entry.body, 80)}</p>
+      )}
+      <div className="flex items-center gap-2 mt-0.5 text-[10px]" style={{ color: tConfig.fgHex + "40" }}>
+        {entry.metadata.location && (
+          <span className="flex items-center gap-0.5"><MapPin size={10} />{entry.metadata.location.label}</span>
+        )}
+        {entry.wordCount > 0 && <span>{entry.wordCount} words</span>}
+      </div>
+    </button>
+  );
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {allTags.length > 0 && (
@@ -157,6 +203,23 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
           )}
         </div>
       )}
+
+      {onThisDayEntries.length > 0 && !searchQuery && !hasActiveFilters && (
+        <div>
+          <div
+            className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10 border-b flex items-center gap-1.5"
+            style={{
+              backgroundColor: tConfig.uiHex,
+              color: tConfig.accentHex,
+              borderColor: tConfig.uiBorderHex,
+            }}
+          >
+            <span>{"📅"}</span> On this day
+          </div>
+          {onThisDayEntries.map((entry) => entryButton(entry))}
+        </div>
+      )}
+
       {Array.from(months.entries()).map(([key, monthEntries]) => (
         <div key={key}>
           <div
@@ -169,58 +232,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
           >
             {monthLabel(key, "en")}
           </div>
-          {monthEntries.map((entry) => (
-            <button
-              key={entry.metadata.id}
-              type="button"
-              onClick={() => onSelectEntry(entry)}
-              className="w-full flex flex-col items-start gap-0.5 px-3 py-2.5 text-left transition-colors border-b"
-              style={{
-                borderColor: tConfig.uiBorderHex,
-                backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
-                borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
-              }}
-            >
-              <div className="flex items-center gap-1.5 w-full min-w-0">
-                <span className="text-[11px] font-medium shrink-0" style={{ color: tConfig.fgHex + "50" }}>
-                  {new Date(entry.metadata.date).getDate()}
-                </span>
-                {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
-                  <span className="text-sm shrink-0">{MOOD_EMOJI[entry.metadata.mood]}</span>
-                )}
-                <span
-                  className="text-sm font-medium truncate"
-                  style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}
-                >
-                  {entry.metadata.title || "Untitled"}
-                </span>
-                {entry.metadata.favorite && (
-                  <Heart size={11} className="shrink-0" style={{ color: tConfig.accentHex }} />
-                )}
-              </div>
-              {entry.metadata.summary && (
-                <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "60" }}>
-                  {entry.metadata.summary}
-                </p>
-              )}
-              {!entry.metadata.summary && entry.body.trim() && (
-                <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "50" }}>
-                  {getExcerpt(entry.body, 80)}
-                </p>
-              )}
-              <div className="flex items-center gap-2 mt-0.5 text-[10px]" style={{ color: tConfig.fgHex + "40" }}>
-                {entry.metadata.location && (
-                  <span className="flex items-center gap-0.5">
-                    <MapPin size={10} />
-                    {entry.metadata.location.label}
-                  </span>
-                )}
-                {entry.wordCount > 0 && (
-                  <span>{entry.wordCount} words</span>
-                )}
-              </div>
-            </button>
-          ))}
+          {monthEntries.map((entry) => entryButton(entry))}
         </div>
       ))}
     </div>
