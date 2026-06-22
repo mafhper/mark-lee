@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { FileText, Heart, MapPin } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { FileText, Heart, MapPin, Search } from "lucide-react";
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "\u{1F60A}",
@@ -18,7 +18,7 @@ const MOOD_EMOJI: Record<string, string> = {
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries, getExcerpt } from "../domain/entry-service";
+import { listEntries, getExcerpt, searchEntries } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
 
 interface JournalListViewProps {
@@ -27,6 +27,7 @@ interface JournalListViewProps {
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
+  searchQuery?: string;
 }
 
 function groupByMonth(entries: EntryRecord[]): Map<string, EntryRecord[]> {
@@ -46,7 +47,7 @@ function monthLabel(key: string, locale: string): string {
   return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
 }
 
-export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelectEntry }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelectEntry, searchQuery }: JournalListViewProps) {
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -61,6 +62,8 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
   }, [journal?.rootPath]);
+
+  const filtered = useMemo(() => searchEntries(entries, searchQuery ?? ""), [entries, searchQuery]);
 
   if (!journal) {
     return (
@@ -92,7 +95,16 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     );
   }
 
-  const months = groupByMonth(entries);
+  if (searchQuery && filtered.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 px-6" style={{ color: tConfig.fgHex + "60" }}>
+        <Search size={28} style={{ color: tConfig.fgHex + "30" }} />
+        <p className="text-xs text-center">No entries match "{searchQuery}"</p>
+      </div>
+    );
+  }
+
+  const months = groupByMonth(filtered);
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">

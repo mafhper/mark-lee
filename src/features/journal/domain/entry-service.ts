@@ -163,6 +163,17 @@ export async function listEntries(journalRoot: string): Promise<EntryRecord[]> {
   return records;
 }
 
+export function searchEntries(entries: EntryRecord[], query: string): EntryRecord[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((e) => {
+    if (e.metadata.title.toLowerCase().includes(q)) return true;
+    if (e.body.toLowerCase().includes(q)) return true;
+    if (e.metadata.tags.some((tag) => tag.toLowerCase().includes(q))) return true;
+    return false;
+  });
+}
+
 export function getExcerpt(body: string, maxLength = 120): string {
   const trimmed = body.trim();
   if (trimmed.length <= maxLength) return trimmed;

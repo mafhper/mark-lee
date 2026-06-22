@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Search, X } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -21,18 +23,35 @@ interface JournalContextPanelProps {
 export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, onNewEntry, journal, selectedEntryId, onSelectEntry, listKey,
 }: JournalContextPanelProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
       <JournalHeader
         t={t} tConfig={tConfig} activeView={activeView} onViewChange={onViewChange}
         onNewEntry={onNewEntry} journal={journal}
       />
+      <div className="px-3 py-2 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
+        <div className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+          style={{ backgroundColor: tConfig.uiHex, color: tConfig.fgHex + "60" }}>
+          <Search size={12} className="shrink-0" />
+          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-xs"
+            style={{ color: tConfig.fgHex }} placeholder={t["journal.search"] || "Search entries..."} />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery("")} className="hover:opacity-60">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {activeView === "list" && (
           <JournalListView
             key={listKey}
             t={t} tConfig={tConfig} journal={journal}
             selectedEntryId={selectedEntryId} onSelectEntry={onSelectEntry}
+            searchQuery={searchQuery}
           />
         )}
         {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} />}
