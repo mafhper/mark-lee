@@ -50,6 +50,8 @@ function monthLabel(key: string, locale: string): string {
 export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelectEntry, searchQuery }: JournalListViewProps) {
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filterTag, setFilterTag] = useState("");
+  const [filterFavorites, setFilterFavorites] = useState(false);
 
   useEffect(() => {
     if (!journal) {
@@ -63,7 +65,24 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
       .finally(() => setLoading(false));
   }, [journal?.rootPath]);
 
-  const filtered = useMemo(() => searchEntries(entries, searchQuery ?? ""), [entries, searchQuery]);
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const e of entries) {
+      for (const t of e.metadata.tags) tagSet.add(t);
+    }
+    return Array.from(tagSet).sort();
+  }, [entries]);
+
+  const searched = useMemo(() => searchEntries(entries, searchQuery ?? ""), [entries, searchQuery]);
+
+  const filtered = useMemo(() => {
+    let result = searched;
+    if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
+    if (filterFavorites) result = result.filter((e) => e.metadata.favorite);
+    return result;
+  }, [searched, filterTag, filterFavorites]);
+
+  const hasActiveFilters = filterTag !== "" || filterFavorites;
 
   if (!journal) {
     return (
@@ -95,11 +114,11 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     );
   }
 
-  if (searchQuery && filtered.length === 0) {
+  if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 px-6" style={{ color: tConfig.fgHex + "60" }}>
         <Search size={28} style={{ color: tConfig.fgHex + "30" }} />
-        <p className="text-xs text-center">No entries match "{searchQuery}"</p>
+        <p className="text-xs text-center">{hasActiveFilters ? "No entries match filters" : `No entries match "${searchQuery}"`}</p>
       </div>
     );
   }
@@ -108,6 +127,36 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
+      {allTags.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
+          style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
+          {allTags.map((tag) => (
+            <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
+              className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
+              style={{
+                backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
+                color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
+              }}>
+              {tag}
+            </button>
+          ))}
+          <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
+            className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
+            style={{
+              backgroundColor: filterFavorites ? tConfig.accentHex + "30" : "transparent",
+              color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
+            }}>
+            <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
+            Favorites
+          </button>
+          {hasActiveFilters && (
+            <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); }}
+              className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
       {Array.from(months.entries()).map(([key, monthEntries]) => (
         <div key={key}>
           <div
