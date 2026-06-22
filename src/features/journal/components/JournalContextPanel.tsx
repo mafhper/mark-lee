@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Download } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -8,6 +8,7 @@ import { JournalListView } from "./JournalListView";
 import { JournalCalendarView } from "./JournalCalendarView";
 import { JournalMapView } from "./JournalMapView";
 import { JournalGalleryView } from "./JournalGalleryView";
+import { ExportRangeDialog } from "./ExportRangeDialog";
 
 interface JournalContextPanelProps {
   t: Record<string, string>;
@@ -25,6 +26,7 @@ export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, onNewEntry, journal, selectedEntryId, onSelectEntry, listKey,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showExportRange, setShowExportRange] = useState(false);
 
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
@@ -44,6 +46,12 @@ export function JournalContextPanel({
               <X size={12} />
             </button>
           )}
+          {journal && (
+            <button type="button" onClick={() => setShowExportRange(true)}
+              className="ml-1 p-1 rounded hover:opacity-60" title="Export date range">
+              <Download size={12} />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -59,6 +67,9 @@ export function JournalContextPanel({
         {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
         {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} />}
       </div>
+      <ExportRangeDialog open={showExportRange} tConfig={tConfig}
+        journalRootPath={journal?.rootPath ?? ""}
+        onClose={() => setShowExportRange(false)} />
     </div>
   );
 }
