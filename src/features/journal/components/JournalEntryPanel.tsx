@@ -21,6 +21,8 @@ import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
+import { getTrackerDefinitions } from "../domain/tracker-service";
+import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
 
 interface JournalEntryPanelProps {
@@ -41,6 +43,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [tags, setTags] = useState<string[]>([]);
   const [favorite, setFavorite] = useState(false);
   const [mood, setMood] = useState("");
+  const [trackerValues, setTrackerValues] = useState<Record<string, string | number | boolean | null>>({});
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -51,6 +54,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [showTrackerManager, setShowTrackerManager] = useState(false);
+  const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -64,14 +68,15 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       setTags(entry.metadata.tags ?? []);
       setFavorite(entry.metadata.favorite ?? false);
       setMood(entry.metadata.mood ?? "");
+      setTrackerValues(entry.metadata.trackers ?? {});
       setDirty(false);
       setConfirmDelete(false);
     }
   }, [entry?.metadata.id, entry?.path]);
 
-  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, force = false) => {
+  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr?: Record<string, string | number | boolean | null>, force = false) => {
     setSaving(true);
-    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined };
+    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined, trackers: tr ?? rec.metadata.trackers };
     try {
       await saveEntry(rec.path, updated, b, force);
       setConflict(false);
@@ -86,18 +91,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     setSaving(false);
   }, [onEntryUpdated]);
 
-  const scheduleSave = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord) => {
+  const scheduleSave = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr: Record<string, string | number | boolean | null>) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => doSave(t, b, tg, fav, m, rec), 2000);
+    saveTimerRef.current = setTimeout(() => doSave(t, b, tg, fav, m, rec, tr), 2000);
   }, [doSave]);
 
-  const markDirty = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord) => {
+  const markDirty = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr: Record<string, string | number | boolean | null>) => {
     setDirty(true);
-    if (entry && journal) scheduleSave(t, b, tg, fav, m, rec);
+    if (entry && journal) scheduleSave(t, b, tg, fav, m, rec, tr);
   }, [entry, journal, scheduleSave]);
 
-  const handleTitleChange = (value: string) => { setTitle(value); if (entry) markDirty(value, body, tags, favorite, mood, entry); };
-  const handleBodyChange = (value: string) => { setBody(value); if (entry) markDirty(title, value, tags, favorite, mood, entry); };
+  const handleTitleChange = (value: string) => { setTitle(value); if (entry) markDirty(value, body, tags, favorite, mood, entry, trackerValues); };
+  const handleBodyChange = (value: string) => { setBody(value); if (entry) markDirty(title, value, tags, favorite, mood, entry, trackerValues); };
 
   const handleAddTag = () => {
     const newTag = tagInput.trim();
@@ -105,26 +110,26 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     const next = [...tags, newTag];
     setTags(next);
     setTagInput("");
-    if (entry) markDirty(title, body, next, favorite, mood, entry);
+    if (entry) markDirty(title, body, next, favorite, mood, entry, trackerValues);
   };
 
   const handleRemoveTag = (tag: string) => {
     const next = tags.filter((t) => t !== tag);
     setTags(next);
-    if (entry) markDirty(title, body, next, favorite, mood, entry);
+    if (entry) markDirty(title, body, next, favorite, mood, entry, trackerValues);
   };
 
   const handleToggleFavorite = () => {
     const next = !favorite;
     setFavorite(next);
-    if (entry) markDirty(title, body, tags, next, mood, entry);
+    if (entry) markDirty(title, body, tags, next, mood, entry, trackerValues);
   };
 
   const handleSelectMood = (key: string) => {
     const next = mood === key ? "" : key;
     setMood(next);
     setShowMoodPicker(false);
-    if (entry) markDirty(title, body, tags, favorite, next, entry);
+    if (entry) markDirty(title, body, tags, favorite, next, entry, trackerValues);
   };
 
   const handleInsertImage = async () => {
@@ -146,12 +151,27 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
         const after = body.slice(end);
         const newBody = before + imgMd + (after ? (before ? "" : "") : "");
         setBody(newBody);
-        if (entry) markDirty(title, newBody, tags, favorite, mood, entry);
+        if (entry) markDirty(title, newBody, tags, favorite, mood, entry, trackerValues);
         requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + imgMd.length; ta.focus(); });
       }
     } catch (e) {
       console.error("Failed to insert image:", e);
     }
+  };
+
+  useEffect(() => {
+    if (journal) {
+      getTrackerDefinitions(journal.rootPath).then(setTrackerDefs).catch(() => setTrackerDefs([]));
+    } else {
+      setTrackerDefs([]);
+    }
+  }, [journal?.rootPath]);
+
+  const handleTrackerChange = (id: string, value: string | number | boolean | null) => {
+    const next = { ...trackerValues, [id]: value };
+    if (value === null || value === "" || value === undefined) delete next[id];
+    setTrackerValues(next);
+    if (entry) markDirty(title, body, tags, favorite, mood, entry, next);
   };
 
   useEffect(() => {
@@ -298,7 +318,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
           <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#f59e0b20", color: "#f59e0b" }}>
             <AlertTriangle size={12} />
             <span className="flex-1">File modified externally. Save blocked.</span>
-            <button type="button" onClick={async () => { await doSave(title, body, tags, favorite, mood, entry!, true); }}
+            <button type="button" onClick={async () => { await doSave(title, body, tags, favorite, mood, entry!, trackerValues, true); }}
               className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>Overwrite</button>
             <button type="button" onClick={() => { setConflict(false); onReloadEntry?.(); }}
               className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>Discard</button>
@@ -352,6 +372,29 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
               {mood && (
                 <span className="text-[11px]" style={{ color: tConfig.fgHex + "60" }}>{mood}</span>
               )}
+              {trackerDefs.map((def) => {
+                const val = trackerValues[def.id] ?? "";
+                return (
+                  <span key={def.id} className="flex items-center gap-1">
+                    <span className="text-[11px] opacity-60">{def.name}</span>
+                    {def.type === "boolean" ? (
+                      <input type="checkbox" checked={val === true} onChange={(e) => handleTrackerChange(def.id, e.target.checked ? true : null)}
+                        className="w-3 h-3 rounded" style={{ accentColor: def.color ?? tConfig.accentHex }} />
+                    ) : def.type === "number" ? (
+                      <input type="number" value={val as number} onChange={(e) => handleTrackerChange(def.id, e.target.value ? Number(e.target.value) : null)}
+                        className="w-14 text-[11px] bg-transparent border rounded px-1 py-0.5 outline-none"
+                        style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
+                        placeholder="0" />
+                    ) : (
+                      <input type="text" value={val as string} onChange={(e) => handleTrackerChange(def.id, e.target.value || null)}
+                        className="w-16 text-[11px] bg-transparent border rounded px-1 py-0.5 outline-none"
+                        style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
+                        placeholder="..." />
+                    )}
+                    {def.unit && <span className="text-[10px] opacity-40">{def.unit}</span>}
+                  </span>
+                );
+              })}
               <span className="opacity-50 ml-1">{body.trim() ? body.trim().split(/\s+/).length : 0} words</span>
               <span className="opacity-40">{saving ? "Saving..." : dirty ? "Unsaved" : "Saved"}</span>
             </>
