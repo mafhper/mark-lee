@@ -15,6 +15,7 @@ import {
   applyLink as applyLinkCommand,
   applyWrapSelection as applyWrapSelectionCommand,
   insertSnippetContent as insertSnippetContentCommand,
+  insertTable as insertTableCommand,
   selectAllEditorContent as selectAllEditorContentCommand,
   transformMarkdown as transformMarkdownCommand,
   undoEditor as undoEditorCommand,
@@ -1200,6 +1201,10 @@ function App() {
           { type: "item", id: "link", label: t["tool.link"] || "Link", onSelect: () => {
             const view = editorRef.current;
             if (view) applyLinkCommand(view);
+          }},
+          { type: "item", id: "table", label: "Insert table", onSelect: () => {
+            const view = editorRef.current;
+            if (view) insertTableCommand(view);
           }}
         );
       }
@@ -1394,7 +1399,7 @@ function App() {
   };
 
   const handleFormatAction = async (
-    action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task"
+    action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task" | "table"
   ) => {
     switch (action) {
       case "bold":
@@ -1432,6 +1437,11 @@ function App() {
           markdownPath = `./${markdownPath}`;
         }
         applyWrapSelection(`![Image](${markdownPath})`, "");
+        break;
+      }
+      case "table": {
+        const view = editorRef.current;
+        if (view) insertTableCommand(view);
         break;
       }
       case "ul":

@@ -180,7 +180,11 @@ export default function MarkdownPreview({
                   <p {...props}>{children}</p>
                 ),
               table: ({ node: _node, children, ...props }) => (
-                <table {...props}>{removeInvalidTableText(children)}</table>
+                <div className="ml-preview-table-wrap" style={{ overflowX: "auto" }}>
+                  <table {...props} style={{ minWidth: "100%", width: "auto", tableLayout: "auto" }}>
+                    {removeInvalidTableText(children)}
+                  </table>
+                </div>
               ),
               video: ({ node: _node, children: _children, poster, width }) => (
                 <MediaPlaceholder label="Video">

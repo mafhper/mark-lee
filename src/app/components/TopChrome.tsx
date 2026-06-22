@@ -23,6 +23,7 @@ import {
   Search,
   Settings2,
   PenLine,
+  Table,
 } from "lucide-react";
 import { AppSettings, ThemeConfig } from "../../types";
 import { isTauriRuntime } from "../../services/runtime";
@@ -72,7 +73,7 @@ interface TopChromeProps {
   onToggleSidebar: () => void;
   onToggleZen: () => void;
   onViewModeChange: (mode: "edit" | "split" | "preview") => void;
-  onFormatAction: (action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task") => void;
+  onFormatAction: (action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task" | "table") => void;
   onTransformMarkdown: (mode: "format" | "minify") => void;
 }
 
@@ -381,6 +382,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.image"] || "Image",
               icon: toolIcon(Image),
               onClick: () => onFormatAction("image"),
+            }
+            : null,
+          toolbarItems.editTable
+            ? {
+              id: "edit-table",
+              label: "Table",
+              icon: toolIcon(Table),
+              onClick: () => onFormatAction("table"),
             }
             : null,
           toolbarItems.editUL

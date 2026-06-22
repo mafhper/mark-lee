@@ -1159,9 +1159,9 @@
 }
 
 .ml-preview-prose table {
-  width: 100%;
-  display: block;
-  overflow-x: auto;
+  width: auto;
+  min-width: 100%;
+  table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
   margin: 0 0 var(--ml-preview-block-gap, 22px);
@@ -1175,6 +1175,7 @@
   text-align: left;
   padding: var(--ml-preview-table-pad-y, 10px) var(--ml-preview-table-pad-x, 14px);
   border-bottom: 1px solid var(--ml-preview-border, color-mix(in srgb, var(--ml-preview-text, #111827) 16%, transparent));
+  min-width: 80px;
 }
 
 .ml-preview-prose thead th {
@@ -1184,6 +1185,17 @@
   font-weight: var(--ml-preview-table-header-weight, 700);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ml-preview-prose .ml-preview-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 0 0 var(--ml-preview-block-gap, 22px);
+}
+
+.ml-preview-prose .ml-preview-table-wrap table {
+  margin-bottom: 0;
 }
 
 .ml-preview-prose caption {

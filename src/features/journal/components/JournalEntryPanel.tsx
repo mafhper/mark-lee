@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -161,6 +161,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     }
   };
 
+  const handleInsertTable = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const table = "\n| Header 1 | Header 2 | Header 3 |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |\n| Cell 4   | Cell 5   | Cell 6   |\n";
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = body.slice(0, start);
+    const after = body.slice(end);
+    const newBody = before + table + after;
+    setBody(newBody);
+    if (entry) markDirty(title, newBody, tags, favorite, mood, entry, trackerValues);
+    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + table.length; ta.focus(); });
+  };
+
   useEffect(() => {
     if (journal) {
       getTrackerDefinitions(journal.rootPath).then(setTrackerDefs).catch(() => setTrackerDefs([]));
@@ -285,6 +299,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                 style={{ color: tConfig.fgHex + "60" }} title="Insert image">
                 <Image size={14} />
+              </button>
+              <button type="button" onClick={handleInsertTable}
+                className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ color: tConfig.fgHex + "60" }} title="Insert table">
+                <Table size={14} />
               </button>
               <button type="button" onClick={handleSetCover}
                 className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"

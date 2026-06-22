@@ -102,6 +102,17 @@ export function redoEditor(view: EditorView): void {
   view.focus();
 }
 
+export function insertTable(view: EditorView, rows = 3, cols = 3): void {
+  const header = "| " + Array.from({ length: cols }, (_, i) => ` Header ${i + 1} `).join("| ") + " |";
+  const sep = "| " + Array.from({ length: cols }, () => "---").join("|") + " |";
+  const data = Array.from({ length: rows - 1 }, () =>
+    "| " + Array.from({ length: cols }, (_, i) => ` Cell ${i + 1} `).join("| ") + " |"
+  ).join("\n");
+  const table = `\n${header}\n${sep}\n${data}\n`;
+  view.dispatch(createInsertAtSelectionTransaction(view.state, table));
+  view.focus();
+}
+
 export function transformMarkdown(view: EditorView, content: string): void {
   view.dispatch(createReplaceAllTransaction(view.state, content));
   view.focus();

@@ -116,6 +116,7 @@ export interface AppSettings {
     editCode: boolean;
     editLink: boolean;
     editImage: boolean;
+    editTable: boolean;
     editUL: boolean;
     editOL: boolean;
     editTask: boolean;
