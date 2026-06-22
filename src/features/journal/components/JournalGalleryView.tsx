@@ -6,6 +6,7 @@ import type { EntryRecord } from "../domain/entry-service";
 import { listEntries } from "../domain/entry-service";
 import { loadImage } from "../../../services/filesystem";
 import { JournalEmptyState } from "./JournalEmptyState";
+import { JournalLightbox } from "./JournalLightbox";
 
 interface JournalGalleryViewProps {
   t: Record<string, string>;
@@ -19,7 +20,7 @@ interface GalleryItem {
   src: string;
 }
 
-function GalleryThumb({ item, tConfig, onSelect }: { item: GalleryItem; tConfig: ThemeConfig; onSelect: () => void }) {
+function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: GalleryItem; tConfig: ThemeConfig; onSelect: () => void; onOpenLightbox: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -28,27 +29,28 @@ function GalleryThumb({ item, tConfig, onSelect }: { item: GalleryItem; tConfig:
   }, [item.src]);
   if (!url) return null;
   return (
-    <button type="button" onClick={onSelect}
-      className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02]"
+    <div className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02]"
       style={{ borderColor: tConfig.uiBorderHex, width: "calc(50% - 6px)" }}>
-      <div className="w-full aspect-video overflow-hidden" style={{ backgroundColor: tConfig.accentHex + "10" }}>
-        <img src={url} alt="" className="w-full h-full object-cover" />
-      </div>
-      <div className="px-2 pb-2 min-w-0 w-full">
+      <button type="button" onClick={onOpenLightbox} className="w-full aspect-video overflow-hidden"
+        style={{ backgroundColor: tConfig.accentHex + "10" }}>
+        <img src={url} alt="" className="w-full h-full object-cover cursor-pointer" />
+      </button>
+      <button type="button" onClick={onSelect} className="px-2 pb-2 min-w-0 w-full text-left hover:opacity-70">
         <p className="text-xs font-medium truncate" style={{ color: tConfig.fgHex }}>
           {item.entry.metadata.title || "Untitled"}
         </p>
         <p className="text-[10px] truncate" style={{ color: tConfig.fgHex + "50" }}>
           {new Date(item.entry.metadata.date).toLocaleDateString()}
         </p>
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
 export function JournalGalleryView({ t: _t, tConfig, journal, onSelectEntry }: JournalGalleryViewProps) {
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!journal) { setEntries([]); return; }
@@ -107,9 +109,19 @@ export function JournalGalleryView({ t: _t, tConfig, journal, onSelectEntry }: J
       <div className="flex flex-wrap gap-3 p-3">
         {items.map((item, i) => (
           <GalleryThumb key={`${item.entry.metadata.id}-${i}`} item={item} tConfig={tConfig}
-            onSelect={() => onSelectEntry(item.entry)} />
+            onSelect={() => onSelectEntry(item.entry)}
+            onOpenLightbox={() => setLightboxIndex(i)} />
         ))}
       </div>
+
+      {lightboxIndex !== null && (
+        <JournalLightbox
+          src={items[lightboxIndex].src}
+          onClose={() => setLightboxIndex(null)}
+          onPrev={lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
+          onNext={lightboxIndex < items.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+        />
+      )}
     </div>
   );
 }
