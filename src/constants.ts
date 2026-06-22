@@ -263,7 +263,7 @@ export function createDefaultThemeLibrary(): ThemeDefinition[] {
   }));
 }
 
-export const DEFAULT_SHORTCUTS: Record<string, string> = {
+export const DEFAULT_SHORTCUTS = {
   "file-new": "Ctrl+N",
   "file-open": "Ctrl+O",
   "file-open-folder": "Ctrl+Shift+O",
@@ -292,7 +292,9 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   "fmt-ul": "Ctrl+Shift+8",
   "fmt-ol": "Ctrl+Shift+7",
   "fmt-task": "Ctrl+Shift+9",
-};
+} as const satisfies Record<string, string>;
+
+export type ShortcutId = keyof typeof DEFAULT_SHORTCUTS;
 
 export const TEXT_PRESETS: Record<string, TextPreset> = {
   minimalist: {

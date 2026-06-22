@@ -86,6 +86,8 @@ import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
+import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
+import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
 
 const CODE_FILE_EXTENSIONS = new Set([
@@ -1542,10 +1544,25 @@ function App() {
     setActiveTabId((current) => current ?? tabs[0]?.id ?? null);
   };
 
-  const shortcutLabels = useMemo(
+  const shortcutLabels: Record<string, string> = useMemo(
     () => ({ ...DEFAULT_SHORTCUTS, ...(settings.customShortcuts ?? {}) }),
     [settings.customShortcuts]
   );
+
+  const deps = useMemo<AppCommandDependencies>(
+    () => ({
+      newFile: handleNewFile,
+      openFile: handleOpenFile,
+      openFolder: handleOpenFolder,
+      saveFile: (forceSaveAs: boolean) => {
+        if (activeTab) return saveTab(activeTab, forceSaveAs);
+      },
+      openFind: () => openDialog("find"),
+    }),
+    [activeTab, handleNewFile, handleOpenFile, handleOpenFolder, openDialog, saveTab]
+  );
+
+  const commands = useMemo(() => createAppCommands(deps), [deps]);
 
   const commandPaletteItems = useMemo<CommandPaletteItem[]>(() => {
     const actionSection = t["palette.group.actions"] || "Actions";
@@ -1566,52 +1583,11 @@ function App() {
     const items: CommandPaletteItem[] = [];
 
     if (settings.commandPalette.includeActions) {
+      items.push(...toCommandPaletteItems(commands, {
+        t,
+        customShortcuts: settings.customShortcuts,
+      }));
       items.push(
-        {
-          id: "palette-new-file",
-          label: t["file.new"] || "New File",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-new"],
-          keywords: "new file tab untitled",
-          onSelect: handleNewFile,
-        },
-        {
-          id: "palette-open-file",
-          label: t["file.open"] || "Open...",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-open"],
-          keywords: "open file picker",
-          onSelect: handleOpenFile,
-        },
-        {
-          id: "palette-open-folder",
-          label: t["file.openFolder"] || "Open Folder...",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-open-folder"],
-          keywords: "open folder workspace",
-          onSelect: handleOpenFolder,
-        },
-        {
-          id: "palette-save",
-          label: t["file.save"] || "Save",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-save"],
-          keywords: "save file",
-          onSelect: () => activeTab && saveTab(activeTab, false),
-        },
-        {
-          id: "palette-find",
-          label: t["edit.find"] || "Find",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["edit-find"],
-          keywords: "find replace search",
-          onSelect: () => openDialog("find"),
-        },
         {
           id: "palette-snippets",
           label: t["edit.snippets"] || "Snippets",
@@ -1849,17 +1825,14 @@ function App() {
     return items;
   }, [
     activeTab,
+    commands,
     cycleTheme,
-    handleNewFile,
-    handleOpenFile,
-    handleOpenFolder,
     insertSnippet,
     handleOpenIntent,
     openDialog,
     openSettingsPanel,
     publicationPresets,
     recentFiles,
-    saveTab,
     settings,
     shortcutLabels,
     snippets,
@@ -2196,6 +2169,25 @@ function App() {
       return event.ctrlKey === ctrl && event.shiftKey === shift && event.altKey === alt && eventKey === key;
     };
 
+    const executeCommand = (id: CommandId): void | Promise<void> | undefined =>
+      commands.find((command) => command.id === id)?.execute();
+
+    const matchesCommand = (
+      event: KeyboardEvent,
+      id: CommandId
+    ): boolean => {
+      const command = commands.find((item) => item.id === id);
+
+      if (!command?.shortcutId) return false;
+
+      const shortcut = resolveCommandShortcut(
+        command.shortcutId,
+        settings.customShortcuts
+      );
+
+      return shortcut ? testShortcut(event, shortcut) : false;
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toUpperCase();
       const isSelectAll =
@@ -2210,27 +2202,27 @@ function App() {
       if (testShortcut(event, getShortcut("app-command-palette", "CTRL+P"))) {
         event.preventDefault();
         openDialog("palette");
-      } else if (testShortcut(event, getShortcut("file-save", "CTRL+S"))) {
+      } else if (matchesCommand(event, "file.save")) {
         event.preventDefault();
-        if (activeTab) saveTab(activeTab, false);
+        void executeCommand("file.save");
       } else if (testShortcut(event, getShortcut("file-save-as", "CTRL+SHIFT+S"))) {
         event.preventDefault();
         if (activeTab) saveTab(activeTab, true);
-      } else if (testShortcut(event, getShortcut("file-open", "CTRL+O"))) {
+      } else if (matchesCommand(event, "file.open")) {
         event.preventDefault();
-        handleOpenFile();
-      } else if (testShortcut(event, getShortcut("file-open-folder", "CTRL+SHIFT+O"))) {
+        void executeCommand("file.open");
+      } else if (matchesCommand(event, "file.openFolder")) {
         event.preventDefault();
-        handleOpenFolder();
-      } else if (testShortcut(event, getShortcut("file-new", "CTRL+N"))) {
+        void executeCommand("file.openFolder");
+      } else if (matchesCommand(event, "file.new")) {
         event.preventDefault();
-        handleNewFile();
+        void executeCommand("file.new");
       } else if (testShortcut(event, getShortcut("file-export", "CTRL+E"))) {
         event.preventDefault();
         openDialog("export");
-      } else if (testShortcut(event, getShortcut("edit-find", "CTRL+F"))) {
+      } else if (matchesCommand(event, "edit.find")) {
         event.preventDefault();
-        openDialog("find");
+        void executeCommand("edit.find");
       } else if (testShortcut(event, getShortcut("edit-replace", "CTRL+H"))) {
         event.preventDefault();
         openDialog("find");
@@ -2290,7 +2282,7 @@ function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeTab, closeAllDialogs, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
+  }, [activeTab, closeAllDialogs, commands, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
 
   useEffect(() => {
     if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
