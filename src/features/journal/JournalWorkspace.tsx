@@ -1,18 +1,23 @@
 import { useState } from "react";
 import type { ThemeConfig } from "../../types";
+import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
+import { CreateJournalDialog } from "./components/CreateJournalDialog";
 
 interface JournalWorkspaceProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   isZenMode: boolean;
+  language: string;
 }
 
-export function JournalWorkspace({ t, tConfig, isZenMode }: JournalWorkspaceProps) {
+export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWorkspaceProps) {
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map">("list");
   const [activeSection, setActiveSection] = useState("entries");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const { journals, activeJournal, selectJournal, addJournal, loading } = useJournalLibrary();
 
   return (
     <div
@@ -32,6 +37,11 @@ export function JournalWorkspace({ t, tConfig, isZenMode }: JournalWorkspaceProp
           tConfig={tConfig}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
+          journals={journals}
+          activeJournalId={activeJournal?.id ?? null}
+          onSelectJournal={selectJournal}
+          onCreateJournal={() => setShowCreateDialog(true)}
+          loading={loading}
         />
       </div>
 
@@ -49,13 +59,23 @@ export function JournalWorkspace({ t, tConfig, isZenMode }: JournalWorkspaceProp
           tConfig={tConfig}
           activeView={activeView}
           onViewChange={setActiveView}
+          journal={activeJournal}
         />
       </div>
 
       {/* Painel 3 — Entrada */}
       <div className="flex-1 min-w-0 h-full flex flex-col">
-        <JournalEntryPanel t={t} tConfig={tConfig} />
+        <JournalEntryPanel t={t} tConfig={tConfig} journal={activeJournal} />
       </div>
+
+      <CreateJournalDialog
+        open={showCreateDialog}
+        t={t}
+        tConfig={tConfig}
+        defaultLanguage={language}
+        onClose={() => setShowCreateDialog(false)}
+        onCreated={addJournal}
+      />
     </div>
   );
 }

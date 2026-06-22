@@ -1,22 +1,27 @@
-import { BookOpen, Calendar, Heart, Settings, Search, FolderPlus } from "lucide-react";
+import { BookOpen, Calendar, Heart, Settings, Search, Plus } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
+import type { JournalDescriptor } from "../domain/journal.types";
 
 interface JournalNavigationProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   activeSection: string;
   onSectionChange: (section: string) => void;
+  journals: JournalDescriptor[];
+  activeJournalId: string | null;
+  onSelectJournal: (id: string | null) => void;
+  onCreateJournal: () => void;
+  loading: boolean;
 }
 
-export function JournalNavigation({ t, tConfig, activeSection, onSectionChange }: JournalNavigationProps) {
+export function JournalNavigation({
+  t, tConfig, activeSection, onSectionChange,
+  journals, activeJournalId, onSelectJournal, onCreateJournal, loading,
+}: JournalNavigationProps) {
   const topItems = [
     { id: "entries", label: t["journal.entries"] || "Entries", icon: <BookOpen size={15} /> },
     { id: "today", label: t["journal.today"] || "On this day", icon: <Calendar size={15} /> },
     { id: "favorites", label: t["journal.favorites"] || "Favorites", icon: <Heart size={15} /> },
-  ];
-
-  const bottomItems = [
-    { id: "journals", label: t["journal.journals"] || "Journals", icon: <BookOpen size={15} /> },
   ];
 
   return (
@@ -62,15 +67,45 @@ export function JournalNavigation({ t, tConfig, activeSection, onSectionChange }
         <div className="mx-3 my-3 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
 
         <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider opacity-50" style={{ color: tConfig.fgHex }}>
-          {bottomItems[0].label}
+          {t["journal.journals"] || "Journals"}
         </div>
+
+        {loading && (
+          <div className="px-3 py-2 text-xs" style={{ color: tConfig.fgHex + "50" }}>
+            Loading...
+          </div>
+        )}
+
+        {!loading && journals.length === 0 && (
+          <div className="px-3 py-2 text-xs" style={{ color: tConfig.fgHex + "50" }}>
+            {t["journal.noJournalDesc"] || "No journals yet."}
+          </div>
+        )}
+
+        {journals.map((journal) => (
+          <button
+            key={journal.id}
+            type="button"
+            onClick={() => onSelectJournal(journal.id)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left"
+            style={{
+              color: activeJournalId === journal.id ? tConfig.accentHex : tConfig.fgHex + "CC",
+              backgroundColor: activeJournalId === journal.id ? tConfig.accentHex + "12" : "transparent",
+              borderLeft: activeJournalId === journal.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
+            }}
+          >
+            <BookOpen size={15} />
+            <span className="truncate">{journal.name}</span>
+          </button>
+        ))}
 
         <button
           type="button"
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left"
-          style={{ color: tConfig.fgHex + "70" }}
+          onClick={onCreateJournal}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left mt-1"
+          style={{ color: tConfig.fgHex + "60" }}
         >
-          <FolderPlus size={14} />
+          <Plus size={14} />
           <span className="truncate">{t["journal.newJournal"] || "New journal"}</span>
         </button>
       </nav>

@@ -2599,7 +2599,7 @@ function App() {
         </div>
       </div>
       ) : (
-        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} />
+        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language} />
       )}
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
       {statusBar}
