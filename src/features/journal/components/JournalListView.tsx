@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { FileText, Heart, MapPin, Search } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { FileText, Heart, MapPin, Search, RefreshCw, AlertTriangle } from "lucide-react";
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "\u{1F60A}",
@@ -52,18 +52,30 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
   const [loading, setLoading] = useState(false);
   const [filterTag, setFilterTag] = useState("");
   const [filterFavorites, setFilterFavorites] = useState(false);
+  const [rebuildErrors, setRebuildErrors] = useState<{ path: string; error: string }[]>([]);
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
+  const [rebuildKey, setRebuildKey] = useState(0);
+
+  const loadEntries = useCallback(async () => {
+    if (!journal) { setEntries([]); return; }
+    setLoading(true);
+    setLoadProgress(null);
+    setRebuildErrors([]);
+    try {
+      const result = await listEntries(journal.rootPath, (loaded, total) => setLoadProgress({ loaded, total }));
+      setEntries(result.entries);
+      setRebuildErrors(result.errors);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+      setLoadProgress(null);
+    }
+  }, [journal?.rootPath]);
 
   useEffect(() => {
-    if (!journal) {
-      setEntries([]);
-      return;
-    }
-    setLoading(true);
-    listEntries(journal.rootPath)
-      .then(setEntries)
-      .catch(() => setEntries([]))
-      .finally(() => setLoading(false));
-  }, [journal?.rootPath]);
+    loadEntries();
+  }, [loadEntries, rebuildKey]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -173,36 +185,54 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {allTags.length > 0 && (
-        <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
-          style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-          {allTags.map((tag) => (
-            <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
-              className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
-              style={{
-                backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
-                color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
-              }}>
-              {tag}
-            </button>
-          ))}
-          <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
-            className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
-            style={{
-              backgroundColor: filterFavorites ? tConfig.accentHex + "30" : "transparent",
-              color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
-            }}>
-            <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
-            Favorites
-          </button>
-          {hasActiveFilters && (
-            <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); }}
-              className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
-              Clear
-            </button>
-          )}
+      {loading && loadProgress && (
+        <div className="px-3 py-1.5 text-[10px] flex items-center gap-2 border-b" style={{ backgroundColor: tConfig.accentHex + "08", borderColor: tConfig.uiBorderHex }}>
+          <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: tConfig.uiBorderHex }}>
+            <div className="h-1 rounded-full transition-all" style={{ width: `${(loadProgress.loaded / loadProgress.total) * 100}%`, backgroundColor: tConfig.accentHex }} />
+          </div>
+          <span style={{ color: tConfig.fgHex + "60" }}>{loadProgress.loaded}/{loadProgress.total}</span>
         </div>
       )}
+      <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
+        style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
+        {allTags.map((tag) => (
+          <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
+            className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
+            style={{
+              backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
+              color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
+            }}>
+            {tag}
+          </button>
+        ))}
+        <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
+          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
+          style={{
+            backgroundColor: filterFavorites ? tConfig.accentHex + "30" : "transparent",
+            color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
+          }}>
+          <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
+          Favorites
+        </button>
+        {hasActiveFilters && (
+          <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); }}
+            className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
+            Clear
+          </button>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          {rebuildErrors.length > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "#f59e0b" }}>
+              <AlertTriangle size={10} /> {rebuildErrors.length}
+            </span>
+          )}
+          <button type="button" onClick={() => setRebuildKey((k) => k + 1)} disabled={loading}
+            className="p-0.5 rounded hover:opacity-60 disabled:opacity-30" title="Rebuild index"
+            style={{ color: tConfig.fgHex + "50" }}>
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+      </div>
 
       {onThisDayEntries.length > 0 && !searchQuery && !hasActiveFilters && (
         <div>

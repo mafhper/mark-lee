@@ -143,14 +143,31 @@ async function collectEntriesRecursive(baseDir: string, prefix: string): Promise
   return paths;
 }
 
-export async function listEntries(journalRoot: string): Promise<EntryRecord[]> {
+export interface ListEntriesResult {
+  entries: EntryRecord[];
+  errors: { path: string; error: string }[];
+}
+
+export async function listEntries(
+  journalRoot: string,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<ListEntriesResult> {
   const entriesDir = `${journalRoot}/entries/`;
   const filePaths = await collectEntriesRecursive(entriesDir, entriesDir);
 
   const records: EntryRecord[] = [];
-  for (const path of filePaths) {
-    const record = await readEntry(path);
-    if (record) records.push(record);
+  const errors: { path: string; error: string }[] = [];
+  const total = filePaths.length;
+
+  for (let i = 0; i < total; i++) {
+    const path = filePaths[i];
+    try {
+      const record = await readEntry(path);
+      if (record) records.push(record);
+    } catch (e) {
+      errors.push({ path, error: e instanceof Error ? e.message : String(e) });
+    }
+    onProgress?.(i + 1, total);
   }
 
   // Sort by date descending (newest first)
@@ -160,7 +177,7 @@ export async function listEntries(journalRoot: string): Promise<EntryRecord[]> {
     return db - da;
   });
 
-  return records;
+  return { entries: records, errors };
 }
 
 export function searchEntries(entries: EntryRecord[], query: string): EntryRecord[] {
