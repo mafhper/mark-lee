@@ -21,6 +21,7 @@ import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
+import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
 import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
@@ -54,6 +55,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [showTrackerManager, setShowTrackerManager] = useState(false);
+  const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -291,11 +293,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 {coverUrl ? "Cover" : "Cover"}
               </button>
               {journal && (
-                <button type="button" onClick={() => setShowTrackerManager(true)}
-                  className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
-                  style={{ color: tConfig.fgHex + "60" }} title="Manage trackers">
-                  Trackers
-                </button>
+                <>
+                  <button type="button" onClick={() => setShowTrackerManager(true)}
+                    className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
+                    style={{ color: tConfig.fgHex + "60" }} title="Manage trackers">
+                    Trackers
+                  </button>
+                  <button type="button" onClick={() => setShowTrackerStats(true)}
+                    className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
+                    style={{ color: tConfig.fgHex + "60" }} title="Tracker statistics">
+                    Stats
+                  </button>
+                </>
               )}
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
@@ -464,6 +473,10 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       {showTrackerManager && journal && (
         <TrackerManagerDialog open={showTrackerManager} tConfig={tConfig}
           journalRootPath={journal.rootPath} onClose={() => setShowTrackerManager(false)} />
+      )}
+      {showTrackerStats && (
+        <TrackerStatsPanel open={showTrackerStats} tConfig={tConfig}
+          journal={journal} onClose={() => setShowTrackerStats(false)} />
       )}
       {confirmDelete && entry && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
