@@ -7,12 +7,13 @@ import { JournalHeader } from "./JournalHeader";
 import { JournalListView } from "./JournalListView";
 import { JournalCalendarView } from "./JournalCalendarView";
 import { JournalMapView } from "./JournalMapView";
+import { JournalGalleryView } from "./JournalGalleryView";
 
 interface JournalContextPanelProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
-  activeView: "list" | "calendar" | "map";
-  onViewChange: (view: "list" | "calendar" | "map") => void;
+  activeView: "list" | "calendar" | "map" | "gallery";
+  onViewChange: (view: "list" | "calendar" | "map" | "gallery") => void;
   onNewEntry?: () => void;
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
@@ -55,6 +56,7 @@ export function JournalContextPanel({
           />
         )}
         {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
+        {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
         {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} />}
       </div>
     </div>

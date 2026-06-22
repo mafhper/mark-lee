@@ -24,7 +24,7 @@ interface JournalWorkspaceProps {
 }
 
 export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, journalDataDir }: JournalWorkspaceProps) {
-  const [activeView, setActiveView] = useState<"list" | "calendar" | "map">("list");
+  const [activeView, setActiveView] = useState<"list" | "calendar" | "map" | "gallery">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);

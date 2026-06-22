@@ -1,20 +1,21 @@
-import { BookOpen, Plus, Calendar, MapPin } from "lucide-react";
+import { BookOpen, Plus, Calendar, MapPin, LayoutGrid } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 
 interface JournalHeaderProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
-  activeView: "list" | "calendar" | "map";
-  onViewChange: (view: "list" | "calendar" | "map") => void;
+  activeView: "list" | "calendar" | "map" | "gallery";
+  onViewChange: (view: "list" | "calendar" | "map" | "gallery") => void;
   onNewEntry?: () => void;
   journal: JournalDescriptor | null;
 }
 
 export function JournalHeader({ t, tConfig, activeView, onViewChange, onNewEntry, journal }: JournalHeaderProps) {
-  const views: Array<{ id: "list" | "calendar" | "map"; label: string; icon: React.ReactNode }> = [
+  const views: Array<{ id: "list" | "calendar" | "map" | "gallery"; label: string; icon: React.ReactNode }> = [
     { id: "list", label: t["journal.list"] || "List", icon: <BookOpen size={14} /> },
     { id: "calendar", label: t["journal.calendar"] || "Calendar", icon: <Calendar size={14} /> },
+    { id: "gallery", label: "Gallery", icon: <LayoutGrid size={14} /> },
     { id: "map", label: t["journal.map"] || "Map", icon: <MapPin size={14} /> },
   ];
 
