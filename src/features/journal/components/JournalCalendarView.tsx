@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Plus, Maximize2, Minimize2 } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries, getExcerpt } from "../domain/entry-service";
+import { listEntries, getExcerpt, createEntry } from "../domain/entry-service";
 
 interface JournalCalendarViewProps {
   t: Record<string, string>;
@@ -47,6 +47,7 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
   const [cursor, setCursor] = useState(() => new Date());
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
   const cal = useCalendarMonth(cursor);
 
   useEffect(() => {
@@ -62,6 +63,14 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
     const now = new Date();
     setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
     setSelectedDay(now.getDate());
+  };
+
+  const handleCreateEntry = async () => {
+    if (!journal || !selectedDay) return;
+    const date = new Date(cal.year, cal.month, selectedDay);
+    const entry = await createEntry(journal.rootPath, "Untitled", date);
+    setEntries((prev) => [entry, ...prev]);
+    setFocused(true);
   };
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -86,16 +95,66 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
   return (
     <div className="flex flex-col h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
-        <button type="button" onClick={handlePrevMonth} className="p-1 rounded hover:opacity-60" style={{ color: tConfig.fgHex + "60" }}>
-          <ChevronLeft size={16} />
-        </button>
-        <button type="button" onClick={handleToday} className="text-xs font-medium hover:opacity-70" style={{ color: tConfig.fgHex }}>
-          {cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-        </button>
-        <button type="button" onClick={handleNextMonth} className="p-1 rounded hover:opacity-60" style={{ color: tConfig.fgHex + "60" }}>
-          <ChevronRight size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          {!focused && (
+            <button type="button" onClick={handlePrevMonth} className="p-1 rounded hover:opacity-60" style={{ color: tConfig.fgHex + "60" }}>
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          <button type="button" onClick={handleToday} className="text-xs font-medium hover:opacity-70" style={{ color: tConfig.fgHex }}>
+            {focused && selectedDay
+              ? new Date(cal.year, cal.month, selectedDay).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+              : cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          </button>
+          {!focused && (
+            <button type="button" onClick={handleNextMonth} className="p-1 rounded hover:opacity-60" style={{ color: tConfig.fgHex + "60" }}>
+              <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {selectedDay && (
+            <button type="button" onClick={handleCreateEntry} className="p-1 rounded hover:opacity-60 flex items-center gap-1 text-[11px]"
+              style={{ color: tConfig.accentHex }} title="New entry on this day">
+              <Plus size={14} /> New
+            </button>
+          )}
+          {selectedDay && (
+            <button type="button" onClick={() => setFocused(!focused)} className="p-1 rounded hover:opacity-60"
+              style={{ color: tConfig.fgHex + "50" }} title={focused ? "Show calendar" : "Focus on day"}>
+              {focused ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
+        </div>
       </div>
+
+      {!focused && (
+        <>
+          <div className="grid grid-cols-7 gap-px px-2 py-2 text-[10px] font-medium text-center" style={{ color: tConfig.fgHex + "50" }}>
+            {DAYS.map((d) => <div key={d} className="py-1">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-px px-2 text-xs">
+            {cal.cells.map((day, i) => {
+              if (day === null) return <div key={`e-${i}`} />;
+              const has = dayHasEntry(cal.year, cal.month, day, entries);
+              const isSelected = selectedDay === day;
+              const isToday = dateFromDay(cal.year, cal.month, day) === dateFromDay(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+              return (
+                <button key={day} type="button" onClick={() => setSelectedDay(day)}
+                  className="relative flex flex-col items-center justify-center rounded py-1.5 transition-colors hover:opacity-70"
+                  style={{
+                    backgroundColor: isSelected ? tConfig.accentHex + "20" : "transparent",
+                    color: isSelected ? tConfig.accentHex : isToday ? tConfig.accentHex : tConfig.fgHex + "80",
+                    fontWeight: isToday ? 600 : 400,
+                  }}>
+                  <span>{day}</span>
+                  {has && <span className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: tConfig.accentHex }} />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-7 gap-px px-2 py-2 text-[10px] font-medium text-center" style={{ color: tConfig.fgHex + "50" }}>
         {DAYS.map((d) => <div key={d} className="py-1">{d}</div>)}
