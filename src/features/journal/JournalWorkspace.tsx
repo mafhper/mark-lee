@@ -4,6 +4,8 @@ import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
+import { TemplatePickerDialog } from "./components/TemplatePickerDialog";
+import { TemplateManagerDialog } from "./components/TemplateManagerDialog";
 import { CreateJournalDialog } from "./components/CreateJournalDialog";
 import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog";
 import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
@@ -31,6 +33,8 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
   const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<EntryRecord | null>(null);
   const [listKey, setListKey] = useState(0);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
   const { journals, activeJournal, selectJournal, addJournal: addToLib, removeJournal: removeFromLib, reload } = useJournalLibrary();
 
   const handleRelocate = async (journalId: string) => {
@@ -76,9 +80,14 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
     setRemoveTarget(null);
   };
 
-  const handleNewEntry = useCallback(async () => {
+  const handleNewEntry = useCallback(() => {
     if (!activeJournal) return;
-    const entry = await createEntry(activeJournal.rootPath, "", new Date());
+    setShowTemplatePicker(true);
+  }, [activeJournal]);
+
+  const handleCreateFromTemplate = useCallback(async (templateBody: string) => {
+    if (!activeJournal) return;
+    const entry = await createEntry(activeJournal.rootPath, "", new Date(), [], templateBody);
     setSelectedEntry(entry);
     setActiveView("list");
     setListKey((k) => k + 1);
@@ -102,6 +111,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
           onAddJournal={() => setShowAddDialog(true)}
           onRelocateJournal={handleRelocate}
           onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
+          onManageTemplates={() => setShowTemplateManager(true)}
           loading={false}
         />
       </div>
@@ -138,6 +148,12 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
       <RemoveJournalDialog open={removeTarget !== null}
         journalName={removeTarget?.name ?? ""} journalPath={removeTarget?.rootPath ?? ""}
         tConfig={tConfig} onClose={() => setRemoveTarget(null)} onConfirm={handleRemoveConfirm} />
+      <TemplatePickerDialog open={showTemplatePicker}
+        tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
+        onClose={() => setShowTemplatePicker(false)} onSelect={handleCreateFromTemplate} />
+      <TemplateManagerDialog open={showTemplateManager}
+        tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
+        onClose={() => setShowTemplateManager(false)} />
     </div>
   );
 }

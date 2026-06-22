@@ -1,4 +1,4 @@
-import { BookOpen, Calendar, Heart, Settings, Search, Plus, FolderOpen, AlertTriangle } from "lucide-react";
+import { BookOpen, Calendar, Heart, Settings, Search, Plus, FolderOpen, AlertTriangle, FileText } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import { useContextMenu } from "../../../app/components/context-menu";
@@ -15,13 +15,14 @@ interface JournalNavigationProps {
   onAddJournal: () => void;
   onRelocateJournal: (journalId: string) => void;
   onRemoveJournal: (journalId: string) => void;
+  onManageTemplates: () => void;
   loading: boolean;
 }
 
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange,
   journals, activeJournalId, onSelectJournal, onCreateJournal, onAddJournal,
-  onRelocateJournal, onRemoveJournal, loading,
+  onRelocateJournal, onRemoveJournal, onManageTemplates, loading,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
   const topItems = [
@@ -153,7 +154,16 @@ export function JournalNavigation({
         </button>
       </nav>
 
-      <div className="border-t p-2" style={{ borderColor: tConfig.uiBorderHex }}>
+      <div className="border-t p-2 space-y-1" style={{ borderColor: tConfig.uiBorderHex }}>
+        <button
+          type="button"
+          onClick={onManageTemplates}
+          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded transition-colors"
+          style={{ color: tConfig.fgHex + "80" }}
+        >
+          <FileText size={14} />
+          <span className="truncate">Templates</span>
+        </button>
         <button
           type="button"
           className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded transition-colors"

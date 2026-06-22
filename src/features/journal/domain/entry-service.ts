@@ -59,6 +59,7 @@ export async function createEntry(
   title: string,
   date: Date,
   tags: string[] = [],
+  body = "",
 ): Promise<EntryRecord> {
   const id = crypto.randomUUID();
   const path = entryPath(journalRoot, date, id);
@@ -76,7 +77,6 @@ export async function createEntry(
     updatedAt: now,
   };
 
-  const body = "";
   const content = serializeJournalEntry(metadata, body);
 
   // Ensure directory exists
