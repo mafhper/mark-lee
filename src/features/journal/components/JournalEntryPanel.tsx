@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -20,7 +20,7 @@ import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry, readEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
-import { exportEntryAsMarkdown } from "../domain/export-service";
+import { exportEntryAsMarkdown, exportEntryAsHtml } from "../domain/export-service";
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
 import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
@@ -232,15 +232,28 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const handleExportEntry = async () => {
     if (!entry) return;
     try {
-      const dir = await openFileDialog({ directory: true, multiple: false, title: "Export entry to..." });
+      const dir = await openFileDialog({ directory: true, multiple: false, title: "Export entry as Markdown..." });
       const destDir = Array.isArray(dir) ? dir[0] : dir;
       if (!destDir) return;
       await exportEntryAsMarkdown(entry, destDir);
-      // Reload entry to get latest body
       const reloaded = await readEntry(entry.path);
       if (reloaded) onEntryUpdated(reloaded);
     } catch (e) {
       console.error("Export failed:", e);
+    }
+  };
+
+  const handleExportHtml = async () => {
+    if (!entry) return;
+    try {
+      const dir = await openFileDialog({ directory: true, multiple: false, title: "Export entry as HTML..." });
+      const destDir = Array.isArray(dir) ? dir[0] : dir;
+      if (!destDir) return;
+      await exportEntryAsHtml(entry, destDir);
+      const reloaded = await readEntry(entry.path);
+      if (reloaded) onEntryUpdated(reloaded);
+    } catch (e) {
+      console.error("HTML export failed:", e);
     }
   };
 
@@ -343,6 +356,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                     className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                     style={{ color: tConfig.fgHex + "60" }} title="Export entry as Markdown">
                     <Download size={14} />
+                  </button>
+                  <button type="button" onClick={handleExportHtml}
+                    className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                    style={{ color: tConfig.fgHex + "60" }} title="Export entry as HTML">
+                    <Globe size={14} />
                   </button>
                 </>
               )}
