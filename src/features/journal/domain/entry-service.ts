@@ -128,6 +128,33 @@ export function getExcerpt(body: string, maxLength = 120): string {
   return trimmed.slice(0, maxLength).replace(/\s+\S*$/, "") + "...";
 }
 
+export async function duplicateEntry(
+  journalRoot: string,
+  source: EntryRecord,
+  date?: Date,
+): Promise<EntryRecord> {
+  const targetDate = date ?? new Date(source.metadata.date);
+  const id = crypto.randomUUID();
+  const path = entryPath(journalRoot, targetDate, id);
+  const now = new Date().toISOString();
+
+  const metadata: JournalEntryMetadata = {
+    ...source.metadata,
+    id,
+    date: targetDate.toISOString(),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const content = serializeJournalEntry(metadata, source.body);
+
+  const dir = path.substring(0, path.lastIndexOf("/"));
+  await createWorkspaceDirectory(dir);
+  await writeFile(path, content);
+
+  return { path, metadata, body: source.body, wordCount: source.wordCount };
+}
+
 export async function deleteEntry(path: string): Promise<void> {
   await deleteWorkspacePath(path);
 }

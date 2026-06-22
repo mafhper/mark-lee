@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -14,9 +14,10 @@ interface JournalEntryPanelProps {
   onEntryUpdated: (entry: EntryRecord) => void;
   onOpenInEditor?: (path: string) => void;
   onDeleteEntry?: (entry: EntryRecord) => void;
+  onDuplicateEntry?: (entry: EntryRecord) => void;
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -117,6 +118,13 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 title={favorite ? "Remove from favorites" : "Add to favorites"}>
                 <Heart size={15} style={{ color: favorite ? "#ef4444" : tConfig.fgHex + "60", fill: favorite ? "#ef4444" : "none" }} />
               </button>
+              {onDuplicateEntry && (
+                <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                  style={{ color: tConfig.fgHex + "60" }} title="Duplicate entry"
+                  onClick={() => onDuplicateEntry(entry)}>
+                  <Copy size={14} />
+                </button>
+              )}
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                   style={{ color: tConfig.fgHex + "60" }} title={t["journal.editor"] || "Open in Editor"}
