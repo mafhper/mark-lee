@@ -231,11 +231,17 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
       role="menu"
       aria-orientation="vertical"
       className={`fixed z-[300] min-w-[200px] max-w-[320px] rounded-lg border shadow-xl py-1 ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg}`}
-      style={{
-        left: position?.x ?? -9999,
-        top: position?.y ?? -9999,
-        visibility: visible ? "visible" : "hidden",
-      }}
+      style={
+        {
+          left: position?.x ?? -9999,
+          top: position?.y ?? -9999,
+          visibility: visible ? "visible" : "hidden",
+          "--ml-ui": tConfig.uiHex,
+          "--ml-border": tConfig.uiBorderHex,
+          "--ml-fg": tConfig.fgHex,
+          "--ml-bg": tConfig.bgHex,
+        } as React.CSSProperties
+      }
     >
       {items.map((entry) => {
         if (entry.type === "separator") {
