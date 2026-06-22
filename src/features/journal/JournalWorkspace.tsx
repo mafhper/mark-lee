@@ -4,6 +4,7 @@ import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
+import { ResizablePanel } from "./components/ResizablePanel";
 import { TemplatePickerDialog } from "./components/TemplatePickerDialog";
 import { TemplateManagerDialog } from "./components/TemplateManagerDialog";
 import { CreateJournalDialog } from "./components/CreateJournalDialog";
@@ -99,36 +100,38 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
 
   return (
     <div className="flex-1 min-h-0 flex flex-row">
-      <div
-        className="h-full shrink-0 border-r"
-        style={{ width: "220px", borderColor: tConfig.uiBorderHex, display: isZenMode ? "none" : undefined }}
-      >
-        <JournalNavigation
-          t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
-          journals={journals} activeJournalId={activeJournal?.id ?? null}
-          onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
-          onCreateJournal={() => setShowCreateDialog(true)}
-          onAddJournal={() => setShowAddDialog(true)}
-          onRelocateJournal={handleRelocate}
-          onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
-          onManageTemplates={() => setShowTemplateManager(true)}
-          loading={false}
-        />
-      </div>
+      {!isZenMode && (
+        <ResizablePanel initialWidth={220} minWidth={180} maxWidth={360} theme={tConfig}>
+          <div className="h-full border-r" style={{ borderColor: tConfig.uiBorderHex }}>
+            <JournalNavigation
+              t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
+              journals={journals} activeJournalId={activeJournal?.id ?? null}
+              onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
+              onCreateJournal={() => setShowCreateDialog(true)}
+              onAddJournal={() => setShowAddDialog(true)}
+              onRelocateJournal={handleRelocate}
+              onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
+              onManageTemplates={() => setShowTemplateManager(true)}
+              loading={false}
+            />
+          </div>
+        </ResizablePanel>
+      )}
 
-      <div
-        className="h-full"
-        style={{ width: "320px", minWidth: "280px", display: isZenMode ? "none" : undefined }}
-      >
-        <JournalContextPanel
-          t={t} tConfig={tConfig} activeView={activeView} onViewChange={setActiveView}
-          journal={activeJournal}
-          selectedEntryId={selectedEntry?.metadata.id ?? null}
-          onSelectEntry={handleSelectEntry}
-          onNewEntry={handleNewEntry}
-          listKey={listKey}
-        />
-      </div>
+      {!isZenMode && (
+        <ResizablePanel initialWidth={320} minWidth={240} maxWidth={480} theme={tConfig}>
+          <div className="h-full">
+            <JournalContextPanel
+              t={t} tConfig={tConfig} activeView={activeView} onViewChange={setActiveView}
+              journal={activeJournal}
+              selectedEntryId={selectedEntry?.metadata.id ?? null}
+              onSelectEntry={handleSelectEntry}
+              onNewEntry={handleNewEntry}
+              listKey={listKey}
+            />
+          </div>
+        </ResizablePanel>
+      )}
 
       <div className="flex-1 min-w-0 h-full flex flex-col">
         <JournalEntryPanel
@@ -138,6 +141,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
           onDeleteEntry={handleDeleteEntry}
           onDuplicateEntry={handleDuplicateEntry}
           onReloadEntry={handleReloadEntry}
+          onNewEntry={handleNewEntry}
         />
       </div>
 

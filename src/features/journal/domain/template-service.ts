@@ -5,6 +5,29 @@ export interface JournalTemplate {
   body: string;
 }
 
+export const DEFAULT_TEMPLATES: JournalTemplate[] = [
+  {
+    name: "Daily log",
+    body: "## Highlights\n\n- What went well today?\n- What could have been better?\n\n## Tasks\n\n- [ ] \n\n## Notes\n\n\n## Mood\n\n",
+  },
+  {
+    name: "Gratitude",
+    body: "## Three things I'm grateful for\n\n1. \n2. \n3. \n\n## Why they matter\n\n\n## One good thing that happened today\n\n",
+  },
+  {
+    name: "Week review",
+    body: "## Wins this week\n\n- \n- \n- \n\n## Challenges\n\n- \n- \n\n## Next week focus\n\n- [ ] \n- [ ] \n- [ ] \n\n## Mood trend\n\n",
+  },
+  {
+    name: "Tracker log",
+    body: "## Today's metrics\n\n\n## Notes\n\n\n> Use trackers (Stats button) to log numeric, text, or boolean data for this entry.",
+  },
+  {
+    name: "Travel journal",
+    body: "## Location\n\n\n## Date\n\n\n## Highlights\n\n- \n- \n- \n\n## Photos\n\n\n## What I learned\n\n",
+  },
+];
+
 function templatesDir(journalRoot: string): string {
   return `${journalRoot}/templates`;
 }
@@ -19,7 +42,7 @@ export async function listTemplates(journalRoot: string): Promise<JournalTemplat
   try {
     items = await listDir(dir);
   } catch {
-    return [];
+    return [...DEFAULT_TEMPLATES];
   }
   const results: JournalTemplate[] = [];
   for (const item of items) {
@@ -28,6 +51,7 @@ export async function listTemplates(journalRoot: string): Promise<JournalTemplat
     const body = await readFile(`${dir}/${item}`);
     results.push({ name, body });
   }
+  if (results.length === 0) return [...DEFAULT_TEMPLATES];
   results.sort((a, b) => a.name.localeCompare(b.name));
   return results;
 }

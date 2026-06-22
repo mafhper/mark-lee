@@ -26,6 +26,7 @@ import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
 import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
+import { JournalGettingStarted } from "./JournalGettingStarted";
 
 interface JournalEntryPanelProps {
   t: Record<string, string>;
@@ -37,9 +38,10 @@ interface JournalEntryPanelProps {
   onDeleteEntry?: (entry: EntryRecord) => void;
   onDuplicateEntry?: (entry: EntryRecord) => void;
   onReloadEntry?: () => void;
+  onNewEntry?: () => void;
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -489,11 +491,13 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
               </div>
             )}
           </>
+        ) : journal ? (
+          <JournalGettingStarted tConfig={tConfig} hasEntries={false} onNewEntry={onNewEntry ?? (() => {})} />
         ) : (
           <div className="px-6 py-4">
             <JournalEmptyState icon={<BookOpen size={36} />}
               title={t["journal.noJournalTitle"] || "No entry selected"}
-              description={journal ? (t["journal.emptyStateEntries"] || "Select or create an entry to start writing.") : (t["journal.noJournalDesc"] || "Create or add a journal to start journaling.")}
+              description={t["journal.noJournalDesc"] || "Create or add a journal to start journaling."}
               tConfig={tConfig} />
           </div>
         )}
