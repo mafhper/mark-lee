@@ -48,6 +48,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -152,6 +153,44 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   };
 
   useEffect(() => {
+    if (entry?.metadata.cover) {
+      const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+      loadImage(dir + "/" + entry.metadata.cover).then(setCoverUrl).catch(() => setCoverUrl(null));
+    } else {
+      setCoverUrl(null);
+    }
+  }, [entry?.metadata.cover, entry?.path]);
+
+  const handleSetCover = async () => {
+    if (!entry || !journal) return;
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
+    });
+    const imgPath = Array.isArray(selected) ? selected[0] : selected;
+    if (!imgPath) return;
+    try {
+      const relative = await copyImageToDocumentDir(imgPath, entry.path);
+      const updated = { ...entry.metadata, cover: relative };
+      await saveEntry(entry.path, updated, body, true);
+      setCoverUrl(null);
+      const wc = body.trim() ? body.trim().split(/\s+/).length : 0;
+      onEntryUpdated({ path: entry.path, metadata: updated, body, wordCount: wc });
+    } catch (e) {
+      console.error("Failed to set cover:", e);
+    }
+  };
+
+  const handleRemoveCover = async () => {
+    if (!entry) return;
+    const updated = { ...entry.metadata, cover: undefined };
+    await saveEntry(entry.path, updated, body, true);
+    setCoverUrl(null);
+    const wc = body.trim() ? body.trim().split(/\s+/).length : 0;
+    onEntryUpdated({ path: entry.path, metadata: updated, body, wordCount: wc });
+  };
+
+  useEffect(() => {
     if (!entry) { setImageDataUrls([]); return; }
     const refs: string[] = [];
     const re = /!\[.*?\]\((.+?)\)/g;
@@ -172,6 +211,14 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
 
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
+      {coverUrl && (
+        <div className="relative w-full h-32 shrink-0 overflow-hidden" style={{ backgroundColor: tConfig.accentHex + "10" }}>
+          <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+          <button type="button" onClick={handleRemoveCover}
+            className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
+            title="Remove cover"><X size={12} /></button>
+        </div>
+      )}
       <div className="px-6 py-4 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
         <div className="flex items-center justify-between">
           <div className="space-y-1 min-w-0 flex-1">
@@ -214,6 +261,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                 className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
                 style={{ color: tConfig.fgHex + "60" }} title="Insert image">
                 <Image size={14} />
+              </button>
+              <button type="button" onClick={handleSetCover}
+                className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
+                style={{ color: coverUrl ? tConfig.accentHex : tConfig.fgHex + "60" }}
+                title={coverUrl ? "Change cover" : "Set cover image"}>
+                {coverUrl ? "Cover" : "Cover"}
               </button>
               {onOpenInEditor && (
                 <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"

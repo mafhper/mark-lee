@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { FileText, Heart, MapPin, Search, RefreshCw, AlertTriangle } from "lucide-react";
 
 const MOOD_EMOJI: Record<string, string> = {
@@ -20,6 +20,7 @@ import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { listEntries, getExcerpt, searchEntries } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
+import { loadImage } from "../../../services/filesystem";
 
 interface JournalListViewProps {
   t: Record<string, string>;
@@ -45,6 +46,22 @@ function monthLabel(key: string, locale: string): string {
   const [y, m] = key.split("-");
   const date = new Date(Number(y), Number(m) - 1, 1);
   return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
+}
+
+function CoverThumbnail({ entryPath, cover }: { entryPath: string; cover: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    const dir = entryPath.substring(0, entryPath.lastIndexOf("/"));
+    loadImage(dir + "/" + cover).then(setUrl).catch(() => setUrl(null));
+    return () => { mountedRef.current = false; };
+  }, [entryPath, cover]);
+  if (!url) return null;
+  return (
+    <div className="w-full h-24 -mx-3 -mt-2.5 mb-1.5 overflow-hidden shrink-0" style={{ width: "calc(100% + 1.5rem)" }}>
+      <img src={url} alt="" className="w-full h-full object-cover" />
+    </div>
+  );
 }
 
 export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelectEntry, searchQuery }: JournalListViewProps) {
@@ -153,6 +170,9 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
         backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
         borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
       }}>
+      {entry.metadata.cover && (
+        <CoverThumbnail entryPath={entry.path} cover={entry.metadata.cover} />
+      )}
       <div className="flex items-center gap-1.5 w-full min-w-0">
         <span className="text-[11px] font-medium shrink-0" style={{ color: tConfig.fgHex + "50" }}>
           {new Date(entry.metadata.date).getDate()}
