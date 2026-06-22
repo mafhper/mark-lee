@@ -1,4 +1,5 @@
 import { readUserDataFile, writeUserDataFile } from "../../../services/filesystem";
+import { readManifest } from "./manifest-service";
 import type { JournalDescriptor } from "./journal.types";
 
 const LIBRARY_FILE = "journal-library.json";
@@ -19,9 +20,21 @@ export async function loadLibrary(): Promise<LibraryData> {
     if (!raw) return emptyLibrary();
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return emptyLibrary();
+
+    const journals: JournalDescriptor[] = Array.isArray(parsed.journals) ? parsed.journals : [];
+    const validJournals = await Promise.all(
+      journals.map(async (j) => {
+        const manifest = await readManifest(j.rootPath);
+        if (!manifest) {
+          return { ...j, name: j.name || "Unavailable", unavailable: true };
+        }
+        return { ...j, name: manifest.name, description: manifest.description, unavailable: false };
+      })
+    );
+
     return {
       version: parsed.version ?? 1,
-      journals: Array.isArray(parsed.journals) ? parsed.journals : [],
+      journals: validJournals,
       activeJournalId: typeof parsed.activeJournalId === "string" ? parsed.activeJournalId : null,
     };
   } catch {
@@ -35,7 +48,14 @@ export async function saveLibrary(data: LibraryData): Promise<void> {
 
 export async function addJournal(journal: JournalDescriptor): Promise<void> {
   const library = await loadLibrary();
-  library.journals.push(journal);
+  const existing = library.journals.find((j) => j.id === journal.id);
+  if (existing) {
+    // Update existing journal
+    Object.assign(existing, journal);
+    existing.unavailable = false;
+  } else {
+    library.journals.push(journal);
+  }
   library.activeJournalId = journal.id;
   await saveLibrary(library);
 }

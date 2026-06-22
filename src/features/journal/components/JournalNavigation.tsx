@@ -1,4 +1,4 @@
-import { BookOpen, Calendar, Heart, Settings, Search, Plus } from "lucide-react";
+import { BookOpen, Calendar, Heart, Settings, Search, Plus, FolderOpen, AlertTriangle } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 
@@ -11,12 +11,14 @@ interface JournalNavigationProps {
   activeJournalId: string | null;
   onSelectJournal: (id: string | null) => void;
   onCreateJournal: () => void;
+  onAddJournal: () => void;
+  onRelocateJournal: (journalId: string) => void;
   loading: boolean;
 }
 
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange,
-  journals, activeJournalId, onSelectJournal, onCreateJournal, loading,
+  journals, activeJournalId, onSelectJournal, onCreateJournal, onAddJournal, onRelocateJournal, loading,
 }: JournalNavigationProps) {
   const topItems = [
     { id: "entries", label: t["journal.entries"] || "Entries", icon: <BookOpen size={15} /> },
@@ -86,15 +88,26 @@ export function JournalNavigation({
           <button
             key={journal.id}
             type="button"
-            onClick={() => onSelectJournal(journal.id)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left"
+            onClick={() => {
+              if (journal.unavailable) {
+                onRelocateJournal(journal.id);
+              } else {
+                onSelectJournal(journal.id);
+              }
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left group"
             style={{
-              color: activeJournalId === journal.id ? tConfig.accentHex : tConfig.fgHex + "CC",
+              color: journal.unavailable
+                ? "#f59e0b"
+                : activeJournalId === journal.id
+                  ? tConfig.accentHex
+                  : tConfig.fgHex + "CC",
               backgroundColor: activeJournalId === journal.id ? tConfig.accentHex + "12" : "transparent",
               borderLeft: activeJournalId === journal.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
             }}
+            title={journal.unavailable ? `Folder not found: ${journal.rootPath}\nClick to relocate.` : journal.rootPath}
           >
-            <BookOpen size={15} />
+            {journal.unavailable ? <AlertTriangle size={15} /> : <BookOpen size={15} />}
             <span className="truncate">{journal.name}</span>
           </button>
         ))}
@@ -107,6 +120,16 @@ export function JournalNavigation({
         >
           <Plus size={14} />
           <span className="truncate">{t["journal.newJournal"] || "New journal"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onAddJournal}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left"
+          style={{ color: tConfig.fgHex + "60" }}
+        >
+          <FolderOpen size={14} />
+          <span className="truncate">{t["journal.addJournal"] || "Add existing journal"}</span>
         </button>
       </nav>
 

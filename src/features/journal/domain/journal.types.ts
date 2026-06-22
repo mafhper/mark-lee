@@ -18,4 +18,12 @@ export interface JournalDescriptor {
   schemaVersion: number;
   createdAt: string;
   lastOpenedAt?: string;
+  unavailable?: boolean;
+}
+
+export interface ManifestCheckResult {
+  found: boolean;
+  valid: boolean;
+  manifest?: JournalManifest;
+  error?: string;
 }

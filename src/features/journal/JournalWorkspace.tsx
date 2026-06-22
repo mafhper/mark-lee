@@ -5,6 +5,11 @@ import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
 import { CreateJournalDialog } from "./components/CreateJournalDialog";
+import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog";
+import { checkManifest } from "./domain/manifest-service";
+import { addJournal } from "./domain/library-service";
+import { openFileDialog } from "../../services/filesystem";
+import type { JournalDescriptor } from "./domain/journal.types";
 
 interface JournalWorkspaceProps {
   t: Record<string, string>;
@@ -17,7 +22,31 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const { journals, activeJournal, selectJournal, addJournal, loading } = useJournalLibrary();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const { journals, activeJournal, selectJournal, addJournal: addToLib, reload } = useJournalLibrary();
+
+  const handleRelocate = async (journalId: string) => {
+    const selected = await openFileDialog({ directory: true, multiple: false });
+    const path = Array.isArray(selected) ? selected[0] : selected;
+    if (!path) return;
+
+    const result = await checkManifest(path);
+    if (!result.manifest || result.manifest.id !== journalId) {
+      return;
+    }
+
+    const descriptor: JournalDescriptor = {
+      id: result.manifest.id,
+      name: result.manifest.name,
+      rootPath: path,
+      description: result.manifest.description,
+      schemaVersion: result.manifest.schemaVersion,
+      createdAt: result.manifest.createdAt,
+    };
+
+    await addJournal(descriptor);
+    reload();
+  };
 
   return (
     <div
@@ -41,7 +70,9 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
           activeJournalId={activeJournal?.id ?? null}
           onSelectJournal={selectJournal}
           onCreateJournal={() => setShowCreateDialog(true)}
-          loading={loading}
+          onAddJournal={() => setShowAddDialog(true)}
+          onRelocateJournal={handleRelocate}
+          loading={false}
         />
       </div>
 
@@ -74,7 +105,15 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
         tConfig={tConfig}
         defaultLanguage={language}
         onClose={() => setShowCreateDialog(false)}
-        onCreated={addJournal}
+        onCreated={addToLib}
+      />
+
+      <AddExistingJournalDialog
+        open={showAddDialog}
+        t={t}
+        tConfig={tConfig}
+        onClose={() => setShowAddDialog(false)}
+        onAdded={addToLib}
       />
     </div>
   );

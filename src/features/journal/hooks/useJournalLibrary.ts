@@ -45,6 +45,11 @@ export function useJournalLibrary() {
 
   const activeJournal = journals.find((j) => j.id === activeJournalId) ?? null;
 
+  const reload = useCallback(async () => {
+    const data = await loadLibrary();
+    setLibrary(data);
+  }, []);
+
   return {
     journals,
     activeJournalId,
@@ -52,6 +57,7 @@ export function useJournalLibrary() {
     selectJournal,
     addJournal,
     removeJournal,
+    reload,
     loading: library === null,
   };
 }

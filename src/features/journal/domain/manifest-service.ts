@@ -1,5 +1,5 @@
 import { readFile, writeFile, createWorkspaceDirectory } from "../../../services/filesystem";
-import type { JournalManifest } from "./journal.types";
+import type { JournalManifest, ManifestCheckResult } from "./journal.types";
 
 const SCHEMA = "marklee-journal" as const;
 const CURRENT_SCHEMA_VERSION = 1 as const;
@@ -35,20 +35,65 @@ async function mkdirIfMissing(path: string): Promise<void> {
   }
 }
 
+export async function checkManifest(rootPath: string): Promise<ManifestCheckResult> {
+  try {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw);
+
+    if (!parsed || typeof parsed !== "object") {
+      return { found: true, valid: false, error: "Manifest is not a valid JSON object." };
+    }
+
+    if (parsed.schema !== SCHEMA) {
+      return { found: true, valid: false, error: `Unknown schema: "${parsed.schema}". Expected "${SCHEMA}".` };
+    }
+
+    if (typeof parsed.schemaVersion !== "number") {
+      return { found: true, valid: false, error: "Missing or invalid schemaVersion." };
+    }
+
+    if (parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
+      return {
+        found: true,
+        valid: false,
+        error: `Schema version ${parsed.schemaVersion} is newer than supported (${CURRENT_SCHEMA_VERSION}). Please update Mark-Lee.`,
+      };
+    }
+
+    if (!parsed.id || typeof parsed.id !== "string") {
+      return { found: true, valid: false, error: "Missing journal id." };
+    }
+
+    if (!parsed.name || typeof parsed.name !== "string") {
+      return { found: true, valid: false, error: "Missing journal name." };
+    }
+
+    const manifest: JournalManifest = {
+      schema: SCHEMA,
+      schemaVersion: parsed.schemaVersion,
+      id: parsed.id,
+      name: parsed.name,
+      description: typeof parsed.description === "string" ? parsed.description : undefined,
+      createdAt: parsed.createdAt || new Date().toISOString(),
+      entryDirectory: parsed.entryDirectory || "entries",
+      assetDirectory: parsed.assetDirectory || "assets",
+      defaultLanguage: parsed.defaultLanguage || "en-US",
+    };
+
+    return { found: true, valid: true, manifest };
+  } catch {
+    return { found: false, valid: false, error: "No journal manifest found in this folder." };
+  }
+}
+
 export async function writeManifest(rootPath: string, manifest: JournalManifest): Promise<void> {
   await mkdirIfMissing(`${rootPath}/.marklee`);
   await writeFile(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
 }
 
 export async function readManifest(rootPath: string): Promise<JournalManifest | null> {
-  try {
-    const raw = await readFile(manifestPath(rootPath));
-    const parsed = JSON.parse(raw);
-    if (!parsed || parsed.schema !== SCHEMA) return null;
-    return parsed as JournalManifest;
-  } catch {
-    return null;
-  }
+  const result = await checkManifest(rootPath);
+  return result.manifest ?? null;
 }
 
 export function validateManifest(data: unknown): data is JournalManifest {
