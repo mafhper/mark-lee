@@ -1,4 +1,4 @@
-import { readFile, writeFile, openFileDialog } from "../../../services/filesystem";
+import { readFile, writeFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
 import type { EntryRecord } from "./entry-service";
 import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
@@ -79,6 +79,51 @@ export async function exportDateRange(
       errors.push({ path: entry.path, error: e instanceof Error ? e.message : String(e) });
     }
     onProgress?.(i + 1, inRange.length);
+  }
+
+  return { exported, errors };
+}
+
+export async function exportJournal(
+  journalRoot: string,
+  destDir: string,
+  format: "markdown" | "html" = "markdown",
+  onProgress?: (done: number, total: number) => void,
+): Promise<ExportRangeResult> {
+  const all = await listEntries(journalRoot);
+  const entries = all.entries;
+  entries.sort((a, b) => new Date(a.metadata.date).getTime() - new Date(b.metadata.date).getTime());
+
+  const errors: { path: string; error: string }[] = [];
+  let exported = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    try {
+      // Preserve relative path from entries/
+      const rel = entry.path.startsWith(journalRoot + "/entries/")
+        ? entry.path.slice((journalRoot + "/entries/").length)
+        : entryFileName(entry);
+      const relDir = rel.includes("/") ? rel.substring(0, rel.lastIndexOf("/")) : "";
+      if (relDir) {
+        await createWorkspaceDirectory(`${destDir}/entries/${relDir}`);
+      }
+
+      if (format === "html") {
+        const content = await readFile(entry.path);
+        const bodyHtml = mdToHtml(content);
+        const fullHtml = wrapHtmlPage(bodyHtml);
+        const baseName = entryFileName(entry).replace(/\.md$/i, "");
+        await writeFile(`${destDir}/entries/${relDir}/${baseName}.html`, fullHtml);
+      } else {
+        const content = await readFile(entry.path);
+        await writeFile(`${destDir}/entries/${rel}`, content);
+      }
+      exported++;
+    } catch (e) {
+      errors.push({ path: entry.path, error: e instanceof Error ? e.message : String(e) });
+    }
+    onProgress?.(i + 1, entries.length);
   }
 
   return { exported, errors };

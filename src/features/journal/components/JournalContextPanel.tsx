@@ -9,6 +9,7 @@ import { JournalCalendarView } from "./JournalCalendarView";
 import { JournalMapView } from "./JournalMapView";
 import { JournalGalleryView } from "./JournalGalleryView";
 import { ExportRangeDialog } from "./ExportRangeDialog";
+import { ExportJournalDialog } from "./ExportJournalDialog";
 
 interface JournalContextPanelProps {
   t: Record<string, string>;
@@ -27,12 +28,13 @@ export function JournalContextPanel({
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
+  const [showExportJournal, setShowExportJournal] = useState(false);
 
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
       <JournalHeader
         t={t} tConfig={tConfig} activeView={activeView} onViewChange={onViewChange}
-        onNewEntry={onNewEntry} journal={journal}
+        onNewEntry={onNewEntry} onExportJournal={() => setShowExportJournal(true)} journal={journal}
       />
       <div className="px-3 py-2 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
         <div className="flex items-center gap-1 px-2 py-1 rounded text-xs"
@@ -70,6 +72,9 @@ export function JournalContextPanel({
       <ExportRangeDialog open={showExportRange} tConfig={tConfig}
         journalRootPath={journal?.rootPath ?? ""}
         onClose={() => setShowExportRange(false)} />
+      <ExportJournalDialog open={showExportJournal} tConfig={tConfig}
+        journalRootPath={journal?.rootPath ?? ""}
+        onClose={() => setShowExportJournal(false)} />
     </div>
   );
 }

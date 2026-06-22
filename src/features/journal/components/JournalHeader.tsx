@@ -1,4 +1,4 @@
-import { BookOpen, Plus, Calendar, MapPin, LayoutGrid } from "lucide-react";
+import { BookOpen, Plus, Calendar, MapPin, LayoutGrid, Download } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 
@@ -8,10 +8,11 @@ interface JournalHeaderProps {
   activeView: "list" | "calendar" | "map" | "gallery";
   onViewChange: (view: "list" | "calendar" | "map" | "gallery") => void;
   onNewEntry?: () => void;
+  onExportJournal?: () => void;
   journal: JournalDescriptor | null;
 }
 
-export function JournalHeader({ t, tConfig, activeView, onViewChange, onNewEntry, journal }: JournalHeaderProps) {
+export function JournalHeader({ t, tConfig, activeView, onViewChange, onNewEntry, onExportJournal, journal }: JournalHeaderProps) {
   const views: Array<{ id: "list" | "calendar" | "map" | "gallery"; label: string; icon: React.ReactNode }> = [
     { id: "list", label: t["journal.list"] || "List", icon: <BookOpen size={14} /> },
     { id: "calendar", label: t["journal.calendar"] || "Calendar", icon: <Calendar size={14} /> },
@@ -66,6 +67,13 @@ export function JournalHeader({ t, tConfig, activeView, onViewChange, onNewEntry
           </button>
         ))}
         <div className="flex-1" />
+        {onExportJournal && journal && (
+          <button type="button" onClick={onExportJournal}
+            className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+            style={{ color: tConfig.fgHex + "60" }} title="Export journal">
+            <Download size={14} />
+          </button>
+        )}
         {onNewEntry && journal && (
           <button
             type="button"
