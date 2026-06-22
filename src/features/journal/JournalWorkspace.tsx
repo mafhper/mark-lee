@@ -9,7 +9,7 @@ import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog"
 import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
-import { createEntry } from "./domain/entry-service";
+import { createEntry, deleteEntry } from "./domain/entry-service";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
@@ -19,9 +19,10 @@ interface JournalWorkspaceProps {
   tConfig: ThemeConfig;
   isZenMode: boolean;
   language: string;
+  onOpenFile?: (path: string) => void;
 }
 
-export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWorkspaceProps) {
+export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile }: JournalWorkspaceProps) {
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -47,6 +48,12 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
     };
     await addJournal(descriptor);
     reload();
+  };
+
+  const handleDeleteEntry = async (entry: EntryRecord) => {
+    await deleteEntry(entry.path);
+    setSelectedEntry(null);
+    setListKey((k) => k + 1);
   };
 
   const handleRemoveConfirm = async () => {
@@ -103,6 +110,8 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language }: JournalWor
         <JournalEntryPanel
           t={t} tConfig={tConfig} journal={activeJournal} entry={selectedEntry}
           onEntryUpdated={setSelectedEntry}
+          onOpenInEditor={onOpenFile}
+          onDeleteEntry={handleDeleteEntry}
         />
       </div>
 

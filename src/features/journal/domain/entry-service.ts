@@ -1,4 +1,4 @@
-import { readFile, writeFile, createWorkspaceDirectory, listDir } from "../../../services/filesystem";
+import { readFile, writeFile, createWorkspaceDirectory, listDir, deleteWorkspacePath } from "../../../services/filesystem";
 import { parseJournalEntry } from "./journal-entry.parser";
 import { serializeJournalEntry } from "./journal-entry.serializer";
 import type { JournalEntryMetadata } from "./journal-entry.types";
@@ -126,4 +126,8 @@ export function getExcerpt(body: string, maxLength = 120): string {
   const trimmed = body.trim();
   if (trimmed.length <= maxLength) return trimmed;
   return trimmed.slice(0, maxLength).replace(/\s+\S*$/, "") + "...";
+}
+
+export async function deleteEntry(path: string): Promise<void> {
+  await deleteWorkspacePath(path);
 }
