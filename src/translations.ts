@@ -189,6 +189,16 @@ const ptBR: Record<string, string> = {
   "ctx.clipboardUnavailable": "Clipboard indisponível",
   "ctx.clipboardDenied": "Permissão de clipboard negada",
   "ctx.clipboardFailed": "Falha ao copiar ou colar",
+  "ctx.openLink": "Abrir link",
+  "ctx.copyAddress": "Copiar endereço",
+  "ctx.copyOriginalLink": "Copiar link original",
+  "ctx.copyAsMarkdown": "Copiar como Markdown",
+  "ctx.copyMarkdownPath": "Copiar caminho Markdown",
+  "ctx.copyAbsolutePath": "Copiar caminho absoluto",
+  "ctx.openInExplorer": "Abrir no explorador",
+  "ctx.backToTop": "Voltar ao topo",
+  "ctx.openInEditor": "Abrir no Editor",
+  "ctx.linkTargetNotFound": "Alvo do link não encontrado",
 };
 
 const enUS: Record<string, string> = {
@@ -380,6 +390,16 @@ const enUS: Record<string, string> = {
   "ctx.clipboardUnavailable": "Clipboard unavailable",
   "ctx.clipboardDenied": "Clipboard permission denied",
   "ctx.clipboardFailed": "Failed to copy or paste",
+  "ctx.openLink": "Open link",
+  "ctx.copyAddress": "Copy address",
+  "ctx.copyOriginalLink": "Copy original link",
+  "ctx.copyAsMarkdown": "Copy as Markdown",
+  "ctx.copyMarkdownPath": "Copy Markdown path",
+  "ctx.copyAbsolutePath": "Copy absolute path",
+  "ctx.openInExplorer": "Open in explorer",
+  "ctx.backToTop": "Back to top",
+  "ctx.openInEditor": "Open in Editor",
+  "ctx.linkTargetNotFound": "Link target not found",
 };
 
 const esES: Record<string, string> = {
@@ -572,6 +592,16 @@ const esES: Record<string, string> = {
   "ctx.clipboardUnavailable": "Portapapeles no disponible",
   "ctx.clipboardDenied": "Permiso de portapapeles denegado",
   "ctx.clipboardFailed": "Error al copiar o pegar",
+  "ctx.openLink": "Abrir enlace",
+  "ctx.copyAddress": "Copiar dirección",
+  "ctx.copyOriginalLink": "Copiar enlace original",
+  "ctx.copyAsMarkdown": "Copiar como Markdown",
+  "ctx.copyMarkdownPath": "Copiar ruta Markdown",
+  "ctx.copyAbsolutePath": "Copiar ruta absoluta",
+  "ctx.openInExplorer": "Abrir en explorador",
+  "ctx.backToTop": "Volver al inicio",
+  "ctx.openInEditor": "Abrir en Editor",
+  "ctx.linkTargetNotFound": "Destino del enlace no encontrado",
 };
 
 export const TRANSLATIONS: Record<Language, Record<string, string>> = {

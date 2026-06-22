@@ -81,6 +81,7 @@ import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
+import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import "./index.css";
 
@@ -291,6 +292,173 @@ function EditorContextMenuWrapper({
       view.dispatch({ selection: EditorSelection.cursor(position) });
     }
 
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event);
+  };
+
+  return <div ref={wrapperRef} onContextMenu={handleContextMenu} className="contents">{children}</div>;
+}
+
+function PreviewContextMenuWrapper({
+  previewRef,
+  t,
+  activePath,
+  onScrollToTop,
+  onOpenFile,
+  onReveal,
+  onFindWithQuery,
+  onClipboardError,
+  children,
+}: {
+  previewRef: React.RefObject<HTMLDivElement | null>;
+  t: Record<string, string>;
+  activePath: string | null;
+  onScrollToTop: () => void;
+  onOpenFile: (path: string) => void;
+  onReveal: (path: string) => void;
+  onFindWithQuery: (query: string) => void;
+  onClipboardError: (reason: "unavailable" | "denied" | "failed") => void;
+  children: React.ReactNode;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const resolveItems = useCallback((): ContextMenuEntry[] => {
+    const preview = previewRef.current;
+    if (!preview) return [];
+
+    const eventTarget = (document.activeElement ?? preview) as HTMLElement;
+
+    const items: ContextMenuEntry[] = [];
+
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const insidePreview = range && preview.contains(range.commonAncestorContainer);
+    const selectedText = insidePreview ? selection?.toString() ?? "" : "";
+
+    const imageEl = eventTarget.closest<HTMLElement>('[data-ml-media="image"]');
+    const anchorEl = eventTarget.closest<HTMLAnchorElement>("a[data-ml-original-href]");
+
+    if (imageEl) {
+      const originalSrc = imageEl.getAttribute("data-ml-original-src") || "";
+      const resolvedPath = imageEl.getAttribute("data-ml-resolved-path") || undefined;
+      const alt = imageEl.getAttribute("data-ml-alt") || "";
+
+      items.push(
+        { type: "item", id: "copy-md-path", label: t["ctx.copyMarkdownPath"] || "Copy Markdown path", onSelect: async () => {
+          const result = await writeText(originalSrc);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-abs-path", label: t["ctx.copyAbsolutePath"] || "Copy absolute path", disabled: !resolvedPath, onSelect: async () => {
+          if (!resolvedPath) return;
+          const result = await writeText(resolvedPath);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-as-md", label: t["ctx.copyAsMarkdown"] || "Copy as Markdown", onSelect: async () => {
+          const md = `![${alt}](${originalSrc})`;
+          const result = await writeText(md);
+          if (!result.ok) onClipboardError(result.reason);
+        }}
+      );
+
+      if (resolvedPath && isTauriRuntime()) {
+        items.push(
+          { type: "item", id: "open-in-explorer", label: t["ctx.openInExplorer"] || "Open in explorer", onSelect: () => onReveal(resolvedPath) }
+        );
+      }
+
+      return items;
+    }
+
+    if (anchorEl) {
+      const originalHref = anchorEl.getAttribute("data-ml-original-href") || "";
+      const resolvedHref = anchorEl.href;
+      const text = anchorEl.textContent?.trim() || "";
+      const link = resolvePreviewLink(originalHref, resolvedHref);
+
+      items.push(
+        { type: "item", id: "open-link", label: t["ctx.openLink"] || "Open link", disabled: link.kind === "unsupported", onSelect: () => {
+          if (link.kind === "external") {
+            if (isTauriRuntime()) {
+              import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(link.resolvedHref)).catch(() => undefined);
+            } else {
+              window.open(link.resolvedHref, "_blank", "noopener noreferrer");
+            }
+          } else if (link.kind === "email") {
+            if (isTauriRuntime()) {
+              import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(link.originalHref)).catch(() => undefined);
+            } else {
+              window.location.href = link.originalHref;
+            }
+          } else if (link.kind === "anchor") {
+            const hash = link.originalHref.slice(1);
+            try {
+              const el = preview.querySelector(`#${CSS.escape(hash)}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            } catch {
+              // ignore
+            }
+          } else if (link.kind === "local-file") {
+            onOpenFile(link.originalHref);
+          }
+        }},
+        { type: "item", id: "copy-address", label: t["ctx.copyAddress"] || "Copy address", onSelect: async () => {
+          const result = await writeText(link.resolvedHref);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-original-link", label: t["ctx.copyOriginalLink"] || "Copy original link", onSelect: async () => {
+          const result = await writeText(link.originalHref);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "copy-as-md-link", label: t["ctx.copyAsMarkdown"] || "Copy as Markdown", onSelect: async () => {
+          const md = `[${text}](${originalHref})`;
+          const result = await writeText(md);
+          if (!result.ok) onClipboardError(result.reason);
+        }}
+      );
+
+      return items;
+    }
+
+    if (selectedText) {
+      items.push(
+        { type: "item", id: "copy-text", label: t["edit.copy"] || "Copy", onSelect: async () => {
+          const result = await writeText(selectedText);
+          if (!result.ok) onClipboardError(result.reason);
+        }},
+        { type: "item", id: "find-in-editor", label: t["ctx.searchWithSelection"] || "Find selection", onSelect: () => onFindWithQuery(selectedText) }
+      );
+      return items;
+    }
+
+    items.push(
+      { type: "item", id: "select-all", label: t["ctx.selectAll"] || "Select all", onSelect: () => {
+        const range = document.createRange();
+        range.selectNodeContents(preview);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }},
+      { type: "item", id: "back-to-top", label: t["ctx.backToTop"] || "Back to top", onSelect: () => onScrollToTop() }
+    );
+
+    if (activePath) {
+      items.push(
+        { type: "item", id: "open-in-editor", label: t["ctx.openInEditor"] || "Open in Editor", onSelect: () => onOpenFile(activePath) }
+      );
+    }
+
+    return items;
+  }, [previewRef, t, activePath, onScrollToTop, onOpenFile, onReveal, onFindWithQuery, onClipboardError]);
+
+  const { onContextMenu } = useContextMenuTrigger<HTMLDivElement>({
+    ref: wrapperRef,
+    resolveItems,
+  });
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
     onContextMenu(event);
@@ -2325,6 +2493,16 @@ function App() {
               </div>
             </EditorContextMenuWrapper>
 
+            <PreviewContextMenuWrapper
+              previewRef={previewRef}
+              t={t}
+              activePath={activeTab?.path ?? null}
+              onScrollToTop={scrollPreviewToTop}
+              onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "preview" })}
+              onReveal={revealInFileManager}
+              onFindWithQuery={openFindWithQuery}
+              onClipboardError={showClipboardError}
+            >
             <div
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
@@ -2381,6 +2559,7 @@ function App() {
                 </button>
               ) : null}
             </div>
+            </PreviewContextMenuWrapper>
           </div>
         </div>
       </div>

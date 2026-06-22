@@ -172,7 +172,7 @@ export interface WorkspaceState {
 }
 
 export type OpenIntent =
-  | { kind: "open-file"; path: string; source: "cli" | "association" | "dialog" | "sidebar" | "recent" | "window" }
+  | { kind: "open-file"; path: string; source: "cli" | "association" | "dialog" | "sidebar" | "recent" | "window" | "preview" }
   | { kind: "open-workspace"; path: string; source: "dialog" | "restore-session" }
   | { kind: "new-file"; workspaceRoot?: string };
 
