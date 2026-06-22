@@ -509,6 +509,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   themeLibrary: createDefaultThemeLibrary(),
   theme: Theme.Golden,
   viewMode: "edit",
+  selectionToolbarEnabled: true,
   chromeMode: "unified",
   tabsEnabled: true,
   sidebarEnabled: true,

@@ -151,6 +151,7 @@ export interface AppSettings {
   themeLibrary: ThemeDefinition[];
   theme: ThemeId;
   viewMode: ViewMode; // Last used view mode (edit/split/preview)
+  selectionToolbarEnabled: boolean;
 }
 
 export interface DocumentTab {

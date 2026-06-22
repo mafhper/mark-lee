@@ -65,6 +65,7 @@ import {
   PublicationPreset,
   Snippet,
   TauriOpenIntentPayload,
+  ThemeConfig,
   WorkspaceNode,
 } from "./types";
 import { TRANSLATIONS } from "./translations";
@@ -78,6 +79,8 @@ import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
 import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
+import { useEditorSelectionToolbar } from "./app/hooks/useEditorSelectionToolbar";
+import SelectionToolbar from "./app/components/SelectionToolbar";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
@@ -465,6 +468,34 @@ function PreviewContextMenuWrapper({
   };
 
   return <div ref={wrapperRef} onContextMenu={handleContextMenu} className="contents">{children}</div>;
+}
+
+function SelectionToolbarContainer({
+  editorView,
+  editorRef,
+  enabled,
+  isCodeDocument,
+  t,
+  tConfig,
+}: {
+  editorView: EditorView | null;
+  editorRef: React.MutableRefObject<EditorView | null>;
+  enabled: boolean;
+  isCodeDocument: boolean;
+  t: Record<string, string>;
+  tConfig: ThemeConfig;
+}) {
+  const { position, visible } = useEditorSelectionToolbar(editorView, enabled);
+  return (
+    <SelectionToolbar
+      visible={visible}
+      position={position}
+      editorRef={editorRef}
+      isCodeDocument={isCodeDocument}
+      t={t}
+      tConfig={tConfig}
+    />
+  );
 }
 
 function App() {
@@ -2576,6 +2607,15 @@ function App() {
           <DoorOpen size={16} />
         </button>
       )}
+
+      <SelectionToolbarContainer
+        editorView={editorView}
+        editorRef={editorRef}
+        enabled={settings.selectionToolbarEnabled}
+        isCodeDocument={isCodeDocument}
+        t={t}
+        tConfig={tConfig}
+      />
 
       <FindReplaceModal
         open={showFindReplace}
