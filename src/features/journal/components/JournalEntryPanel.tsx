@@ -1,5 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus } from "lucide-react";
+
+const MOODS: { key: string; emoji: string }[] = [
+  { key: "great", emoji: "\u{1F60A}" },
+  { key: "good", emoji: "\u{1F642}" },
+  { key: "neutral", emoji: "\u{1F610}" },
+  { key: "sad", emoji: "\u{1F622}" },
+  { key: "angry", emoji: "\u{1F624}" },
+  { key: "anxious", emoji: "\u{1F630}" },
+  { key: "tired", emoji: "\u{1F634}" },
+  { key: "loved", emoji: "\u{1F970}" },
+  { key: "thankful", emoji: "\u{1F64F}" },
+  { key: "creative", emoji: "\u{2728}" },
+  { key: "sick", emoji: "\u{1F912}" },
+  { key: "excited", emoji: "\u{1F929}" },
+];
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
@@ -23,6 +38,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [favorite, setFavorite] = useState(false);
+  const [mood, setMood] = useState("");
+  const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -39,14 +56,15 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       setBody(entry.body);
       setTags(entry.metadata.tags ?? []);
       setFavorite(entry.metadata.favorite ?? false);
+      setMood(entry.metadata.mood ?? "");
       setDirty(false);
       setConfirmDelete(false);
     }
   }, [entry?.metadata.id, entry?.path]);
 
-  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, rec: EntryRecord, force = false) => {
+  const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, force = false) => {
     setSaving(true);
-    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav };
+    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined };
     try {
       await saveEntry(rec.path, updated, b, force);
       setConflict(false);
@@ -61,18 +79,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     setSaving(false);
   }, [onEntryUpdated]);
 
-  const scheduleSave = useCallback((t: string, b: string, tg: string[], fav: boolean, rec: EntryRecord) => {
+  const scheduleSave = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => doSave(t, b, tg, fav, rec), 2000);
+    saveTimerRef.current = setTimeout(() => doSave(t, b, tg, fav, m, rec), 2000);
   }, [doSave]);
 
-  const markDirty = useCallback((t: string, b: string, tg: string[], fav: boolean, rec: EntryRecord) => {
+  const markDirty = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord) => {
     setDirty(true);
-    if (entry && journal) scheduleSave(t, b, tg, fav, rec);
+    if (entry && journal) scheduleSave(t, b, tg, fav, m, rec);
   }, [entry, journal, scheduleSave]);
 
-  const handleTitleChange = (value: string) => { setTitle(value); if (entry) markDirty(value, body, tags, favorite, entry); };
-  const handleBodyChange = (value: string) => { setBody(value); if (entry) markDirty(title, value, tags, favorite, entry); };
+  const handleTitleChange = (value: string) => { setTitle(value); if (entry) markDirty(value, body, tags, favorite, mood, entry); };
+  const handleBodyChange = (value: string) => { setBody(value); if (entry) markDirty(title, value, tags, favorite, mood, entry); };
 
   const handleAddTag = () => {
     const newTag = tagInput.trim();
@@ -80,19 +98,26 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     const next = [...tags, newTag];
     setTags(next);
     setTagInput("");
-    if (entry) markDirty(title, body, next, favorite, entry);
+    if (entry) markDirty(title, body, next, favorite, mood, entry);
   };
 
   const handleRemoveTag = (tag: string) => {
     const next = tags.filter((t) => t !== tag);
     setTags(next);
-    if (entry) markDirty(title, body, next, favorite, entry);
+    if (entry) markDirty(title, body, next, favorite, mood, entry);
   };
 
   const handleToggleFavorite = () => {
     const next = !favorite;
     setFavorite(next);
-    if (entry) markDirty(title, body, tags, next, entry);
+    if (entry) markDirty(title, body, tags, next, mood, entry);
+  };
+
+  const handleSelectMood = (key: string) => {
+    const next = mood === key ? "" : key;
+    setMood(next);
+    setShowMoodPicker(false);
+    if (entry) markDirty(title, body, tags, favorite, next, entry);
   };
 
   useEffect(() => {
@@ -155,7 +180,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
           <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#f59e0b20", color: "#f59e0b" }}>
             <AlertTriangle size={12} />
             <span className="flex-1">File modified externally. Save blocked.</span>
-            <button type="button" onClick={async () => { await doSave(title, body, tags, favorite, entry!, true); }}
+            <button type="button" onClick={async () => { await doSave(title, body, tags, favorite, mood, entry!, true); }}
               className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>Overwrite</button>
             <button type="button" onClick={() => { setConflict(false); onReloadEntry?.(); }}
               className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>Discard</button>
@@ -187,6 +212,28 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                   </button>
                 )}
               </div>
+              <div className="relative">
+                <button type="button" onClick={() => setShowMoodPicker(!showMoodPicker)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] hover:opacity-70"
+                  style={{ backgroundColor: mood ? (tConfig.accentHex + "18") : "transparent", color: tConfig.fgHex + "70" }}>
+                  {mood ? MOODS.find((m) => m.key === mood)?.emoji : <SmilePlus size={12} />}
+                </button>
+                {showMoodPicker && (
+                  <div className="absolute top-full left-0 mt-1 p-1.5 rounded-lg shadow-xl border z-50 flex flex-wrap gap-1"
+                    style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, width: "200px" }}>
+                    {MOODS.map((m) => (
+                      <button key={m.key} type="button" onClick={() => handleSelectMood(m.key)}
+                        className="w-7 h-7 rounded flex items-center justify-center text-sm hover:opacity-70"
+                        style={{ backgroundColor: mood === m.key ? tConfig.accentHex + "20" : "transparent" }}>
+                        {m.emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {mood && (
+                <span className="text-[11px]" style={{ color: tConfig.fgHex + "60" }}>{mood}</span>
+              )}
               <span className="opacity-50 ml-1">{body.trim() ? body.trim().split(/\s+/).length : 0} words</span>
               <span className="opacity-40">{saving ? "Saving..." : dirty ? "Unsaved" : "Saved"}</span>
             </>

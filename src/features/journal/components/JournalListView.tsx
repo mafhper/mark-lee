@@ -1,5 +1,20 @@
 import { useState, useEffect } from "react";
 import { FileText, Heart, MapPin } from "lucide-react";
+
+const MOOD_EMOJI: Record<string, string> = {
+  great: "\u{1F60A}",
+  good: "\u{1F642}",
+  neutral: "\u{1F610}",
+  sad: "\u{1F622}",
+  angry: "\u{1F624}",
+  anxious: "\u{1F630}",
+  tired: "\u{1F634}",
+  loved: "\u{1F970}",
+  thankful: "\u{1F64F}",
+  creative: "\u{2728}",
+  sick: "\u{1F912}",
+  excited: "\u{1F929}",
+};
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -109,6 +124,9 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
                 <span className="text-[11px] font-medium shrink-0" style={{ color: tConfig.fgHex + "50" }}>
                   {new Date(entry.metadata.date).getDate()}
                 </span>
+                {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
+                  <span className="text-sm shrink-0">{MOOD_EMOJI[entry.metadata.mood]}</span>
+                )}
                 <span
                   className="text-sm font-medium truncate"
                   style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}
