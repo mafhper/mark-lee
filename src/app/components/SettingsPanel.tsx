@@ -626,6 +626,34 @@ export default function SettingsPanel({
             </div>
           </div>
         )}
+        {renderSectionCard(
+          tr("Diário", "Journal", "Diario"),
+          tr(
+            "Pasta onde os diários serão criados por padrão.",
+            "Folder where journals will be created by default.",
+            "Carpeta donde los diarios se crearán por defecto."
+          ),
+          <div className="grid gap-4">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{tr("Pasta de dados", "Data folder", "Carpeta de datos")}</p>
+                <p className="text-xs opacity-70 truncate">
+                  {settings.journalDataDir || tr("Nenhuma pasta definida", "No folder set", "Ninguna carpeta definida")}
+                </p>
+              </div>
+              <button type="button" onClick={async () => {
+                const { openFileDialog } = await import("../../services/filesystem");
+                const selected = await openFileDialog({ directory: true, multiple: false });
+                const path = Array.isArray(selected) ? selected[0] : selected;
+                if (path) onSettingsChange({ journalDataDir: path });
+              }}
+                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium whitespace-nowrap"
+                style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>
+                {tr("Selecionar pasta", "Select folder", "Seleccionar carpeta")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

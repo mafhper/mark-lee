@@ -730,6 +730,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     maxResults: 18,
   },
   appMode: "editor" as AppMode,
+  journalDataDir: "",
 };
 
 export const INITIAL_MARKDOWN = `# Mark-Lee

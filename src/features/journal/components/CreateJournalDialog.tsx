@@ -9,24 +9,39 @@ interface CreateJournalDialogProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   defaultLanguage: string;
+  journalDataDir?: string;
   onClose: () => void;
   onCreated: (journal: JournalDescriptor) => void;
 }
 
-export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, onClose, onCreated }: CreateJournalDialogProps) {
+export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journalDataDir, onClose, onCreated }: CreateJournalDialogProps) {
   const [name, setName] = useState("");
   const [folderPath, setFolderPath] = useState("");
+  const [folderManuallySet, setFolderManuallySet] = useState(false);
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!folderManuallySet) suggestFolder(value);
+  };
+
   if (!open) return null;
 
+  const suggestFolder = (journalName: string) => {
+    if (journalDataDir && journalName.trim()) {
+      const safeName = journalName.trim().replace(/[^a-zA-Z0-9_\-\s]/g, "").replace(/\s+/g, "-").toLowerCase();
+      setFolderPath(`${journalDataDir}/${safeName}`);
+    }
+  };
+
   const handlePickFolder = async () => {
-    const selected = await openFileDialog({ directory: true, multiple: false });
+    const selected = await openFileDialog({ directory: true, multiple: false, defaultPath: journalDataDir });
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (path) {
       setFolderPath(path);
+      setFolderManuallySet(true);
       setError("");
     }
   };
@@ -95,11 +110,11 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, onClose
             <label className="block text-xs font-medium mb-1" style={{ color: tConfig.fgHex + "90" }}>
               {t["journal.newJournal"] || "Journal name"} *
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded border outline-none bg-transparent"
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded border outline-none bg-transparent"
               style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}
               placeholder={t["journal.noJournalTitle"] || "My journal"}
               autoFocus

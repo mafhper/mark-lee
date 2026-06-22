@@ -2599,7 +2599,7 @@ function App() {
         </div>
       </div>
       ) : (
-        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language} onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
+        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language} journalDataDir={settings.journalDataDir} onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
       )}
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
       {statusBar}

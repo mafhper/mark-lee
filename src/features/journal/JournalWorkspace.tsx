@@ -20,9 +20,10 @@ interface JournalWorkspaceProps {
   isZenMode: boolean;
   language: string;
   onOpenFile?: (path: string) => void;
+  journalDataDir?: string;
 }
 
-export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile }: JournalWorkspaceProps) {
+export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, journalDataDir }: JournalWorkspaceProps) {
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -131,7 +132,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile }
       </div>
 
       <CreateJournalDialog open={showCreateDialog} t={t} tConfig={tConfig} defaultLanguage={language}
-        onClose={() => setShowCreateDialog(false)} onCreated={addToLib} />
+        journalDataDir={journalDataDir} onClose={() => setShowCreateDialog(false)} onCreated={addToLib} />
       <AddExistingJournalDialog open={showAddDialog} t={t} tConfig={tConfig}
         onClose={() => setShowAddDialog(false)} onAdded={addToLib} />
       <RemoveJournalDialog open={removeTarget !== null}
