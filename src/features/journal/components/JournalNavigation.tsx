@@ -23,6 +23,8 @@ interface JournalNavigationProps {
   onRelocateJournal: (journalId: string) => void;
   onRemoveJournal: (journalId: string) => void;
   loading: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 function AccordionSection({
@@ -53,12 +55,11 @@ function AccordionSection({
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange, onViewChange,
   journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onNewEntry,
-  onRelocateJournal, onRemoveJournal, loading,
+  onRelocateJournal, onRemoveJournal, loading, collapsed = false, onToggleCollapse,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
   const { state: sessionState } = useJournalSession();
   const [tagLines, setTagLines] = useState(2);
-  const [collapsed, setCollapsed] = useState(false);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -95,7 +96,7 @@ export function JournalNavigation({
   const iconStrip = (
     <div className="flex flex-col items-center gap-3 py-4">
       <button
-        type="button" onClick={() => setCollapsed(false)}
+        type="button" onClick={onToggleCollapse}
         className="p-1.5 rounded transition-colors hover:opacity-70"
         style={{ color: tConfig.fgHex + "60" }}
         title={t["journal.journals"] || "Notebooks"}
@@ -107,7 +108,7 @@ export function JournalNavigation({
           key={item.id}
           type="button"
           onClick={() => {
-            setCollapsed(false);
+            onToggleCollapse?.();
             onSectionChange(item.id);
             if (item.id === "entries") onViewChange("list");
           }}
@@ -123,7 +124,7 @@ export function JournalNavigation({
       ))}
       {allTags.length > 0 && (
         <button
-          type="button" onClick={() => setCollapsed(false)}
+          type="button" onClick={onToggleCollapse}
           className="p-1.5 rounded transition-colors hover:opacity-70"
           style={{ color: tConfig.fgHex + "60" }}
           title={t["journal.tags"] || "Tags"}
@@ -132,7 +133,7 @@ export function JournalNavigation({
         </button>
       )}
       <button
-        type="button" onClick={() => setCollapsed(false)}
+        type="button" onClick={onToggleCollapse}
         className="p-1.5 rounded transition-colors hover:opacity-70"
         style={{ color: tConfig.fgHex + "60" }}
         title={t["journal.pins"] || "Pins"}
@@ -144,20 +145,17 @@ export function JournalNavigation({
 
   if (collapsed) {
     return (
-      <div
-        className="flex flex-col h-full items-center"
+      <div className="flex flex-col h-full items-center pt-1"
         style={{ backgroundColor: tConfig.uiHex + "40" }}
       >
-        <div className="w-full flex justify-center pt-3 pb-1">
-          <button
-            type="button" onClick={() => setCollapsed(false)}
-            className="p-1.5 rounded transition-colors hover:opacity-70"
-            style={{ color: tConfig.fgHex + "60" }}
-            title={t["journal.settings"] || "Expand"}
-          >
-            <Menu size={16} />
-          </button>
-        </div>
+        <button
+          type="button" onClick={onToggleCollapse}
+          className="p-1.5 rounded transition-colors hover:opacity-70 mt-2"
+          style={{ color: tConfig.fgHex + "60" }}
+          title="Expand"
+        >
+          <Menu size={16} />
+        </button>
         {iconStrip}
       </div>
     );
@@ -170,7 +168,7 @@ export function JournalNavigation({
     >
       <div className="flex items-center px-3 py-2">
         <button
-          type="button" onClick={() => setCollapsed(true)}
+          type="button" onClick={onToggleCollapse}
           className="p-1.5 rounded transition-colors hover:opacity-70"
           style={{ color: tConfig.fgHex + "60" }}
           title={t["journal.settings"] || "Collapse"}
@@ -322,7 +320,7 @@ export function JournalNavigation({
       <div className="shrink-0 border-t" style={{ borderColor: tConfig.uiBorderHex }}>
         <AccordionSection title={t["journal.pins"] || "Pins"} tConfig={tConfig}>
           {activeJournal && (
-            <TrackerSummaryPanel tConfig={tConfig} journal={activeJournal} />
+            <TrackerSummaryPanel t={t} tConfig={tConfig} journal={activeJournal} />
           )}
         </AccordionSection>
       </div>

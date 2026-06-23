@@ -7,6 +7,7 @@ import { listEntries } from "../domain/entry-service";
 import { getTrackerDefinitions } from "../domain/tracker-service";
 
 interface TrackerSummaryPanelProps {
+  t: Record<string, string>;
   tConfig: ThemeConfig;
   journal: JournalDescriptor;
 }
@@ -46,7 +47,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   "notes": <StickyNote size={12} />,
 };
 
-export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelProps) {
+export function TrackerSummaryPanel({ t, tConfig, journal }: TrackerSummaryPanelProps) {
   const [focus, setFocus] = useState<FocusPeriod>("month");
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [defs, setDefs] = useState<TrackerDefinition[]>([]);
@@ -88,7 +89,12 @@ export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelPro
 
   if (defs.length === 0) return null;
 
-  const focusLabel = { day: "Day", week: "Week", month: "Month", all: "All time" } as const;
+  const focusLabel = {
+    day: t["tracker.day"] || "Day",
+    week: t["tracker.week"] || "Week",
+    month: t["tracker.month"] || "Month",
+    all: t["tracker.allTime"] || "All time",
+  } as const;
 
   return (
     <div className="mx-3 my-2">
@@ -107,7 +113,7 @@ export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelPro
 
           <div className="text-[9px] mb-2 flex items-center gap-1" style={{ color: tConfig.fgHex + "40" }}>
             <Inbox size={9} />
-            {filtered.length} entr{filtered.length === 1 ? "y" : "ies"} in this period
+            {filtered.length} {t["journal.entries"] || "entries"}
           </div>
 
           <div className="space-y-1.5">

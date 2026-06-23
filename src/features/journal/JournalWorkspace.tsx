@@ -46,6 +46,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [selectedEntry, setSelectedEntry] = useState<EntryRecord | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   const handleRelocate = async (journalId: string) => {
     const selected = await openFileDialog({ directory: true, multiple: false });
@@ -117,8 +118,24 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
 
   return (
     <div className="flex-1 min-h-0 flex flex-row">
-      {!isZenMode && sidebarEnabled && (
-        <ResizablePanel initialWidth={280} minWidth={240} maxWidth={400} theme={tConfig}>
+      {!isZenMode && sidebarEnabled && (navCollapsed ? (
+        <div className="h-full shrink-0 border-r overflow-hidden" style={{ width: 48, borderColor: tConfig.uiBorderHex }}>
+          <JournalNavigation
+            t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
+            activeView={activeView} onViewChange={setActiveView}
+            journals={journals} activeJournalId={activeJournal?.id ?? null} activeJournal={activeJournal}
+            onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
+            onCreateJournal={() => setShowCreateDialog(true)}
+            onAddJournal={() => setShowAddDialog(true)}
+            onNewEntry={handleNewEntry}
+            onRelocateJournal={handleRelocate}
+            onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
+            loading={sessionState.loading}
+            collapsed={true} onToggleCollapse={() => setNavCollapsed(false)}
+          />
+        </div>
+      ) : (
+        <ResizablePanel initialWidth={240} minWidth={200} maxWidth={400} theme={tConfig}>
           <div className="h-full overflow-hidden border-r" style={{ borderColor: tConfig.uiBorderHex }}>
             <JournalNavigation
               t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
@@ -131,10 +148,11 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onRelocateJournal={handleRelocate}
               onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
               loading={sessionState.loading}
+              collapsed={false} onToggleCollapse={() => setNavCollapsed(true)}
             />
           </div>
         </ResizablePanel>
-      )}
+      ))}
 
       {!isZenMode && (
         <ResizablePanel initialWidth={380} minWidth={300} maxWidth={600} theme={tConfig}>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe, MapPin } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -49,6 +49,17 @@ interface JournalEntryPanelProps {
   language?: string;
 }
 
+function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label: string; danger?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:opacity-70 text-left"
+      style={{ color: danger ? "#ef4444" : undefined }}>
+      <Icon size={13} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en" }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -62,6 +73,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showTrackerManager, setShowTrackerManager] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -335,7 +348,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               {showEntry ? (
                 <input
                   type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full text-2xl font-bold tracking-tight bg-transparent border-none outline-none truncate"
+                  className="w-full text-2xl font-bold tracking-tight bg-transparent border-none outline-none"
                   style={{ color: tConfig.fgHex }} placeholder={t["journal.blankEntry"] || "Untitled"}
                 />
               ) : (
@@ -348,75 +361,56 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               <div className="flex items-center gap-1 shrink-0 ml-2">
                 <button type="button" onClick={handleToggleFavorite}
                   className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                  title={favorite ? "Remove from favorites" : "Add to favorites"}>
+                  title={favorite
+                    ? (t["journal.favorites"] || "Remove from favorites")
+                    : (t["journal.favorites"] || "Add to favorites")}>
                   <Heart size={15} style={{ color: favorite ? "#ef4444" : tConfig.fgHex + "60", fill: favorite ? "#ef4444" : "none" }} />
                 </button>
-                {onDuplicateEntry && (
-                  <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                    style={{ color: tConfig.fgHex + "60" }} title="Duplicate entry"
-                    onClick={() => onDuplicateEntry(entry)}>
-                    <Copy size={14} />
-                  </button>
-                )}
                 <button type="button" onClick={() => setShowInspector(!showInspector)}
                   className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                  style={{ color: showInspector ? tConfig.accentHex : tConfig.fgHex + "60" }} title="Entry metadata">
+                  style={{ color: showInspector ? tConfig.accentHex : tConfig.fgHex + "60" }}
+                  title={t["journal.settings"] || "Metadata"}>
                   <Info size={14} />
                 </button>
-                <button type="button" onClick={handleInsertImage}
-                  className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                  style={{ color: tConfig.fgHex + "60" }} title="Insert image">
-                  <Image size={14} />
-                </button>
-                <button type="button" onClick={handleInsertTable}
-                  className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                  style={{ color: tConfig.fgHex + "60" }} title="Insert table">
-                  <Table size={14} />
-                </button>
-                <button type="button" onClick={handleSetCover}
-                  className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
-                  style={{ color: coverUrl ? tConfig.accentHex : tConfig.fgHex + "60" }}
-                  title={coverUrl ? "Change cover" : "Set cover image"}>
-                  {coverUrl ? "Cover" : "Cover"}
-                </button>
-                {journal && (
-                  <>
-                    <button type="button" onClick={() => setShowTrackerManager(true)}
-                      className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
-                      style={{ color: tConfig.fgHex + "60" }} title="Manage trackers">
-                      Trackers
-                    </button>
-                    <button type="button" onClick={() => setShowTrackerStats(true)}
-                      className="h-7 px-2 rounded flex items-center justify-center transition-colors hover:opacity-70 text-[11px] font-medium"
-                      style={{ color: tConfig.fgHex + "60" }} title="Tracker statistics">
-                      Stats
-                    </button>
-                    <button type="button" onClick={handleExportEntry}
-                      className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                      style={{ color: tConfig.fgHex + "60" }} title="Export entry as Markdown">
-                      <Download size={14} />
-                    </button>
-                    <button type="button" onClick={handleExportHtml}
-                      className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                      style={{ color: tConfig.fgHex + "60" }} title="Export entry as HTML">
-                      <Globe size={14} />
-                    </button>
-                  </>
-                )}
-                {onOpenInEditor && (
-                  <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                    style={{ color: tConfig.fgHex + "60" }} title={t["journal.editor"] || "Open in Editor"}
-                    onClick={() => onOpenInEditor(entry.path)}>
-                    <ExternalLink size={14} />
+                <div className="relative" ref={moreMenuRef}>
+                  <button type="button" onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                    style={{ color: tConfig.fgHex + "60" }} title={t["journal.list"] || "More"}>
+                    <MoreHorizontal size={14} />
                   </button>
-                )}
-                {onDeleteEntry && (
-                  <button type="button" className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-                    style={{ color: "#ef4444" }} title="Delete entry"
-                    onClick={() => setConfirmDelete(true)}>
-                    <Trash2 size={14} />
-                  </button>
-                )}
+                  {showMoreMenu && (
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border shadow-lg py-1"
+                      style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
+                      <DropdownItem icon={Image} label={t["journal.images"] || "Image"} onClick={() => { handleInsertImage(); setShowMoreMenu(false); }} />
+                      <DropdownItem icon={Table} label="Table" onClick={() => { handleInsertTable(); setShowMoreMenu(false); }} />
+                      <DropdownItem icon={Image} label={coverUrl ? "Change cover" : "Cover"} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
+                      {journal && (
+                        <>
+                          <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
+                          <DropdownItem icon={Activity} label={t["journal.trackers"] || "Trackers"} onClick={() => { setShowTrackerManager(true); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={TrendingUp} label="Stats" onClick={() => { setShowTrackerStats(true); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={Download} label="MD" onClick={() => { handleExportEntry(); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={Globe} label="HTML" onClick={() => { handleExportHtml(); setShowMoreMenu(false); }} />
+                        </>
+                      )}
+                      {onDuplicateEntry && (
+                        <>
+                          <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
+                          <DropdownItem icon={Copy} label="Duplicate" onClick={() => { onDuplicateEntry(entry); setShowMoreMenu(false); }} />
+                        </>
+                      )}
+                      {onOpenInEditor && (
+                        <DropdownItem icon={ExternalLink} label={t["journal.editor"] || "Open in Editor"} onClick={() => { onOpenInEditor(entry.path); setShowMoreMenu(false); }} />
+                      )}
+                      {onDeleteEntry && (
+                        <>
+                          <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
+                          <DropdownItem icon={Trash2} label="Delete" danger onClick={() => { setConfirmDelete(true); setShowMoreMenu(false); }} />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -507,8 +501,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                     type="text" value={locationLabel} onChange={(e) => { setLocationLabel(e.target.value); if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocation()); }}
                     className="w-24 text-[11px] bg-transparent border-none outline-none"
                     style={{ color: tConfig.fgHex + "80" }}
-                    placeholder="City, State, Country"
-                    title="Location label (city, state, country, attraction)"
+                    placeholder={t["journal.places"] || "Location"}
+                    title={t["journal.places"] || "Location"}
                   />
                   {(locationLat || locationLng) && (
                     <span className="text-[10px] font-mono" style={{ color: tConfig.fgHex + "40" }}>
@@ -555,7 +549,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
           </div>
         ) : journal ? (
-          <JournalGettingStarted tConfig={tConfig} hasEntries={false} onNewEntry={onNewEntry ?? (() => {})} />
+          <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={false} onNewEntry={onNewEntry ?? (() => {})} />
         ) : (
           <div className="px-6 py-4">
             <JournalEmptyState icon={<BookOpen size={36} />}
