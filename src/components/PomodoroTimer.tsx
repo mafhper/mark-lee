@@ -193,7 +193,7 @@ export function PomodoroTrigger({ tConfig, activated, onActivate }: PomodoroTime
     <button type="button" onClick={() => onActivate(!activated)}
       className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors"
       style={{
-        color: activated ? tConfig.accentHex : tConfig.fgHex + "50",
+        color: activated ? tConfig.accentHex : tConfig.fgHex + "b3",
         backgroundColor: activated ? tConfig.accentHex + "12" : "transparent",
       }}
       title={activated ? "Close Pomodoro" : "Open Pomodoro"}>

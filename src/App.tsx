@@ -21,6 +21,7 @@ import {
   undoEditor as undoEditorCommand,
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
+import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
 import {
   addRecentFile,
   getRecentFiles,
@@ -623,6 +624,10 @@ function App() {
     () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null,
     [activeTabId, tabs]
   );
+  useEffect(() => {
+    if (activeTab?.path) activeDocPathRef.current = activeTab.path;
+  }, [activeTab?.path]);
+
   const activePublicationPreset = useMemo(
     () =>
       publicationPresets.find((preset) => preset.id === settings.publicationPresetId) ??
@@ -1412,13 +1417,13 @@ function App() {
   };
 
   const applyWrapSelection = (before: string, after = before) => {
-    const view = editorRef.current;
+    const view = activeEditorRef.current;
     if (!view) return;
     applyWrapSelectionCommand(view, before, after);
   };
 
   const applyLinePrefix = (prefix: string) => {
-    const view = editorRef.current;
+    const view = activeEditorRef.current;
     if (!view) return;
     applyLinePrefixCommand(view, prefix);
   };
@@ -1446,14 +1451,15 @@ function App() {
         });
         const path = Array.isArray(selected) ? selected[0] : selected;
         if (!path) return;
-        if (!activeTab?.path) {
+        const docPath = activeDocPathRef.current;
+        if (!docPath) {
           window.alert(t["image.saveFirst"] || "Save the document before inserting images.");
           return;
         }
         let markdownPath = path.replace(/\\/g, "/");
         if (isTauriRuntime()) {
           try {
-            markdownPath = await copyImageToDocumentDir(path, activeTab.path);
+            markdownPath = await copyImageToDocumentDir(path, docPath);
           } catch (error) {
             console.error("Failed to copy image next to document:", error);
           }
@@ -1465,7 +1471,7 @@ function App() {
         break;
       }
       case "table": {
-        const view = editorRef.current;
+        const view = activeEditorRef.current;
         if (view) insertTableCommand(view);
         break;
       }
@@ -2350,7 +2356,6 @@ function App() {
       floatingToolbarAnchor={settings.floatingToolbarAnchor}
       sidebarEnabled={settings.sidebarEnabled}
       viewMode={effectiveViewMode}
-      appMode={settings.appMode}
       toolbarSections={settings.toolbarSections}
       toolbarItems={settings.toolbarItems}
       showToolbarSectionLabels={settings.showToolbarSectionLabels}
@@ -2464,6 +2469,8 @@ function App() {
             <AppModeSwitcher
               mode={settings.appMode}
               onModeChange={(mode) => updateSettings({ appMode: mode })}
+              labelEditor={t["journal.editor"] || "Editor"}
+              labelBlog={t["journal.mode"] || "Memórias"}
             />
           </div>
           <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
@@ -2560,6 +2567,9 @@ function App() {
                   onCreateEditor={(view) => {
                     editorRef.current = view;
                     setEditorView(view);
+                    activeEditorRef.current = view;
+                    view.dom.addEventListener("focus", () => { activeEditorRef.current = view; });
+                    if (activeTab?.path) activeDocPathRef.current = activeTab.path;
                   }}
                 />
               </div>

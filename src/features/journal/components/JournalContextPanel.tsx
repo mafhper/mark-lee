@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, X, Download } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries } from "../domain/entry-service";
 import { JournalHeader } from "./JournalHeader";
 import { JournalListView } from "./JournalListView";
 import { JournalCalendarView } from "./JournalCalendarView";
@@ -11,42 +10,30 @@ import { JournalMapView } from "./JournalMapView";
 import { JournalGalleryView } from "./JournalGalleryView";
 import { ExportRangeDialog } from "./ExportRangeDialog";
 import { ExportJournalDialog } from "./ExportJournalDialog";
+import type { JournalSessionState } from "../session/journalSession.types";
 
 interface JournalContextPanelProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   activeView: "list" | "calendar" | "map" | "gallery";
   onViewChange: (view: "list" | "calendar" | "map" | "gallery") => void;
+  activeSection: string;
   onNewEntry?: () => void;
   onManageTemplates?: () => void;
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
-  listKey: number;
-  onEntryStatsChange?: (stats: { total: number; favorites: number; images: number; locations: number }) => void;
+  sessionState: JournalSessionState;
+  language?: string;
 }
 
 export function JournalContextPanel({
-  t, tConfig, activeView, onManageTemplates, journal, selectedEntryId, onSelectEntry, listKey, onEntryStatsChange,
+  t, tConfig, activeView, activeSection, onManageTemplates, journal, selectedEntryId, onSelectEntry, sessionState, language,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
   const [showExportJournal, setShowExportJournal] = useState(false);
-  const [allEntries, setAllEntries] = useState<EntryRecord[]>([]);
-
-  useEffect(() => {
-    if (!journal) { setAllEntries([]); return; }
-    listEntries(journal.rootPath).then((r) => {
-      setAllEntries(r.entries);
-      const stats = {
-        total: r.entries.length,
-        favorites: r.entries.filter((e) => e.metadata.favorite).length,
-        images: r.entries.filter((e) => e.metadata.cover || /!\[.*?\]\(.*?\)/.test(e.body)).length,
-        locations: r.entries.filter((e) => e.metadata.location).length,
-      };
-      onEntryStatsChange?.(stats);
-    }).catch(() => setAllEntries([]));
-  }, [journal?.rootPath]);
+  const allEntries = sessionState.entries;
 
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
@@ -67,7 +54,7 @@ export function JournalContextPanel({
           )}
           {journal && (
             <button type="button" onClick={() => setShowExportRange(true)}
-              className="ml-1 p-1 rounded hover:opacity-60" title="Export date range">
+              className="ml-1 p-1 rounded hover:opacity-60" title={t["journal.settings"] || "Export date range"}>
               <Download size={12} />
             </button>
           )}
@@ -76,14 +63,14 @@ export function JournalContextPanel({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {activeView === "list" && (
           <JournalListView
-            key={listKey}
             t={t} tConfig={tConfig} journal={journal}
+            entries={allEntries} activeSection={activeSection}
             selectedEntryId={selectedEntryId} onSelectEntry={onSelectEntry}
-            searchQuery={searchQuery}
+            searchQuery={searchQuery} language={language}
           />
         )}
-        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
-        {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
+        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} entries={allEntries} onSelectEntry={onSelectEntry} language={language} />}
+        {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} entries={allEntries} onSelectEntry={onSelectEntry} />}
         {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} entries={allEntries} onSelectEntry={onSelectEntry} />}
       </div>
       <ExportRangeDialog open={showExportRange} tConfig={tConfig}

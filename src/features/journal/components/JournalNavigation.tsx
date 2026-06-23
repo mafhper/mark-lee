@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { BookOpen, Calendar, Heart, Plus, FolderOpen, AlertTriangle, PenLine, MapPin, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { BookOpen, Calendar, Heart, Plus, FolderOpen, AlertTriangle, PenLine, ChevronDown, ChevronRight, ChevronUp, Menu, Pin, Tags as TagsIcon } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
-import { listEntries } from "../domain/entry-service";
 import { useContextMenu } from "../../../app/components/context-menu";
 import { TrackerSummaryPanel } from "./TrackerSummaryPanel";
+import { useJournalSession } from "../session/JournalSessionContext";
 
 interface JournalNavigationProps {
   t: Record<string, string>;
@@ -23,10 +23,6 @@ interface JournalNavigationProps {
   onRelocateJournal: (journalId: string) => void;
   onRemoveJournal: (journalId: string) => void;
   loading: boolean;
-  entryCount?: number;
-  favoriteCount?: number;
-  imageCount?: number;
-  locationCount?: number;
 }
 
 function AccordionSection({
@@ -55,32 +51,27 @@ function AccordionSection({
 }
 
 export function JournalNavigation({
-  t, tConfig, activeSection, onSectionChange, activeView, onViewChange,
+  t, tConfig, activeSection, onSectionChange, onViewChange,
   journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onNewEntry,
   onRelocateJournal, onRemoveJournal, loading,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
-  const [allTags, setAllTags] = useState<string[]>([]);
+  const { state: sessionState } = useJournalSession();
+  const [tagLines, setTagLines] = useState(2);
+  const [collapsed, setCollapsed] = useState(false);
 
-  useEffect(() => {
-    if (!activeJournal) { setAllTags([]); return; }
-    listEntries(activeJournal.rootPath).then((r) => {
-      const tagSet = new Set<string>();
-      for (const e of r.entries) {
-        for (const tag of e.metadata.tags) tagSet.add(tag);
-      }
-      setAllTags(Array.from(tagSet).sort());
-    }).catch(() => setAllTags([]));
-  }, [activeJournal?.rootPath]);
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const e of sessionState.entries) {
+      for (const tag of e.metadata.tags) tagSet.add(tag);
+    }
+    return Array.from(tagSet).sort();
+  }, [sessionState.entries, sessionState.revision]);
 
-  const navItems = [
-    { id: "entries", label: t["journal.entries"] || "Posts", icon: <BookOpen size={15} />, section: "entries" as const },
-    { id: "today", label: t["journal.today"] || "On this day", icon: <Calendar size={15} />, section: "today" as const },
-    { id: "favorites", label: t["journal.favorites"] || "Favorites", icon: <Heart size={15} />, section: "favorites" as const },
-    { id: "view-list", label: t["journal.list"] || "List", icon: <BookOpen size={15} />, view: "list" as const, section: "entries" as const },
-    { id: "view-calendar", label: t["journal.calendar"] || "Calendar", icon: <Calendar size={15} />, view: "calendar" as const },
-    { id: "view-gallery", label: "Gallery", icon: <LayoutGrid size={15} />, view: "gallery" as const },
-    { id: "view-map", label: t["journal.map"] || "Map", icon: <MapPin size={15} />, view: "map" as const },
+  const sectionItems = [
+    { id: "entries", label: t["journal.entries"] || "Posts", icon: <BookOpen size={15} /> },
+    { id: "today", label: t["journal.today"] || "On this day", icon: <Calendar size={15} /> },
+    { id: "favorites", label: t["journal.favorites"] || "Favorites", icon: <Heart size={15} /> },
   ];
 
   const handleJournalContextMenu = (event: React.MouseEvent, journal: JournalDescriptor) => {
@@ -98,81 +89,132 @@ export function JournalNavigation({
     });
   };
 
-  const isActive = (item: typeof navItems[0]) => {
-    if ("section" in item && item.section && item.section !== "entries") {
-      return activeSection === item.section;
-    }
-    if ("view" in item && item.view) {
-      return activeView === item.view;
-    }
-    return activeSection === item.section && activeView === "list";
-  };
+  const LINE_HEIGHT = 22;
+  const maxTagHeight = tagLines * LINE_HEIGHT;
+
+  const iconStrip = (
+    <div className="flex flex-col items-center gap-3 py-4">
+      <button
+        type="button" onClick={() => setCollapsed(false)}
+        className="p-1.5 rounded transition-colors hover:opacity-70"
+        style={{ color: tConfig.fgHex + "60" }}
+        title={t["journal.journals"] || "Notebooks"}
+      >
+        <BookOpen size={16} />
+      </button>
+      {sectionItems.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => {
+            setCollapsed(false);
+            onSectionChange(item.id);
+            if (item.id === "entries") onViewChange("list");
+          }}
+          className="p-1.5 rounded transition-colors"
+          style={{
+            color: activeSection === item.id ? tConfig.accentHex : tConfig.fgHex + "60",
+            backgroundColor: activeSection === item.id ? tConfig.accentHex + "12" : "transparent",
+          }}
+          title={item.label}
+        >
+          {item.icon}
+        </button>
+      ))}
+      {allTags.length > 0 && (
+        <button
+          type="button" onClick={() => setCollapsed(false)}
+          className="p-1.5 rounded transition-colors hover:opacity-70"
+          style={{ color: tConfig.fgHex + "60" }}
+          title={t["journal.tags"] || "Tags"}
+        >
+          <TagsIcon size={16} />
+        </button>
+      )}
+      <button
+        type="button" onClick={() => setCollapsed(false)}
+        className="p-1.5 rounded transition-colors hover:opacity-70"
+        style={{ color: tConfig.fgHex + "60" }}
+        title={t["journal.pins"] || "Pins"}
+      >
+        <Pin size={16} />
+      </button>
+    </div>
+  );
+
+  if (collapsed) {
+    return (
+      <div
+        className="flex flex-col h-full items-center"
+        style={{ backgroundColor: tConfig.uiHex + "40" }}
+      >
+        <div className="w-full flex justify-center pt-3 pb-1">
+          <button
+            type="button" onClick={() => setCollapsed(false)}
+            className="p-1.5 rounded transition-colors hover:opacity-70"
+            style={{ color: tConfig.fgHex + "60" }}
+            title={t["journal.settings"] || "Expand"}
+          >
+            <Menu size={16} />
+          </button>
+        </div>
+        {iconStrip}
+      </div>
+    );
+  }
 
   return (
     <div
       className="flex flex-col h-full"
       style={{ backgroundColor: tConfig.uiHex + "40" }}
     >
-      <nav className="flex-1 overflow-y-auto py-2">
-        <AccordionSection title={t["journal.entries"] || "Navigation"} tConfig={tConfig}>
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if ("section" in item && item.section) {
-                  onSectionChange(item.section);
-                }
-                if ("view" in item && item.view) {
-                  onViewChange(item.view);
-                } else {
-                  onViewChange("list");
-                }
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors text-left"
-              style={{
-                color: isActive(item) ? tConfig.accentHex : tConfig.fgHex + "CC",
-                backgroundColor: isActive(item) ? tConfig.accentHex + "12" : "transparent",
-                borderLeft: isActive(item) ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
-              }}
-            >
-              {item.icon}
-              <span className="truncate flex-1">{item.label}</span>
-            </button>
-          ))}
-        </AccordionSection>
-
-        <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
-
-        <AccordionSection title={t["journal.journals"] || "Blogs"} tConfig={tConfig}>
+      <div className="flex items-center px-3 py-2">
+        <button
+          type="button" onClick={() => setCollapsed(true)}
+          className="p-1.5 rounded transition-colors hover:opacity-70"
+          style={{ color: tConfig.fgHex + "60" }}
+          title={t["journal.settings"] || "Collapse"}
+        >
+          <Menu size={16} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <AccordionSection title={t["journal.journals"] || "Notebooks"} tConfig={tConfig}>
           <div className="flex items-center gap-1 px-3 py-1">
             <button
               type="button" onClick={onCreateJournal}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors hover:opacity-70"
+              className="flex items-center justify-center w-7 h-7 rounded transition-colors hover:opacity-70"
               style={{ color: tConfig.fgHex + "60" }}
+              title={t["journal.newJournal"] || "New notebook"}
             >
-              <Plus size={12} />
-              <span>{t["journal.newJournal"] || "New blog"}</span>
+              <Plus size={14} />
             </button>
             <button
               type="button" onClick={onAddJournal}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors hover:opacity-70"
+              className="flex items-center justify-center w-7 h-7 rounded transition-colors hover:opacity-70"
               style={{ color: tConfig.fgHex + "60" }}
+              title={t["journal.addJournal"] || "Add notebook"}
             >
-              <FolderOpen size={12} />
-              <span>{t["journal.addJournal"] || "Add"}</span>
+              <FolderOpen size={14} />
             </button>
+            <span className="text-[10px] ml-1" style={{ color: tConfig.fgHex + "40" }}>
+              {t["journal.newJournal"] || "New"}
+            </span>
+            <span className="text-[10px]" style={{ color: tConfig.fgHex + "40" }}>/</span>
+            <span className="text-[10px]" style={{ color: tConfig.fgHex + "40" }}>
+              {t["journal.addJournal"] || "Add"}
+            </span>
           </div>
 
           {loading && (
             <div className="px-3 py-2 text-xs" style={{ color: tConfig.fgHex + "50" }}>
-              Loading...
+              {t["journal.search"] || "Loading..."}
             </div>
           )}
 
           {!loading && journals.length === 0 && (
             <div className="px-3 py-2 text-xs" style={{ color: tConfig.fgHex + "50" }}>
-              {t["journal.noJournalDesc"] || "No blogs yet."}
+              {t["journal.noBlogs"] || "No notebooks yet."}
             </div>
           )}
 
@@ -204,48 +246,86 @@ export function JournalNavigation({
               <span className="truncate">{journal.name}</span>
             </button>
           ))}
+        </AccordionSection>
 
+        <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
+
+        <AccordionSection title={t["journal.entries"] || "Navigation"} tConfig={tConfig}>
+          {sectionItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                onSectionChange(item.id);
+                if (item.id === "entries") onViewChange("list");
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors text-left"
+              style={{
+                color: activeSection === item.id ? tConfig.accentHex : tConfig.fgHex + "CC",
+                backgroundColor: activeSection === item.id ? tConfig.accentHex + "12" : "transparent",
+                borderLeft: activeSection === item.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
+              }}
+            >
+              {item.icon}
+              <span className="truncate flex-1">{item.label}</span>
+            </button>
+          ))}
           {onNewEntry && activeJournal && (
-            <>
-              <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
-              <button
-                type="button"
-                onClick={onNewEntry}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors text-left"
-                style={{ color: tConfig.accentHex }}
-              >
-                <PenLine size={14} />
-                <span>{t["journal.newEntry"] || "New post"}</span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={onNewEntry}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors text-left"
+              style={{
+                color: tConfig.accentHex,
+              }}
+            >
+              <PenLine size={15} />
+              <span className="truncate flex-1">{t["journal.newEntry"] || "New entry"}</span>
+            </button>
           )}
         </AccordionSection>
 
         {allTags.length > 0 && (
           <>
             <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
-            <AccordionSection title="Tags" tConfig={tConfig}>
-              <div className="px-3 py-1 flex flex-wrap gap-1">
-                {allTags.map((tag) => (
-                  <span key={tag}
-                    className="px-1.5 py-0.5 rounded text-[11px]"
-                    style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex }}
+            <AccordionSection title={t["journal.tags"] || "Tags"} tConfig={tConfig}>
+              <div className="px-3 py-1">
+                <div
+                  className="flex flex-wrap gap-1 overflow-hidden transition-all"
+                  style={{ maxHeight: `${maxTagHeight}px` }}
+                >
+                  {allTags.map((tag) => (
+                    <span key={tag}
+                      className="px-1.5 py-0.5 rounded text-[11px] leading-tight"
+                      style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                {allTags.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setTagLines(tagLines === 2 ? 999 : 2)}
+                    className="mt-1 text-[10px] font-medium flex items-center gap-1 transition-colors hover:opacity-70"
+                    style={{ color: tConfig.fgHex + "50" }}
                   >
-                    {tag}
-                  </span>
-                ))}
+                    {tagLines === 2 ? <>More <ChevronDown size={10} /></> : <>Less <ChevronUp size={10} /></>}
+                  </button>
+                )}
               </div>
             </AccordionSection>
           </>
         )}
+      </div>
 
-        <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
-        <AccordionSection title="Trackers" tConfig={tConfig}>
+      <div className="shrink-0 border-t" style={{ borderColor: tConfig.uiBorderHex }}>
+        <AccordionSection title={t["journal.pins"] || "Pins"} tConfig={tConfig}>
           {activeJournal && (
             <TrackerSummaryPanel tConfig={tConfig} journal={activeJournal} />
           )}
         </AccordionSection>
-      </nav>
+      </div>
     </div>
   );
 }

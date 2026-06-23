@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Activity, Droplets, Dumbbell, Moon, StickyNote, TrendingUp, ChevronDown, ChevronUp, BarChart3, Inbox } from "lucide-react";
+import { Activity, Droplets, Dumbbell, Moon, StickyNote, TrendingUp, Inbox } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { TrackerDefinition, JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -47,7 +47,6 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [focus, setFocus] = useState<FocusPeriod>("month");
   const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [defs, setDefs] = useState<TrackerDefinition[]>([]);
@@ -93,17 +92,7 @@ export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelPro
 
   return (
     <div className="mx-3 my-2">
-      <button type="button" onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-1"
-        style={{ color: tConfig.fgHex + "50" }}>
-        <BarChart3 size={11} />
-        <span className="flex-1 text-left">Tracker Summary</span>
-        {collapsed ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-      </button>
-
-      {!collapsed && (
-        <>
-          <div className="flex items-center gap-1 mb-2">
+      <div className="flex items-center gap-1 mb-2">
             {(["day", "week", "month", "all"] as const).map((f) => (
               <button key={f} type="button" onClick={() => setFocus(f)}
                 className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
@@ -139,12 +128,10 @@ export function TrackerSummaryPanel({ tConfig, journal }: TrackerSummaryPanelPro
                       }} />
                     </div>
                   )}
-                </div>
-              );
-            })}
           </div>
-        </>
-      )}
+        );
+      })}
+      </div>
     </div>
   );
 }

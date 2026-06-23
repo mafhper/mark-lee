@@ -1,4 +1,4 @@
-import { getFileMetadata, readFile, writeFile, createWorkspaceDirectory, listDir, deleteWorkspacePath } from "../../../services/filesystem";
+import { getFileMetadata, readFile, atomicWriteText, createDirectoryTree, listDir, deleteWorkspacePath } from "../../../services/filesystem";
 import { parseJournalEntry } from "./journal-entry.parser";
 import { serializeJournalEntry } from "./journal-entry.serializer";
 import type { JournalEntryMetadata } from "./journal-entry.types";
@@ -81,9 +81,9 @@ export async function createEntry(
 
   // Ensure directory exists
   const dir = path.substring(0, path.lastIndexOf("/"));
-  await createWorkspaceDirectory(dir);
+  try { await createDirectoryTree(dir); } catch { /* already exists */ }
 
-  await writeFile(path, content);
+  await atomicWriteText(path, content);
 
   const newMtime = await captureMtime(path);
   if (newMtime) setStoredMtime(path, newMtime);
@@ -118,7 +118,7 @@ export async function saveEntry(path: string, metadata: JournalEntryMetadata, bo
     updatedAt: new Date().toISOString(),
   };
   const content = serializeJournalEntry(updated, body);
-  await writeFile(path, content);
+  await atomicWriteText(path, content);
   // update stored mtime after write
   const afterMtime = await captureMtime(path);
   if (afterMtime) setStoredMtime(path, afterMtime);
@@ -218,8 +218,8 @@ export async function duplicateEntry(
   const content = serializeJournalEntry(metadata, source.body);
 
   const dir = path.substring(0, path.lastIndexOf("/"));
-  await createWorkspaceDirectory(dir);
-  await writeFile(path, content);
+  try { await createDirectoryTree(dir); } catch { /* already exists */ }
+  await atomicWriteText(path, content);
 
   const dupMtime = await captureMtime(path);
   if (dupMtime) setStoredMtime(path, dupMtime);

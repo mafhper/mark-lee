@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ThemeConfig } from "../../../types";
 import { openFileDialog } from "../../../services/filesystem";
-import { createManifestPayload, writeManifest } from "../domain/manifest-service";
+import { createJournal } from "../domain/manifest-service";
 import type { JournalDescriptor } from "../domain/journal.types";
 
 interface CreateJournalDialogProps {
@@ -60,19 +60,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
     setError("");
 
     try {
-      const id = crypto.randomUUID();
-      const manifest = createManifestPayload(id, name.trim(), description.trim() || undefined, defaultLanguage);
-      await writeManifest(folderPath, manifest);
-
-      const descriptor: JournalDescriptor = {
-        id: manifest.id,
-        name: manifest.name,
-        rootPath: folderPath,
-        description: manifest.description,
-        schemaVersion: manifest.schemaVersion,
-        createdAt: manifest.createdAt,
-      };
-
+      const descriptor = await createJournal(folderPath, name.trim(), description.trim() || undefined, defaultLanguage);
       onCreated(descriptor);
       setName("");
       setFolderPath("");

@@ -2,14 +2,30 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+const ALLOWED_URL_SCHEMES = /^(https?:\/|mailto:|#|\/)/;
+const DATA_IMAGE_RE = /^data:image\//;
+
+function sanitizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (DATA_IMAGE_RE.test(trimmed)) return trimmed;
+  if (ALLOWED_URL_SCHEMES.test(trimmed)) return trimmed;
+  return "";
+}
+
 function inlineMarkdown(text: string): string {
   let result = escapeHtml(text);
   result = result.replace(/`([^`]+)`/g, "<code>$1</code>");
   result = result.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   result = result.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   result = result.replace(/~~([^~]+)~~/g, "<del>$1</del>");
-  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
-  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+    const safe = sanitizeUrl(url);
+    return safe ? `<img src="${safe}" alt="${alt}" />` : "";
+  });
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, url) => {
+    const safe = sanitizeUrl(url);
+    return safe ? `<a href="${safe}">${text}</a>` : escapeHtml(text);
+  });
   return result;
 }
 

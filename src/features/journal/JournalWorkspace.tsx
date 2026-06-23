@@ -16,6 +16,7 @@ import { createEntry, deleteEntry, duplicateEntry, readEntry } from "./domain/en
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
+import { JournalSessionProvider, useJournalSession } from "./session/JournalSessionContext";
 
 interface JournalWorkspaceProps {
   t: Record<string, string>;
@@ -28,18 +29,23 @@ interface JournalWorkspaceProps {
   journalDataDir?: string;
 }
 
-export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journalDataDir }: JournalWorkspaceProps) {
+function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journals, activeJournal, selectJournal, addToLib, removeFromLib, reload, journalDataDir }: JournalWorkspaceProps & {
+  journals: JournalDescriptor[];
+  activeJournal: JournalDescriptor | null;
+  selectJournal: (id: string | null) => void;
+  addToLib: (j: JournalDescriptor) => void;
+  removeFromLib: (id: string) => Promise<void>;
+  reload: () => void;
+}) {
+  const { state: sessionState, dispatch } = useJournalSession();
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map" | "gallery">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<EntryRecord | null>(null);
-  const [listKey, setListKey] = useState(0);
-  const [, setEntryCounts] = useState({ total: 0, favorites: 0, images: 0, locations: 0 });
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
-  const { journals, activeJournal, selectJournal, addJournal: addToLib, removeJournal: removeFromLib, reload } = useJournalLibrary();
 
   const handleRelocate = async (journalId: string) => {
     const selected = await openFileDialog({ directory: true, multiple: false });
@@ -62,20 +68,23 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
   const handleReloadEntry = async () => {
     if (!selectedEntry) return;
     const reloaded = await readEntry(selectedEntry.path);
-    if (reloaded) setSelectedEntry(reloaded);
+    if (reloaded) {
+      setSelectedEntry(reloaded);
+      dispatch({ type: "UPDATE_ENTRY", entry: reloaded });
+    }
   };
 
   const handleDuplicateEntry = async (entry: EntryRecord) => {
     if (!activeJournal) return;
     const dup = await duplicateEntry(activeJournal.rootPath, entry);
     setSelectedEntry(dup);
-    setListKey((k) => k + 1);
+    dispatch({ type: "ADD_ENTRY", entry: dup });
   };
 
   const handleDeleteEntry = async (entry: EntryRecord) => {
     await deleteEntry(entry.path);
     setSelectedEntry(null);
-    setListKey((k) => k + 1);
+    dispatch({ type: "REMOVE_ENTRY", entryId: entry.metadata.id });
   };
 
   const handleRemoveConfirm = async () => {
@@ -83,6 +92,11 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
     await removeFromLib(removeTarget.id);
     setRemoveTarget(null);
   };
+
+  const handleEntryUpdated = useCallback((entry: EntryRecord) => {
+    setSelectedEntry(entry);
+    dispatch({ type: "UPDATE_ENTRY", entry });
+  }, [dispatch]);
 
   const handleNewEntry = useCallback(() => {
     if (!activeJournal) return;
@@ -93,9 +107,9 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
     if (!activeJournal) return;
     const entry = await createEntry(activeJournal.rootPath, "", new Date(), [], templateBody);
     setSelectedEntry(entry);
+    dispatch({ type: "ADD_ENTRY", entry });
     setActiveView("list");
-    setListKey((k) => k + 1);
-  }, [activeJournal]);
+  }, [activeJournal, dispatch]);
 
   const handleSelectEntry = useCallback((entry: EntryRecord) => {
     setSelectedEntry(entry);
@@ -116,7 +130,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
               onNewEntry={handleNewEntry}
               onRelocateJournal={handleRelocate}
               onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
-              loading={false}
+              loading={sessionState.loading}
             />
           </div>
         </ResizablePanel>
@@ -127,13 +141,13 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
           <div className="h-full overflow-hidden">
             <JournalContextPanel
               t={t} tConfig={tConfig} activeView={activeView} onViewChange={setActiveView}
-              journal={activeJournal}
+              activeSection={activeSection}
+              journal={activeJournal} sessionState={sessionState}
               selectedEntryId={selectedEntry?.metadata.id ?? null}
               onSelectEntry={handleSelectEntry}
               onNewEntry={handleNewEntry}
               onManageTemplates={() => setShowTemplateManager(true)}
-              listKey={listKey}
-              onEntryStatsChange={(s) => setEntryCounts(s)}
+              language={language}
             />
           </div>
         </ResizablePanel>
@@ -143,12 +157,13 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
         <JournalEntryPanel
           t={t} tConfig={tConfig} journal={activeJournal} entry={selectedEntry}
           viewMode={viewMode}
-          onEntryUpdated={setSelectedEntry}
+          onEntryUpdated={handleEntryUpdated}
           onOpenInEditor={onOpenFile}
           onDeleteEntry={handleDeleteEntry}
           onDuplicateEntry={handleDuplicateEntry}
           onReloadEntry={handleReloadEntry}
           onNewEntry={handleNewEntry}
+          language={language}
         />
       </div>
 
@@ -166,5 +181,23 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, si
         tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
         onClose={() => setShowTemplateManager(false)} />
     </div>
+  );
+}
+
+export function JournalWorkspace(props: JournalWorkspaceProps) {
+  const { journals, activeJournal, selectJournal, addJournal: addToLib, removeJournal: removeFromLib, reload } = useJournalLibrary();
+
+  return (
+    <JournalSessionProvider rootPath={activeJournal?.rootPath ?? null}>
+      <JournalWorkspaceInner
+        {...props}
+        journals={journals}
+        activeJournal={activeJournal}
+        selectJournal={selectJournal}
+        addToLib={addToLib}
+        removeFromLib={removeFromLib}
+        reload={reload}
+      />
+    </JournalSessionProvider>
   );
 }

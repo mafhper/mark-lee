@@ -42,7 +42,7 @@ export function JournalHeader({ t, tConfig, onExportJournal, onManageTemplates, 
           {onExportJournal && journal && (
             <button type="button" onClick={onExportJournal}
               className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
-              style={{ color: tConfig.fgHex + "60" }} title="Export blog">
+              style={{ color: tConfig.fgHex + "60" }} title={t["journal.settings"] || "Export journal"}>
               <Download size={14} />
             </button>
           )}

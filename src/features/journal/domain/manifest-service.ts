@@ -1,5 +1,5 @@
-import { readFile, writeFile, createWorkspaceDirectory } from "../../../services/filesystem";
-import type { JournalManifest, ManifestCheckResult } from "./journal.types";
+import { readFile, atomicWriteText, createDirectoryTree, createWorkspaceDirectory } from "../../../services/filesystem";
+import type { JournalManifest, ManifestCheckResult, JournalDescriptor } from "./journal.types";
 
 const SCHEMA = "marklee-journal" as const;
 const CURRENT_SCHEMA_VERSION = 1 as const;
@@ -95,7 +95,35 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
 
 export async function writeManifest(rootPath: string, manifest: JournalManifest): Promise<void> {
   await mkdirIfMissing(`${rootPath}/.marklee`);
-  await writeFile(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+}
+
+export async function createJournal(
+  rootPath: string,
+  name: string,
+  description: string | undefined,
+  defaultLanguage: string,
+): Promise<JournalDescriptor> {
+  const id = crypto.randomUUID();
+  const manifest = createManifestPayload(id, name, description, defaultLanguage);
+
+  // Create root directory and subdirectories
+  await createDirectoryTree(rootPath);
+  await createWorkspaceDirectory(`${rootPath}/.marklee`);
+  await createWorkspaceDirectory(`${rootPath}/entries`);
+  await createWorkspaceDirectory(`${rootPath}/assets`);
+
+  // Write manifest atomically
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    rootPath,
+    description: manifest.description,
+    schemaVersion: manifest.schemaVersion,
+    createdAt: manifest.createdAt,
+  };
 }
 
 export async function readManifest(rootPath: string): Promise<JournalManifest | null> {

@@ -192,13 +192,43 @@ pub fn read_file(path: String) -> Result<String, String> {
 }
 
 #[command]
+pub fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    let p = canonical_existing(&path)?;
+    fs::read(p).map_err(|e| e.to_string())
+}
+
+#[command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
     let p = if Path::new(&path).exists() {
         canonical_existing(&path)?
     } else {
         ensure_safe_parent(&path)?
     };
-    fs::write(p, content).map_err(|e| e.to_string())
+    fs::write(&p, content).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn atomic_write_text(path: String, content: String) -> Result<(), String> {
+    let p = if Path::new(&path).exists() {
+        canonical_existing(&path)?
+    } else {
+        ensure_safe_parent(&path)?
+    };
+    let dir = p.parent().ok_or_else(|| "No parent directory".to_string())?;
+    let file_stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("entry");
+    let _ext = p.extension().and_then(|s| s.to_str()).unwrap_or("md");
+    let tmp_name = format!(".{}_{}.tmp", file_stem, std::process::id());
+    let tmp_path = dir.join(&tmp_name);
+
+    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    // On the same filesystem, rename is atomic
+    fs::rename(&tmp_path, &p).map_err(|e| {
+        let _ = fs::remove_file(&tmp_path);
+        format!("Failed to rename temp file: {}", e)
+    })?;
+
+    Ok(())
 }
 
 #[command]
@@ -243,6 +273,15 @@ pub fn create_workspace_file(path: String) -> Result<(), String> {
 pub fn create_workspace_directory(path: String) -> Result<(), String> {
     let p = ensure_safe_parent(&path)?;
     fs::create_dir(p).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn create_directory_tree(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if p.exists() {
+        return Err(format!("Path already exists: {path}"));
+    }
+    fs::create_dir_all(&p).map_err(|e| e.to_string())
 }
 
 #[command]

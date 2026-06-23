@@ -3,9 +3,11 @@ import type { AppMode } from "../../types";
 interface AppModeSwitcherProps {
   mode: AppMode;
   onModeChange: (mode: AppMode) => void;
+  labelEditor?: string;
+  labelBlog?: string;
 }
 
-export function AppModeSwitcher({ mode, onModeChange }: AppModeSwitcherProps) {
+export function AppModeSwitcher({ mode, onModeChange, labelEditor = "Editor", labelBlog = "Blog" }: AppModeSwitcherProps) {
   return (
     <div className="flex items-center gap-0 rounded border" style={{ borderColor: "var(--ml-border, #374151)" }}>
       <button
@@ -17,7 +19,7 @@ export function AppModeSwitcher({ mode, onModeChange }: AppModeSwitcherProps) {
           backgroundColor: mode === "editor" ? "var(--ml-accent, #6366f1)" : "transparent",
         }}
       >
-        Editor
+        {labelEditor}
       </button>
       <button
         type="button"
@@ -28,7 +30,7 @@ export function AppModeSwitcher({ mode, onModeChange }: AppModeSwitcherProps) {
           backgroundColor: mode === "journal" ? "var(--ml-accent, #6366f1)" : "transparent",
         }}
       >
-        Diário
+        {labelBlog}
       </button>
     </div>
   );

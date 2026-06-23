@@ -1,6 +1,11 @@
 import YAML from "yaml";
 import type { JournalEntryMetadata } from "./journal-entry.types";
 
+const KNOWN_KEYS = new Set([
+  "schema", "schemaVersion", "id", "date", "title", "summary", "tags", "mood",
+  "trackers", "location", "cover", "favorite", "attachments", "createdAt", "updatedAt",
+]);
+
 export interface ParseResult {
   metadata: JournalEntryMetadata;
   body: string;
@@ -77,6 +82,16 @@ export function parseJournalEntry(raw: string): ParseResult | ParseError {
     createdAt: String(fm.createdAt ?? new Date().toISOString()),
     updatedAt: String(fm.updatedAt ?? new Date().toISOString()),
   };
+
+  const extraFrontmatter: Record<string, unknown> = {};
+  for (const key of Object.keys(fm)) {
+    if (!KNOWN_KEYS.has(key)) {
+      extraFrontmatter[key] = fm[key];
+    }
+  }
+  if (Object.keys(extraFrontmatter).length > 0) {
+    metadata.extraFrontmatter = extraFrontmatter;
+  }
 
   return { metadata, body };
 }

@@ -39,6 +39,13 @@ export function serializeJournalEntry(metadata: JournalEntryMetadata, body: stri
   frontmatter.createdAt = metadata.createdAt;
   frontmatter.updatedAt = metadata.updatedAt;
 
+  // Merge back unknown fields preserved from the original file
+  if (metadata.extraFrontmatter) {
+    for (const key of Object.keys(metadata.extraFrontmatter)) {
+      frontmatter[key] = metadata.extraFrontmatter[key];
+    }
+  }
+
   const yamlStr = YAML.stringify(frontmatter, { lineWidth: 0 });
   return `---\n${yamlStr}---\n\n${body}`;
 }

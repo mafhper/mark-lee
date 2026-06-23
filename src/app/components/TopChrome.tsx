@@ -52,7 +52,6 @@ interface TopChromeProps {
   floatingToolbarAnchor: AppSettings["floatingToolbarAnchor"];
   sidebarEnabled: boolean;
   viewMode: "edit" | "split" | "preview";
-  appMode?: "editor" | "journal";
   toolbarSections: AppSettings["toolbarSections"];
   toolbarItems: AppSettings["toolbarItems"];
   showToolbarSectionLabels: boolean;
@@ -85,7 +84,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
   floatingToolbarAnchor,
   sidebarEnabled,
   viewMode,
-  appMode,
   toolbarSections,
   toolbarItems,
   showToolbarSectionLabels,
@@ -350,7 +348,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.bold"] || "Bold",
               icon: toolIcon(Bold),
               onClick: () => onFormatAction("bold"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-bold",
             }
             : null,
@@ -360,7 +357,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.italic"] || "Italic",
               icon: toolIcon(Italic),
               onClick: () => onFormatAction("italic"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-italic",
             }
             : null,
@@ -370,7 +366,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.code"] || "Code",
               icon: toolIcon(Code),
               onClick: () => onFormatAction("code"),
-              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editLink
@@ -379,7 +374,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.link"] || "Link",
               icon: toolIcon(Link2),
               onClick: () => onFormatAction("link"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-link",
             }
             : null,
@@ -389,7 +383,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.image"] || "Image",
               icon: toolIcon(Image),
               onClick: () => onFormatAction("image"),
-              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editTable
@@ -398,7 +391,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: "Table",
               icon: toolIcon(Table),
               onClick: () => onFormatAction("table"),
-              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editUL
@@ -407,7 +399,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.ul"] || "UL",
               icon: toolIcon(List),
               onClick: () => onFormatAction("ul"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-ul",
             }
             : null,
@@ -417,7 +408,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.ol"] || "OL",
               icon: toolIcon(ListOrdered),
               onClick: () => onFormatAction("ol"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-ol",
             }
             : null,
@@ -427,7 +417,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.task"] || "Task",
               icon: toolIcon(CheckSquare),
               onClick: () => onFormatAction("task"),
-              disabled: appMode === "journal",
               shortcutId: "fmt-task",
             }
             : null,

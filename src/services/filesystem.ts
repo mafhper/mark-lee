@@ -26,9 +26,19 @@ export async function readFile(path: string): Promise<string> {
   return invoke("read_file", { path });
 }
 
+export async function readBinaryFile(path: string): Promise<Uint8Array> {
+  requireTauri("Read binary file");
+  return invoke<number[]>("read_binary_file", { path }).then((arr) => new Uint8Array(arr));
+}
+
 export async function writeFile(path: string, content: string): Promise<void> {
   requireTauri("Write file");
   await invoke("write_file", { path, content });
+}
+
+export async function atomicWriteText(path: string, content: string): Promise<void> {
+  requireTauri("Atomic write");
+  await invoke("atomic_write_text", { path, content });
 }
 
 export async function writeBinaryFile(path: string, data: Uint8Array): Promise<void> {
@@ -54,6 +64,11 @@ export async function createWorkspaceFile(path: string): Promise<void> {
 export async function createWorkspaceDirectory(path: string): Promise<void> {
   requireTauri("Create workspace directory");
   await invoke("create_workspace_directory", { path });
+}
+
+export async function createDirectoryTree(path: string): Promise<void> {
+  requireTauri("Create directory tree");
+  await invoke("create_directory_tree", { path });
 }
 
 export async function renameWorkspacePath(oldPath: string, newPath: string): Promise<void> {

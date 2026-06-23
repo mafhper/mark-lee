@@ -1,18 +1,29 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, FileText, Plus, Maximize2, Minimize2 } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries, getExcerpt, createEntry } from "../domain/entry-service";
+import { getExcerpt, createEntry } from "../domain/entry-service";
 
 interface JournalCalendarViewProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   journal: JournalDescriptor | null;
+  entries: EntryRecord[];
   onSelectEntry: (entry: EntryRecord) => void;
+  language?: string;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function monthDayNames(lang: string): string[] {
+  try {
+    const formatter = new Intl.DateTimeFormat(lang, { weekday: "short" });
+    return Array.from({ length: 7 }, (_, i) =>
+      formatter.format(new Date(2024, 0, i + 1))
+    );
+  } catch {
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  }
+}
 
 function useCalendarMonth(base: Date) {
   return useMemo(() => {
@@ -43,17 +54,12 @@ function entriesForDay(year: number, month: number, day: number, entries: EntryR
   return entries.filter((e) => e.metadata.date.slice(0, 10) === target);
 }
 
-export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: JournalCalendarViewProps) {
+export function JournalCalendarView({ t, tConfig, journal, entries, onSelectEntry, language = "en" }: JournalCalendarViewProps) {
   const [cursor, setCursor] = useState(() => new Date());
-  const [entries, setEntries] = useState<EntryRecord[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
   const cal = useCalendarMonth(cursor);
-
-  useEffect(() => {
-    if (!journal) { setEntries([]); return; }
-    listEntries(journal.rootPath).then((result) => setEntries(result.entries)).catch(() => setEntries([]));
-  }, [journal?.rootPath]);
+  const DAYS = useMemo(() => monthDayNames(language), [language]);
 
   const selectedEntries = selectedDay ? entriesForDay(cal.year, cal.month, selectedDay, entries) : [];
 
@@ -68,8 +74,8 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
   const handleCreateEntry = async () => {
     if (!journal || !selectedDay) return;
     const date = new Date(cal.year, cal.month, selectedDay);
-    const entry = await createEntry(journal.rootPath, "Untitled", date);
-    setEntries((prev) => [entry, ...prev]);
+    const entry = await createEntry(journal.rootPath, t["journal.blankEntry"] || "Untitled", date);
+    onSelectEntry(entry);
     setFocused(true);
   };
 
@@ -103,8 +109,8 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
           )}
           <button type="button" onClick={handleToday} className="text-xs font-medium hover:opacity-70" style={{ color: tConfig.fgHex }}>
             {focused && selectedDay
-              ? new Date(cal.year, cal.month, selectedDay).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
-              : cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              ? new Date(cal.year, cal.month, selectedDay).toLocaleDateString(language, { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+              : cursor.toLocaleDateString(language, { month: "long", year: "numeric" })}
           </button>
           {!focused && (
             <button type="button" onClick={handleNextMonth} className="p-1 rounded hover:opacity-60" style={{ color: tConfig.fgHex + "60" }}>
@@ -115,13 +121,13 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
         <div className="flex items-center gap-1">
           {selectedDay && (
             <button type="button" onClick={handleCreateEntry} className="p-1 rounded hover:opacity-60 flex items-center gap-1 text-[11px]"
-              style={{ color: tConfig.accentHex }} title="New entry on this day">
-              <Plus size={14} /> New
+              style={{ color: tConfig.accentHex }} title={t["journal.newEntry"] || "New entry"}>
+              <Plus size={14} /> {t["journal.blankEntry"] || "New"}
             </button>
           )}
           {selectedDay && (
             <button type="button" onClick={() => setFocused(!focused)} className="p-1 rounded hover:opacity-60"
-              style={{ color: tConfig.fgHex + "50" }} title={focused ? "Show calendar" : "Focus on day"}>
+              style={{ color: tConfig.fgHex + "50" }} title={focused ? (t["journal.calendar"] || "Calendar") : (t["journal.list"] || "Day")}>
               {focused ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           )}
@@ -165,7 +171,7 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
                 style={{ backgroundColor: tConfig.accentHex + "08", color: tConfig.fgHex }}>
                 <div className="flex items-center gap-1.5">
                   <FileText size={11} className="shrink-0" style={{ color: tConfig.fgHex + "40" }} />
-                  <span className="font-medium truncate">{entry.metadata.title || "Untitled"}</span>
+                  <span className="font-medium truncate">{entry.metadata.title || (t["journal.blankEntry"] || "Untitled")}</span>
                 </div>
                 {entry.body.trim() && (
                   <p className="truncate mt-0.5" style={{ color: tConfig.fgHex + "50" }}>{getExcerpt(entry.body, 60)}</p>
@@ -175,11 +181,11 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
           </div>
         ) : selectedDay ? (
           <div className="flex items-center justify-center h-full text-xs" style={{ color: tConfig.fgHex + "40" }}>
-            No entries for this day
+            {t["journal.emptyStateCalendar"] || "No entries for this day"}
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-xs" style={{ color: tConfig.fgHex + "40" }}>
-            Select a day to view entries
+            "Select a day"
           </div>
         )}
       </div>

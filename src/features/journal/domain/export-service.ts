@@ -1,4 +1,4 @@
-import { readFile, writeFile, writeBinaryFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
+import { readFile, readBinaryFile, writeFile, writeBinaryFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
 import type { EntryRecord } from "./entry-service";
 import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
@@ -28,8 +28,7 @@ export async function exportEntryAsMarkdown(entry: EntryRecord, destDir: string)
 }
 
 export async function exportEntryAsHtml(entry: EntryRecord, destDir: string): Promise<string> {
-  const content = await readFile(entry.path);
-  const bodyHtml = mdToHtml(content);
+  const bodyHtml = mdToHtml(entry.body);
   const fullHtml = wrapHtmlPage(bodyHtml);
   const baseName = entryFileName(entry).replace(/\.md$/i, "");
   const destPath = `${destDir}/${baseName}.html`;
@@ -111,8 +110,7 @@ export async function exportJournal(
       }
 
       if (format === "html") {
-        const content = await readFile(entry.path);
-        const bodyHtml = mdToHtml(content);
+        const bodyHtml = mdToHtml(entry.body);
         const fullHtml = wrapHtmlPage(bodyHtml);
         const baseName = entryFileName(entry).replace(/\.md$/i, "");
         await writeFile(`${destDir}/entries/${relDir}/${baseName}.html`, fullHtml);
@@ -158,7 +156,7 @@ export async function exportJournalAsZip(
         const imgRel = m[1];
         if (/^(https?:\/|data:)/.test(imgRel)) continue;
         try {
-          const imgContent = await readFile(`${entryDir}/${imgRel}`);
+          const imgContent = await readBinaryFile(`${entryDir}/${imgRel}`);
           zip.file(`entries/${rel.replace(/[^/]+$/, "")}${imgRel}`, imgContent);
         } catch {
           // skip missing images
@@ -167,7 +165,7 @@ export async function exportJournalAsZip(
 
       if (entry.metadata.cover) {
         try {
-          const coverContent = await readFile(`${entryDir}/${entry.metadata.cover}`);
+          const coverContent = await readBinaryFile(`${entryDir}/${entry.metadata.cover}`);
           zip.file(`entries/${rel.replace(/[^/]+$/, "")}${entry.metadata.cover}`, coverContent);
         } catch {
           // skip missing cover

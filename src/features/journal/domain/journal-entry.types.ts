@@ -23,4 +23,5 @@ export interface JournalEntryMetadata {
   attachments?: string[];
   createdAt: string;
   updatedAt: string;
+  extraFrontmatter?: Record<string, unknown>;
 }

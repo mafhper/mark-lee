@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { FileText, Heart, MapPin, Image as ImageIcon, Search, RefreshCw, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { FileText, Heart, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight } from "lucide-react";
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "\u{1F60A}",
@@ -18,7 +18,7 @@ const MOOD_EMOJI: Record<string, string> = {
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries, getExcerpt, searchEntries } from "../domain/entry-service";
+import { getExcerpt, searchEntries } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { loadImage } from "../../../services/filesystem";
 
@@ -26,9 +26,12 @@ interface JournalListViewProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   journal: JournalDescriptor | null;
+  entries: EntryRecord[];
+  activeSection: string;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
   searchQuery?: string;
+  language?: string;
 }
 
 function groupByMonth(entries: EntryRecord[]): Map<string, EntryRecord[]> {
@@ -65,14 +68,9 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelectEntry, searchQuery }: JournalListViewProps) {
-  const [entries, setEntries] = useState<EntryRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, searchQuery, language = "en" }: JournalListViewProps) {
   const [filterTag, setFilterTag] = useState("");
   const [filterFavorites, setFilterFavorites] = useState(false);
-  const [rebuildErrors, setRebuildErrors] = useState<{ path: string; error: string }[]>([]);
-  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
-  const [rebuildKey, setRebuildKey] = useState(0);
   const [filterImages, setFilterImages] = useState(false);
   const [filterLocation, setFilterLocation] = useState(false);
   const [tagsCollapsed, setTagsCollapsed] = useState(false);
@@ -91,27 +89,6 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     return /!\[.*?\]\(.*?\)/.test(e.body);
   }
 
-  const loadEntries = useCallback(async () => {
-    if (!journal) { setEntries([]); return; }
-    setLoading(true);
-    setLoadProgress(null);
-    setRebuildErrors([]);
-    try {
-      const result = await listEntries(journal.rootPath, (loaded, total) => setLoadProgress({ loaded, total }));
-      setEntries(result.entries);
-      setRebuildErrors(result.errors);
-    } catch {
-      setEntries([]);
-    } finally {
-      setLoading(false);
-      setLoadProgress(null);
-    }
-  }, [journal?.rootPath]);
-
-  useEffect(() => {
-    loadEntries();
-  }, [loadEntries, rebuildKey]);
-
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     for (const e of entries) {
@@ -120,7 +97,17 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     return Array.from(tagSet).sort();
   }, [entries]);
 
-  const searched = useMemo(() => searchEntries(entries, searchQuery ?? ""), [entries, searchQuery]);
+  const today = new Date();
+  const scopeFiltered = useMemo(() => {
+    if (activeSection === "favorites") return entries.filter((e) => e.metadata.favorite);
+    if (activeSection === "today") return entries.filter((e) => {
+      const d = new Date(e.metadata.date);
+      return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() !== today.getFullYear();
+    });
+    return entries;
+  }, [entries, activeSection]);
+
+  const searched = useMemo(() => searchEntries(scopeFiltered, searchQuery ?? ""), [scopeFiltered, searchQuery]);
 
   const filtered = useMemo(() => {
     let result = searched;
@@ -133,14 +120,6 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   const hasActiveFilters = filterTag !== "" || filterFavorites || filterImages || filterLocation;
 
-  const today = new Date();
-  const onThisDayEntries = useMemo(() => {
-    return entries.filter((e) => {
-      const d = new Date(e.metadata.date);
-      return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() !== today.getFullYear();
-    });
-  }, [entries]);
-
   if (!journal) {
     return (
       <JournalEmptyState
@@ -149,14 +128,6 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
         description={t["journal.noJournalDesc"] || "Select or create a journal to view entries."}
         tConfig={tConfig}
       />
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ color: tConfig.fgHex + "50" }}>
-        <span className="text-xs">Loading...</span>
-      </div>
     );
   }
 
@@ -175,7 +146,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 px-6" style={{ color: tConfig.fgHex + "60" }}>
         <Search size={28} style={{ color: tConfig.fgHex + "30" }} />
-        <p className="text-xs text-center">{hasActiveFilters ? "No entries match filters" : `No entries match "${searchQuery}"`}</p>
+        <p className="text-xs text-center">{hasActiveFilters ? "No entries match filters" : `"${searchQuery}"`}</p>
       </div>
     );
   }
@@ -183,7 +154,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
   const months = groupByMonth(filtered);
 
   function shortMonth(date: Date): string {
-    return date.toLocaleDateString("en", { month: "short" });
+    return date.toLocaleDateString(language, { month: "short" });
   }
 
   const entryButton = (entry: EntryRecord) => {
@@ -207,7 +178,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             )}
             <span className="text-sm font-medium truncate"
               style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}>
-              {entry.metadata.title || "Untitled"}
+              {entry.metadata.title || (t["journal.blankEntry"] || "Untitled")}
             </span>
             {entry.metadata.favorite && (
               <Heart size={11} className="shrink-0" style={{ color: tConfig.accentHex }} />
@@ -231,14 +202,6 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   return (
     <div className="flex flex-col">
-      {loading && loadProgress && (
-        <div className="px-3 py-1.5 text-[10px] flex items-center gap-2 border-b" style={{ backgroundColor: tConfig.accentHex + "08", borderColor: tConfig.uiBorderHex }}>
-          <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: tConfig.uiBorderHex }}>
-            <div className="h-1 rounded-full transition-all" style={{ width: `${(loadProgress.loaded / loadProgress.total) * 100}%`, backgroundColor: tConfig.accentHex }} />
-          </div>
-          <span style={{ color: tConfig.fgHex + "60" }}>{loadProgress.loaded}/{loadProgress.total}</span>
-        </div>
-      )}
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
         {!tagsCollapsed && allTags.map((tag) => (
@@ -255,7 +218,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
           <button type="button" onClick={() => setTagsCollapsed(!tagsCollapsed)}
             className="px-1 py-0.5 rounded text-[10px] transition-colors"
             style={{ color: tConfig.fgHex + "40" }}>
-            {tagsCollapsed ? `+${allTags.length} tags` : `−`}
+            {tagsCollapsed ? `+${allTags.length} ${t["journal.tags"] || "tags"}` : `−`}
           </button>
         )}
         <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
@@ -265,7 +228,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
           }}>
           <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
-          Fav
+          {t["journal.favorites"] || "Fav"}
         </button>
         <button type="button" onClick={() => setFilterImages(!filterImages)}
           className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
@@ -274,7 +237,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             color: filterImages ? tConfig.accentHex : tConfig.fgHex + "60",
           }}>
           <ImageIcon size={11} />
-          Images
+          {t["journal.images"] || "Images"}
         </button>
         <button type="button" onClick={() => setFilterLocation(!filterLocation)}
           className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
@@ -283,43 +246,16 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             color: filterLocation ? tConfig.accentHex : tConfig.fgHex + "60",
           }}>
           <MapPin size={11} />
-          Places
+          {t["journal.places"] || "Places"}
         </button>
         {hasActiveFilters && (
           <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); setFilterImages(false); setFilterLocation(false); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
-            Clear
+            {t["journal.clear"] || "Clear"}
           </button>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          {rebuildErrors.length > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "#f59e0b" }}>
-              <AlertTriangle size={10} /> {rebuildErrors.length}
-            </span>
-          )}
-          <button type="button" onClick={() => setRebuildKey((k) => k + 1)} disabled={loading}
-            className="p-0.5 rounded hover:opacity-60 disabled:opacity-30" title="Rebuild index"
-            style={{ color: tConfig.fgHex + "50" }}>
-            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
+        <div className="ml-auto" />
       </div>
-
-      {onThisDayEntries.length > 0 && !searchQuery && !hasActiveFilters && (
-        <div>
-          <div
-            className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10 border-b flex items-center gap-1.5"
-            style={{
-              backgroundColor: tConfig.uiHex,
-              color: tConfig.accentHex,
-              borderColor: tConfig.uiBorderHex,
-            }}
-          >
-            <span>{"📅"}</span> On this day
-          </div>
-          {onThisDayEntries.map((entry) => entryButton(entry))}
-        </div>
-      )}
 
       {Array.from(months.entries()).map(([key, monthEntries]) => {
         const collapsed = collapsedMonths.has(key);
@@ -334,7 +270,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
               }}
             >
               {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-              {monthLabel(key, "en")}
+              {monthLabel(key, language)}
               <span className="text-[10px] font-normal opacity-50 ml-auto">{monthEntries.length}</span>
             </button>
             {!collapsed && monthEntries.map((entry) => entryButton(entry))}

@@ -3,7 +3,6 @@ import { Image as ImageIcon } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { listEntries } from "../domain/entry-service";
 import { loadImage } from "../../../services/filesystem";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalLightbox } from "./JournalLightbox";
@@ -12,6 +11,7 @@ interface JournalGalleryViewProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   journal: JournalDescriptor | null;
+  entries: EntryRecord[];
   onSelectEntry: (entry: EntryRecord) => void;
 }
 
@@ -49,16 +49,8 @@ function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: Galle
   );
 }
 
-export function JournalGalleryView({ t: _t, tConfig, journal, onSelectEntry }: JournalGalleryViewProps) {
-  const [entries, setEntries] = useState<EntryRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+export function JournalGalleryView({ t: _t, tConfig, journal, entries, onSelectEntry }: JournalGalleryViewProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!journal) { setEntries([]); return; }
-    setLoading(true);
-    listEntries(journal.rootPath).then((r) => setEntries(r.entries)).catch(() => setEntries([])).finally(() => setLoading(false));
-  }, [journal?.rootPath]);
 
   const items = useMemo(() => {
     const result: GalleryItem[] = [];
@@ -87,12 +79,6 @@ export function JournalGalleryView({ t: _t, tConfig, journal, onSelectEntry }: J
       <JournalEmptyState icon={<ImageIcon size={36} />} title="Gallery"
         description="Select a journal to view photos." tConfig={tConfig} />
     );
-  }
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-full" style={{ color: tConfig.fgHex + "50" }}>
-      <span className="text-xs">Loading...</span>
-    </div>;
   }
 
   if (items.length === 0) {
