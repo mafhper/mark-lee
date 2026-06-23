@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ThemeConfig } from "../../../types";
 import { openFileDialog } from "../../../services/filesystem";
 import { createJournal } from "../domain/manifest-service";
@@ -14,33 +14,39 @@ interface CreateJournalDialogProps {
   onCreated: (journal: JournalDescriptor) => void;
 }
 
+function safeFolderName(name: string): string {
+  return name.trim().replace(/[^a-zA-Z0-9_\-\s]/g, "").replace(/\s+/g, "-").toLowerCase();
+}
+
 export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journalDataDir, onClose, onCreated }: CreateJournalDialogProps) {
   const [name, setName] = useState("");
-  const [folderPath, setFolderPath] = useState("");
+  const [locationPath, setLocationPath] = useState(journalDataDir ?? "");
   const [folderManuallySet, setFolderManuallySet] = useState(false);
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const handleNameChange = (value: string) => {
-    setName(value);
-    if (!folderManuallySet) suggestFolder(value);
-  };
+  const folderPath = useMemo(() => {
+    if (name.trim() && locationPath) {
+      return `${locationPath}/${safeFolderName(name)}`;
+    }
+    return "";
+  }, [name, locationPath]);
 
   if (!open) return null;
 
-  const suggestFolder = (journalName: string) => {
-    if (journalDataDir && journalName.trim()) {
-      const safeName = journalName.trim().replace(/[^a-zA-Z0-9_\-\s]/g, "").replace(/\s+/g, "-").toLowerCase();
-      setFolderPath(`${journalDataDir}/${safeName}`);
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!folderManuallySet && !locationPath && journalDataDir) {
+      setLocationPath(journalDataDir);
     }
   };
 
   const handlePickFolder = async () => {
-    const selected = await openFileDialog({ directory: true, multiple: false, defaultPath: journalDataDir });
+    const selected = await openFileDialog({ directory: true, multiple: false, defaultPath: locationPath || journalDataDir });
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (path) {
-      setFolderPath(path);
+      setLocationPath(path);
       setFolderManuallySet(true);
       setError("");
     }
@@ -52,7 +58,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
       return;
     }
     if (!folderPath) {
-      setError("Please select a folder.");
+      setError("Please select a parent folder.");
       return;
     }
 
@@ -63,7 +69,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
       const descriptor = await createJournal(folderPath, name.trim(), description.trim() || undefined, defaultLanguage);
       onCreated(descriptor);
       setName("");
-      setFolderPath("");
+      setLocationPath(journalDataDir ?? "");
       setDescription("");
       setError("");
       onClose();
@@ -125,16 +131,16 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
 
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: tConfig.fgHex + "90" }}>
-              Folder *
+              Location *
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                value={folderPath}
+                value={locationPath}
                 readOnly
                 className="flex-1 px-3 py-2 text-sm rounded border outline-none bg-transparent truncate"
                 style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "80" }}
-                placeholder="Select a folder..."
+                placeholder="Select a parent folder..."
               />
               <button
                 type="button"
@@ -150,7 +156,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
               </button>
             </div>
             <p className="text-[11px] mt-1" style={{ color: tConfig.fgHex + "50" }}>
-              A <code>.marklee/journal.json</code> file will be created in this folder.
+              Parent folder. Journal will be created at: <code>{folderPath || "\u2014"}</code>
             </p>
           </div>
 

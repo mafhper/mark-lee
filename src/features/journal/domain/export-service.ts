@@ -4,6 +4,26 @@ import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
 import JSZip from "jszip";
 
+function collectImageRefs(body: string): string[] {
+  const refs: string[] = [];
+  const regex = /!\[.*?\]\((.+?)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(body)) !== null) {
+    const path = m[1];
+    if (!/^(https?:\/|data:)/.test(path)) refs.push(path);
+  }
+  return refs;
+}
+
+async function copyImageToDir(imageRelPath: string, entryDir: string, destDir: string): Promise<void> {
+  const srcPath = `${entryDir}/${imageRelPath}`;
+  const destPath = `${destDir}/${imageRelPath}`;
+  const imgParent = destPath.substring(0, destPath.lastIndexOf("/"));
+  try { await createWorkspaceDirectory(imgParent); } catch { /* may already exist */ }
+  const data = await readBinaryFile(srcPath);
+  await writeBinaryFile(destPath, data);
+}
+
 export async function pickExportDirectory(): Promise<string | null> {
   const result = await openFileDialog({ directory: true, multiple: false, title: "Select export destination" });
   if (Array.isArray(result)) return result[0] ?? null;
@@ -24,6 +44,10 @@ export async function exportEntryAsMarkdown(entry: EntryRecord, destDir: string)
   const content = await readFile(entry.path);
   const destPath = `${destDir}/${filename}`;
   await writeFile(destPath, content);
+  const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+  for (const img of collectImageRefs(entry.body)) {
+    try { await copyImageToDir(img, entryDir, destDir); } catch { /* skip missing */ }
+  }
   return destPath;
 }
 
@@ -33,7 +57,25 @@ export async function exportEntryAsHtml(entry: EntryRecord, destDir: string): Pr
   const baseName = entryFileName(entry).replace(/\.md$/i, "");
   const destPath = `${destDir}/${baseName}.html`;
   await writeFile(destPath, fullHtml);
+  await copyEntryAssets(entry, destDir);
   return destPath;
+}
+
+async function copyEntryAssets(entry: EntryRecord, destDir: string): Promise<void> {
+  const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+  for (const img of collectImageRefs(entry.body)) {
+    try { await copyImageToDir(img, entryDir, destDir); } catch { /* skip missing */ }
+  }
+  if (entry.metadata.cover) {
+    try {
+      const coverDir = entry.metadata.cover.includes("/")
+        ? `${destDir}/${entry.metadata.cover.substring(0, entry.metadata.cover.lastIndexOf("/"))}`
+        : destDir;
+      try { await createWorkspaceDirectory(coverDir); } catch { /* may already exist */ }
+      const data = await readBinaryFile(`${entryDir}/${entry.metadata.cover}`);
+      await writeBinaryFile(`${destDir}/${entry.metadata.cover}`, data);
+    } catch { /* skip missing cover */ }
+  }
 }
 
 export interface ExportRangeResult {
@@ -114,9 +156,14 @@ export async function exportJournal(
         const fullHtml = wrapHtmlPage(bodyHtml);
         const baseName = entryFileName(entry).replace(/\.md$/i, "");
         await writeFile(`${destDir}/entries/${relDir}/${baseName}.html`, fullHtml);
+        await copyEntryAssets(entry, `${destDir}/entries/${relDir}`);
       } else {
         const content = await readFile(entry.path);
         await writeFile(`${destDir}/entries/${rel}`, content);
+        const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+        for (const img of collectImageRefs(entry.body)) {
+          try { await copyImageToDir(img, entryDir, `${destDir}/entries/${relDir}`); } catch { /* skip missing */ }
+        }
       }
       exported++;
     } catch (e) {
@@ -176,6 +223,11 @@ export async function exportJournalAsZip(
     }
     onProgress?.(i + 1, entries.length);
   }
+
+  try {
+    const manifestContent = await readFile(`${journalRoot}/.marklee/journal.json`);
+    zip.file(".marklee/journal.json", manifestContent);
+  } catch { /* manifest missing */ }
 
   try {
     const zipData = await zip.generateAsync({ type: "uint8array" });

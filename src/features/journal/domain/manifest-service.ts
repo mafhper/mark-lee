@@ -1,4 +1,4 @@
-import { readFile, atomicWriteText, createDirectoryTree, createWorkspaceDirectory } from "../../../services/filesystem";
+import { readFile, atomicWriteText, createWorkspaceDirectory } from "../../../services/filesystem";
 import type { JournalManifest, ManifestCheckResult, JournalDescriptor } from "./journal.types";
 
 const SCHEMA = "marklee-journal" as const;
@@ -108,7 +108,7 @@ export async function createJournal(
   const manifest = createManifestPayload(id, name, description, defaultLanguage);
 
   // Create root directory and subdirectories
-  await createDirectoryTree(rootPath);
+  try { await createWorkspaceDirectory(rootPath); } catch { /* may already exist */ }
   await createWorkspaceDirectory(`${rootPath}/.marklee`);
   await createWorkspaceDirectory(`${rootPath}/entries`);
   await createWorkspaceDirectory(`${rootPath}/assets`);

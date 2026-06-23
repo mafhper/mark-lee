@@ -353,8 +353,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   };
 
   useEffect(() => {
-    return () => { flushPendingSave(); };
-  }, []);
+    const handleBeforeUnload = () => { flushPendingSave(); };
+    const handleVisibilityChange = () => {
+      if (document.hidden) flushPendingSave();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
 
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
