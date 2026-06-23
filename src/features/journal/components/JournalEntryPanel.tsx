@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe, MapPin } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -27,12 +27,14 @@ import { getTrackerDefinitions } from "../domain/tracker-service";
 import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalGettingStarted } from "./JournalGettingStarted";
+import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
 
 interface JournalEntryPanelProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   journal: JournalDescriptor | null;
   entry: EntryRecord | null;
+  viewMode?: "edit" | "split" | "preview";
   onEntryUpdated: (entry: EntryRecord) => void;
   onOpenInEditor?: (path: string) => void;
   onDeleteEntry?: (entry: EntryRecord) => void;
@@ -41,7 +43,7 @@ interface JournalEntryPanelProps {
   onNewEntry?: () => void;
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -50,16 +52,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
   const [trackerValues, setTrackerValues] = useState<Record<string, string | number | boolean | null>>({});
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
-  const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [showTrackerManager, setShowTrackerManager] = useState(false);
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [locationLabel, setLocationLabel] = useState("");
+  const [locationLat, setLocationLat] = useState("");
+  const [locationLng, setLocationLng] = useState("");
+  const [locationCity, setLocationCity] = useState("");
+  const [locationState, setLocationState] = useState("");
+  const [locationCountry, setLocationCountry] = useState("");
+  const [locationAttraction, setLocationAttraction] = useState("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -74,26 +80,43 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       setFavorite(entry.metadata.favorite ?? false);
       setMood(entry.metadata.mood ?? "");
       setTrackerValues(entry.metadata.trackers ?? {});
-      setDirty(false);
+      setLocationLabel(entry.metadata.location?.label ?? "");
+      setLocationLat(entry.metadata.location?.latitude !== undefined ? String(entry.metadata.location.latitude) : "");
+      setLocationLng(entry.metadata.location?.longitude !== undefined ? String(entry.metadata.location.longitude) : "");
+      setLocationCity(entry.metadata.location?.city ?? "");
+      setLocationState(entry.metadata.location?.state ?? "");
+      setLocationCountry(entry.metadata.location?.country ?? "");
+      setLocationAttraction(entry.metadata.location?.attraction ?? "");
       setConfirmDelete(false);
     }
   }, [entry?.metadata.id, entry?.path]);
 
+  const buildLocation = () => {
+    if (!locationLabel && !locationCity && !locationState && !locationCountry) return undefined;
+    return {
+      label: locationLabel || [locationCity, locationState, locationCountry].filter(Boolean).join(", ") || "",
+      latitude: locationLat ? Number(locationLat) : undefined,
+      longitude: locationLng ? Number(locationLng) : undefined,
+      source: "manual" as const,
+      city: locationCity || undefined,
+      state: locationState || undefined,
+      country: locationCountry || undefined,
+      attraction: locationAttraction || undefined,
+    };
+  };
+
   const doSave = useCallback(async (t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr?: Record<string, string | number | boolean | null>, force = false) => {
-    setSaving(true);
-    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined, trackers: tr ?? rec.metadata.trackers };
+    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined, trackers: tr ?? rec.metadata.trackers, location: buildLocation() };
     try {
       await saveEntry(rec.path, updated, b, force);
       setConflict(false);
       const wordCount = b.trim() ? b.trim().split(/\s+/).length : 0;
       onEntryUpdated({ path: rec.path, metadata: updated, body: b, wordCount });
-      setDirty(false);
     } catch (e) {
       if ((e as ConflictError).name === "ConflictError") {
         setConflict(true);
       }
     }
-    setSaving(false);
   }, [onEntryUpdated]);
 
   const scheduleSave = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr: Record<string, string | number | boolean | null>) => {
@@ -101,13 +124,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     saveTimerRef.current = setTimeout(() => doSave(t, b, tg, fav, m, rec, tr), 2000);
   }, [doSave]);
 
-  const markDirty = useCallback((t: string, b: string, tg: string[], fav: boolean, m: string, rec: EntryRecord, tr: Record<string, string | number | boolean | null>) => {
-    setDirty(true);
-    if (entry && journal) scheduleSave(t, b, tg, fav, m, rec, tr);
-  }, [entry, journal, scheduleSave]);
-
-  const handleTitleChange = (value: string) => { setTitle(value); if (entry) markDirty(value, body, tags, favorite, mood, entry, trackerValues); };
-  const handleBodyChange = (value: string) => { setBody(value); if (entry) markDirty(title, value, tags, favorite, mood, entry, trackerValues); };
+  const handleTitleChange = (value: string) => { setTitle(value); if (entry && journal) scheduleSave(value, body, tags, favorite, mood, entry, trackerValues); };
+  const handleBodyChange = (value: string) => { setBody(value); if (entry && journal) scheduleSave(title, value, tags, favorite, mood, entry, trackerValues); };
 
   const handleAddTag = () => {
     const newTag = tagInput.trim();
@@ -115,26 +133,26 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     const next = [...tags, newTag];
     setTags(next);
     setTagInput("");
-    if (entry) markDirty(title, body, next, favorite, mood, entry, trackerValues);
+    if (entry && journal) scheduleSave(title, body, next, favorite, mood, entry, trackerValues);
   };
 
   const handleRemoveTag = (tag: string) => {
     const next = tags.filter((t) => t !== tag);
     setTags(next);
-    if (entry) markDirty(title, body, next, favorite, mood, entry, trackerValues);
+    if (entry && journal) scheduleSave(title, body, next, favorite, mood, entry, trackerValues);
   };
 
   const handleToggleFavorite = () => {
     const next = !favorite;
     setFavorite(next);
-    if (entry) markDirty(title, body, tags, next, mood, entry, trackerValues);
+    if (entry && journal) scheduleSave(title, body, tags, next, mood, entry, trackerValues);
   };
 
   const handleSelectMood = (key: string) => {
     const next = mood === key ? "" : key;
     setMood(next);
     setShowMoodPicker(false);
-    if (entry) markDirty(title, body, tags, favorite, next, entry, trackerValues);
+    if (entry && journal) scheduleSave(title, body, tags, favorite, next, entry, trackerValues);
   };
 
   const handleInsertImage = async () => {
@@ -156,7 +174,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
         const after = body.slice(end);
         const newBody = before + imgMd + (after ? (before ? "" : "") : "");
         setBody(newBody);
-        if (entry) markDirty(title, newBody, tags, favorite, mood, entry, trackerValues);
+        if (entry && journal) scheduleSave(title, newBody, tags, favorite, mood, entry, trackerValues);
         requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + imgMd.length; ta.focus(); });
       }
     } catch (e) {
@@ -174,7 +192,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     const after = body.slice(end);
     const newBody = before + table + after;
     setBody(newBody);
-    if (entry) markDirty(title, newBody, tags, favorite, mood, entry, trackerValues);
+    if (entry && journal) scheduleSave(title, newBody, tags, favorite, mood, entry, trackerValues);
     requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + table.length; ta.focus(); });
   };
 
@@ -190,7 +208,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
     const next = { ...trackerValues, [id]: value };
     if (value === null || value === "" || value === undefined) delete next[id];
     setTrackerValues(next);
-    if (entry) markDirty(title, body, tags, favorite, mood, entry, next);
+    if (entry && journal) scheduleSave(title, body, tags, favorite, mood, entry, next);
   };
 
   useEffect(() => {
@@ -258,21 +276,6 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
       console.error("HTML export failed:", e);
     }
   };
-
-  useEffect(() => {
-    if (!entry) { setImageDataUrls([]); return; }
-    const refs: string[] = [];
-    const re = /!\[.*?\]\((.+?)\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(body)) !== null) {
-      const rel = m[1];
-      if (!/^(https?:\/|data:)/.test(rel)) {
-        const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-        refs.push(dir + "/" + rel);
-      }
-    }
-    Promise.all(refs.map((p) => loadImage(p).catch(() => ""))).then(setImageDataUrls);
-  }, [body, entry]);
 
   useEffect(() => {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
@@ -464,8 +467,22 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
                   </span>
                 );
               })}
+              <span className="flex items-center gap-1">
+                <MapPin size={11} style={{ color: locationLabel ? tConfig.accentHex : tConfig.fgHex + "40" }} />
+                <input
+                  type="text" value={locationLabel} onChange={(e) => { setLocationLabel(e.target.value); if (entry && journal) scheduleSave(title, body, tags, favorite, mood, entry, trackerValues); }}
+                  className="w-24 text-[11px] bg-transparent border-none outline-none"
+                  style={{ color: tConfig.fgHex + "80" }}
+                  placeholder="City, State, Country"
+                  title="Location label (city, state, country, attraction)"
+                />
+                {(locationLat || locationLng) && (
+                  <span className="text-[10px] font-mono" style={{ color: tConfig.fgHex + "40" }}>
+                    {locationLat || "?"}, {locationLng || "?"}
+                  </span>
+                )}
+              </span>
               <span className="opacity-50 ml-1">{body.trim() ? body.trim().split(/\s+/).length : 0} words</span>
-              <span className="opacity-40">{saving ? "Saving..." : dirty ? "Unsaved" : "Saved"}</span>
             </>
           ) : (
             <span className="flex items-center gap-1"><BookOpen size={12} />{t["journal.noJournalDesc"] || "Select an entry"}</span>
@@ -473,24 +490,29 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 flex">
         {showEntry ? (
-          <>
-            <textarea
-              ref={textareaRef}
-              value={body} onChange={(e) => handleBodyChange(e.target.value)}
-              className="w-full min-h-[200px] px-6 py-4 text-sm leading-relaxed bg-transparent border-none outline-none resize-none"
-              style={{ color: tConfig.fgHex }} placeholder="Start writing..."
-            />
-            {imageDataUrls.length > 0 && (
-              <div className="px-6 pb-4 flex flex-wrap gap-3">
-                {imageDataUrls.map((url, i) => url ? (
-                  <img key={i} src={url} alt="" className="max-w-[200px] max-h-[200px] rounded-lg object-cover border"
-                    style={{ borderColor: tConfig.uiBorderHex }} />
-                ) : null)}
+          <div className="flex flex-1 min-h-0">
+            {(viewMode === "edit" || viewMode === "split" || !viewMode) && (
+              <div className={viewMode === "split" ? "w-1/2 border-r overflow-y-auto" : "flex-1"} style={{ borderColor: tConfig.uiBorderHex }}>
+                <textarea
+                  ref={textareaRef}
+                  value={body} onChange={(e) => handleBodyChange(e.target.value)}
+                  className="w-full min-h-[200px] h-full px-6 py-4 text-sm leading-relaxed bg-transparent border-none outline-none resize-none"
+                  style={{ color: tConfig.fgHex }} placeholder="Start writing..."
+                />
               </div>
             )}
-          </>
+            {(viewMode === "preview" || viewMode === "split") && (
+              <div className={viewMode === "split" ? "w-1/2 overflow-y-auto" : "flex-1"}>
+                <MarkdownPreview
+                  activePath={entry.path}
+                  content={`---\ntitle: ${title}\n---\n\n${body}`}
+                  shellBackground={tConfig.editorBgHex}
+                />
+              </div>
+            )}
+          </div>
         ) : journal ? (
           <JournalGettingStarted tConfig={tConfig} hasEntries={false} onNewEntry={onNewEntry ?? (() => {})} />
         ) : (
@@ -515,6 +537,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
             ["Tags", entry.metadata.tags.join(", ") || "(none)"],
             ["Mood", entry.metadata.mood || "(none)"],
             ["Favorite", String(entry.metadata.favorite ?? false)],
+            ["Location", entry.metadata.location?.label || "(none)"],
+            ["City", entry.metadata.location?.city || "(none)"],
+            ["State", entry.metadata.location?.state || "(none)"],
+            ["Country", entry.metadata.location?.country || "(none)"],
+            ["Attraction", entry.metadata.location?.attraction || "(none)"],
             ["Word count", String(body.trim() ? body.trim().split(/\s+/).length : 0)],
           ].map(([label, value]) => (
             <div key={label} className="flex items-start gap-3">
@@ -524,13 +551,6 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, onEntryUpdated, 
           ))}
         </div>
       )}
-
-      <div className="px-6 py-2 border-t text-xs flex items-center gap-4 flex-wrap" style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "70" }}>
-        <span>{showEntry ? journalName : "--"}</span>
-        {showEntry && <span className="opacity-40">{entry.metadata.date}</span>}
-        <span className="opacity-40">{showEntry ? `${body.trim() ? body.trim().split(/\s+/).length : 0} words` : "--"}</span>
-        <span className="ml-auto opacity-50">{saving ? "Saving..." : dirty ? "Unsaved changes" : "Saved"}</span>
-      </div>
 
       {showTrackerManager && journal && (
         <TrackerManagerDialog open={showTrackerManager} tConfig={tConfig}

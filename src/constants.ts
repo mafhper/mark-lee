@@ -735,6 +735,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     maxResults: 18,
   },
   appMode: "editor" as AppMode,
+  measurementSystem: "metric",
   journalDataDir: "",
 };
 

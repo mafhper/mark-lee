@@ -156,31 +156,6 @@ export function JournalCalendarView({ t, tConfig, journal, onSelectEntry }: Jour
         </>
       )}
 
-      <div className="grid grid-cols-7 gap-px px-2 py-2 text-[10px] font-medium text-center" style={{ color: tConfig.fgHex + "50" }}>
-        {DAYS.map((d) => <div key={d} className="py-1">{d}</div>)}
-      </div>
-
-      <div className="grid grid-cols-7 gap-px px-2 text-xs">
-        {cal.cells.map((day, i) => {
-          if (day === null) return <div key={`e-${i}`} />;
-          const has = dayHasEntry(cal.year, cal.month, day, entries);
-          const isSelected = selectedDay === day;
-          const isToday = dateFromDay(cal.year, cal.month, day) === dateFromDay(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
-          return (
-            <button key={day} type="button" onClick={() => setSelectedDay(day)}
-              className="relative flex flex-col items-center justify-center rounded py-1.5 transition-colors hover:opacity-70"
-              style={{
-                backgroundColor: isSelected ? tConfig.accentHex + "20" : "transparent",
-                color: isSelected ? tConfig.accentHex : isToday ? tConfig.accentHex : tConfig.fgHex + "80",
-                fontWeight: isToday ? 600 : 400,
-              }}>
-              <span>{day}</span>
-              {has && <span className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: tConfig.accentHex }} />}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="flex-1 min-h-0 border-t overflow-y-auto" style={{ borderColor: tConfig.uiBorderHex }}>
         {selectedEntries.length > 0 ? (
           <div className="px-2 py-2 space-y-1">

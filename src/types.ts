@@ -156,6 +156,7 @@ export interface AppSettings {
   viewMode: ViewMode; // Last used view mode (edit/split/preview)
   selectionToolbarEnabled: boolean;
   appMode: AppMode;
+  measurementSystem: "metric" | "imperial";
   journalDataDir?: string;
 }
 

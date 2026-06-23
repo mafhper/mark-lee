@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, X, Download } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
+import { listEntries } from "../domain/entry-service";
 import { JournalHeader } from "./JournalHeader";
 import { JournalListView } from "./JournalListView";
 import { JournalCalendarView } from "./JournalCalendarView";
@@ -17,24 +18,40 @@ interface JournalContextPanelProps {
   activeView: "list" | "calendar" | "map" | "gallery";
   onViewChange: (view: "list" | "calendar" | "map" | "gallery") => void;
   onNewEntry?: () => void;
+  onManageTemplates?: () => void;
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
   listKey: number;
+  onEntryStatsChange?: (stats: { total: number; favorites: number; images: number; locations: number }) => void;
 }
 
 export function JournalContextPanel({
-  t, tConfig, activeView, onViewChange, onNewEntry, journal, selectedEntryId, onSelectEntry, listKey,
+  t, tConfig, activeView, onManageTemplates, journal, selectedEntryId, onSelectEntry, listKey, onEntryStatsChange,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
   const [showExportJournal, setShowExportJournal] = useState(false);
+  const [allEntries, setAllEntries] = useState<EntryRecord[]>([]);
+
+  useEffect(() => {
+    if (!journal) { setAllEntries([]); return; }
+    listEntries(journal.rootPath).then((r) => {
+      setAllEntries(r.entries);
+      const stats = {
+        total: r.entries.length,
+        favorites: r.entries.filter((e) => e.metadata.favorite).length,
+        images: r.entries.filter((e) => e.metadata.cover || /!\[.*?\]\(.*?\)/.test(e.body)).length,
+        locations: r.entries.filter((e) => e.metadata.location).length,
+      };
+      onEntryStatsChange?.(stats);
+    }).catch(() => setAllEntries([]));
+  }, [journal?.rootPath]);
 
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
       <JournalHeader
-        t={t} tConfig={tConfig} activeView={activeView} onViewChange={onViewChange}
-        onNewEntry={onNewEntry} onExportJournal={() => setShowExportJournal(true)} journal={journal}
+        t={t} tConfig={tConfig} onExportJournal={() => setShowExportJournal(true)} onManageTemplates={onManageTemplates} journal={journal}
       />
       <div className="px-3 py-2 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
         <div className="flex items-center gap-1 px-2 py-1 rounded text-xs"
@@ -67,7 +84,7 @@ export function JournalContextPanel({
         )}
         {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
         {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} onSelectEntry={onSelectEntry} />}
-        {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} />}
+        {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} entries={allEntries} onSelectEntry={onSelectEntry} />}
       </div>
       <ExportRangeDialog open={showExportRange} tConfig={tConfig}
         journalRootPath={journal?.rootPath ?? ""}

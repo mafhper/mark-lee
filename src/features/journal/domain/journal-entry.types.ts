@@ -13,6 +13,10 @@ export interface JournalEntryMetadata {
     latitude?: number;
     longitude?: number;
     source?: "manual" | "device" | "search";
+    city?: string;
+    state?: string;
+    country?: string;
+    attraction?: string;
   };
   cover?: string;
   favorite?: boolean;

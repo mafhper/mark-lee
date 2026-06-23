@@ -78,7 +78,7 @@ import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal"
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
-import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
+import { PomodoroTimer, PomodoroTrigger } from "./components/PomodoroTimer";import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import { useEditorSelectionToolbar } from "./app/hooks/useEditorSelectionToolbar";
 import SelectionToolbar from "./app/components/SelectionToolbar";
@@ -87,6 +87,9 @@ import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
 import { AppModeSwitcher } from "./app/components/AppModeSwitcher";
 import { JournalWorkspace } from "./features/journal";
+import { checkManifest } from "./features/journal/domain/manifest-service";
+import { addJournal } from "./features/journal/domain/library-service";
+import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { DoorOpen, Link2, Unlink2 } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
@@ -527,6 +530,7 @@ function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTabId>("general");
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>("tab-general");
   const [isZenMode, setIsZenMode] = useState(false);
+  const [pomodoroActive, setPomodoroActive] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
@@ -840,6 +844,27 @@ function App() {
       return next;
     });
   };
+
+  const handleJournalFolderSelected = useCallback(async (path: string) => {
+    try {
+      const result = await checkManifest(path);
+      if (result.manifest) {
+        const m = result.manifest;
+        const descriptor: JournalDescriptor = {
+          id: m.id,
+          name: m.name,
+          rootPath: path,
+          description: m.description,
+          schemaVersion: m.schemaVersion,
+          createdAt: m.createdAt,
+        };
+        await addJournal(descriptor);
+        setSettings((prev) => ({ ...prev, appMode: "journal" }));
+      }
+    } catch {
+      // folder doesn't contain a valid journal
+    }
+  }, []);
 
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth);
@@ -2325,6 +2350,7 @@ function App() {
       floatingToolbarAnchor={settings.floatingToolbarAnchor}
       sidebarEnabled={settings.sidebarEnabled}
       viewMode={effectiveViewMode}
+      appMode={settings.appMode}
       toolbarSections={settings.toolbarSections}
       toolbarItems={settings.toolbarItems}
       showToolbarSectionLabels={settings.showToolbarSectionLabels}
@@ -2385,6 +2411,7 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <PomodoroTrigger tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} />
           <span>{tabs.length} tabs</span>
           {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
           <span>{effectiveViewMode}</span>
@@ -2444,13 +2471,13 @@ function App() {
       )}
       {!isZenMode && settings.floatingToolbarAnchor !== "bottom" && topChromeBlock}
 
-      {settings.appMode === "editor" ? (
       <div
         className={`flex-1 min-h-0 flex ${!isZenMode && settings.floatingToolbarAnchor === "left" ? "pl-[72px]" : ""
           } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
           }`}
       >
-        {!isZenMode && settings.sidebarEnabled && (
+      {settings.appMode === "editor" ? (
+        <>{!isZenMode && settings.sidebarEnabled && (
           <div
             style={{ width: `${clampedSidebarWidth}px`, minWidth: "180px", maxWidth: `${dynamicSidebarMax}px` }}
             className={`relative h-full border-r ${tConfig.uiBorder}`}
@@ -2607,10 +2634,14 @@ function App() {
             </PreviewContextMenuWrapper>
           </div>
         </div>
-      </div>
+        </>
       ) : (
-        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language} journalDataDir={settings.journalDataDir} onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
+        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language}
+          viewMode={effectiveViewMode} journalDataDir={settings.journalDataDir}
+          sidebarEnabled={!isZenMode && settings.sidebarEnabled}
+          onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
       )}
+      </div>
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
       {statusBar}
 
@@ -2691,7 +2722,9 @@ function App() {
         onClose={closeAllDialogs}
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
+        onJournalFolderSelected={handleJournalFolderSelected}
       />
+      <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} />
     </div>
     </ContextMenuProvider>
   );

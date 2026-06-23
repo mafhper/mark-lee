@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { FileText, Heart, MapPin, Search, RefreshCw, AlertTriangle } from "lucide-react";
+import { FileText, Heart, MapPin, Image as ImageIcon, Search, RefreshCw, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "\u{1F60A}",
@@ -48,7 +48,7 @@ function monthLabel(key: string, locale: string): string {
   return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
 }
 
-function CoverThumbnail({ entryPath, cover }: { entryPath: string; cover: string }) {
+function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: string; tConfig: ThemeConfig }) {
   const [url, setUrl] = useState<string | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -58,7 +58,8 @@ function CoverThumbnail({ entryPath, cover }: { entryPath: string; cover: string
   }, [entryPath, cover]);
   if (!url) return null;
   return (
-    <div className="w-full h-24 -mx-3 -mt-2.5 mb-1.5 overflow-hidden shrink-0" style={{ width: "calc(100% + 1.5rem)" }}>
+    <div className="w-10 h-10 rounded overflow-hidden shrink-0 mt-0.5"
+      style={{ backgroundColor: tConfig.accentHex + "10" }}>
       <img src={url} alt="" className="w-full h-full object-cover" />
     </div>
   );
@@ -72,6 +73,23 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
   const [rebuildErrors, setRebuildErrors] = useState<{ path: string; error: string }[]>([]);
   const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [rebuildKey, setRebuildKey] = useState(0);
+  const [filterImages, setFilterImages] = useState(false);
+  const [filterLocation, setFilterLocation] = useState(false);
+  const [tagsCollapsed, setTagsCollapsed] = useState(false);
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+
+  const toggleMonth = (key: string) => {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  function entryHasImages(e: EntryRecord): boolean {
+    if (e.metadata.cover) return true;
+    return /!\[.*?\]\(.*?\)/.test(e.body);
+  }
 
   const loadEntries = useCallback(async () => {
     if (!journal) { setEntries([]); return; }
@@ -108,10 +126,12 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
     let result = searched;
     if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
     if (filterFavorites) result = result.filter((e) => e.metadata.favorite);
+    if (filterImages) result = result.filter((e) => entryHasImages(e));
+    if (filterLocation) result = result.filter((e) => !!e.metadata.location);
     return result;
-  }, [searched, filterTag, filterFavorites]);
+  }, [searched, filterTag, filterFavorites, filterImages, filterLocation]);
 
-  const hasActiveFilters = filterTag !== "" || filterFavorites;
+  const hasActiveFilters = filterTag !== "" || filterFavorites || filterImages || filterLocation;
 
   const today = new Date();
   const onThisDayEntries = useMemo(() => {
@@ -162,49 +182,55 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
 
   const months = groupByMonth(filtered);
 
-  const entryButton = (entry: EntryRecord) => (
-    <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
-      className="w-full flex flex-col items-start gap-0.5 px-3 py-2.5 text-left transition-colors border-b"
-      style={{
-        borderColor: tConfig.uiBorderHex,
-        backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
-        borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
-      }}>
-      {entry.metadata.cover && (
-        <CoverThumbnail entryPath={entry.path} cover={entry.metadata.cover} />
-      )}
-      <div className="flex items-center gap-1.5 w-full min-w-0">
-        <span className="text-[11px] font-medium shrink-0" style={{ color: tConfig.fgHex + "50" }}>
-          {new Date(entry.metadata.date).getDate()}
-        </span>
-        {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
-          <span className="text-sm shrink-0">{MOOD_EMOJI[entry.metadata.mood]}</span>
-        )}
-        <span className="text-sm font-medium truncate"
-          style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}>
-          {entry.metadata.title || "Untitled"}
-        </span>
-        {entry.metadata.favorite && (
-          <Heart size={11} className="shrink-0" style={{ color: tConfig.accentHex }} />
-        )}
-      </div>
-      {entry.metadata.summary && (
-        <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "60" }}>{entry.metadata.summary}</p>
-      )}
-      {!entry.metadata.summary && entry.body.trim() && (
-        <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "50" }}>{getExcerpt(entry.body, 80)}</p>
-      )}
-      <div className="flex items-center gap-2 mt-0.5 text-[10px]" style={{ color: tConfig.fgHex + "40" }}>
-        {entry.metadata.location && (
-          <span className="flex items-center gap-0.5"><MapPin size={10} />{entry.metadata.location.label}</span>
-        )}
-        {entry.wordCount > 0 && <span>{entry.wordCount} words</span>}
-      </div>
-    </button>
-  );
+  function shortMonth(date: Date): string {
+    return date.toLocaleDateString("en", { month: "short" });
+  }
+
+  const entryButton = (entry: EntryRecord) => {
+    const d = new Date(entry.metadata.date);
+    return (
+      <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
+        className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors border-b"
+        style={{
+          borderColor: tConfig.uiBorderHex,
+          backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
+          borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
+        }}>
+        <div className="flex flex-col items-center shrink-0 w-8 pt-0.5">
+          <span className="text-lg font-bold leading-none" style={{ color: tConfig.fgHex }}>{d.getDate()}</span>
+          <span className="text-[10px] font-medium uppercase leading-tight" style={{ color: tConfig.fgHex + "50" }}>{shortMonth(d)}</span>
+        </div>
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 w-full min-w-0">
+            {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
+              <span className="text-sm shrink-0">{MOOD_EMOJI[entry.metadata.mood]}</span>
+            )}
+            <span className="text-sm font-medium truncate"
+              style={{ color: selectedEntryId === entry.metadata.id ? tConfig.accentHex : tConfig.fgHex }}>
+              {entry.metadata.title || "Untitled"}
+            </span>
+            {entry.metadata.favorite && (
+              <Heart size={11} className="shrink-0" style={{ color: tConfig.accentHex }} />
+            )}
+          </div>
+          <p className="text-xs truncate w-full" style={{ color: tConfig.fgHex + "55" }}>
+            {entry.metadata.summary || (entry.body.trim() ? getExcerpt(entry.body, 80) : "")}
+          </p>
+          <div className="flex items-center gap-2 text-[10px]" style={{ color: tConfig.fgHex + "40" }}>
+            {entryHasImages(entry) && <ImageIcon size={10} />}
+            {entry.metadata.location && (
+              <span className="flex items-center gap-0.5"><MapPin size={10} />{entry.metadata.location.label}</span>
+            )}
+            {entry.wordCount > 0 && <span>{entry.wordCount}w</span>}
+          </div>
+        </div>
+        {entry.metadata.cover && <CoverThumb entryPath={entry.path} cover={entry.metadata.cover} tConfig={tConfig} />}
+      </button>
+    );
+  };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex flex-col">
       {loading && loadProgress && (
         <div className="px-3 py-1.5 text-[10px] flex items-center gap-2 border-b" style={{ backgroundColor: tConfig.accentHex + "08", borderColor: tConfig.uiBorderHex }}>
           <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: tConfig.uiBorderHex }}>
@@ -215,7 +241,7 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
       )}
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-        {allTags.map((tag) => (
+        {!tagsCollapsed && allTags.map((tag) => (
           <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
             className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
             style={{
@@ -225,6 +251,13 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             {tag}
           </button>
         ))}
+        {allTags.length > 0 && (
+          <button type="button" onClick={() => setTagsCollapsed(!tagsCollapsed)}
+            className="px-1 py-0.5 rounded text-[10px] transition-colors"
+            style={{ color: tConfig.fgHex + "40" }}>
+            {tagsCollapsed ? `+${allTags.length} tags` : `−`}
+          </button>
+        )}
         <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
           className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
           style={{
@@ -232,10 +265,28 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
             color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
           }}>
           <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
-          Favorites
+          Fav
+        </button>
+        <button type="button" onClick={() => setFilterImages(!filterImages)}
+          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
+          style={{
+            backgroundColor: filterImages ? tConfig.accentHex + "30" : "transparent",
+            color: filterImages ? tConfig.accentHex : tConfig.fgHex + "60",
+          }}>
+          <ImageIcon size={11} />
+          Images
+        </button>
+        <button type="button" onClick={() => setFilterLocation(!filterLocation)}
+          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
+          style={{
+            backgroundColor: filterLocation ? tConfig.accentHex + "30" : "transparent",
+            color: filterLocation ? tConfig.accentHex : tConfig.fgHex + "60",
+          }}>
+          <MapPin size={11} />
+          Places
         </button>
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); }}
+          <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); setFilterImages(false); setFilterLocation(false); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
             Clear
           </button>
@@ -270,21 +321,26 @@ export function JournalListView({ t, tConfig, journal, selectedEntryId, onSelect
         </div>
       )}
 
-      {Array.from(months.entries()).map(([key, monthEntries]) => (
-        <div key={key}>
-          <div
-            className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10 border-b"
-            style={{
-              backgroundColor: tConfig.uiHex,
-              color: tConfig.fgHex + "80",
-              borderColor: tConfig.uiBorderHex,
-            }}
-          >
-            {monthLabel(key, "en")}
+      {Array.from(months.entries()).map(([key, monthEntries]) => {
+        const collapsed = collapsedMonths.has(key);
+        return (
+          <div key={key}>
+            <button type="button" onClick={() => toggleMonth(key)}
+              className="w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10 border-b flex items-center gap-1.5 text-left"
+              style={{
+                backgroundColor: tConfig.uiHex,
+                color: tConfig.fgHex + "80",
+                borderColor: tConfig.uiBorderHex,
+              }}
+            >
+              {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+              {monthLabel(key, "en")}
+              <span className="text-[10px] font-normal opacity-50 ml-auto">{monthEntries.length}</span>
+            </button>
+            {!collapsed && monthEntries.map((entry) => entryButton(entry))}
           </div>
-          {monthEntries.map((entry) => entryButton(entry))}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -22,11 +22,13 @@ interface JournalWorkspaceProps {
   tConfig: ThemeConfig;
   isZenMode: boolean;
   language: string;
+  viewMode?: "edit" | "split" | "preview";
+  sidebarEnabled?: boolean;
   onOpenFile?: (path: string) => void;
   journalDataDir?: string;
 }
 
-export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, journalDataDir }: JournalWorkspaceProps) {
+export function JournalWorkspace({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journalDataDir }: JournalWorkspaceProps) {
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map" | "gallery">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -34,6 +36,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
   const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<EntryRecord | null>(null);
   const [listKey, setListKey] = useState(0);
+  const [, setEntryCounts] = useState({ total: 0, favorites: 0, images: 0, locations: 0 });
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const { journals, activeJournal, selectJournal, addJournal: addToLib, removeJournal: removeFromLib, reload } = useJournalLibrary();
@@ -100,18 +103,19 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
 
   return (
     <div className="flex-1 min-h-0 flex flex-row">
-      {!isZenMode && (
-        <ResizablePanel initialWidth={220} minWidth={180} maxWidth={360} theme={tConfig}>
-          <div className="h-full border-r" style={{ borderColor: tConfig.uiBorderHex }}>
+      {!isZenMode && sidebarEnabled && (
+        <ResizablePanel initialWidth={280} minWidth={240} maxWidth={400} theme={tConfig}>
+          <div className="h-full overflow-hidden border-r" style={{ borderColor: tConfig.uiBorderHex }}>
             <JournalNavigation
               t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
-              journals={journals} activeJournalId={activeJournal?.id ?? null}
+              activeView={activeView} onViewChange={setActiveView}
+              journals={journals} activeJournalId={activeJournal?.id ?? null} activeJournal={activeJournal}
               onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
               onCreateJournal={() => setShowCreateDialog(true)}
               onAddJournal={() => setShowAddDialog(true)}
+              onNewEntry={handleNewEntry}
               onRelocateJournal={handleRelocate}
               onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
-              onManageTemplates={() => setShowTemplateManager(true)}
               loading={false}
             />
           </div>
@@ -119,15 +123,17 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
       )}
 
       {!isZenMode && (
-        <ResizablePanel initialWidth={320} minWidth={240} maxWidth={480} theme={tConfig}>
-          <div className="h-full">
+        <ResizablePanel initialWidth={380} minWidth={300} maxWidth={600} theme={tConfig}>
+          <div className="h-full overflow-hidden">
             <JournalContextPanel
               t={t} tConfig={tConfig} activeView={activeView} onViewChange={setActiveView}
               journal={activeJournal}
               selectedEntryId={selectedEntry?.metadata.id ?? null}
               onSelectEntry={handleSelectEntry}
               onNewEntry={handleNewEntry}
+              onManageTemplates={() => setShowTemplateManager(true)}
               listKey={listKey}
+              onEntryStatsChange={(s) => setEntryCounts(s)}
             />
           </div>
         </ResizablePanel>
@@ -136,6 +142,7 @@ export function JournalWorkspace({ t, tConfig, isZenMode, language, onOpenFile, 
       <div className="flex-1 min-w-0 h-full flex flex-col">
         <JournalEntryPanel
           t={t} tConfig={tConfig} journal={activeJournal} entry={selectedEntry}
+          viewMode={viewMode}
           onEntryUpdated={setSelectedEntry}
           onOpenInEditor={onOpenFile}
           onDeleteEntry={handleDeleteEntry}

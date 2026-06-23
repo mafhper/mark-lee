@@ -36,6 +36,7 @@ type ToolbarAction = {
   icon: React.ReactNode;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
   shortcutId?: string;
 };
 type ToolbarSectionModel = {
@@ -51,6 +52,7 @@ interface TopChromeProps {
   floatingToolbarAnchor: AppSettings["floatingToolbarAnchor"];
   sidebarEnabled: boolean;
   viewMode: "edit" | "split" | "preview";
+  appMode?: "editor" | "journal";
   toolbarSections: AppSettings["toolbarSections"];
   toolbarItems: AppSettings["toolbarItems"];
   showToolbarSectionLabels: boolean;
@@ -83,6 +85,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   floatingToolbarAnchor,
   sidebarEnabled,
   viewMode,
+  appMode,
   toolbarSections,
   toolbarItems,
   showToolbarSectionLabels,
@@ -347,6 +350,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.bold"] || "Bold",
               icon: toolIcon(Bold),
               onClick: () => onFormatAction("bold"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-bold",
             }
             : null,
@@ -356,6 +360,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.italic"] || "Italic",
               icon: toolIcon(Italic),
               onClick: () => onFormatAction("italic"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-italic",
             }
             : null,
@@ -365,6 +370,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.code"] || "Code",
               icon: toolIcon(Code),
               onClick: () => onFormatAction("code"),
+              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editLink
@@ -373,6 +379,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.link"] || "Link",
               icon: toolIcon(Link2),
               onClick: () => onFormatAction("link"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-link",
             }
             : null,
@@ -382,6 +389,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.image"] || "Image",
               icon: toolIcon(Image),
               onClick: () => onFormatAction("image"),
+              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editTable
@@ -390,6 +398,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: "Table",
               icon: toolIcon(Table),
               onClick: () => onFormatAction("table"),
+              disabled: appMode === "journal",
             }
             : null,
           toolbarItems.editUL
@@ -398,6 +407,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.ul"] || "UL",
               icon: toolIcon(List),
               onClick: () => onFormatAction("ul"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-ul",
             }
             : null,
@@ -407,6 +417,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.ol"] || "OL",
               icon: toolIcon(ListOrdered),
               onClick: () => onFormatAction("ol"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-ol",
             }
             : null,
@@ -416,6 +427,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.task"] || "Task",
               icon: toolIcon(CheckSquare),
               onClick: () => onFormatAction("task"),
+              disabled: appMode === "journal",
               shortcutId: "fmt-task",
             }
             : null,
@@ -741,15 +753,15 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const buttonClass =
       variant === "popover"
-        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""}`
-        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
+        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
+        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
     return (
       <button
         key={action.id}
         className={buttonClass}
         onClick={(event) => {
           event.stopPropagation();
-          action.onClick();
+          if (!action.disabled) action.onClick();
         }}
         title={shortcutText ? `${action.label} (${shortcutText})` : action.label}
         type="button"

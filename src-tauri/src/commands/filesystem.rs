@@ -208,7 +208,13 @@ pub fn list_dir(path: String) -> Result<Vec<String>, String> {
     if p.is_dir() {
         for entry in fs::read_dir(&p).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
-            items.push(entry.path().display().to_string());
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let full_path = entry.path();
+            if full_path.is_dir() {
+                items.push(file_name + "/");
+            } else {
+                items.push(file_name);
+            }
         }
     }
     Ok(items)

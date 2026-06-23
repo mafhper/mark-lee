@@ -61,6 +61,14 @@ export function parseJournalEntry(raw: string): ParseResult | ParseError {
           longitude: typeof (fm.location as Record<string, unknown>).longitude === "number"
             ? (fm.location as Record<string, unknown>).longitude as number : undefined,
           source: (fm.location as Record<string, unknown>).source as "manual" | "device" | "search" | undefined,
+          city: typeof (fm.location as Record<string, unknown>).city === "string"
+            ? (fm.location as Record<string, unknown>).city as string : undefined,
+          state: typeof (fm.location as Record<string, unknown>).state === "string"
+            ? (fm.location as Record<string, unknown>).state as string : undefined,
+          country: typeof (fm.location as Record<string, unknown>).country === "string"
+            ? (fm.location as Record<string, unknown>).country as string : undefined,
+          attraction: typeof (fm.location as Record<string, unknown>).attraction === "string"
+            ? (fm.location as Record<string, unknown>).attraction as string : undefined,
         }
       : undefined,
     cover: typeof fm.cover === "string" ? fm.cover : undefined,

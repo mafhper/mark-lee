@@ -24,6 +24,10 @@ export function serializeJournalEntry(metadata: JournalEntryMetadata, body: stri
     if (metadata.location.latitude !== undefined) loc.latitude = metadata.location.latitude;
     if (metadata.location.longitude !== undefined) loc.longitude = metadata.location.longitude;
     if (metadata.location.source) loc.source = metadata.location.source;
+    if (metadata.location.city) loc.city = metadata.location.city;
+    if (metadata.location.state) loc.state = metadata.location.state;
+    if (metadata.location.country) loc.country = metadata.location.country;
+    if (metadata.location.attraction) loc.attraction = metadata.location.attraction;
     frontmatter.location = loc;
   }
   if (metadata.cover !== undefined) frontmatter.cover = metadata.cover;
