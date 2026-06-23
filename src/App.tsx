@@ -22,6 +22,7 @@ import {
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
 import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
+import { getActiveTarget, setActiveTarget } from "./features/editor/active-target";
 import {
   addRecentFile,
   getRecentFiles,
@@ -1598,9 +1599,15 @@ function App() {
       openFile: handleOpenFile,
       openFolder: handleOpenFolder,
       saveFile: (forceSaveAs: boolean) => {
+        const target = getActiveTarget();
+        if (target?.kind === "journal-entry") return target.save();
         if (activeTab) return saveTab(activeTab, forceSaveAs);
       },
-      openFind: () => openDialog("find"),
+      openFind: () => {
+        const target = getActiveTarget();
+        if (target?.kind === "journal-entry" && target.find) return target.find();
+        openDialog("find");
+      },
     }),
     [activeTab, handleNewFile, handleOpenFile, handleOpenFolder, openDialog, saveTab]
   );
@@ -2568,7 +2575,17 @@ function App() {
                     editorRef.current = view;
                     setEditorView(view);
                     activeEditorRef.current = view;
-                    view.dom.addEventListener("focus", () => { activeEditorRef.current = view; });
+                    setActiveTarget({
+                      kind: "editor-tab",
+                      save: async () => { if (activeTab) await saveTab(activeTab, false); },
+                    });
+                    view.dom.addEventListener("focus", () => {
+                      activeEditorRef.current = view;
+                      setActiveTarget({
+                        kind: "editor-tab",
+                        save: async () => { if (activeTab) await saveTab(activeTab, false); },
+                      });
+                    });
                     if (activeTab?.path) activeDocPathRef.current = activeTab.path;
                   }}
                 />

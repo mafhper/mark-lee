@@ -23,14 +23,17 @@ export interface JournalSessionState {
   revision: number;
   loading: boolean;
   loadProgress: { loaded: number; total: number } | null;
+  activeEntryId: string | null;
+  loadId: number;
 }
 
 export type JournalSessionAction =
-  | { type: "LOAD_START"; rootPath: string }
+  | { type: "LOAD_START"; rootPath: string; loadId: number }
   | { type: "LOAD_PROGRESS"; loaded: number; total: number }
-  | { type: "LOAD_COMPLETE"; entries: EntryRecord[]; fileErrors: JournalFileError[] }
+  | { type: "LOAD_COMPLETE"; entries: EntryRecord[]; fileErrors: JournalFileError[]; loadId: number }
   | { type: "LOAD_ERROR" }
   | { type: "ADD_ENTRY"; entry: EntryRecord }
   | { type: "UPDATE_ENTRY"; entry: EntryRecord }
   | { type: "REMOVE_ENTRY"; entryId: string }
-  | { type: "INCREMENT_REVISION" };
+  | { type: "INCREMENT_REVISION" }
+  | { type: "SET_ACTIVE_ENTRY"; entryId: string | null };

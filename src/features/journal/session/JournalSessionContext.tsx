@@ -5,11 +5,17 @@ import type { JournalSessionState, JournalSessionAction } from "./journalSession
 function sessionReducer(state: JournalSessionState, action: JournalSessionAction): JournalSessionState {
   switch (action.type) {
     case "LOAD_START":
-      return { ...state, rootPath: action.rootPath, loading: true, loadProgress: null, entries: [], fileErrors: [] };
+      return { ...state, rootPath: action.rootPath, loadId: action.loadId, loading: true, loadProgress: null, entries: [], fileErrors: [], activeEntryId: null };
     case "LOAD_PROGRESS":
       return { ...state, loadProgress: { loaded: action.loaded, total: action.total } };
     case "LOAD_COMPLETE":
-      return { ...state, loading: false, loadProgress: null, entries: action.entries, fileErrors: action.fileErrors, revision: state.revision + 1 };
+      if (state.loadId !== action.loadId) return state;
+      return {
+        ...state, loading: false, loadProgress: null,
+        entries: action.entries, fileErrors: action.fileErrors, revision: state.revision + 1,
+        activeEntryId: action.entries.some((e) => e.metadata.id === state.activeEntryId)
+          ? state.activeEntryId : null,
+      };
     case "LOAD_ERROR":
       return { ...state, loading: false, loadProgress: null };
     case "ADD_ENTRY":
@@ -17,9 +23,16 @@ function sessionReducer(state: JournalSessionState, action: JournalSessionAction
     case "UPDATE_ENTRY":
       return { ...state, entries: state.entries.map((e) => e.metadata.id === action.entry.metadata.id ? action.entry : e), revision: state.revision + 1 };
     case "REMOVE_ENTRY":
-      return { ...state, entries: state.entries.filter((e) => e.metadata.id !== action.entryId), revision: state.revision + 1 };
+      return {
+        ...state,
+        entries: state.entries.filter((e) => e.metadata.id !== action.entryId),
+        activeEntryId: state.activeEntryId === action.entryId ? null : state.activeEntryId,
+        revision: state.revision + 1,
+      };
     case "INCREMENT_REVISION":
       return { ...state, revision: state.revision + 1 };
+    case "SET_ACTIVE_ENTRY":
+      return { ...state, activeEntryId: action.entryId };
     default:
       return state;
   }
@@ -32,6 +45,8 @@ const initialState: JournalSessionState = {
   revision: 0,
   loading: false,
   loadProgress: null,
+  activeEntryId: null,
+  loadId: 0,
 };
 
 interface JournalSessionContextValue {
@@ -42,17 +57,20 @@ interface JournalSessionContextValue {
 
 const JournalSessionContext = createContext<JournalSessionContextValue | null>(null);
 
+let nextLoadId = 0;
+
 export function JournalSessionProvider({ children, rootPath }: { children: ReactNode; rootPath: string | null }) {
   const [state, dispatch] = useReducer(sessionReducer, initialState);
   const lastRootRef = useRef<string | null>(null);
 
   const loadJournal = useCallback(async (path: string) => {
-    dispatch({ type: "LOAD_START", rootPath: path });
+    const loadId = ++nextLoadId;
+    dispatch({ type: "LOAD_START", rootPath: path, loadId });
     try {
       const result = await listEntries(path, (loaded, total) => {
         dispatch({ type: "LOAD_PROGRESS", loaded, total });
       });
-      dispatch({ type: "LOAD_COMPLETE", entries: result.entries, fileErrors: result.errors });
+      dispatch({ type: "LOAD_COMPLETE", entries: result.entries, fileErrors: result.errors, loadId });
     } catch {
       dispatch({ type: "LOAD_ERROR" });
     }
@@ -65,8 +83,8 @@ export function JournalSessionProvider({ children, rootPath }: { children: React
     }
     if (!rootPath) {
       lastRootRef.current = null;
-      dispatch({ type: "LOAD_START", rootPath: "" });
-      dispatch({ type: "LOAD_COMPLETE", entries: [], fileErrors: [] });
+      dispatch({ type: "LOAD_START", rootPath: "", loadId: ++nextLoadId });
+      dispatch({ type: "LOAD_COMPLETE", entries: [], fileErrors: [], loadId: nextLoadId });
     }
   }, [rootPath, loadJournal]);
 

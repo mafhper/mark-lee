@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, FileText, Plus, Maximize2, Minimize2 } from 
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
-import { getExcerpt, createEntry } from "../domain/entry-service";
+import { getExcerpt } from "../domain/entry-service";
 
 interface JournalCalendarViewProps {
   t: Record<string, string>;
@@ -11,14 +11,22 @@ interface JournalCalendarViewProps {
   journal: JournalDescriptor | null;
   entries: EntryRecord[];
   onSelectEntry: (entry: EntryRecord) => void;
+  onCreateEntryForDate?: (date: Date) => void;
   language?: string;
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function monthDayNames(lang: string): string[] {
   try {
     const formatter = new Intl.DateTimeFormat(lang, { weekday: "short" });
     return Array.from({ length: 7 }, (_, i) =>
-      formatter.format(new Date(2024, 0, i + 1))
+      formatter.format(new Date(2024, 0, 7 + i))
     );
   } catch {
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -41,7 +49,7 @@ function useCalendarMonth(base: Date) {
 }
 
 function dateFromDay(year: number, month: number, day: number): string {
-  return new Date(year, month, day).toISOString().slice(0, 10);
+  return toLocalDateKey(new Date(year, month, day));
 }
 
 function dayHasEntry(year: number, month: number, day: number, entries: EntryRecord[]): boolean {
@@ -54,7 +62,7 @@ function entriesForDay(year: number, month: number, day: number, entries: EntryR
   return entries.filter((e) => e.metadata.date.slice(0, 10) === target);
 }
 
-export function JournalCalendarView({ t, tConfig, journal, entries, onSelectEntry, language = "en" }: JournalCalendarViewProps) {
+export function JournalCalendarView({ t, tConfig, journal, entries, onSelectEntry, onCreateEntryForDate, language = "en" }: JournalCalendarViewProps) {
   const [cursor, setCursor] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
@@ -71,11 +79,10 @@ export function JournalCalendarView({ t, tConfig, journal, entries, onSelectEntr
     setSelectedDay(now.getDate());
   };
 
-  const handleCreateEntry = async () => {
-    if (!journal || !selectedDay) return;
+  const handleCreateEntry = () => {
+    if (!journal || !selectedDay || !onCreateEntryForDate) return;
     const date = new Date(cal.year, cal.month, selectedDay);
-    const entry = await createEntry(journal.rootPath, t["journal.blankEntry"] || "Untitled", date);
-    onSelectEntry(entry);
+    onCreateEntryForDate(date);
     setFocused(true);
   };
 

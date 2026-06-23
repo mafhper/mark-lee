@@ -33,6 +33,7 @@ import { EditorView } from "@codemirror/view";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
 import { insertSnippetContent, insertTable as insertTableCommand } from "../../editor/editor-commands";
 import { activeDocPathRef } from "../../editor/active-editor";
+import { setActiveTarget } from "../../editor/active-target";
 
 interface JournalEntryPanelProps {
   t: Record<string, string>;
@@ -47,6 +48,7 @@ interface JournalEntryPanelProps {
   onReloadEntry?: () => void;
   onNewEntry?: () => void;
   language?: string;
+  hasEntries?: boolean;
 }
 
 function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label: string; danger?: boolean; onClick: () => void }) {
@@ -60,7 +62,7 @@ function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en" }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en", hasEntries = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -69,8 +71,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [trackerValues, setTrackerValues] = useState<Record<string, string | number | boolean | null>>({});
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  type SaveState = "clean" | "dirty" | "saving" | "error" | "conflict";
+  const [saveState, setSaveState] = useState<SaveState>("clean");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [conflict, setConflict] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showTrackerManager, setShowTrackerManager] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -112,20 +115,40 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     };
   };
 
+  const buildLocationFrom = (
+    label: string, lat?: number, lng?: number,
+    city?: string, state?: string, country?: string, attraction?: string,
+  ) => {
+    if (!label && !city && !state && !country) return undefined;
+    return {
+      label: label || [city, state, country].filter(Boolean).join(", ") || "",
+      latitude: lat,
+      longitude: lng,
+      source: "manual" as const,
+      city: city || undefined,
+      state: state || undefined,
+      country: country || undefined,
+      attraction: attraction || undefined,
+    };
+  };
+
   const doSave = useCallback(async (
     rec: EntryRecord, t: string, b: string, tg: string[], fav: boolean, m: string,
     tr: Record<string, string | number | boolean | null> | undefined,
     loc: ReturnType<typeof buildLocation>, force = false,
   ) => {
     const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined, trackers: tr ?? rec.metadata.trackers, location: loc };
+    setSaveState("saving");
     try {
       await saveEntry(rec.path, updated, b, force);
-      setConflict(false);
+      setSaveState("clean");
       const wordCount = b.trim() ? b.trim().split(/\s+/).length : 0;
       onEntryUpdated({ path: rec.path, metadata: updated, body: b, wordCount });
     } catch (e) {
       if ((e as ConflictError).name === "ConflictError") {
-        setConflict(true);
+        setSaveState("conflict");
+      } else {
+        setSaveState("error");
       }
     }
   }, [onEntryUpdated]);
@@ -136,6 +159,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     loc: ReturnType<typeof buildLocation>,
   ) => {
     pendingSaveRef.current = { rec, t, b, tg, fav, m, tr, loc };
+    setSaveState("dirty");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const ps = pendingSaveRef.current;
@@ -175,9 +199,21 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setLocationCountry(entry.metadata.location?.country ?? "");
       setLocationAttraction(entry.metadata.location?.attraction ?? "");
       setConfirmDelete(false);
+      if (!cancelled) {
+        setActiveTarget({
+          kind: "journal-entry",
+          save: flushPendingSave,
+        });
+      }
     });
-    if (!entry) activeDocPathRef.current = "";
-    return () => { cancelled = true; };
+    if (!entry) {
+      activeDocPathRef.current = "";
+      setActiveTarget(null);
+    }
+    return () => {
+      cancelled = true;
+      setActiveTarget(null);
+    };
   }, [entry?.metadata.id, entry?.path, flushPendingSave]);
 
   const handleTitleChange = (value: string) => { setTitle(value); if (entry && journal) scheduleSave(entry, value, body, tags, favorite, mood, trackerValues, buildLocation()); };
@@ -260,6 +296,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   const handleSetCover = async () => {
     if (!entry || !journal) return;
+    await flushPendingSave();
     const selected = await openFileDialog({
       multiple: false,
       filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
@@ -353,7 +390,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                 />
               ) : (
                 <h1 className="text-2xl font-bold tracking-tight truncate" style={{ color: tConfig.fgHex }}>
-                  {t["journal.noJournalTitle"] || "No entry selected"}
+                  {journal
+                    ? (t["journal.selectEntry"] || "No entry selected")
+                    : (t["journal.noJournalTitle"] || "No journal open")}
                 </h1>
               )}
             </div>
@@ -414,13 +453,24 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </div>
             )}
           </div>
-          {conflict && (
+          {saveState === "error" && (
+            <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#ef444420", color: "#ef4444" }}>
+              <AlertTriangle size={12} />
+              <span className="flex-1">Save failed. Your changes are preserved locally.</span>
+              <button type="button" onClick={() => {
+                const ps = pendingSaveRef.current;
+                if (ps) doSave(ps.rec, ps.t, ps.b, ps.tg, ps.fav, ps.m, ps.tr, ps.loc, true);
+              }}
+                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#ef444430", color: "#ef4444" }}>Retry</button>
+            </div>
+          )}
+          {saveState === "conflict" && (
             <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#f59e0b20", color: "#f59e0b" }}>
               <AlertTriangle size={12} />
               <span className="flex-1">File modified externally. Save blocked.</span>
               <button type="button" onClick={async () => { await doSave(entry!, title, body, tags, favorite, mood, trackerValues, buildLocation(), true); }}
                 className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>Overwrite</button>
-              <button type="button" onClick={() => { setConflict(false); onReloadEntry?.(); }}
+              <button type="button" onClick={() => { setSaveState("dirty"); onReloadEntry?.(); }}
                 className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>Discard</button>
             </div>
           )}
@@ -498,7 +548,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                 <span className="flex items-center gap-1">
                   <MapPin size={11} style={{ color: locationLabel ? tConfig.accentHex : tConfig.fgHex + "40" }} />
                   <input
-                    type="text" value={locationLabel} onChange={(e) => { setLocationLabel(e.target.value); if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocation()); }}
+                    type="text" value={locationLabel} onChange={(e) => { const v = e.target.value; setLocationLabel(v); if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocationFrom(v, locationLat ? Number(locationLat) : undefined, locationLng ? Number(locationLng) : undefined, locationCity, locationState, locationCountry, locationAttraction)); }}
                     className="w-24 text-[11px] bg-transparent border-none outline-none"
                     style={{ color: tConfig.fgHex + "80" }}
                     placeholder={t["journal.places"] || "Location"}
@@ -511,6 +561,16 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                   )}
                 </span>
                 <span className="opacity-50 ml-1">{body.trim() ? body.trim().split(/\s+/).length : 0} words</span>
+                {saveState !== "clean" && (
+                  <span className="text-[10px] ml-1" style={{
+                    color: saveState === "error" ? "#ef4444" : saveState === "conflict" ? "#f59e0b" : tConfig.fgHex + "50",
+                  }}>
+                    {saveState === "dirty" && "\u00B7 unsaved"}
+                    {saveState === "saving" && "\u00B7 saving\u2026"}
+                    {saveState === "error" && "\u00B7 save error"}
+                    {saveState === "conflict" && "\u00B7 conflict"}
+                  </span>
+                )}
               </>
             ) : (
               <span className="flex items-center gap-1"><BookOpen size={12} />{t["journal.noJournalDesc"] || "Select an entry"}</span>
@@ -549,11 +609,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
           </div>
         ) : journal ? (
-          <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={false} onNewEntry={onNewEntry ?? (() => {})} />
+          <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={hasEntries} onNewEntry={onNewEntry ?? (() => {})} />
         ) : (
           <div className="px-6 py-4">
             <JournalEmptyState icon={<BookOpen size={36} />}
-              title={t["journal.noJournalTitle"] || "No entry selected"}
+              title={t["journal.noJournalTitle"] || "No journal open"}
               description={t["journal.noJournalDesc"] || "Create or add a journal to start journaling."}
               tConfig={tConfig} />
           </div>

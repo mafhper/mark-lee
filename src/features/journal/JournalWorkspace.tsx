@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { ThemeConfig } from "../../types";
 import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
@@ -43,10 +43,15 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
-  const [selectedEntry, setSelectedEntry] = useState<EntryRecord | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const sidebarWidthRef = useRef(240);
+  const handleSidebarWidthChange = useCallback((w: number) => { sidebarWidthRef.current = w; }, []);
+
+  const activeEntry = sessionState.activeEntryId
+    ? sessionState.entries.find((e) => e.metadata.id === sessionState.activeEntryId) ?? null
+    : null;
 
   const handleRelocate = async (journalId: string) => {
     const selected = await openFileDialog({ directory: true, multiple: false });
@@ -67,10 +72,9 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   };
 
   const handleReloadEntry = async () => {
-    if (!selectedEntry) return;
-    const reloaded = await readEntry(selectedEntry.path);
+    if (!activeEntry) return;
+    const reloaded = await readEntry(activeEntry.path);
     if (reloaded) {
-      setSelectedEntry(reloaded);
       dispatch({ type: "UPDATE_ENTRY", entry: reloaded });
     }
   };
@@ -78,13 +82,12 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const handleDuplicateEntry = async (entry: EntryRecord) => {
     if (!activeJournal) return;
     const dup = await duplicateEntry(activeJournal.rootPath, entry);
-    setSelectedEntry(dup);
     dispatch({ type: "ADD_ENTRY", entry: dup });
+    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: dup.metadata.id });
   };
 
   const handleDeleteEntry = async (entry: EntryRecord) => {
     await deleteEntry(entry.path);
-    setSelectedEntry(null);
     dispatch({ type: "REMOVE_ENTRY", entryId: entry.metadata.id });
   };
 
@@ -95,7 +98,6 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   };
 
   const handleEntryUpdated = useCallback((entry: EntryRecord) => {
-    setSelectedEntry(entry);
     dispatch({ type: "UPDATE_ENTRY", entry });
   }, [dispatch]);
 
@@ -107,14 +109,22 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const handleCreateFromTemplate = useCallback(async (templateBody: string) => {
     if (!activeJournal) return;
     const entry = await createEntry(activeJournal.rootPath, "", new Date(), [], templateBody);
-    setSelectedEntry(entry);
     dispatch({ type: "ADD_ENTRY", entry });
+    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
     setActiveView("list");
   }, [activeJournal, dispatch]);
 
   const handleSelectEntry = useCallback((entry: EntryRecord) => {
-    setSelectedEntry(entry);
-  }, []);
+    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
+  }, [dispatch]);
+
+  const handleCreateEntryForDate = useCallback(async (date: Date) => {
+    if (!activeJournal) return;
+    const entry = await createEntry(activeJournal.rootPath, "", date, []);
+    dispatch({ type: "ADD_ENTRY", entry });
+    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
+    setActiveView("list");
+  }, [activeJournal, dispatch]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-row">
@@ -124,7 +134,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
             activeView={activeView} onViewChange={setActiveView}
             journals={journals} activeJournalId={activeJournal?.id ?? null} activeJournal={activeJournal}
-            onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
+            onSelectJournal={(id) => { selectJournal(id); dispatch({ type: "SET_ACTIVE_ENTRY", entryId: null }); }}
             onCreateJournal={() => setShowCreateDialog(true)}
             onAddJournal={() => setShowAddDialog(true)}
             onNewEntry={handleNewEntry}
@@ -135,13 +145,13 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
           />
         </div>
       ) : (
-        <ResizablePanel initialWidth={240} minWidth={200} maxWidth={400} theme={tConfig}>
+        <ResizablePanel initialWidth={sidebarWidthRef.current} minWidth={200} maxWidth={400} theme={tConfig} onWidthChange={handleSidebarWidthChange}>
           <div className="h-full overflow-hidden border-r" style={{ borderColor: tConfig.uiBorderHex }}>
             <JournalNavigation
               t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
               activeView={activeView} onViewChange={setActiveView}
               journals={journals} activeJournalId={activeJournal?.id ?? null} activeJournal={activeJournal}
-              onSelectJournal={(id) => { selectJournal(id); setSelectedEntry(null); }}
+              onSelectJournal={(id) => { selectJournal(id); dispatch({ type: "SET_ACTIVE_ENTRY", entryId: null }); }}
               onCreateJournal={() => setShowCreateDialog(true)}
               onAddJournal={() => setShowAddDialog(true)}
               onNewEntry={handleNewEntry}
@@ -161,8 +171,9 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               t={t} tConfig={tConfig} activeView={activeView} onViewChange={setActiveView}
               activeSection={activeSection}
               journal={activeJournal} sessionState={sessionState}
-              selectedEntryId={selectedEntry?.metadata.id ?? null}
+              selectedEntryId={sessionState.activeEntryId}
               onSelectEntry={handleSelectEntry}
+              onCreateEntryForDate={handleCreateEntryForDate}
               onNewEntry={handleNewEntry}
               onManageTemplates={() => setShowTemplateManager(true)}
               language={language}
@@ -173,7 +184,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
 
       <div className="flex-1 min-w-0 h-full flex flex-col">
         <JournalEntryPanel
-          t={t} tConfig={tConfig} journal={activeJournal} entry={selectedEntry}
+          t={t} tConfig={tConfig} journal={activeJournal} entry={activeEntry}
           viewMode={viewMode}
           onEntryUpdated={handleEntryUpdated}
           onOpenInEditor={onOpenFile}
@@ -182,6 +193,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
           onReloadEntry={handleReloadEntry}
           onNewEntry={handleNewEntry}
           language={language}
+          hasEntries={sessionState.entries.length > 0}
         />
       </div>
 

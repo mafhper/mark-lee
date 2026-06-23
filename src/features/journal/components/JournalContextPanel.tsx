@@ -23,12 +23,13 @@ interface JournalContextPanelProps {
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
+  onCreateEntryForDate?: (date: Date) => void;
   sessionState: JournalSessionState;
   language?: string;
 }
 
 export function JournalContextPanel({
-  t, tConfig, activeView, activeSection, onManageTemplates, journal, selectedEntryId, onSelectEntry, sessionState, language,
+  t, tConfig, activeView, activeSection, onManageTemplates, journal, selectedEntryId, onSelectEntry, onCreateEntryForDate, sessionState, language,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
@@ -69,7 +70,7 @@ export function JournalContextPanel({
             searchQuery={searchQuery} language={language}
           />
         )}
-        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} entries={allEntries} onSelectEntry={onSelectEntry} language={language} />}
+        {activeView === "calendar" && <JournalCalendarView t={t} tConfig={tConfig} journal={journal} entries={allEntries} onSelectEntry={onSelectEntry} onCreateEntryForDate={onCreateEntryForDate} language={language} />}
         {activeView === "gallery" && <JournalGalleryView t={t} tConfig={tConfig} journal={journal} entries={allEntries} onSelectEntry={onSelectEntry} />}
         {activeView === "map" && <JournalMapView t={t} tConfig={tConfig} entries={allEntries} onSelectEntry={onSelectEntry} />}
       </div>
