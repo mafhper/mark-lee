@@ -19,13 +19,17 @@ export interface ParseError {
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n*/;
 
 export function parseJournalEntry(raw: string): ParseResult | ParseError {
-  const match = raw.match(FRONTMATTER_RE);
+  // Normalize line endings first. Entry files authored on Windows (CRLF) or old
+  // Mac (CR) would otherwise fail the LF-only frontmatter match and load as 0
+  // entries with no error — a silent import failure.
+  const normalized = raw.replace(/\r\n?/g, "\n");
+  const match = normalized.match(FRONTMATTER_RE);
   if (!match) {
     return { error: "No frontmatter block found." };
   }
 
   const yamlBlock = match[1];
-  const body = raw.slice(match[0].length);
+  const body = normalized.slice(match[0].length);
 
   let parsed: unknown;
   try {

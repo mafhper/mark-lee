@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, X, Download } from "lucide-react";
+import { Search, X, Download, AlertTriangle } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -38,6 +38,7 @@ export function JournalContextPanel({
   const [showExportJournal, setShowExportJournal] = useState(false);
   const allEntries = sessionState.entries;
   const showSearch = activeView === "list" || activeView === "gallery";
+  const fileErrorCount = sessionState.fileErrors.length;
 
   return (
     <div className="flex flex-col h-full min-w-0" style={{ borderRight: `1px solid ${tConfig.uiBorderHex}` }}>
@@ -45,6 +46,16 @@ export function JournalContextPanel({
         t={t} tConfig={tConfig} activeView={activeView} onViewChange={onViewChange}
         onExportJournal={() => setShowExportJournal(true)} onManageTemplates={onManageTemplates} journal={journal}
       />
+      {journal && fileErrorCount > 0 && (
+        <div className="flex items-start gap-2 px-3 py-2 border-b text-[11px]"
+          style={{ backgroundColor: "#f59e0b18", color: "#b45309", borderColor: tConfig.uiBorderHex }}
+          title={sessionState.fileErrors.slice(0, 8).map((e) => e.path).join("\n")}>
+          <AlertTriangle size={13} className="shrink-0 mt-px" />
+          <span>
+            {(t["journal.filesUnreadable"] || "{n} file(s) couldn't be read — they may be malformed.").replace("{n}", String(fileErrorCount))}
+          </span>
+        </div>
+      )}
       {showSearch && (
         <div className="px-3 py-2 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
           <div className="flex items-center gap-1 px-2 py-1 rounded text-xs"

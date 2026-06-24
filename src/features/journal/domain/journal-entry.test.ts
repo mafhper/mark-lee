@@ -145,6 +145,32 @@ x
   assert.deepEqual(metadata.tags, []);
 });
 
+test("parses an entry with CRLF (Windows) line endings", () => {
+  const lf = `---
+schema: marklee-entry
+schemaVersion: 1
+id: "crlf-1"
+date: "2026-01-01T00:00:00Z"
+title: Windows
+tags:
+  - a
+createdAt: "2026-01-01T00:00:00Z"
+updatedAt: "2026-01-01T00:00:00Z"
+---
+
+Body line one.
+Body line two.
+`;
+  const crlf = lf.replace(/\n/g, "\r\n");
+  const result = parseJournalEntry(crlf);
+  assert.ok("metadata" in result, "CRLF entry should parse (Windows-authored files)");
+  const { metadata, body } = result as { metadata: JournalEntryMetadata; body: string };
+  assert.equal(metadata.title, "Windows");
+  assert.equal(metadata.tags[0], "a");
+  assert.ok(body.includes("Body line one."));
+  assert.ok(!body.includes("\r"), "body should be normalized to LF");
+});
+
 test("handles missing frontmatter", () => {
   const result = parseJournalEntry("No frontmatter here.");
   assert.ok("error" in result);

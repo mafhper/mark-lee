@@ -164,6 +164,10 @@ export async function listEntries(
     try {
       const record = await readEntry(path);
       if (record) records.push(record);
+      // readEntry swallows parse/read failures and returns null. Surface them as
+      // errors instead of dropping the file silently (e.g. a malformed entry, or
+      // — before the line-ending fix — a Windows CRLF file).
+      else errors.push({ path, error: "Could not read or parse this entry file." });
     } catch (e) {
       errors.push({ path, error: e instanceof Error ? e.message : String(e) });
     }
