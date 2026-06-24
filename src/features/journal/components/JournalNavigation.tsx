@@ -86,7 +86,7 @@ function AccordionSection({
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange, onViewChange,
   journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onNewEntry,
-  onRelocateJournal, onRemoveJournal, onCustomizeJournal, loading, collapsed = false, onToggleCollapse,
+  onRelocateJournal, onRemoveJournal, onCustomizeJournal, collapsed = false, onToggleCollapse,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
   const { state: sessionState } = useJournalSession();
@@ -234,30 +234,26 @@ export function JournalNavigation({
       <div className="flex-1 overflow-y-auto">
         <AccordionSection title={t["journal.journals"] || "Notebooks"} tConfig={tConfig}
           containerRef={(el) => { sectionRefs.current.notebooks = el; }} openWhen={focusSection === "notebooks"}>
-          <div className="px-3 py-1.5 space-y-1">
+          {/* Compact action row: "New" stays the primary, "Add existing" is a
+              quiet icon button beside it — keeps the notebook list right at the
+              top instead of pushing it down. */}
+          <div className="px-3 pt-1 pb-2 flex items-center gap-1.5">
             <button type="button" onClick={onCreateJournal}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-colors hover:opacity-90"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition-colors hover:opacity-90"
               style={{ color: "#fff", backgroundColor: tConfig.accentHex }}
               title={t["journal.newJournal"] || "New notebook"}>
               <Plus size={14} className="shrink-0" />
               <span className="truncate">{t["journal.newJournal"] || "New notebook"}</span>
             </button>
             <button type="button" onClick={onAddJournal}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-colors hover:opacity-80"
+              className="shrink-0 h-[30px] w-[30px] flex items-center justify-center rounded-md transition-colors hover:opacity-80"
               style={{ color: tConfig.fgHex + "90", border: `1px solid ${tConfig.uiBorderHex}` }}
-              title={t["journal.addJournal"] || "Add notebook"}>
-              <FolderPlus size={14} className="shrink-0" />
-              <span className="truncate">{t["journal.addJournal"] || "Add notebook"}</span>
+              title={t["journal.addJournal"] || "Add existing notebook"}>
+              <FolderPlus size={15} />
             </button>
           </div>
 
-          {loading && (
-            <div className="px-3 py-2 text-[13px]" style={{ color: tConfig.fgHex + "50" }}>
-              {t["journal.search"] || "Loading..."}
-            </div>
-          )}
-
-          {!loading && journals.length === 0 && (
+          {journals.length === 0 && (
             <div className="px-3 py-2 text-[13px]" style={{ color: tConfig.fgHex + "50" }}>
               {t["journal.noBlogs"] || "No notebooks yet."}
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, FolderPlus } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, FolderPlus, ChevronDown, ChevronUp } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -106,6 +106,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  // Inline cover height toggle — a middle ground between the thin band and the
+  // full-screen lightbox: see more of the cover without leaving the entry.
+  const [coverExpanded, setCoverExpanded] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [locationLabel, setLocationLabel] = useState("");
   const [locationLat, setLocationLat] = useState("");
@@ -317,6 +320,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setLocationAttraction(entry.metadata.location?.attraction ?? "");
       setConfirmDelete(false);
       setLightboxIndex(null);
+      setCoverExpanded(false);
       if (!cancelled) {
         setActiveTarget({
           kind: "journal-entry",
@@ -579,10 +583,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
       {coverUrl && (
-        <div className="relative w-full h-32 shrink-0 overflow-hidden group" style={{ backgroundColor: tConfig.accentHex + "10" }}>
+        <div className="relative w-full shrink-0 overflow-hidden group transition-[height] duration-300 ease-out"
+          style={{ height: coverExpanded ? 384 : 128, backgroundColor: tConfig.accentHex + "10" }}>
           <button type="button" onClick={() => setLightboxIndex(0)} className="block w-full h-full"
-            title={t["journal.expand"] || "Expand"}>
-            <img src={coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
+            title={t["journal.expand"] || "Open full screen"}>
+            <img src={coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
           </button>
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="h-9 w-9 rounded-full flex items-center justify-center bg-black/40 text-white/90"><Maximize2 size={16} /></div>
@@ -593,6 +598,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               <Image size={11} /> {entryImages.length} {t["journal.photos"] || "photos"}
             </button>
           )}
+          {/* Inline expand/collapse — grow the cover in place, without the modal. */}
+          <button type="button" onClick={() => setCoverExpanded((v) => !v)}
+            className="absolute bottom-2 right-2 h-7 w-7 rounded-full flex items-center justify-center bg-black/45 text-white/90 hover:bg-black/60"
+            title={coverExpanded ? (t["journal.collapse"] || "Collapse cover") : (t["journal.expandInline"] || "Expand cover")}>
+            {coverExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
           {!readOnly && (
             <button type="button" onClick={handleRemoveCover}
               className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
@@ -878,7 +889,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
             {viewMode === "preview" && (
               <div className="flex-1">
-                <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} />
+                <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language} />
               </div>
             )}
             {viewMode === "split" && (

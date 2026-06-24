@@ -1,4 +1,5 @@
-import { BookOpen, Heart, MapPin, SmilePlus } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Heart, MapPin } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
@@ -14,62 +15,85 @@ interface JournalPublicationViewProps {
   tConfig: ThemeConfig;
   entry: EntryRecord;
   coverUrl?: string | null;
+  t?: Record<string, string>;
+  language?: string;
 }
 
-export function JournalPublicationView({ tConfig, entry, coverUrl }: JournalPublicationViewProps) {
+/**
+ * The Memórias reading view — a calm, blog-like presentation of a single entry.
+ * Generous column, hero cover, a clear title, and a quiet metadata line, with the
+ * Markdown body flowing directly into the page (no editor "surface" card).
+ */
+export function JournalPublicationView({ tConfig, entry, coverUrl, t, language }: JournalPublicationViewProps) {
+  const fg = tConfig.fgHex;
+  const date = new Date(entry.metadata.date);
+  const dateLabel = date.toLocaleDateString(language || undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const wordCount = entry.body.trim() ? entry.body.trim().split(/\s+/).length : 0;
+  const mood = entry.metadata.mood;
+  const moodEmoji = mood ? MOOD_EMOJI[mood] : undefined;
+  const loc = entry.metadata.location?.label;
+  const tags = entry.metadata.tags ?? [];
+  const hasMeta = !!(mood || loc || entry.metadata.favorite || tags.length > 0);
+
   return (
-    <div className="h-full overflow-y-auto">
-      <article className="mx-auto px-8 py-8" style={{ maxWidth: "65ch" }}>
+    <div className="h-full overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
+      <article className="mx-auto px-6 sm:px-10 pt-10 pb-16" style={{ maxWidth: "44rem" }}>
         {coverUrl && (
-          <div className="mb-6 rounded-lg overflow-hidden">
-            <img src={coverUrl} alt="" className="w-full h-48 object-cover" />
+          <div className="mb-9 overflow-hidden rounded-2xl" style={{ boxShadow: "0 14px 34px rgba(0,0,0,0.14)" }}>
+            <img src={coverUrl} alt="" className="w-full object-cover" style={{ maxHeight: 400 }} />
           </div>
         )}
 
-        <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: tConfig.fgHex }}>
-          {entry.metadata.title || "Untitled"}
+        <p className="text-[12px] font-medium uppercase tracking-[0.12em] mb-3" style={{ color: fg + "55" }}>
+          {dateLabel}
+        </p>
+
+        <h1 className="text-[2.4rem] font-bold leading-[1.12] tracking-tight mb-5" style={{ color: fg }}>
+          {entry.metadata.title || (t?.["journal.blankEntry"] || "Untitled")}
         </h1>
 
-        <div className="flex items-center gap-3 text-xs mb-6" style={{ color: tConfig.fgHex + "60" }}>
-          <span className="flex items-center gap-1">
-            <BookOpen size={12} />
-            {new Date(entry.metadata.date).toLocaleDateString()}
-          </span>
-          {entry.metadata.favorite && (
-            <span className="flex items-center gap-1" style={{ color: "#ef4444" }}>
-              <Heart size={12} fill="#ef4444" />
-            </span>
-          )}
-        </div>
-
-        {(entry.metadata.tags.length > 0 || entry.metadata.mood || entry.metadata.location) && (
-          <div className="flex items-center gap-2 flex-wrap mb-6 pb-4 border-b text-xs" style={{ borderColor: tConfig.uiBorderHex }}>
-            {entry.metadata.mood && MOOD_EMOJI[entry.metadata.mood] && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded" style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.fgHex + "80" }}>
-                <SmilePlus size={12} />
-                {MOOD_EMOJI[entry.metadata.mood]}
+        {hasMeta && (
+          <div className="flex items-center gap-2.5 flex-wrap mb-9">
+            {entry.metadata.favorite && (
+              <Heart size={15} fill="#ef4444" style={{ color: "#ef4444" }} />
+            )}
+            {moodEmoji && (
+              <span className="text-[16px] leading-none" title={t?.["mood." + mood] || mood}>{moodEmoji}</span>
+            )}
+            {loc && (
+              <span className="inline-flex items-center gap-1 text-[12.5px]" style={{ color: fg + "78" }}>
+                <MapPin size={12} /> {loc}
               </span>
             )}
-            {entry.metadata.tags.map((tag) => (
-              <span key={tag} className="px-2 py-0.5 rounded" style={{ backgroundColor: tConfig.accentHex + "18", color: tConfig.accentHex }}>
+            {tags.map((tag) => (
+              <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11.5px] font-medium"
+                style={{ backgroundColor: tConfig.accentHex + "16", color: tConfig.accentHex }}>
                 {tag}
               </span>
             ))}
-            {entry.metadata.location?.label && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded" style={{ backgroundColor: tConfig.accentHex + "10", color: tConfig.fgHex + "70" }}>
-                <MapPin size={11} />
-                {entry.metadata.location.label}
-              </span>
-            )}
           </div>
         )}
 
-        <div className="text-sm leading-relaxed" style={{ color: tConfig.fgHex + "DD" }}>
+        <div style={{
+          ["--ml-preview-body-size" as string]: "1.075rem",
+          ["--ml-preview-p-line-height" as string]: "1.8",
+        } as CSSProperties}>
           <MarkdownPreview
             activePath={entry.path}
             content={entry.body}
-            shellBackground={tConfig.editorBgHex}
+            shellBackground="transparent"
+            surfaceStyle={{ maxWidth: "none" }}
+            bare
           />
+        </div>
+
+        <div className="mt-12 pt-5 border-t flex items-center flex-wrap gap-x-5 gap-y-2 text-[12px]"
+          style={{ borderColor: tConfig.uiBorderHex, color: fg + "55" }}>
+          <span>{wordCount} {t?.["journal.words"] || "words"}</span>
+          {loc && <span className="inline-flex items-center gap-1"><MapPin size={11} /> {loc}</span>}
+          {moodEmoji && <span className="inline-flex items-center gap-1">{moodEmoji} {t?.["mood." + mood] || mood}</span>}
         </div>
       </article>
     </div>
