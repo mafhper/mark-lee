@@ -23,6 +23,10 @@ interface JournalContextPanelProps {
   journal: JournalDescriptor | null;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
+  onToggleFavorite?: (entry: EntryRecord) => void;
+  onDuplicateEntry?: (entry: EntryRecord) => void;
+  onDeleteEntry?: (entry: EntryRecord) => void;
+  onOpenInEditor?: (path: string) => void;
   sessionState: JournalSessionState;
   language?: string;
   worldMapActive?: boolean;
@@ -31,7 +35,8 @@ interface JournalContextPanelProps {
 
 export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, activeSection, onManageTemplates, onCreateEntryForDate,
-  journal, selectedEntryId, onSelectEntry, sessionState, language, worldMapActive, onToggleWorldMap,
+  journal, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor,
+  sessionState, language, worldMapActive, onToggleWorldMap,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
@@ -94,6 +99,8 @@ export function JournalContextPanel({
             t={t} tConfig={tConfig} journal={journal}
             entries={allEntries} activeSection={activeSection}
             selectedEntryId={selectedEntryId} onSelectEntry={onSelectEntry}
+            onToggleFavorite={onToggleFavorite} onDuplicateEntry={onDuplicateEntry}
+            onDeleteEntry={onDeleteEntry} onOpenInEditor={onOpenInEditor}
             searchQuery={searchQuery} language={language}
           />
         )}

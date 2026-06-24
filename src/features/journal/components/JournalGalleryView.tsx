@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, FileText, Heart, HeartOff, Copy, ExternalLink, Trash2 } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { loadImage } from "../../../services/filesystem";
 import { resolveEntryAssetPath } from "../domain/export-paths";
+import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalLightbox } from "./JournalLightbox";
 
@@ -14,6 +15,10 @@ interface JournalGalleryViewProps {
   journal: JournalDescriptor | null;
   entries: EntryRecord[];
   onSelectEntry: (entry: EntryRecord) => void;
+  onToggleFavorite?: (entry: EntryRecord) => void;
+  onDuplicateEntry?: (entry: EntryRecord) => void;
+  onDeleteEntry?: (entry: EntryRecord) => void;
+  onOpenInEditor?: (path: string) => void;
 }
 
 interface GalleryItem {
@@ -21,14 +26,15 @@ interface GalleryItem {
   src: string;
 }
 
-function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: GalleryItem; tConfig: ThemeConfig; onSelect: () => void; onOpenLightbox: () => void }) {
+function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox, onContextMenu }: { item: GalleryItem; tConfig: ThemeConfig; onSelect: () => void; onOpenLightbox: () => void; onContextMenu?: (e: React.MouseEvent) => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     setUrl(null);
     loadImage(item.src).then(setUrl).catch(() => setUrl(null));
   }, [item.src]);
   return (
-    <div className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02] w-full"
+    <div onContextMenu={onContextMenu}
+      className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02] w-full"
       style={{ borderColor: tConfig.uiBorderHex }}>
       <button type="button" onClick={onOpenLightbox} className="w-full aspect-video overflow-hidden flex items-center justify-center"
         style={{ backgroundColor: tConfig.accentHex + "10" }}>
@@ -50,8 +56,31 @@ function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: Galle
   );
 }
 
-export function JournalGalleryView({ t, tConfig, journal, entries, onSelectEntry }: JournalGalleryViewProps) {
+export function JournalGalleryView({ t, tConfig, journal, entries, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor }: JournalGalleryViewProps) {
+  const { openContextMenu } = useContextMenu();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const handleEntryContextMenu = (event: React.MouseEvent, entry: EntryRecord) => {
+    event.preventDefault();
+    const items: ContextMenuEntry[] = [
+      { type: "item", id: "open", label: t["journal.open"] || "Open", icon: <FileText size={14} />, onSelect: () => onSelectEntry(entry) },
+    ];
+    if (onToggleFavorite) {
+      items.push({
+        type: "item", id: "favorite",
+        label: entry.metadata.favorite ? (t["journal.removeFavorite"] || "Remove from favorites") : (t["journal.addFavorite"] || "Add to favorites"),
+        icon: entry.metadata.favorite ? <HeartOff size={14} /> : <Heart size={14} />,
+        onSelect: () => onToggleFavorite(entry),
+      });
+    }
+    if (onDuplicateEntry) items.push({ type: "item", id: "duplicate", label: t["journal.duplicate"] || "Duplicate", icon: <Copy size={14} />, onSelect: () => onDuplicateEntry(entry) });
+    if (onOpenInEditor) items.push({ type: "item", id: "editor", label: t["journal.editor"] || "Open in Editor", icon: <ExternalLink size={14} />, onSelect: () => onOpenInEditor(entry.path) });
+    if (onDeleteEntry) {
+      items.push({ type: "separator", id: "sep" });
+      items.push({ type: "item", id: "delete", label: t["journal.delete"] || "Delete", icon: <Trash2 size={14} />, danger: true, onSelect: () => onDeleteEntry(entry) });
+    }
+    openContextMenu({ anchor: { type: "point", x: event.clientX, y: event.clientY }, items });
+  };
 
   const items = useMemo(() => {
     const result: GalleryItem[] = [];
@@ -98,7 +127,8 @@ export function JournalGalleryView({ t, tConfig, journal, entries, onSelectEntry
         {items.map((item, i) => (
           <GalleryThumb key={`${item.entry.metadata.id}-${i}`} item={item} tConfig={tConfig}
             onSelect={() => onSelectEntry(item.entry)}
-            onOpenLightbox={() => setLightboxIndex(i)} />
+            onOpenLightbox={() => setLightboxIndex(i)}
+            onContextMenu={(e) => handleEntryContextMenu(e, item.entry)} />
         ))}
       </div>
 

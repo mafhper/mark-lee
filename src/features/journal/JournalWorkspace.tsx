@@ -15,7 +15,8 @@ import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
 import { CustomizeJournalDialog } from "./components/CustomizeJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
-import { createEntry, deleteEntry, duplicateEntry, readEntry } from "./domain/entry-service";
+import { createEntry, deleteEntry, duplicateEntry, readEntry, saveEntry } from "./domain/entry-service";
+import { toggleActiveEntryFavorite } from "../editor/active-target";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
@@ -52,6 +53,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [showWorldMap, setShowWorldMap] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<EntryRecord | null>(null);
   const sidebarWidthRef = useRef(240);
   const handleSidebarWidthChange = useCallback((w: number) => { sidebarWidthRef.current = w; }, []);
 
@@ -110,6 +112,26 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const handleDeleteEntry = async (entry: EntryRecord) => {
     await deleteEntry(entry.path);
     dispatch({ type: "REMOVE_ENTRY", entryId: entry.metadata.id });
+  };
+
+  // Toggle favorite from the entry-list context menu. If that entry is the one
+  // open in the editor, route through its live draft (so a later autosave can't
+  // revert it); otherwise do a safe disk read-modify-write.
+  const handleToggleEntryFavorite = useCallback(async (entry: EntryRecord) => {
+    if (toggleActiveEntryFavorite(entry.metadata.id)) return;
+    try {
+      const fresh = (await readEntry(entry.path)) ?? entry;
+      const updated = { ...fresh.metadata, favorite: !fresh.metadata.favorite };
+      await saveEntry(fresh.path, updated, fresh.body, true);
+      const wc = fresh.body.trim() ? fresh.body.trim().split(/\s+/).length : 0;
+      dispatch({ type: "UPDATE_ENTRY", entry: { path: fresh.path, metadata: updated, body: fresh.body, wordCount: wc } });
+    } catch { /* ignore */ }
+  }, [dispatch]);
+
+  const handleConfirmDeleteEntry = async () => {
+    if (!entryToDelete) return;
+    await handleDeleteEntry(entryToDelete);
+    setEntryToDelete(null);
   };
 
   const handleRemoveConfirm = async () => {
@@ -207,6 +229,10 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onCreateEntryForDate={handleCreateEntryForDate}
               onNewEntry={handleNewEntry}
               onManageTemplates={() => setShowTemplateManager(true)}
+              onToggleFavorite={handleToggleEntryFavorite}
+              onDuplicateEntry={handleDuplicateEntry}
+              onDeleteEntry={(e) => setEntryToDelete(e)}
+              onOpenInEditor={onOpenFile}
               language={language}
               worldMapActive={showWorldMap}
               onToggleWorldMap={() => setShowWorldMap((v) => !v)}
@@ -219,7 +245,9 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
         {activeView === "gallery" ? (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
             <JournalGalleryView t={t} tConfig={tConfig} journal={activeJournal}
-              entries={sessionState.entries} onSelectEntry={handleSelectEntryFromView} />
+              entries={sessionState.entries} onSelectEntry={handleSelectEntryFromView}
+              onToggleFavorite={handleToggleEntryFavorite} onDuplicateEntry={handleDuplicateEntry}
+              onDeleteEntry={(e) => setEntryToDelete(e)} onOpenInEditor={onOpenFile} />
           </div>
         ) : activeView === "map" && showWorldMap ? (
           <div className="flex-1 min-h-0">
@@ -253,6 +281,23 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
       <RemoveJournalDialog open={removeTarget !== null}
         journalName={removeTarget?.name ?? ""} journalPath={removeTarget?.rootPath ?? ""}
         tConfig={tConfig} onClose={() => setRemoveTarget(null)} onConfirm={handleRemoveConfirm} />
+      {entryToDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={() => setEntryToDelete(null)}>
+          <div className="w-[360px] max-w-[90vw] rounded-lg shadow-2xl border p-5"
+            style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold mb-1">{t["journal.deleteConfirmTitle"] || "Delete entry?"}</h3>
+            <p className="text-sm mb-2 truncate" style={{ color: tConfig.fgHex }}>{entryToDelete.metadata.title || (t["journal.blankEntry"] || "Untitled")}</p>
+            <p className="text-xs mb-4" style={{ color: tConfig.fgHex + "70" }}>{t["journal.deleteConfirmBody"] || "This action cannot be undone. The entry file will be deleted."}</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setEntryToDelete(null)} className="px-3 py-1.5 text-xs font-medium rounded border"
+                style={{ color: tConfig.fgHex + "80", borderColor: tConfig.uiBorderHex }}>{t["journal.cancel"] || "Cancel"}</button>
+              <button type="button" onClick={handleConfirmDeleteEntry}
+                className="px-3 py-1.5 text-xs font-semibold rounded" style={{ color: "#fff", backgroundColor: "#ef4444" }}>{t["journal.delete"] || "Delete"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <CustomizeJournalDialog open={customizeId !== null} t={t} tConfig={tConfig}
         journal={journals.find((j) => j.id === customizeId) ?? null}
         onClose={() => setCustomizeId(null)}

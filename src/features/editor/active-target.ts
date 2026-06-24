@@ -75,3 +75,21 @@ export function setEntryTrackerAdjuster(fn: EntryTrackerAdjuster | null): void {
 export function adjustActiveEntryTracker(entryId: string, trackerId: string, delta: number): boolean {
   return entryTrackerAdjuster ? entryTrackerAdjuster(entryId, trackerId, delta) : false;
 }
+
+/**
+ * Same idea as the tracker adjuster, for toggling an entry's favorite flag from
+ * outside the editor panel (e.g. the entry-list context menu). Routes through the
+ * open draft when that entry is active so a debounced autosave can't revert it;
+ * returns false when a different entry (or none) is open so the caller can fall
+ * back to a direct disk write.
+ */
+type EntryFavoriteToggler = (entryId: string) => boolean;
+let entryFavoriteToggler: EntryFavoriteToggler | null = null;
+
+export function setEntryFavoriteToggler(fn: EntryFavoriteToggler | null): void {
+  entryFavoriteToggler = fn;
+}
+
+export function toggleActiveEntryFavorite(entryId: string): boolean {
+  return entryFavoriteToggler ? entryFavoriteToggler(entryId) : false;
+}

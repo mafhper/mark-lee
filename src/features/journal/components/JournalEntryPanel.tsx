@@ -34,7 +34,7 @@ import { EditorView } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
 import { activeDocPathRef } from "../../editor/active-editor";
-import { setActiveTarget, registerFlushHandler, setEntryTrackerAdjuster } from "../../editor/active-target";
+import { setActiveTarget, registerFlushHandler, setEntryTrackerAdjuster, setEntryFavoriteToggler } from "../../editor/active-target";
 import { resolveEntryAssetPath } from "../domain/export-paths";
 import { formatMarkdown, minifyMarkdown } from "../../../services/markdown-processor";
 
@@ -127,12 +127,14 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const targetHandlersRef = useRef<{
     format: () => void; minify: () => void; doExport: () => void; find: () => void;
     adjustTracker: (entryId: string, trackerId: string, delta: number) => boolean;
+    toggleFavorite: (entryId: string) => boolean;
   }>({
     format: () => {},
     minify: () => {},
     doExport: () => {},
     find: () => {},
     adjustTracker: () => false,
+    toggleFavorite: () => false,
   });
 
   interface PendingSave {
@@ -543,17 +545,35 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       void doSave(snap, true);
       return true;
     },
+    // Toggle favorite from outside (entry-list context menu) through the live
+    // draft when this entry is active; persist immediately so the list updates.
+    toggleFavorite: (entryId) => {
+      if (!entry || !journal || entry.metadata.id !== entryId) return false;
+      if (readOnly) return true;
+      const next = !favorite;
+      setFavorite(next);
+      const snap: PendingSave = {
+        rec: entry, t: title, b: body, tg: tags, fav: next, m: mood,
+        tr: trackerValues, loc: buildLocation(), cover: coverRelRef.current,
+        revision: ++draftRevisionRef.current,
+      };
+      pendingSaveRef.current = snap;
+      void doSave(snap, true);
+      return true;
+    },
   };
 
   // Register a pending-save flusher so the window-close handler (App) can await it.
   useEffect(() => registerFlushHandler(flushPendingSave), [flushPendingSave]);
 
-  // Expose a tracker adjuster so the sidebar Pins route through this draft when
-  // this entry is the active one. Stable wrapper; always calls the latest closure.
+  // Expose tracker-adjust and favorite-toggle so the sidebar Pins and the entry
+  // context menu route through this draft when this entry is the active one.
+  // Stable wrappers; they always call the latest closures.
   useEffect(() => {
     setEntryTrackerAdjuster((entryId, trackerId, delta) =>
       targetHandlersRef.current.adjustTracker(entryId, trackerId, delta));
-    return () => setEntryTrackerAdjuster(null);
+    setEntryFavoriteToggler((entryId) => targetHandlersRef.current.toggleFavorite(entryId));
+    return () => { setEntryTrackerAdjuster(null); setEntryFavoriteToggler(null); };
   }, []);
 
   // Collapse any open metadata editor as soon as the break lock engages.

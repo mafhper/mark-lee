@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { FileText, Heart, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, Heart, HeartOff, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "\u{1F60A}",
@@ -30,6 +31,10 @@ interface JournalListViewProps {
   activeSection: string;
   selectedEntryId: string | null;
   onSelectEntry: (entry: EntryRecord) => void;
+  onToggleFavorite?: (entry: EntryRecord) => void;
+  onDuplicateEntry?: (entry: EntryRecord) => void;
+  onDeleteEntry?: (entry: EntryRecord) => void;
+  onOpenInEditor?: (path: string) => void;
   searchQuery?: string;
   language?: string;
 }
@@ -68,7 +73,8 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, searchQuery, language = "en" }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en" }: JournalListViewProps) {
+  const { openContextMenu } = useContextMenu();
   const [filterTag, setFilterTag] = useState("");
   const [filterImages, setFilterImages] = useState(false);
   const [tagsCollapsed, setTagsCollapsed] = useState(false);
@@ -154,10 +160,37 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     return date.toLocaleDateString(language, { month: "short" });
   }
 
+  const handleEntryContextMenu = (event: React.MouseEvent, entry: EntryRecord) => {
+    event.preventDefault();
+    const items: ContextMenuEntry[] = [
+      { type: "item", id: "open", label: t["journal.open"] || "Open", icon: <FileText size={14} />, onSelect: () => onSelectEntry(entry) },
+    ];
+    if (onToggleFavorite) {
+      items.push({
+        type: "item", id: "favorite",
+        label: entry.metadata.favorite ? (t["journal.removeFavorite"] || "Remove from favorites") : (t["journal.addFavorite"] || "Add to favorites"),
+        icon: entry.metadata.favorite ? <HeartOff size={14} /> : <Heart size={14} />,
+        onSelect: () => onToggleFavorite(entry),
+      });
+    }
+    if (onDuplicateEntry) {
+      items.push({ type: "item", id: "duplicate", label: t["journal.duplicate"] || "Duplicate", icon: <Copy size={14} />, onSelect: () => onDuplicateEntry(entry) });
+    }
+    if (onOpenInEditor) {
+      items.push({ type: "item", id: "editor", label: t["journal.editor"] || "Open in Editor", icon: <ExternalLink size={14} />, onSelect: () => onOpenInEditor(entry.path) });
+    }
+    if (onDeleteEntry) {
+      items.push({ type: "separator", id: "sep" });
+      items.push({ type: "item", id: "delete", label: t["journal.delete"] || "Delete", icon: <Trash2 size={14} />, danger: true, onSelect: () => onDeleteEntry(entry) });
+    }
+    openContextMenu({ anchor: { type: "point", x: event.clientX, y: event.clientY }, items });
+  };
+
   const entryButton = (entry: EntryRecord) => {
     const d = new Date(entry.metadata.date);
     return (
       <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
+        onContextMenu={(e) => handleEntryContextMenu(e, entry)}
         className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors border-b"
         style={{
           borderColor: tConfig.uiBorderHex,
