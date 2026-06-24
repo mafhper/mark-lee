@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, FolderPlus } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -50,6 +50,8 @@ interface JournalEntryPanelProps {
   onDuplicateEntry?: (entry: EntryRecord) => void;
   onReloadEntry?: () => void;
   onNewEntry?: () => void;
+  onCreateJournal?: () => void;
+  onAddJournal?: () => void;
   language?: string;
   hasEntries?: boolean;
   readOnly?: boolean;
@@ -83,7 +85,7 @@ function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -606,7 +608,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
           <span>{new Date(entry.metadata.date).toLocaleDateString(language)}</span>
           {entry.metadata.favorite && <Heart size={11} fill="#ef4444" style={{ color: "#ef4444" }} />}
         </div>
-      ) : (
+      ) : journal ? (
         <div className="px-6 py-4 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
           <div className="flex items-center justify-between">
             <div className="space-y-1 min-w-0 flex-1">
@@ -857,7 +859,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="flex-1 min-h-0 flex">
         {showEntry ? (
@@ -892,11 +894,16 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
         ) : journal ? (
           <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={hasEntries} onNewEntry={onNewEntry ?? (() => {})} />
         ) : (
-          <div className="px-6 py-4">
+          <div className="flex-1 min-h-0">
             <JournalEmptyState icon={<BookOpen size={36} />}
-              title={t["journal.noJournalTitle"] || "No journal open"}
-              description={t["journal.noJournalDesc"] || "Create or add a journal to start journaling."}
-              tConfig={tConfig} />
+              title={t["journal.noJournalTitle"] || "No notebook open"}
+              description={t["journal.noJournalDesc"] || "Create or add a notebook to start recording."}
+              tConfig={tConfig}
+              actions={[
+                ...(onCreateJournal ? [{ label: t["journal.newJournal"] || "New notebook", onSelect: onCreateJournal, icon: <Plus size={15} />, primary: true }] : []),
+                ...(onAddJournal ? [{ label: t["journal.addJournal"] || "Add notebook", onSelect: onAddJournal, icon: <FolderPlus size={15} /> }] : []),
+              ]}
+            />
           </div>
         )}
       </div>

@@ -225,6 +225,8 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onDuplicateEntry={handleDuplicateEntry}
             onReloadEntry={handleReloadEntry}
             onNewEntry={handleNewEntry}
+            onCreateJournal={() => setShowCreateDialog(true)}
+            onAddJournal={() => setShowAddDialog(true)}
             language={language}
             hasEntries={sessionState.entries.length > 0}
           />

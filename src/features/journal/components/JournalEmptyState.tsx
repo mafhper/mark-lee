@@ -1,18 +1,30 @@
 import React from "react";
 import type { ThemeConfig } from "../../../types";
 
+interface EmptyStateAction {
+  label: string;
+  onSelect: () => void;
+  icon?: React.ReactNode;
+  primary?: boolean;
+}
+
 interface JournalEmptyStateProps {
   icon: React.ReactNode;
   title: string;
   description: string;
   tConfig: ThemeConfig;
   action?: { label: string; onSelect: () => void };
+  actions?: EmptyStateAction[];
 }
 
-export function JournalEmptyState({ icon, title, description, tConfig, action }: JournalEmptyStateProps) {
+export function JournalEmptyState({ icon, title, description, tConfig, action, actions }: JournalEmptyStateProps) {
+  const allActions: EmptyStateAction[] = [
+    ...(actions ?? []),
+    ...(action ? [{ label: action.label, onSelect: action.onSelect }] : []),
+  ];
   return (
     <div
-      className="flex flex-col items-center justify-center h-full gap-4 px-8 py-12 text-center"
+      className="flex flex-col items-center justify-center w-full h-full gap-4 px-8 py-12 text-center"
       style={{ color: tConfig.fgHex + "80" }}
     >
       <div className="opacity-40">{icon}</div>
@@ -24,19 +36,23 @@ export function JournalEmptyState({ icon, title, description, tConfig, action }:
           {description}
         </p>
       </div>
-      {action && (
-        <button
-          type="button"
-          className="mt-2 px-4 py-1.5 text-sm font-medium rounded border transition-colors"
-          style={{
-            color: tConfig.accentHex,
-            borderColor: tConfig.accentHex + "40",
-            backgroundColor: tConfig.accentHex + "10",
-          }}
-          onClick={action.onSelect}
-        >
-          {action.label}
-        </button>
+      {allActions.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          {allActions.map((a) => (
+            <button
+              key={a.label}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg border transition-colors hover:opacity-90"
+              style={a.primary
+                ? { color: "#fff", backgroundColor: tConfig.accentHex, borderColor: tConfig.accentHex }
+                : { color: tConfig.accentHex, borderColor: tConfig.accentHex + "40", backgroundColor: tConfig.accentHex + "10" }}
+              onClick={a.onSelect}
+            >
+              {a.icon}
+              {a.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
