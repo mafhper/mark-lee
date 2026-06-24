@@ -284,6 +284,22 @@ pub fn create_directory_tree(path: String) -> Result<(), String> {
     fs::create_dir_all(&p).map_err(|e| e.to_string())
 }
 
+/// Idempotent directory-tree creation: succeeds if the directory already exists,
+/// creates the full tree when missing, and surfaces a clear error when the path
+/// is occupied by a file (or on permission failures). Unlike
+/// `create_directory_tree`, calling this repeatedly on the same path is not an error.
+#[command]
+pub fn ensure_directory_tree(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if p.exists() {
+        if p.is_dir() {
+            return Ok(());
+        }
+        return Err(format!("Path exists but is not a directory: {path}"));
+    }
+    fs::create_dir_all(&p).map_err(|e| e.to_string())
+}
+
 #[command]
 pub fn rename_workspace_path(old_path: String, new_path: String) -> Result<(), String> {
     let old = canonical_existing(&old_path)?;

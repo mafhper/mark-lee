@@ -27,8 +27,8 @@ function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: Galle
     loadImage(item.src).then(setUrl).catch(() => setUrl(null));
   }, [item.src]);
   return (
-    <div className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02]"
-      style={{ borderColor: tConfig.uiBorderHex, width: "calc(50% - 6px)" }}>
+    <div className="flex flex-col items-start gap-1 rounded-lg overflow-hidden border text-left transition-transform hover:scale-[1.02] w-full"
+      style={{ borderColor: tConfig.uiBorderHex }}>
       <button type="button" onClick={onOpenLightbox} className="w-full aspect-video overflow-hidden flex items-center justify-center"
         style={{ backgroundColor: tConfig.accentHex + "10" }}>
         {url ? (
@@ -49,7 +49,7 @@ function GalleryThumb({ item, tConfig, onSelect, onOpenLightbox }: { item: Galle
   );
 }
 
-export function JournalGalleryView({ t: _t, tConfig, journal, entries, onSelectEntry }: JournalGalleryViewProps) {
+export function JournalGalleryView({ t, tConfig, journal, entries, onSelectEntry }: JournalGalleryViewProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const items = useMemo(() => {
@@ -94,7 +94,7 @@ export function JournalGalleryView({ t: _t, tConfig, journal, entries, onSelectE
         style={{ color: tConfig.fgHex + "60", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex }}>
         {items.length} photo{items.length !== 1 ? "s" : ""}
       </div>
-      <div className="flex flex-wrap gap-3 p-3">
+      <div className="grid gap-3 p-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
         {items.map((item, i) => (
           <GalleryThumb key={`${item.entry.metadata.id}-${i}`} item={item} tConfig={tConfig}
             onSelect={() => onSelectEntry(item.entry)}
@@ -105,6 +105,9 @@ export function JournalGalleryView({ t: _t, tConfig, journal, entries, onSelectE
       {lightboxIndex !== null && (
         <JournalLightbox
           src={items[lightboxIndex].src}
+          index={lightboxIndex}
+          total={items.length}
+          t={t}
           onClose={() => setLightboxIndex(null)}
           onPrev={lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
           onNext={lightboxIndex < items.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}

@@ -18,6 +18,13 @@ export interface JournalManifest {
   assetDirectory: string;
   defaultLanguage: string;
   trackerDefinitions?: TrackerDefinition[];
+  /** Accent color (hex) for this notebook's card in the sidebar. */
+  color?: string;
+  /** Cover image path relative to the notebook root (e.g. `.marklee/cover.jpg`). */
+  cover?: string;
+  /** Which Pins metrics show in the sidebar highlights (ids like "metric:words"
+   * or "tracker:<id>"). Undefined means "use defaults". */
+  pinnedMetrics?: string[];
 }
 
 export interface JournalDescriptor {
@@ -29,6 +36,8 @@ export interface JournalDescriptor {
   createdAt: string;
   lastOpenedAt?: string;
   unavailable?: boolean;
+  color?: string;
+  cover?: string;
 }
 
 export interface ManifestCheckResult {

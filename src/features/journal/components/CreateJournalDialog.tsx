@@ -27,8 +27,9 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
   const [creating, setCreating] = useState(false);
 
   const folderPath = useMemo(() => {
-    if (name.trim() && locationPath) {
-      return `${locationPath}/${safeFolderName(name)}`;
+    const safe = safeFolderName(name);
+    if (safe && locationPath) {
+      return `${locationPath}/${safe}`;
     }
     return "";
   }, [name, locationPath]);
@@ -54,11 +55,19 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      setError("Please enter a journal name.");
+      setError(t["journal.errorNameRequired"] || "Please enter a journal name.");
+      return;
+    }
+    if (!safeFolderName(name)) {
+      setError(t["journal.errorNameInvalid"] || "This name doesn't produce a valid folder. Use letters or numbers.");
+      return;
+    }
+    if (!locationPath) {
+      setError(t["journal.errorFolderRequired"] || "Please select a parent folder.");
       return;
     }
     if (!folderPath) {
-      setError("Please select a parent folder.");
+      setError(t["journal.errorFolderRequired"] || "Please select a parent folder.");
       return;
     }
 

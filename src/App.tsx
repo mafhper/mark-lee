@@ -22,7 +22,7 @@ import {
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
 import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
-import { getActiveTarget, setActiveTarget } from "./features/editor/active-target";
+import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
 import {
   addRecentFile,
   getRecentFiles,
@@ -93,7 +93,7 @@ import { checkManifest } from "./features/journal/domain/manifest-service";
 import { addJournal } from "./features/journal/domain/library-service";
 import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
-import { DoorOpen, Link2, Unlink2 } from "lucide-react";
+import { DoorOpen, Link2, Unlink2, Lock } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
@@ -533,6 +533,7 @@ function App() {
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>("tab-general");
   const [isZenMode, setIsZenMode] = useState(false);
   const [pomodoroActive, setPomodoroActive] = useState(false);
+  const [breakLocked, setBreakLocked] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
@@ -626,8 +627,11 @@ function App() {
     [activeTabId, tabs]
   );
   useEffect(() => {
-    if (activeTab?.path) activeDocPathRef.current = activeTab.path;
-  }, [activeTab?.path]);
+    // Only the editor owns activeDocPathRef in editor mode; in journal mode the
+    // entry panel sets it. Clear (not keep) the previous path when on an Untitled.
+    if (settings.appMode !== "editor") return;
+    activeDocPathRef.current = activeTab?.path ?? "";
+  }, [activeTab?.path, settings.appMode]);
 
   const activePublicationPreset = useMemo(
     () =>
@@ -876,6 +880,45 @@ function App() {
     const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // On window close (Tauri), intercept the request, flush all pending autosaves,
+  // then destroy the window — so debounced journal edits are never lost on exit.
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    let allowClose = false;
+    (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        unlisten = await appWindow.onCloseRequested(async (event) => {
+          if (allowClose) return; // second pass: let the close proceed
+          event.preventDefault();
+          try {
+            await flushAllPending();
+          } catch {
+            /* never block shutdown on a flush failure */
+          }
+          allowClose = true;
+          // destroy() is clean (no re-fire); if it's ever unavailable, fall back
+          // to close() — guarded by allowClose so the window always shuts.
+          try {
+            await appWindow.destroy();
+          } catch {
+            await appWindow.close();
+          }
+        });
+        if (disposed) unlisten?.();
+      } catch {
+        /* window API unavailable */
+      }
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -1155,6 +1198,16 @@ function App() {
       setIsSaving(false);
     }
   };
+
+  // saveTab closes over current state and is recreated each render; the editor
+  // target is registered once (onCreateEditor), so route through a ref + live
+  // refs for the active tab to avoid saving a stale/previous tab.
+  const saveTabRef = useRef(saveTab);
+  saveTabRef.current = saveTab;
+  const saveActiveEditorTab = useCallback(async () => {
+    const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
+    if (tab) await saveTabRef.current(tab, false);
+  }, []);
 
   const buildEditorContextMenuItems = useCallback(
     (hasSelection: boolean): ContextMenuEntry[] => {
@@ -1601,11 +1654,13 @@ function App() {
       saveFile: (forceSaveAs: boolean) => {
         const target = getActiveTarget();
         if (target?.kind === "journal-entry") return target.save();
+        if (settingsRef.current.appMode === "journal") return;
         if (activeTab) return saveTab(activeTab, forceSaveAs);
       },
       openFind: () => {
         const target = getActiveTarget();
-        if (target?.kind === "journal-entry" && target.find) return target.find();
+        if (target?.kind === "journal-entry") { target.find?.(); return; }
+        if (settingsRef.current.appMode === "journal") return;
         openDialog("find");
       },
     }),
@@ -2356,6 +2411,38 @@ function App() {
     return () => clearInterval(timer);
   }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
 
+  // Toolbar actions must follow the active document, matching the Command Registry
+  // (Ctrl+S etc). In journal mode we route to the journal target and never fall
+  // back to the hidden editor tab; in editor mode we act on the active tab.
+  const saveActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") return target.save();
+    if (settings.appMode === "journal") return;
+    if (activeTab) return saveTab(activeTab, false);
+  };
+  const findInActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.find?.(); return; }
+    if (settings.appMode === "journal") return;
+    openDialog("find");
+  };
+  const exportActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.export?.(); return; }
+    if (settings.appMode === "journal") return;
+    openDialog("export");
+  };
+  const transformActiveDocument = (mode: "format" | "minify") => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") {
+      if (mode === "format") target.format?.();
+      else target.minify?.();
+      return;
+    }
+    if (settings.appMode === "journal") return;
+    transformActiveMarkdown(mode);
+  };
+
   const topChromeComponent = (
     <TopChrome
       t={t}
@@ -2383,9 +2470,9 @@ function App() {
       onNewFile={handleNewFile}
       onOpenFile={handleOpenFile}
       onOpenFolder={handleOpenFolder}
-      onSave={() => activeTab && saveTab(activeTab, false)}
-      onExport={() => openDialog("export")}
-      onFindReplace={() => openDialog("find")}
+      onSave={saveActiveDocument}
+      onExport={exportActiveDocument}
+      onFindReplace={findInActiveDocument}
       onOpenSettings={() => openDialog("settings")}
       onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
@@ -2396,7 +2483,7 @@ function App() {
         updateSettings({ viewMode: mode });
       }}
       onFormatAction={handleFormatAction}
-      onTransformMarkdown={transformActiveMarkdown}
+      onTransformMarkdown={transformActiveDocument}
     />
   );
   const topChromeBlock = topChromeComponent;
@@ -2423,7 +2510,7 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <PomodoroTrigger tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} />
+          <PomodoroTrigger tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} t={t} />
           <span>{tabs.length} tabs</span>
           {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
           <span>{effectiveViewMode}</span>
@@ -2563,6 +2650,8 @@ function App() {
                   height="100%"
                   className="h-full ml-editor-shell"
                   extensions={editorExtensions}
+                  editable={!breakLocked}
+                  readOnly={breakLocked}
                   onChange={(value) => {
                     updateActiveTabContent(value);
                   }}
@@ -2575,18 +2664,11 @@ function App() {
                     editorRef.current = view;
                     setEditorView(view);
                     activeEditorRef.current = view;
-                    setActiveTarget({
-                      kind: "editor-tab",
-                      save: async () => { if (activeTab) await saveTab(activeTab, false); },
-                    });
+                    setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
                     view.dom.addEventListener("focus", () => {
                       activeEditorRef.current = view;
-                      setActiveTarget({
-                        kind: "editor-tab",
-                        save: async () => { if (activeTab) await saveTab(activeTab, false); },
-                      });
+                      setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
                     });
-                    if (activeTab?.path) activeDocPathRef.current = activeTab.path;
                   }}
                 />
               </div>
@@ -2665,7 +2747,7 @@ function App() {
       ) : (
         <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language}
           viewMode={effectiveViewMode} journalDataDir={settings.journalDataDir}
-          sidebarEnabled={!isZenMode && settings.sidebarEnabled}
+          sidebarEnabled={!isZenMode && settings.sidebarEnabled} readOnly={breakLocked}
           onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
       )}
       </div>
@@ -2751,7 +2833,14 @@ function App() {
         onPublicationPresetsChange={setPublicationPresets}
         onJournalFolderSelected={handleJournalFolderSelected}
       />
-      <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} />
+      <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} onLockedChange={setBreakLocked} t={t} />
+      {breakLocked && (
+        <div className="fixed top-0 inset-x-0 z-[9998] flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium shadow-md"
+          style={{ backgroundColor: "#3b82f6", color: "#fff" }}>
+          <Lock size={13} />
+          {t["pomodoro.locked"] || "Break — editing locked (focus mode)"}
+        </div>
+      )}
     </div>
     </ContextMenuProvider>
   );

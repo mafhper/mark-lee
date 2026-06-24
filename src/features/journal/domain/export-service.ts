@@ -1,7 +1,8 @@
-import { readFile, readBinaryFile, writeFile, writeBinaryFile, openFileDialog, createWorkspaceDirectory } from "../../../services/filesystem";
+import { readFile, readBinaryFile, writeFile, writeBinaryFile, openFileDialog, ensureDirectoryTree } from "../../../services/filesystem";
 import type { EntryRecord } from "./entry-service";
 import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
+import { safeRelativeAssetPath } from "./export-paths";
 import JSZip from "jszip";
 
 function collectImageRefs(body: string): string[] {
@@ -16,10 +17,12 @@ function collectImageRefs(body: string): string[] {
 }
 
 async function copyImageToDir(imageRelPath: string, entryDir: string, destDir: string): Promise<void> {
-  const srcPath = `${entryDir}/${imageRelPath}`;
-  const destPath = `${destDir}/${imageRelPath}`;
+  const safe = safeRelativeAssetPath(imageRelPath);
+  if (!safe) return; // skip unsafe / external references
+  const srcPath = `${entryDir}/${safe}`;
+  const destPath = `${destDir}/${safe}`;
   const imgParent = destPath.substring(0, destPath.lastIndexOf("/"));
-  try { await createWorkspaceDirectory(imgParent); } catch { /* may already exist */ }
+  await ensureDirectoryTree(imgParent);
   const data = await readBinaryFile(srcPath);
   await writeBinaryFile(destPath, data);
 }
@@ -67,14 +70,7 @@ async function copyEntryAssets(entry: EntryRecord, destDir: string): Promise<voi
     try { await copyImageToDir(img, entryDir, destDir); } catch { /* skip missing */ }
   }
   if (entry.metadata.cover) {
-    try {
-      const coverDir = entry.metadata.cover.includes("/")
-        ? `${destDir}/${entry.metadata.cover.substring(0, entry.metadata.cover.lastIndexOf("/"))}`
-        : destDir;
-      try { await createWorkspaceDirectory(coverDir); } catch { /* may already exist */ }
-      const data = await readBinaryFile(`${entryDir}/${entry.metadata.cover}`);
-      await writeBinaryFile(`${destDir}/${entry.metadata.cover}`, data);
-    } catch { /* skip missing cover */ }
+    try { await copyImageToDir(entry.metadata.cover, entryDir, destDir); } catch { /* skip missing cover */ }
   }
 }
 
@@ -148,7 +144,7 @@ export async function exportJournal(
         : entryFileName(entry);
       const relDir = rel.includes("/") ? rel.substring(0, rel.lastIndexOf("/")) : "";
       if (relDir) {
-        await createWorkspaceDirectory(`${destDir}/entries/${relDir}`);
+        await ensureDirectoryTree(`${destDir}/entries/${relDir}`);
       }
 
       if (format === "html") {
@@ -197,25 +193,17 @@ export async function exportJournalAsZip(
       zip.file(`entries/${rel}`, content);
 
       const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-      const imgRegex = /!\[.*?\]\((.+?)\)/g;
-      let m: RegExpExecArray | null;
-      while ((m = imgRegex.exec(entry.body)) !== null) {
-        const imgRel = m[1];
-        if (/^(https?:\/|data:)/.test(imgRel)) continue;
+      const relDirPrefix = rel.replace(/[^/]+$/, "");
+      const assetRefs = [...collectImageRefs(entry.body)];
+      if (entry.metadata.cover) assetRefs.push(entry.metadata.cover);
+      for (const ref of assetRefs) {
+        const safe = safeRelativeAssetPath(ref);
+        if (!safe) continue; // skip unsafe / external references
         try {
-          const imgContent = await readBinaryFile(`${entryDir}/${imgRel}`);
-          zip.file(`entries/${rel.replace(/[^/]+$/, "")}${imgRel}`, imgContent);
+          const assetContent = await readBinaryFile(`${entryDir}/${safe}`);
+          zip.file(`entries/${relDirPrefix}${safe}`, assetContent);
         } catch {
-          // skip missing images
-        }
-      }
-
-      if (entry.metadata.cover) {
-        try {
-          const coverContent = await readBinaryFile(`${entryDir}/${entry.metadata.cover}`);
-          zip.file(`entries/${rel.replace(/[^/]+$/, "")}${entry.metadata.cover}`, coverContent);
-        } catch {
-          // skip missing cover
+          // skip missing assets
         }
       }
     } catch (e) {

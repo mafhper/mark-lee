@@ -5,6 +5,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { lineNumbers } from "@codemirror/view";
+import { search, searchKeymap } from "@codemirror/search";
 import { setActiveEditor } from "./active-editor";
 import type { ThemeConfig } from "../../types";
 
@@ -16,6 +17,7 @@ interface MarkdownEditorProps {
   placeholder?: string;
   height?: string;
   className?: string;
+  readOnly?: boolean;
 }
 
 function hexLuminance(hex: string): number {
@@ -26,12 +28,13 @@ function hexLuminance(hex: string): number {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
-export function MarkdownEditor({ value, onChange, tConfig, onCreateEditor, placeholder, height, className }: MarkdownEditorProps) {
+export function MarkdownEditor({ value, onChange, tConfig, onCreateEditor, placeholder, height, className, readOnly }: MarkdownEditorProps) {
   const viewRef = useRef<EditorView | null>(null);
 
   const extensions = useMemo(() => [
     history(),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
+    search({ top: true }),
+    keymap.of([...searchKeymap, ...defaultKeymap, ...historyKeymap]),
     lineNumbers(),
     EditorState.allowMultipleSelections.of(false),
     EditorView.lineWrapping,
@@ -53,6 +56,8 @@ export function MarkdownEditor({ value, onChange, tConfig, onCreateEditor, place
       height={height ?? "100%"}
       className={className ?? "h-full"}
       extensions={extensions}
+      editable={!readOnly}
+      readOnly={readOnly}
       onChange={onChange}
       basicSetup={{
         foldGutter: true,

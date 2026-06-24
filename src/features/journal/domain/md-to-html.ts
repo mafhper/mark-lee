@@ -4,11 +4,28 @@ function escapeHtml(text: string): string {
 
 const ALLOWED_URL_SCHEMES = /^(https?:\/|mailto:|#|\/)/;
 const DATA_IMAGE_RE = /^data:image\//;
+const HAS_SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
+
+/**
+ * Relative asset paths (e.g. `foo.png`, `./foo.png`, `assets/foo.png`) are emitted
+ * by the entry body and copied alongside the exported HTML, so they must survive
+ * sanitization to render. We still reject anything that carries a scheme, is
+ * protocol-relative, uses backslashes, or escapes its directory with `..`.
+ */
+function isSafeRelativePath(path: string): boolean {
+  if (!path) return false;
+  if (HAS_SCHEME_RE.test(path)) return false; // javascript:, http:, etc.
+  if (path.startsWith("//")) return false; // protocol-relative
+  if (path.startsWith("/") || path.startsWith("\\")) return false; // absolute
+  if (path.includes("\\")) return false; // no Windows separators in URLs
+  return !path.split("/").includes(".."); // no parent-directory escape
+}
 
 function sanitizeUrl(url: string): string {
   const trimmed = url.trim();
   if (DATA_IMAGE_RE.test(trimmed)) return trimmed;
   if (ALLOWED_URL_SCHEMES.test(trimmed)) return trimmed;
+  if (isSafeRelativePath(trimmed)) return trimmed;
   return "";
 }
 

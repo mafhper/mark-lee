@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { MapPin, Globe, ChevronRight, ChevronDown } from "lucide-react";
+import { MapPin, Globe, ChevronRight, ChevronDown, Map as MapIcon } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
@@ -9,6 +9,9 @@ interface JournalMapViewProps {
   tConfig: ThemeConfig;
   entries: EntryRecord[];
   onSelectEntry: (entry: EntryRecord) => void;
+  /** When set, shows a "view on map" toggle that drives the world map in the canvas. */
+  worldMapActive?: boolean;
+  onToggleWorldMap?: () => void;
 }
 
 interface LocationGroup {
@@ -138,7 +141,7 @@ function TreeNode({ group, depth, tConfig, onSelectEntry }: {
   );
 }
 
-export function JournalMapView({ t, tConfig, entries, onSelectEntry }: JournalMapViewProps) {
+export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapActive, onToggleWorldMap }: JournalMapViewProps) {
   const locatedEntries = useMemo(() => entries.filter((e) => e.metadata.location), [entries]);
   const tree = useMemo(() => buildTree(locatedEntries), [locatedEntries]);
 
@@ -146,23 +149,44 @@ export function JournalMapView({ t, tConfig, entries, onSelectEntry }: JournalMa
     return (
       <JournalEmptyState
         icon={<MapPin size={36} />}
-        title={t["journal.map"] || "Map"}
+        title={t["journal.places"] || "Places"}
         description={t["journal.emptyStateMap"] || "Entries with a location will appear here.\nAdd a place to an entry to see it on the map."}
         tConfig={tConfig}
       />
     );
   }
 
+  const countries = tree.length;
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider border-b sticky top-0 z-10 flex items-center gap-1.5"
-        style={{ color: tConfig.fgHex + "60", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex }}>
-        <Globe size={12} />
-        {locatedEntries.length} location{locatedEntries.length !== 1 ? "s" : ""}
+      <div className="px-3 py-2 border-b sticky top-0 z-10 flex items-center justify-between gap-2"
+        style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex }}>
+        <div className="flex items-center gap-1.5 min-w-0 text-[11px] font-semibold" style={{ color: tConfig.fgHex + "70" }}>
+          <Globe size={13} className="shrink-0" style={{ color: tConfig.accentHex }} />
+          <span className="truncate">
+            {locatedEntries.length} {t["journal.locations"] || "locations"}
+            {countries > 1 ? ` · ${countries} ${t["journal.countries"] || "countries"}` : ""}
+          </span>
+        </div>
+        {onToggleWorldMap && (
+          <button type="button" onClick={onToggleWorldMap}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0"
+            style={{
+              backgroundColor: worldMapActive ? tConfig.accentHex + "1F" : tConfig.bgHex,
+              color: worldMapActive ? tConfig.accentHex : tConfig.fgHex + "80",
+              border: `1px solid ${worldMapActive ? tConfig.accentHex + "55" : tConfig.uiBorderHex}`,
+            }}
+            aria-pressed={worldMapActive} title={t["journal.viewOnMap"] || "View on map"}>
+            <MapIcon size={13} /> {t["journal.viewOnMap"] || "View on map"}
+          </button>
+        )}
       </div>
-      <div className="flex-1 overflow-y-auto py-1">
+
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
         {tree.map((group) => (
-          <TreeNode key={group.key} group={group} depth={0} tConfig={tConfig} onSelectEntry={onSelectEntry} />
+          <div key={group.key} className="rounded-lg border" style={{ borderColor: tConfig.uiBorderHex }}>
+            <TreeNode group={group} depth={0} tConfig={tConfig} onSelectEntry={onSelectEntry} />
+          </div>
         ))}
       </div>
     </div>

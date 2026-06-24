@@ -30,6 +30,20 @@ test("converts images", () => {
   assert.ok(html.includes('<img src="img.png" alt="alt" />'));
 });
 
+test("keeps safe relative image paths so exported assets render", () => {
+  assert.ok(mdToHtml("![a](./photo.png)").includes('<img src="./photo.png" alt="a" />'));
+  assert.ok(mdToHtml("![a](assets/2026/photo.png)").includes('<img src="assets/2026/photo.png" alt="a" />'));
+});
+
+test("blocks javascript: links and images", () => {
+  const link = mdToHtml("[click](javascript:alert(1))");
+  assert.ok(!link.includes("javascript:"));
+  assert.ok(link.includes("click"));
+  const img = mdToHtml("![x](javascript:alert(1))");
+  assert.ok(!img.includes("javascript:"));
+  assert.ok(!img.includes("<img"));
+});
+
 test("converts unordered lists", () => {
   const html = mdToHtml("- item1\n- item2");
   assert.ok(html.includes("<ul>"));

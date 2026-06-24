@@ -28,7 +28,7 @@ export async function loadLibrary(): Promise<LibraryData> {
         if (!manifest) {
           return { ...j, name: j.name || "Unavailable", unavailable: true };
         }
-        return { ...j, name: manifest.name, description: manifest.description, unavailable: false };
+        return { ...j, name: manifest.name, description: manifest.description, color: manifest.color, cover: manifest.cover, unavailable: false };
       })
     );
 

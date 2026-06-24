@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Table, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag } from "lucide-react";
 
 const MOODS: { key: string; emoji: string }[] = [
   { key: "great", emoji: "\u{1F60A}" },
@@ -27,13 +27,15 @@ import { getTrackerDefinitions } from "../domain/tracker-service";
 import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalGettingStarted } from "./JournalGettingStarted";
+import { JournalLightbox } from "./JournalLightbox";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
 import { JournalPublicationView } from "./JournalPublicationView";
 import { EditorView } from "@codemirror/view";
+import { openSearchPanel } from "@codemirror/search";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
-import { insertSnippetContent, insertTable as insertTableCommand } from "../../editor/editor-commands";
 import { activeDocPathRef } from "../../editor/active-editor";
-import { setActiveTarget } from "../../editor/active-target";
+import { setActiveTarget, registerFlushHandler } from "../../editor/active-target";
+import { formatMarkdown, minifyMarkdown } from "../../../services/markdown-processor";
 
 interface JournalEntryPanelProps {
   t: Record<string, string>;
@@ -49,6 +51,7 @@ interface JournalEntryPanelProps {
   onNewEntry?: () => void;
   language?: string;
   hasEntries?: boolean;
+  readOnly?: boolean;
 }
 
 function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label: string; danger?: boolean; onClick: () => void }) {
@@ -62,15 +65,34 @@ function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en", hasEntries = false }: JournalEntryPanelProps) {
+function MetaChip({ icon, label, active, open, tConfig, onClick }: {
+  icon: React.ReactNode; label: string; active?: boolean; open?: boolean; tConfig: ThemeConfig; onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-expanded={open}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors"
+      style={{
+        backgroundColor: open ? tConfig.accentHex + "22" : active ? tConfig.accentHex + "14" : tConfig.uiHex,
+        color: active || open ? tConfig.accentHex : tConfig.fgHex + "75",
+        border: `1px solid ${open ? tConfig.accentHex + "55" : "transparent"}`,
+      }}>
+      {icon}
+      <span className="max-w-[140px] truncate">{label}</span>
+    </button>
+  );
+}
+
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [favorite, setFavorite] = useState(false);
   const [mood, setMood] = useState("");
   const [trackerValues, setTrackerValues] = useState<Record<string, string | number | boolean | null>>({});
-  const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  type MetaPopover = null | "tags" | "mood" | "location" | "trackers";
+  const [openPopover, setOpenPopover] = useState<MetaPopover>(null);
+  const metaRef = useRef<HTMLDivElement>(null);
   type SaveState = "clean" | "dirty" | "saving" | "error" | "conflict";
   const [saveState, setSaveState] = useState<SaveState>("clean");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -81,6 +103,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [locationLabel, setLocationLabel] = useState("");
   const [locationLat, setLocationLat] = useState("");
   const [locationLng, setLocationLng] = useState("");
@@ -90,6 +113,14 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [locationAttraction, setLocationAttraction] = useState("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
+  // Latest handlers exposed to the global toolbar target. Kept in a ref so the
+  // registered target always calls current closures, never a stale render's.
+  const targetHandlersRef = useRef<{ format: () => void; minify: () => void; doExport: () => void; find: () => void }>({
+    format: () => {},
+    minify: () => {},
+    doExport: () => {},
+    find: () => {},
+  });
 
   interface PendingSave {
     rec: EntryRecord; t: string; b: string; tg: string[]; fav: boolean; m: string;
@@ -100,6 +131,24 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   const journalName = journal?.name ?? (t["journal.noJournalTitle"] || "No journal open");
   const showEntry = entry !== null && journal !== null;
+
+  // All images belonging to the current entry (cover first, then inline body
+  // images), as filesystem paths for the lightbox. Reflects live edits to body.
+  const entryImages = useMemo(() => {
+    if (!entry) return [] as string[];
+    const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
+    const imgs: string[] = [];
+    if (entry.metadata.cover) imgs.push(`${dir}/${entry.metadata.cover}`);
+    const re = /!\[.*?\]\((.+?)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(body)) !== null) {
+      const rel = m[1];
+      if (/^(https?:\/|data:)/.test(rel)) continue;
+      const full = `${dir}/${rel}`;
+      if (!imgs.includes(full)) imgs.push(full);
+    }
+    return imgs;
+  }, [entry?.path, entry?.metadata.cover, body]);
 
   const buildLocation = () => {
     if (!locationLabel && !locationCity && !locationState && !locationCountry) return undefined;
@@ -132,19 +181,27 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     };
   };
 
-  const doSave = useCallback(async (
-    rec: EntryRecord, t: string, b: string, tg: string[], fav: boolean, m: string,
-    tr: Record<string, string | number | boolean | null> | undefined,
-    loc: ReturnType<typeof buildLocation>, force = false,
-  ) => {
-    const updated = { ...rec.metadata, title: t, tags: tg, favorite: fav, mood: m || undefined, trackers: tr ?? rec.metadata.trackers, location: loc };
+  const doSave = useCallback(async (snap: PendingSave, force = false) => {
+    const updated = {
+      ...snap.rec.metadata,
+      title: snap.t,
+      tags: snap.tg,
+      favorite: snap.fav,
+      mood: snap.m || undefined,
+      trackers: snap.tr ?? snap.rec.metadata.trackers,
+      location: snap.loc,
+    };
     setSaveState("saving");
     try {
-      await saveEntry(rec.path, updated, b, force);
+      await saveEntry(snap.rec.path, updated, snap.b, force);
+      // Clear the pending snapshot only on success, and only if a newer edit
+      // hasn't replaced it mid-flight — so Retry/flush always have a snapshot.
+      if (pendingSaveRef.current === snap) pendingSaveRef.current = null;
       setSaveState("clean");
-      const wordCount = b.trim() ? b.trim().split(/\s+/).length : 0;
-      onEntryUpdated({ path: rec.path, metadata: updated, body: b, wordCount });
+      const wordCount = snap.b.trim() ? snap.b.trim().split(/\s+/).length : 0;
+      onEntryUpdated({ path: snap.rec.path, metadata: updated, body: snap.b, wordCount });
     } catch (e) {
+      // Keep pendingSaveRef intact so the error banner's Retry can re-send it.
       if ((e as ConflictError).name === "ConflictError") {
         setSaveState("conflict");
       } else {
@@ -158,13 +215,14 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     tr: Record<string, string | number | boolean | null>,
     loc: ReturnType<typeof buildLocation>,
   ) => {
-    pendingSaveRef.current = { rec, t, b, tg, fav, m, tr, loc };
+    const snap: PendingSave = { rec, t, b, tg, fav, m, tr, loc };
+    pendingSaveRef.current = snap;
     setSaveState("dirty");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
       const ps = pendingSaveRef.current;
-      if (ps) doSave(ps.rec, ps.t, ps.b, ps.tg, ps.fav, ps.m, ps.tr, ps.loc);
-      pendingSaveRef.current = null;
+      if (ps) doSave(ps);
     }, 2000);
   }, [doSave]);
 
@@ -174,11 +232,13 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       saveTimerRef.current = null;
     }
     const ps = pendingSaveRef.current;
-    if (ps) {
-      pendingSaveRef.current = null;
-      await doSave(ps.rec, ps.t, ps.b, ps.tg, ps.fav, ps.m, ps.tr, ps.loc);
-    }
+    if (ps) await doSave(ps);
   }, [doSave]);
+
+  const currentSnapshot = (): PendingSave | null => {
+    if (!entry || !journal) return null;
+    return { rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood, tr: trackerValues, loc: buildLocation() };
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -199,10 +259,15 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setLocationCountry(entry.metadata.location?.country ?? "");
       setLocationAttraction(entry.metadata.location?.attraction ?? "");
       setConfirmDelete(false);
+      setLightboxIndex(null);
       if (!cancelled) {
         setActiveTarget({
           kind: "journal-entry",
           save: flushPendingSave,
+          find: () => targetHandlersRef.current.find(),
+          format: () => targetHandlersRef.current.format(),
+          minify: () => targetHandlersRef.current.minify(),
+          export: () => targetHandlersRef.current.doExport(),
         });
       }
     });
@@ -218,6 +283,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   const handleTitleChange = (value: string) => { setTitle(value); if (entry && journal) scheduleSave(entry, value, body, tags, favorite, mood, trackerValues, buildLocation()); };
   const handleBodyChange = (value: string) => { setBody(value); if (entry && journal) scheduleSave(entry, title, value, tags, favorite, mood, trackerValues, buildLocation()); };
+
+  // Format/minify the entry body through the shared Markdown processor. Driven by
+  // the global toolbar (and Ctrl-based commands) when a journal entry is active.
+  const applyBodyTransform = (mode: "format" | "minify") => {
+    const view = editorViewRef.current;
+    const current = view ? view.state.doc.toString() : body;
+    const next = mode === "format" ? formatMarkdown(current) : minifyMarkdown(current);
+    if (next === current) return;
+    if (view) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+    } else {
+      handleBodyChange(next);
+    }
+  };
 
   const handleAddTag = () => {
     const newTag = tagInput.trim();
@@ -243,31 +322,33 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const handleSelectMood = (key: string) => {
     const next = mood === key ? "" : key;
     setMood(next);
-    setShowMoodPicker(false);
+    setOpenPopover(null);
     if (entry && journal) scheduleSave(entry, title, body, tags, favorite, next, trackerValues, buildLocation());
   };
 
-  const handleInsertImage = async () => {
-    if (!entry || !journal) return;
-    const selected = await openFileDialog({
-      multiple: false,
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
-    });
-    const imgPath = Array.isArray(selected) ? selected[0] : selected;
-    if (!imgPath) return;
-    try {
-      const relative = await copyImageToDocumentDir(imgPath, entry.path);
-      const view = editorViewRef.current;
-      if (view) insertSnippetContent(view, `![image](${relative})`);
-    } catch (e) {
-      console.error("Failed to insert image:", e);
+  // Edit any location sub-field and persist the full location object in one place.
+  const setLocationField = (
+    field: "label" | "lat" | "lng" | "city" | "state" | "country" | "attraction",
+    value: string,
+  ) => {
+    const current = {
+      label: locationLabel, lat: locationLat, lng: locationLng,
+      city: locationCity, state: locationState, country: locationCountry, attraction: locationAttraction,
+      [field]: value,
+    };
+    const setters = {
+      label: setLocationLabel, lat: setLocationLat, lng: setLocationLng,
+      city: setLocationCity, state: setLocationState, country: setLocationCountry, attraction: setLocationAttraction,
+    } as const;
+    setters[field](value);
+    if (entry && journal) {
+      scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocationFrom(
+        current.label,
+        current.lat ? Number(current.lat) : undefined,
+        current.lng ? Number(current.lng) : undefined,
+        current.city, current.state, current.country, current.attraction,
+      ));
     }
-  };
-
-  const handleInsertTable = () => {
-    const view = editorViewRef.current;
-    if (!view) return;
-    insertTableCommand(view, 3, 3);
   };
 
   useEffect(() => {
@@ -352,6 +433,27 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     }
   };
 
+  // Keep the toolbar target's format/minify/export bound to current closures.
+  targetHandlersRef.current = {
+    format: () => applyBodyTransform("format"),
+    minify: () => applyBodyTransform("minify"),
+    doExport: () => { void handleExportEntry(); },
+    find: () => { const view = editorViewRef.current; if (view) { view.focus(); openSearchPanel(view); } },
+  };
+
+  // Register a pending-save flusher so the window-close handler (App) can await it.
+  useEffect(() => registerFlushHandler(flushPendingSave), [flushPendingSave]);
+
+  // Close the active metadata popover when clicking outside the chip row.
+  useEffect(() => {
+    if (!openPopover) return;
+    const onDown = (e: MouseEvent) => {
+      if (metaRef.current && !metaRef.current.contains(e.target as Node)) setOpenPopover(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openPopover]);
+
   useEffect(() => {
     const handleBeforeUnload = () => { flushPendingSave(); };
     const handleVisibilityChange = () => {
@@ -369,8 +471,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
       {coverUrl && (
-        <div className="relative w-full h-32 shrink-0 overflow-hidden" style={{ backgroundColor: tConfig.accentHex + "10" }}>
-          <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+        <div className="relative w-full h-32 shrink-0 overflow-hidden group" style={{ backgroundColor: tConfig.accentHex + "10" }}>
+          <button type="button" onClick={() => setLightboxIndex(0)} className="block w-full h-full"
+            title={t["journal.expand"] || "Expand"}>
+            <img src={coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
+          </button>
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center bg-black/40 text-white/90"><Maximize2 size={16} /></div>
+          </div>
+          {entryImages.length > 1 && (
+            <button type="button" onClick={() => setLightboxIndex(0)}
+              className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full flex items-center gap-1 bg-black/45 text-white/90 text-[11px] hover:bg-black/60">
+              <Image size={11} /> {entryImages.length} {t["journal.photos"] || "photos"}
+            </button>
+          )}
           <button type="button" onClick={handleRemoveCover}
             className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
             title={t["journal.clear"] || "Remove"}><X size={12} /></button>
@@ -430,14 +544,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                   {showMoreMenu && (
                     <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border shadow-lg py-1"
                       style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-                      <DropdownItem icon={Image} label={t["journal.images"] || "Image"} onClick={() => { handleInsertImage(); setShowMoreMenu(false); }} />
-                      <DropdownItem icon={Table} label="Table" onClick={() => { handleInsertTable(); setShowMoreMenu(false); }} />
-                      <DropdownItem icon={Image} label={coverUrl ? "Change cover" : "Cover"} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
+                      <DropdownItem icon={Image} label={coverUrl ? (t["journal.changeCover"] || "Change cover") : (t["journal.cover"] || "Cover")} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
                       {journal && (
                         <>
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
                           <DropdownItem icon={Activity} label={t["journal.trackers"] || "Trackers"} onClick={() => { setShowTrackerManager(true); setShowMoreMenu(false); }} />
-                          <DropdownItem icon={TrendingUp} label="Stats" onClick={() => { setShowTrackerStats(true); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={TrendingUp} label={t["journal.stats"] || "Stats"} onClick={() => { setShowTrackerStats(true); setShowMoreMenu(false); }} />
                           <DropdownItem icon={Download} label="MD" onClick={() => { handleExportEntry(); setShowMoreMenu(false); }} />
                           <DropdownItem icon={Globe} label="HTML" onClick={() => { handleExportHtml(); setShowMoreMenu(false); }} />
                         </>
@@ -445,7 +557,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                       {onDuplicateEntry && (
                         <>
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
-                          <DropdownItem icon={Copy} label="Duplicate" onClick={() => { onDuplicateEntry(entry); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={Copy} label={t["journal.duplicate"] || "Duplicate"} onClick={() => { onDuplicateEntry(entry); setShowMoreMenu(false); }} />
                         </>
                       )}
                       {onOpenInEditor && (
@@ -454,7 +566,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                       {onDeleteEntry && (
                         <>
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
-                          <DropdownItem icon={Trash2} label="Delete" danger onClick={() => { setConfirmDelete(true); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={Trash2} label={t["journal.delete"] || "Delete"} danger onClick={() => { setConfirmDelete(true); setShowMoreMenu(false); }} />
                         </>
                       )}
                     </div>
@@ -466,124 +578,172 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
           {saveState === "error" && (
             <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#ef444420", color: "#ef4444" }}>
               <AlertTriangle size={12} />
-              <span className="flex-1">Save failed. Your changes are preserved locally.</span>
+              <span className="flex-1">{t["journal.saveFailed"] || "Save failed. Your changes are preserved locally."}</span>
               <button type="button" onClick={() => {
                 const ps = pendingSaveRef.current;
-                if (ps) doSave(ps.rec, ps.t, ps.b, ps.tg, ps.fav, ps.m, ps.tr, ps.loc, true);
+                if (ps) doSave(ps, true);
               }}
-                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#ef444430", color: "#ef4444" }}>Retry</button>
+                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#ef444430", color: "#ef4444" }}>{t["journal.retry"] || "Retry"}</button>
             </div>
           )}
           {saveState === "conflict" && (
             <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded text-xs" style={{ backgroundColor: "#f59e0b20", color: "#f59e0b" }}>
               <AlertTriangle size={12} />
-              <span className="flex-1">File modified externally. Save blocked.</span>
-              <button type="button" onClick={async () => { await doSave(entry!, title, body, tags, favorite, mood, trackerValues, buildLocation(), true); }}
-                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>Overwrite</button>
+              <span className="flex-1">{t["journal.conflictExternal"] || "File modified externally. Save blocked."}</span>
+              <button type="button" onClick={async () => { const snap = currentSnapshot(); if (snap) { pendingSaveRef.current = snap; await doSave(snap, true); } }}
+                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}>{t["journal.overwrite"] || "Overwrite"}</button>
               <button type="button" onClick={() => { setSaveState("dirty"); onReloadEntry?.(); }}
-                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>Discard</button>
+                className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>{t["journal.discard"] || "Discard"}</button>
             </div>
           )}
-          <div className="flex items-center gap-3 mt-3 text-xs flex-wrap" style={{ color: tConfig.fgHex + "70" }}>
+          <div ref={metaRef} className="relative mt-3">
             {showEntry ? (
               <>
-                {tags.map((tag) => (
-                  <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1"
-                    style={{ backgroundColor: tConfig.accentHex + "18", color: tConfig.accentHex }}>
-                    {tag}
-                    <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:opacity-60">
-                      <X size={10} />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <MetaChip tConfig={tConfig} icon={<Tag size={11} />} active={tags.length > 0} open={openPopover === "tags"}
+                    label={tags.length ? tags.slice(0, 2).join(", ") + (tags.length > 2 ? ` +${tags.length - 2}` : "") : (t["journal.tags"] || "Tags")}
+                    onClick={() => setOpenPopover(openPopover === "tags" ? null : "tags")} />
+                  <MetaChip tConfig={tConfig}
+                    icon={mood ? <span className="text-sm leading-none">{MOODS.find((m) => m.key === mood)?.emoji}</span> : <SmilePlus size={11} />}
+                    active={!!mood} open={openPopover === "mood"}
+                    label={mood ? (t["mood." + mood] || mood) : (t["journal.mood"] || "Mood")}
+                    onClick={() => setOpenPopover(openPopover === "mood" ? null : "mood")} />
+                  <MetaChip tConfig={tConfig} icon={<MapPin size={11} />}
+                    active={!!(locationLabel || locationCity || locationCountry)} open={openPopover === "location"}
+                    label={locationLabel || [locationCity, locationCountry].filter(Boolean).join(", ") || (t["journal.places"] || "Location")}
+                    onClick={() => setOpenPopover(openPopover === "location" ? null : "location")} />
+                  {trackerDefs.length > 0 && (
+                    <MetaChip tConfig={tConfig} icon={<Activity size={11} />}
+                      active={trackerDefs.some((d) => { const v = trackerValues[d.id]; return v !== undefined && v !== null && v !== ""; })}
+                      open={openPopover === "trackers"}
+                      label={`${trackerDefs.length} ${t["journal.trackers"] || "Trackers"}`}
+                      onClick={() => setOpenPopover(openPopover === "trackers" ? null : "trackers")} />
+                  )}
+                  <span className="flex-1" />
+                  {entryImages.length > 0 && (
+                    <button type="button" onClick={() => setLightboxIndex(0)}
+                      className="flex items-center gap-1 text-[11px] hover:opacity-70"
+                      style={{ color: tConfig.fgHex + "60" }} title={t["journal.photos"] || "Photos"}>
+                      <Image size={11} /> {entryImages.length}
                     </button>
+                  )}
+                  <span className="text-[11px]" style={{ color: tConfig.fgHex + "45" }}>
+                    {body.trim() ? body.trim().split(/\s+/).length : 0} {t["journal.words"] || "words"}
                   </span>
-                ))}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
-                    className="w-16 text-[11px] bg-transparent border-none outline-none"
-                    style={{ color: tConfig.fgHex + "60" }}
-                    placeholder="+ tag"
-                  />
-                  {tagInput.trim() && (
-                    <button type="button" onClick={handleAddTag} style={{ color: tConfig.accentHex }}>
-                      <Plus size={11} />
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <button type="button" onClick={() => setShowMoodPicker(!showMoodPicker)}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] hover:opacity-70"
-                    style={{ backgroundColor: mood ? (tConfig.accentHex + "18") : "transparent", color: tConfig.fgHex + "70" }}>
-                    {mood ? MOODS.find((m) => m.key === mood)?.emoji : <SmilePlus size={12} />}
-                  </button>
-                  {showMoodPicker && (
-                    <div className="absolute top-full left-0 mt-1 p-1.5 rounded-lg shadow-xl border z-50 flex flex-wrap gap-1"
-                      style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, width: "200px" }}>
-                      {MOODS.map((m) => (
-                        <button key={m.key} type="button" onClick={() => handleSelectMood(m.key)}
-                          className="w-7 h-7 rounded flex items-center justify-center text-sm hover:opacity-70"
-                          style={{ backgroundColor: mood === m.key ? tConfig.accentHex + "20" : "transparent" }}>
-                          {m.emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {mood && (
-                  <span className="text-[11px]" style={{ color: tConfig.fgHex + "60" }}>{mood}</span>
-                )}
-                {trackerDefs.map((def) => {
-                  const val = trackerValues[def.id] ?? "";
-                  return (
-                    <span key={def.id} className="flex items-center gap-1">
-                      <span className="text-[11px] opacity-60">{def.name}</span>
-                      {def.type === "boolean" ? (
-                        <input type="checkbox" checked={val === true} onChange={(e) => handleTrackerChange(def.id, e.target.checked ? true : null)}
-                          className="w-3 h-3 rounded" style={{ accentColor: def.color ?? tConfig.accentHex }} />
-                      ) : def.type === "number" ? (
-                        <input type="number" value={val as number} onChange={(e) => handleTrackerChange(def.id, e.target.value ? Number(e.target.value) : null)}
-                          className="w-14 text-[11px] bg-transparent border rounded px-1 py-0.5 outline-none"
-                          style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
-                          placeholder="0" />
-                      ) : (
-                        <input type="text" value={val as string} onChange={(e) => handleTrackerChange(def.id, e.target.value || null)}
-                          className="w-16 text-[11px] bg-transparent border rounded px-1 py-0.5 outline-none"
-                          style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
-                          placeholder="..." />
-                      )}
-                      {def.unit && <span className="text-[10px] opacity-40">{def.unit}</span>}
-                    </span>
-                  );
-                })}
-                <span className="flex items-center gap-1">
-                  <MapPin size={11} style={{ color: locationLabel ? tConfig.accentHex : tConfig.fgHex + "40" }} />
-                  <input
-                    type="text" value={locationLabel} onChange={(e) => { const v = e.target.value; setLocationLabel(v); if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocationFrom(v, locationLat ? Number(locationLat) : undefined, locationLng ? Number(locationLng) : undefined, locationCity, locationState, locationCountry, locationAttraction)); }}
-                    className="w-24 text-[11px] bg-transparent border-none outline-none"
-                    style={{ color: tConfig.fgHex + "80" }}
-                    placeholder={t["journal.places"] || "Location"}
-                    title={t["journal.places"] || "Location"}
-                  />
-                  {(locationLat || locationLng) && (
-                    <span className="text-[10px] font-mono" style={{ color: tConfig.fgHex + "40" }}>
-                      {locationLat || "?"}, {locationLng || "?"}
+                  {saveState !== "clean" && (
+                    <span className="text-[10px]" style={{
+                      color: saveState === "error" ? "#ef4444" : saveState === "conflict" ? "#f59e0b" : tConfig.fgHex + "50",
+                    }}>
+                      {saveState === "dirty" && ("\u00B7 " + (t["journal.unsaved"] || "unsaved"))}
+                      {saveState === "saving" && ("\u00B7 " + (t["journal.saving"] || "saving") + "\u2026")}
+                      {saveState === "error" && ("\u00B7 " + (t["journal.saveError"] || "save error"))}
+                      {saveState === "conflict" && ("\u00B7 " + (t["journal.conflict"] || "conflict"))}
                     </span>
                   )}
-                </span>
-                <span className="opacity-50 ml-1">{body.trim() ? body.trim().split(/\s+/).length : 0} words</span>
-                {saveState !== "clean" && (
-                  <span className="text-[10px] ml-1" style={{
-                    color: saveState === "error" ? "#ef4444" : saveState === "conflict" ? "#f59e0b" : tConfig.fgHex + "50",
-                  }}>
-                    {saveState === "dirty" && "\u00B7 unsaved"}
-                    {saveState === "saving" && "\u00B7 saving\u2026"}
-                    {saveState === "error" && "\u00B7 save error"}
-                    {saveState === "conflict" && "\u00B7 conflict"}
-                  </span>
+                </div>
+
+                {openPopover && (
+                  <div className="absolute left-0 top-full mt-1.5 z-50 rounded-lg border shadow-xl p-3"
+                    style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, minWidth: 240, maxWidth: 340 }}>
+                    {openPopover === "tags" && (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-1">
+                          {tags.length === 0 && (
+                            <span className="text-[11px]" style={{ color: tConfig.fgHex + "50" }}>{t["journal.noTags"] || "No tags yet"}</span>
+                          )}
+                          {tags.map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1"
+                              style={{ backgroundColor: tConfig.accentHex + "18", color: tConfig.accentHex }}>
+                              {tag}
+                              <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:opacity-60"><X size={10} /></button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input autoFocus type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
+                            className="flex-1 text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.addTag"] || "Add tag\u2026"} />
+                          <button type="button" onClick={handleAddTag} disabled={!tagInput.trim()}
+                            className="h-6 w-6 rounded flex items-center justify-center disabled:opacity-30" style={{ color: tConfig.accentHex }}>
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {openPopover === "mood" && (
+                      <div className="flex flex-wrap gap-1" style={{ width: 208 }}>
+                        {MOODS.map((m) => (
+                          <button key={m.key} type="button" onClick={() => handleSelectMood(m.key)}
+                            aria-label={t["mood." + m.key] || m.key} title={t["mood." + m.key] || m.key}
+                            className="w-8 h-8 rounded flex items-center justify-center text-base hover:opacity-70"
+                            style={{ backgroundColor: mood === m.key ? tConfig.accentHex + "22" : "transparent" }}>
+                            {m.emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {openPopover === "location" && (
+                      <div className="space-y-1.5" style={{ width: 288 }}>
+                        <input type="text" value={locationLabel} onChange={(e) => setLocationField("label", e.target.value)}
+                          className="w-full text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                          style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.locationLabel"] || "Place name"} />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input type="text" value={locationCity} onChange={(e) => setLocationField("city", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.city"] || "City"} />
+                          <input type="text" value={locationState} onChange={(e) => setLocationField("state", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.state"] || "State"} />
+                          <input type="text" value={locationCountry} onChange={(e) => setLocationField("country", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.country"] || "Country"} />
+                          <input type="text" value={locationAttraction} onChange={(e) => setLocationField("attraction", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.attraction"] || "Place"} />
+                          <input type="text" inputMode="decimal" value={locationLat} onChange={(e) => setLocationField("lat", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none font-mono"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.latitude"] || "Lat"} />
+                          <input type="text" inputMode="decimal" value={locationLng} onChange={(e) => setLocationField("lng", e.target.value)}
+                            className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none font-mono"
+                            style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.longitude"] || "Lng"} />
+                        </div>
+                      </div>
+                    )}
+                    {openPopover === "trackers" && (
+                      <div className="space-y-2" style={{ minWidth: 220 }}>
+                        {trackerDefs.map((def) => {
+                          const val = trackerValues[def.id] ?? "";
+                          return (
+                            <div key={def.id} className="flex items-center justify-between gap-3">
+                              <span className="text-[11px] flex items-center gap-1.5" style={{ color: tConfig.fgHex + "85" }}>
+                                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: def.color ?? tConfig.accentHex }} />
+                                {def.name}{def.unit ? <span className="opacity-40"> ({def.unit})</span> : null}
+                              </span>
+                              {def.type === "boolean" ? (
+                                <input type="checkbox" checked={val === true} onChange={(e) => handleTrackerChange(def.id, e.target.checked ? true : null)}
+                                  style={{ accentColor: def.color ?? tConfig.accentHex }} />
+                              ) : def.type === "number" ? (
+                                <input type="number" value={val as number} onChange={(e) => handleTrackerChange(def.id, e.target.value ? Number(e.target.value) : null)}
+                                  className="w-20 text-[11px] bg-transparent border rounded px-1.5 py-0.5 outline-none"
+                                  style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder="0" />
+                              ) : (
+                                <input type="text" value={val as string} onChange={(e) => handleTrackerChange(def.id, e.target.value || null)}
+                                  className="w-24 text-[11px] bg-transparent border rounded px-1.5 py-0.5 outline-none"
+                                  style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder="\u2026" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             ) : (
-              <span className="flex items-center gap-1"><BookOpen size={12} />{t["journal.noJournalDesc"] || "Select an entry"}</span>
+              <span className="flex items-center gap-1 text-xs" style={{ color: tConfig.fgHex + "70" }}>
+                <BookOpen size={12} />{t["journal.noJournalDesc"] || "Select an entry"}
+              </span>
             )}
           </div>
         </div>
@@ -598,8 +758,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                   value={body}
                   onChange={handleBodyChange}
                   tConfig={tConfig}
+                  readOnly={readOnly}
                   onCreateEditor={(view) => { editorViewRef.current = view; }}
-                  placeholder="Start writing..."
+                  placeholder={t["journal.startWriting"] || "Start writing..."}
                 />
               </div>
             )}
@@ -668,16 +829,29 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       {confirmDelete && entry && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-[360px] max-w-[90vw] rounded-lg shadow-2xl border p-5" style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}>
-            <h3 className="text-sm font-semibold mb-2">Delete "{entry.metadata.title}"?</h3>
-            <p className="text-xs mb-4" style={{ color: tConfig.fgHex + "70" }}>This action cannot be undone. The entry file will be deleted.</p>
+            <h3 className="text-sm font-semibold mb-1">{t["journal.deleteConfirmTitle"] || "Delete entry?"}</h3>
+            <p className="text-sm mb-2 truncate" style={{ color: tConfig.fgHex }}>{entry.metadata.title || (t["journal.blankEntry"] || "Untitled")}</p>
+            <p className="text-xs mb-4" style={{ color: tConfig.fgHex + "70" }}>{t["journal.deleteConfirmBody"] || "This action cannot be undone. The entry file will be deleted."}</p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs font-medium rounded border"
-                style={{ color: tConfig.fgHex + "80", borderColor: tConfig.uiBorderHex }}>Cancel</button>
+                style={{ color: tConfig.fgHex + "80", borderColor: tConfig.uiBorderHex }}>{t["journal.cancel"] || "Cancel"}</button>
               <button type="button" onClick={() => { setConfirmDelete(false); onDeleteEntry?.(entry); }}
-                className="px-3 py-1.5 text-xs font-semibold rounded" style={{ color: "#fff", backgroundColor: "#ef4444" }}>Delete</button>
+                className="px-3 py-1.5 text-xs font-semibold rounded" style={{ color: "#fff", backgroundColor: "#ef4444" }}>{t["journal.delete"] || "Delete"}</button>
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxIndex !== null && entryImages.length > 0 && (
+        <JournalLightbox
+          src={entryImages[Math.min(lightboxIndex, entryImages.length - 1)]}
+          index={Math.min(lightboxIndex, entryImages.length - 1)}
+          total={entryImages.length}
+          t={t}
+          onClose={() => setLightboxIndex(null)}
+          onPrev={lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
+          onNext={lightboxIndex < entryImages.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+        />
       )}
     </div>
   );

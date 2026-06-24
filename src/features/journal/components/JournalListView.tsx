@@ -70,9 +70,7 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
 
 export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, searchQuery, language = "en" }: JournalListViewProps) {
   const [filterTag, setFilterTag] = useState("");
-  const [filterFavorites, setFilterFavorites] = useState(false);
   const [filterImages, setFilterImages] = useState(false);
-  const [filterLocation, setFilterLocation] = useState(false);
   const [tagsCollapsed, setTagsCollapsed] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
 
@@ -102,7 +100,8 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     if (activeSection === "favorites") return entries.filter((e) => e.metadata.favorite);
     if (activeSection === "today") return entries.filter((e) => {
       const d = new Date(e.metadata.date);
-      return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() !== today.getFullYear();
+      // "On this day": same calendar day/month across all years (incl. current).
+      return d.getDate() === today.getDate() && d.getMonth() === today.getMonth();
     });
     return entries;
   }, [entries, activeSection]);
@@ -112,13 +111,11 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   const filtered = useMemo(() => {
     let result = searched;
     if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
-    if (filterFavorites) result = result.filter((e) => e.metadata.favorite);
     if (filterImages) result = result.filter((e) => entryHasImages(e));
-    if (filterLocation) result = result.filter((e) => !!e.metadata.location);
     return result;
-  }, [searched, filterTag, filterFavorites, filterImages, filterLocation]);
+  }, [searched, filterTag, filterImages]);
 
-  const hasActiveFilters = filterTag !== "" || filterFavorites || filterImages || filterLocation;
+  const hasActiveFilters = filterTag !== "" || filterImages;
 
   if (!journal) {
     return (
@@ -221,15 +218,6 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
             {tagsCollapsed ? `+${allTags.length} ${t["journal.tags"] || "tags"}` : `−`}
           </button>
         )}
-        <button type="button" onClick={() => setFilterFavorites(!filterFavorites)}
-          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
-          style={{
-            backgroundColor: filterFavorites ? tConfig.accentHex + "30" : "transparent",
-            color: filterFavorites ? "#ef4444" : tConfig.fgHex + "60",
-          }}>
-          <Heart size={11} fill={filterFavorites ? "#ef4444" : "none"} />
-          {t["journal.favorites"] || "Fav"}
-        </button>
         <button type="button" onClick={() => setFilterImages(!filterImages)}
           className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
           style={{
@@ -239,17 +227,8 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
           <ImageIcon size={11} />
           {t["journal.images"] || "Images"}
         </button>
-        <button type="button" onClick={() => setFilterLocation(!filterLocation)}
-          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
-          style={{
-            backgroundColor: filterLocation ? tConfig.accentHex + "30" : "transparent",
-            color: filterLocation ? tConfig.accentHex : tConfig.fgHex + "60",
-          }}>
-          <MapPin size={11} />
-          {t["journal.places"] || "Places"}
-        </button>
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setFilterTag(""); setFilterFavorites(false); setFilterImages(false); setFilterLocation(false); }}
+          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
             {t["journal.clear"] || "Clear"}
           </button>

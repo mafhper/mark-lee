@@ -1,15 +1,18 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { ThemeConfig } from "../../types";
 import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
 import { JournalEntryPanel } from "./components/JournalEntryPanel";
+import { JournalGalleryView } from "./components/JournalGalleryView";
+import { JournalAtlasMap } from "./components/JournalAtlasMap";
 import { ResizablePanel } from "./components/ResizablePanel";
 import { TemplatePickerDialog } from "./components/TemplatePickerDialog";
 import { TemplateManagerDialog } from "./components/TemplateManagerDialog";
 import { CreateJournalDialog } from "./components/CreateJournalDialog";
 import { AddExistingJournalDialog } from "./components/AddExistingJournalDialog";
 import { RemoveJournalDialog } from "./components/RemoveJournalDialog";
+import { CustomizeJournalDialog } from "./components/CustomizeJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
 import { createEntry, deleteEntry, duplicateEntry, readEntry } from "./domain/entry-service";
@@ -27,9 +30,10 @@ interface JournalWorkspaceProps {
   sidebarEnabled?: boolean;
   onOpenFile?: (path: string) => void;
   journalDataDir?: string;
+  readOnly?: boolean;
 }
 
-function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journals, activeJournal, selectJournal, addToLib, removeFromLib, reload, journalDataDir }: JournalWorkspaceProps & {
+function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journals, activeJournal, selectJournal, addToLib, removeFromLib, reload, journalDataDir, readOnly }: JournalWorkspaceProps & {
   journals: JournalDescriptor[];
   activeJournal: JournalDescriptor | null;
   selectJournal: (id: string | null) => void;
@@ -43,15 +47,22 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<JournalDescriptor | null>(null);
+  const [customizeId, setCustomizeId] = useState<string | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [showWorldMap, setShowWorldMap] = useState(false);
   const sidebarWidthRef = useRef(240);
   const handleSidebarWidthChange = useCallback((w: number) => { sidebarWidthRef.current = w; }, []);
 
   const activeEntry = sessionState.activeEntryId
     ? sessionState.entries.find((e) => e.metadata.id === sessionState.activeEntryId) ?? null
     : null;
+
+  // The world map only belongs to the Lugares view; hide it elsewhere.
+  useEffect(() => {
+    if (activeView !== "map") setShowWorldMap(false);
+  }, [activeView]);
 
   const handleRelocate = async (journalId: string) => {
     const selected = await openFileDialog({ directory: true, multiple: false });
@@ -116,6 +127,14 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
 
   const handleSelectEntry = useCallback((entry: EntryRecord) => {
     dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
+    setShowWorldMap(false); // selecting an entry shows it in the canvas
+  }, [dispatch]);
+
+  // Selecting an entry from a full-canvas view (calendar/gallery/map) returns to
+  // the entry surface so the reader/editor takes over the canvas.
+  const handleSelectEntryFromView = useCallback((entry: EntryRecord) => {
+    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
+    setActiveView("list");
   }, [dispatch]);
 
   const handleCreateEntryForDate = useCallback(async (date: Date) => {
@@ -140,6 +159,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onNewEntry={handleNewEntry}
             onRelocateJournal={handleRelocate}
             onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
+            onCustomizeJournal={(id) => setCustomizeId(id)}
             loading={sessionState.loading}
             collapsed={true} onToggleCollapse={() => setNavCollapsed(false)}
           />
@@ -157,6 +177,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onNewEntry={handleNewEntry}
               onRelocateJournal={handleRelocate}
               onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
+            onCustomizeJournal={(id) => setCustomizeId(id)}
               loading={sessionState.loading}
               collapsed={false} onToggleCollapse={() => setNavCollapsed(true)}
             />
@@ -177,24 +198,37 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onNewEntry={handleNewEntry}
               onManageTemplates={() => setShowTemplateManager(true)}
               language={language}
+              worldMapActive={showWorldMap}
+              onToggleWorldMap={() => setShowWorldMap((v) => !v)}
             />
           </div>
         </ResizablePanel>
       )}
 
       <div className="flex-1 min-w-0 h-full flex flex-col">
-        <JournalEntryPanel
-          t={t} tConfig={tConfig} journal={activeJournal} entry={activeEntry}
-          viewMode={viewMode}
-          onEntryUpdated={handleEntryUpdated}
-          onOpenInEditor={onOpenFile}
-          onDeleteEntry={handleDeleteEntry}
-          onDuplicateEntry={handleDuplicateEntry}
-          onReloadEntry={handleReloadEntry}
-          onNewEntry={handleNewEntry}
-          language={language}
-          hasEntries={sessionState.entries.length > 0}
-        />
+        {activeView === "gallery" ? (
+          <div className="flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
+            <JournalGalleryView t={t} tConfig={tConfig} journal={activeJournal}
+              entries={sessionState.entries} onSelectEntry={handleSelectEntryFromView} />
+          </div>
+        ) : activeView === "map" && showWorldMap ? (
+          <div className="flex-1 min-h-0">
+            <JournalAtlasMap entries={sessionState.entries} tConfig={tConfig} onSelectEntry={handleSelectEntry} />
+          </div>
+        ) : (
+          <JournalEntryPanel
+            t={t} tConfig={tConfig} journal={activeJournal} entry={activeEntry}
+            viewMode={viewMode} readOnly={readOnly}
+            onEntryUpdated={handleEntryUpdated}
+            onOpenInEditor={onOpenFile}
+            onDeleteEntry={handleDeleteEntry}
+            onDuplicateEntry={handleDuplicateEntry}
+            onReloadEntry={handleReloadEntry}
+            onNewEntry={handleNewEntry}
+            language={language}
+            hasEntries={sessionState.entries.length > 0}
+          />
+        )}
       </div>
 
       <CreateJournalDialog open={showCreateDialog} t={t} tConfig={tConfig} defaultLanguage={language}
@@ -204,9 +238,14 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
       <RemoveJournalDialog open={removeTarget !== null}
         journalName={removeTarget?.name ?? ""} journalPath={removeTarget?.rootPath ?? ""}
         tConfig={tConfig} onClose={() => setRemoveTarget(null)} onConfirm={handleRemoveConfirm} />
-      <TemplatePickerDialog open={showTemplatePicker}
+      <CustomizeJournalDialog open={customizeId !== null} t={t} tConfig={tConfig}
+        journal={journals.find((j) => j.id === customizeId) ?? null}
+        onClose={() => setCustomizeId(null)}
+        onSaved={reload} />
+      <TemplatePickerDialog open={showTemplatePicker} t={t}
         tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
-        onClose={() => setShowTemplatePicker(false)} onSelect={handleCreateFromTemplate} />
+        onClose={() => setShowTemplatePicker(false)} onSelect={handleCreateFromTemplate}
+        onManageTemplates={() => setShowTemplateManager(true)} />
       <TemplateManagerDialog open={showTemplateManager}
         tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
         onClose={() => setShowTemplateManager(false)} />

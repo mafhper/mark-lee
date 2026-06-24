@@ -71,6 +71,16 @@ export async function createDirectoryTree(path: string): Promise<void> {
   await invoke("create_directory_tree", { path });
 }
 
+/**
+ * Idempotent directory-tree creation. Succeeds if the directory already exists,
+ * creates the full tree when missing, and rejects only on real failures (path is
+ * a file, permission denied). Safe to call repeatedly for nested asset folders.
+ */
+export async function ensureDirectoryTree(path: string): Promise<void> {
+  requireTauri("Ensure directory tree");
+  await invoke("ensure_directory_tree", { path });
+}
+
 export async function renameWorkspacePath(oldPath: string, newPath: string): Promise<void> {
   requireTauri("Rename workspace path");
   await invoke("rename_workspace_path", { oldPath, newPath });
