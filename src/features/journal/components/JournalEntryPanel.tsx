@@ -34,7 +34,8 @@ import { EditorView } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
 import { activeDocPathRef } from "../../editor/active-editor";
-import { setActiveTarget, registerFlushHandler } from "../../editor/active-target";
+import { setActiveTarget, registerFlushHandler, setEntryTrackerAdjuster } from "../../editor/active-target";
+import { resolveEntryAssetPath } from "../domain/export-paths";
 import { formatMarkdown, minifyMarkdown } from "../../../services/markdown-processor";
 
 interface JournalEntryPanelProps {
@@ -65,12 +66,12 @@ function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label
   );
 }
 
-function MetaChip({ icon, label, active, open, tConfig, onClick }: {
-  icon: React.ReactNode; label: string; active?: boolean; open?: boolean; tConfig: ThemeConfig; onClick: () => void;
+function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
+  icon: React.ReactNode; label: string; active?: boolean; open?: boolean; tConfig: ThemeConfig; onClick: () => void; disabled?: boolean;
 }) {
   return (
-    <button type="button" onClick={onClick} aria-expanded={open}
-      className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors"
+    <button type="button" onClick={onClick} aria-expanded={open} disabled={disabled}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       style={{
         backgroundColor: open ? tConfig.accentHex + "22" : active ? tConfig.accentHex + "14" : tConfig.uiHex,
         color: active || open ? tConfig.accentHex : tConfig.fgHex + "75",
@@ -115,19 +116,44 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const editorViewRef = useRef<EditorView | null>(null);
   // Latest handlers exposed to the global toolbar target. Kept in a ref so the
   // registered target always calls current closures, never a stale render's.
-  const targetHandlersRef = useRef<{ format: () => void; minify: () => void; doExport: () => void; find: () => void }>({
+  const targetHandlersRef = useRef<{
+    format: () => void; minify: () => void; doExport: () => void; find: () => void;
+    adjustTracker: (entryId: string, trackerId: string, delta: number) => boolean;
+  }>({
     format: () => {},
     minify: () => {},
     doExport: () => {},
     find: () => {},
+    adjustTracker: () => false,
   });
 
   interface PendingSave {
     rec: EntryRecord; t: string; b: string; tg: string[]; fav: boolean; m: string;
     tr: Record<string, string | number | boolean | null>;
     loc: ReturnType<typeof buildLocation>;
+    /** Root-relative cover path; part of the draft so concurrent edits keep it. */
+    cover: string | undefined;
+    /** Monotonic draft revision; only the latest may mark the doc clean. */
+    revision: number;
+    /** Set once this exact snapshot has been persisted, so the serial queue never writes it twice. */
+    saved?: boolean;
   }
   const pendingSaveRef = useRef<PendingSave | null>(null);
+  // The cover lives in the draft (a ref, since it isn't edited through a field) so
+  // every snapshot — autosave, tracker adjust, cover set/remove — carries the
+  // current cover and a typed edit can never silently drop a just-set cover.
+  const coverRelRef = useRef<string | undefined>(undefined);
+  // Latest tracker values, so the Pins +/- delegate can compound rapid clicks off
+  // the freshest value instead of a stale render closure.
+  const trackerValuesRef = useRef(trackerValues);
+  trackerValuesRef.current = trackerValues;
+  // Serial save chain: every save is appended so writes for one entry can never
+  // interleave or finish out of order (which would trip artificial mtime
+  // conflicts or let a stale write win).
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // Highest revision handed to scheduleSave/currentSnapshot. A save may only set
+  // saveState to "clean" when its snapshot is still the latest revision.
+  const draftRevisionRef = useRef(0);
 
   const journalName = journal?.name ?? (t["journal.noJournalTitle"] || "No journal open");
   const showEntry = entry !== null && journal !== null;
@@ -136,16 +162,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   // images), as filesystem paths for the lightbox. Reflects live edits to body.
   const entryImages = useMemo(() => {
     if (!entry) return [] as string[];
-    const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
     const imgs: string[] = [];
-    if (entry.metadata.cover) imgs.push(`${dir}/${entry.metadata.cover}`);
+    if (entry.metadata.cover) {
+      const cover = resolveEntryAssetPath(entry.path, entry.metadata.cover);
+      if (cover) imgs.push(cover);
+    }
     const re = /!\[.*?\]\((.+?)\)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(body)) !== null) {
-      const rel = m[1];
-      if (/^(https?:\/|data:)/.test(rel)) continue;
-      const full = `${dir}/${rel}`;
-      if (!imgs.includes(full)) imgs.push(full);
+      // resolveEntryAssetPath rejects external (http/data), absolute and `..` refs,
+      // so the lightbox/load_image only ever sees files inside this entry's folder.
+      const full = resolveEntryAssetPath(entry.path, m[1]);
+      if (full && !imgs.includes(full)) imgs.push(full);
     }
     return imgs;
   }, [entry?.path, entry?.metadata.cover, body]);
@@ -181,33 +209,51 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     };
   };
 
-  const doSave = useCallback(async (snap: PendingSave, force = false) => {
-    const updated = {
-      ...snap.rec.metadata,
-      title: snap.t,
-      tags: snap.tg,
-      favorite: snap.fav,
-      mood: snap.m || undefined,
-      trackers: snap.tr ?? snap.rec.metadata.trackers,
-      location: snap.loc,
-    };
-    setSaveState("saving");
-    try {
-      await saveEntry(snap.rec.path, updated, snap.b, force);
-      // Clear the pending snapshot only on success, and only if a newer edit
-      // hasn't replaced it mid-flight — so Retry/flush always have a snapshot.
-      if (pendingSaveRef.current === snap) pendingSaveRef.current = null;
-      setSaveState("clean");
-      const wordCount = snap.b.trim() ? snap.b.trim().split(/\s+/).length : 0;
-      onEntryUpdated({ path: snap.rec.path, metadata: updated, body: snap.b, wordCount });
-    } catch (e) {
-      // Keep pendingSaveRef intact so the error banner's Retry can re-send it.
-      if ((e as ConflictError).name === "ConflictError") {
-        setSaveState("conflict");
-      } else {
-        setSaveState("error");
+  // Persist one snapshot. Appended to a serial queue so writes never overlap, and
+  // returns whether the write succeeded so flush callers (e.g. window close) know
+  // if anything was lost. Resolves to `true` on success, `false` on failure.
+  const doSave = useCallback((snap: PendingSave, force = false): Promise<boolean> => {
+    const run = async (): Promise<boolean> => {
+      // Idempotency: a flush issued while this snapshot is already in-flight (or
+      // done) must not write it a second time.
+      if (snap.saved) return true;
+      const updated = {
+        ...snap.rec.metadata,
+        title: snap.t,
+        tags: snap.tg,
+        favorite: snap.fav,
+        mood: snap.m || undefined,
+        trackers: snap.tr ?? snap.rec.metadata.trackers,
+        location: snap.loc,
+        cover: snap.cover,
+      };
+      setSaveState("saving");
+      try {
+        await saveEntry(snap.rec.path, updated, snap.b, force);
+        snap.saved = true;
+        // Clear the pending snapshot only on success, and only if a newer edit
+        // hasn't replaced it mid-flight — so Retry/flush always have a snapshot.
+        if (pendingSaveRef.current === snap) pendingSaveRef.current = null;
+        // Only the most recent revision may declare the document clean; if the
+        // user kept typing while this save ran, a newer save is still pending.
+        if (snap.revision === draftRevisionRef.current) setSaveState("clean");
+        const wordCount = snap.b.trim() ? snap.b.trim().split(/\s+/).length : 0;
+        onEntryUpdated({ path: snap.rec.path, metadata: updated, body: snap.b, wordCount });
+        return true;
+      } catch (e) {
+        // Keep pendingSaveRef intact so the error banner's Retry can re-send it.
+        if ((e as ConflictError).name === "ConflictError") {
+          setSaveState("conflict");
+        } else {
+          setSaveState("error");
+        }
+        return false;
       }
-    }
+    };
+    const queued = saveQueueRef.current.then(run, run);
+    // Keep the chain alive regardless of this save's outcome (run never rejects).
+    saveQueueRef.current = queued.then(() => {}, () => {});
+    return queued;
   }, [onEntryUpdated]);
 
   const scheduleSave = useCallback((
@@ -215,7 +261,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     tr: Record<string, string | number | boolean | null>,
     loc: ReturnType<typeof buildLocation>,
   ) => {
-    const snap: PendingSave = { rec, t, b, tg, fav, m, tr, loc };
+    const snap: PendingSave = { rec, t, b, tg, fav, m, tr, loc, cover: coverRelRef.current, revision: ++draftRevisionRef.current };
     pendingSaveRef.current = snap;
     setSaveState("dirty");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -226,18 +272,26 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     }, 2000);
   }, [doSave]);
 
-  const flushPendingSave = useCallback(async () => {
+  const flushPendingSave = useCallback(async (): Promise<boolean> => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     const ps = pendingSaveRef.current;
-    if (ps) await doSave(ps);
+    if (ps) return doSave(ps);
+    // Nothing queued by us; still wait for any in-flight save to settle so the
+    // caller can trust the disk is current.
+    await saveQueueRef.current;
+    return true;
   }, [doSave]);
 
   const currentSnapshot = (): PendingSave | null => {
     if (!entry || !journal) return null;
-    return { rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood, tr: trackerValues, loc: buildLocation() };
+    return {
+      rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood,
+      tr: trackerValues, loc: buildLocation(), cover: coverRelRef.current,
+      revision: ++draftRevisionRef.current,
+    };
   };
 
   useEffect(() => {
@@ -246,6 +300,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       if (cancelled || !entry) return;
       setTitle(entry.metadata.title);
       setBody(entry.body);
+      coverRelRef.current = entry.metadata.cover;
       activeDocPathRef.current = entry.path;
       setTags(entry.metadata.tags ?? []);
       setFavorite(entry.metadata.favorite ?? false);
@@ -281,8 +336,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     };
   }, [entry?.metadata.id, entry?.path, flushPendingSave]);
 
-  const handleTitleChange = (value: string) => { setTitle(value); if (entry && journal) scheduleSave(entry, value, body, tags, favorite, mood, trackerValues, buildLocation()); };
-  const handleBodyChange = (value: string) => { setBody(value); if (entry && journal) scheduleSave(entry, title, value, tags, favorite, mood, trackerValues, buildLocation()); };
+  const handleTitleChange = (value: string) => { if (readOnly) return; setTitle(value); if (entry && journal) scheduleSave(entry, value, body, tags, favorite, mood, trackerValues, buildLocation()); };
+  const handleBodyChange = (value: string) => { if (readOnly) return; setBody(value); if (entry && journal) scheduleSave(entry, title, value, tags, favorite, mood, trackerValues, buildLocation()); };
 
   // Format/minify the entry body through the shared Markdown processor. Driven by
   // the global toolbar (and Ctrl-based commands) when a journal entry is active.
@@ -299,6 +354,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   };
 
   const handleAddTag = () => {
+    if (readOnly) return;
     const newTag = tagInput.trim();
     if (!newTag || tags.includes(newTag)) { setTagInput(""); return; }
     const next = [...tags, newTag];
@@ -308,18 +364,21 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   };
 
   const handleRemoveTag = (tag: string) => {
+    if (readOnly) return;
     const next = tags.filter((t) => t !== tag);
     setTags(next);
     if (entry && journal) scheduleSave(entry, title, body, next, favorite, mood, trackerValues, buildLocation());
   };
 
   const handleToggleFavorite = () => {
+    if (readOnly) return;
     const next = !favorite;
     setFavorite(next);
     if (entry && journal) scheduleSave(entry, title, body, tags, next, mood, trackerValues, buildLocation());
   };
 
   const handleSelectMood = (key: string) => {
+    if (readOnly) return;
     const next = mood === key ? "" : key;
     setMood(next);
     setOpenPopover(null);
@@ -331,6 +390,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     field: "label" | "lat" | "lng" | "city" | "state" | "country" | "attraction",
     value: string,
   ) => {
+    if (readOnly) return;
     const current = {
       label: locationLabel, lat: locationLat, lng: locationLng,
       city: locationCity, state: locationState, country: locationCountry, attraction: locationAttraction,
@@ -360,6 +420,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   }, [journal?.rootPath]);
 
   const handleTrackerChange = (id: string, value: string | number | boolean | null) => {
+    if (readOnly) return;
     const next = { ...trackerValues, [id]: value };
     if (value === null || value === "" || value === undefined) delete next[id];
     setTrackerValues(next);
@@ -368,16 +429,30 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   useEffect(() => {
     if (entry?.metadata.cover) {
-      const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-      loadImage(dir + "/" + entry.metadata.cover).then(setCoverUrl).catch(() => setCoverUrl(null));
+      const resolved = resolveEntryAssetPath(entry.path, entry.metadata.cover);
+      if (resolved) loadImage(resolved).then(setCoverUrl).catch(() => setCoverUrl(null));
+      else setCoverUrl(null);
     } else {
       setCoverUrl(null);
     }
   }, [entry?.metadata.cover, entry?.path]);
 
-  const handleSetCover = async () => {
-    if (!entry || !journal) return;
+  // Persist a cover change together with the *current* draft, through the same
+  // serial queue as autosave. The cover goes into the draft ref first, so it is
+  // carried by both the flushed pending edit and any edit typed afterwards —
+  // neither the new cover nor a just-typed title/mood can revert the other.
+  const persistCover = async (cover: string | undefined) => {
+    coverRelRef.current = cover;
     await flushPendingSave();
+    const snap = currentSnapshot();
+    if (!snap) return false;
+    pendingSaveRef.current = snap;
+    setCoverUrl(null);
+    return doSave(snap, true);
+  };
+
+  const handleSetCover = async () => {
+    if (!entry || !journal || readOnly) return;
     const selected = await openFileDialog({
       multiple: false,
       filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
@@ -386,23 +461,19 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     if (!imgPath) return;
     try {
       const relative = await copyImageToDocumentDir(imgPath, entry.path);
-      const updated = { ...entry.metadata, cover: relative };
-      await saveEntry(entry.path, updated, body, true);
-      setCoverUrl(null);
-      const wc = body.trim() ? body.trim().split(/\s+/).length : 0;
-      onEntryUpdated({ path: entry.path, metadata: updated, body, wordCount: wc });
+      await persistCover(relative);
     } catch (e) {
       console.error("Failed to set cover:", e);
     }
   };
 
   const handleRemoveCover = async () => {
-    if (!entry) return;
-    const updated = { ...entry.metadata, cover: undefined };
-    await saveEntry(entry.path, updated, body, true);
-    setCoverUrl(null);
-    const wc = body.trim() ? body.trim().split(/\s+/).length : 0;
-    onEntryUpdated({ path: entry.path, metadata: updated, body, wordCount: wc });
+    if (!entry || readOnly) return;
+    try {
+      await persistCover(undefined);
+    } catch (e) {
+      console.error("Failed to remove cover:", e);
+    }
   };
 
   const handleExportEntry = async () => {
@@ -439,10 +510,45 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     minify: () => applyBodyTransform("minify"),
     doExport: () => { void handleExportEntry(); },
     find: () => { const view = editorViewRef.current; if (view) { view.focus(); openSearchPanel(view); } },
+    // Pins +/- on the *open* entry: mutate the live draft and persist immediately
+    // through the serial queue, so a later autosave can't revert the adjustment
+    // and this can't clobber unsaved text. Returns false when a different entry
+    // (or none) is open, so the caller falls back to a direct disk write.
+    adjustTracker: (entryId, trackerId, delta) => {
+      if (!entry || !journal || entry.metadata.id !== entryId) return false;
+      // During the break lock, swallow the adjust (claim it handled) so the
+      // sidebar's disk-write fallback doesn't bypass the lock either.
+      if (readOnly) return true;
+      const curRaw = trackerValuesRef.current[trackerId];
+      const cur = typeof curRaw === "number" ? curRaw : 0;
+      const nextVal = Math.max(0, Math.round((cur + delta) * 100) / 100);
+      const nextTrackers = { ...trackerValuesRef.current, [trackerId]: nextVal };
+      trackerValuesRef.current = nextTrackers; // compound rapid clicks before re-render
+      setTrackerValues(nextTrackers);
+      const snap: PendingSave = {
+        rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood,
+        tr: nextTrackers, loc: buildLocation(), cover: coverRelRef.current,
+        revision: ++draftRevisionRef.current,
+      };
+      pendingSaveRef.current = snap;
+      void doSave(snap, true);
+      return true;
+    },
   };
 
   // Register a pending-save flusher so the window-close handler (App) can await it.
   useEffect(() => registerFlushHandler(flushPendingSave), [flushPendingSave]);
+
+  // Expose a tracker adjuster so the sidebar Pins route through this draft when
+  // this entry is the active one. Stable wrapper; always calls the latest closure.
+  useEffect(() => {
+    setEntryTrackerAdjuster((entryId, trackerId, delta) =>
+      targetHandlersRef.current.adjustTracker(entryId, trackerId, delta));
+    return () => setEntryTrackerAdjuster(null);
+  }, []);
+
+  // Collapse any open metadata editor as soon as the break lock engages.
+  useEffect(() => { if (readOnly) setOpenPopover(null); }, [readOnly]);
 
   // Close the active metadata popover when clicking outside the chip row.
   useEffect(() => {
@@ -485,9 +591,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               <Image size={11} /> {entryImages.length} {t["journal.photos"] || "photos"}
             </button>
           )}
-          <button type="button" onClick={handleRemoveCover}
-            className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
-            title={t["journal.clear"] || "Remove"}><X size={12} /></button>
+          {!readOnly && (
+            <button type="button" onClick={handleRemoveCover}
+              className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
+              title={t["journal.clear"] || "Remove"}><X size={12} /></button>
+          )}
         </div>
       )}
       {viewMode === "preview" && showEntry ? (
@@ -508,7 +616,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </p>
               {showEntry ? (
                 <input
-                  type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)}
+                  type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} readOnly={readOnly}
                   className="w-full text-2xl font-bold tracking-tight bg-transparent border-none outline-none"
                   style={{ color: tConfig.fgHex }} placeholder={t["journal.blankEntry"] || "Untitled"}
                 />
@@ -522,8 +630,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             </div>
             {showEntry && (
               <div className="flex items-center gap-1 shrink-0 ml-2">
-                <button type="button" onClick={handleToggleFavorite}
-                  className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70"
+                <button type="button" onClick={handleToggleFavorite} disabled={readOnly}
+                  className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={favorite
                     ? (t["journal.favorites"] || "Remove from favorites")
                     : (t["journal.favorites"] || "Add to favorites")}>
@@ -544,7 +652,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                   {showMoreMenu && (
                     <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border shadow-lg py-1"
                       style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-                      <DropdownItem icon={Image} label={coverUrl ? (t["journal.changeCover"] || "Change cover") : (t["journal.cover"] || "Cover")} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
+                      {!readOnly && (
+                        <DropdownItem icon={Image} label={coverUrl ? (t["journal.changeCover"] || "Change cover") : (t["journal.cover"] || "Cover")} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
+                      )}
                       {journal && (
                         <>
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
@@ -563,7 +673,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                       {onOpenInEditor && (
                         <DropdownItem icon={ExternalLink} label={t["journal.editor"] || "Open in Editor"} onClick={() => { onOpenInEditor(entry.path); setShowMoreMenu(false); }} />
                       )}
-                      {onDeleteEntry && (
+                      {onDeleteEntry && !readOnly && (
                         <>
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
                           <DropdownItem icon={Trash2} label={t["journal.delete"] || "Delete"} danger onClick={() => { setConfirmDelete(true); setShowMoreMenu(false); }} />
@@ -600,20 +710,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             {showEntry ? (
               <>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <MetaChip tConfig={tConfig} icon={<Tag size={11} />} active={tags.length > 0} open={openPopover === "tags"}
+                  <MetaChip tConfig={tConfig} icon={<Tag size={11} />} active={tags.length > 0} open={openPopover === "tags"} disabled={readOnly}
                     label={tags.length ? tags.slice(0, 2).join(", ") + (tags.length > 2 ? ` +${tags.length - 2}` : "") : (t["journal.tags"] || "Tags")}
                     onClick={() => setOpenPopover(openPopover === "tags" ? null : "tags")} />
-                  <MetaChip tConfig={tConfig}
+                  <MetaChip tConfig={tConfig} disabled={readOnly}
                     icon={mood ? <span className="text-sm leading-none">{MOODS.find((m) => m.key === mood)?.emoji}</span> : <SmilePlus size={11} />}
                     active={!!mood} open={openPopover === "mood"}
                     label={mood ? (t["mood." + mood] || mood) : (t["journal.mood"] || "Mood")}
                     onClick={() => setOpenPopover(openPopover === "mood" ? null : "mood")} />
-                  <MetaChip tConfig={tConfig} icon={<MapPin size={11} />}
+                  <MetaChip tConfig={tConfig} icon={<MapPin size={11} />} disabled={readOnly}
                     active={!!(locationLabel || locationCity || locationCountry)} open={openPopover === "location"}
                     label={locationLabel || [locationCity, locationCountry].filter(Boolean).join(", ") || (t["journal.places"] || "Location")}
                     onClick={() => setOpenPopover(openPopover === "location" ? null : "location")} />
                   {trackerDefs.length > 0 && (
-                    <MetaChip tConfig={tConfig} icon={<Activity size={11} />}
+                    <MetaChip tConfig={tConfig} icon={<Activity size={11} />} disabled={readOnly}
                       active={trackerDefs.some((d) => { const v = trackerValues[d.id]; return v !== undefined && v !== null && v !== ""; })}
                       open={openPopover === "trackers"}
                       label={`${trackerDefs.length} ${t["journal.trackers"] || "Trackers"}`}

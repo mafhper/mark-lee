@@ -10,7 +10,7 @@ interface AddExistingJournalDialogProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   onClose: () => void;
-  onAdded: (journal: JournalDescriptor) => void;
+  onAdded: (journal: JournalDescriptor) => void | Promise<void>;
 }
 
 function folderName(path: string): string {
@@ -24,10 +24,11 @@ export function AddExistingJournalDialog({ open, t, tConfig, onClose, onAdded }:
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [repairName, setRepairName] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   if (!open) return null;
 
-  const reset = () => { setFolderPath(""); setCheckResult(null); setRepairName(""); };
+  const reset = () => { setFolderPath(""); setCheckResult(null); setRepairName(""); setAddError(null); };
   const close = () => { reset(); onClose(); };
 
   const handlePickFolder = async () => {
@@ -46,9 +47,17 @@ export function AddExistingJournalDialog({ open, t, tConfig, onClose, onAdded }:
     if (!checkResult?.manifest) return;
     const m = checkResult.manifest;
     setBusy(true);
-    onAdded({ id: m.id, name: m.name, rootPath: folderPath, description: m.description, schemaVersion: m.schemaVersion, createdAt: m.createdAt });
-    setBusy(false);
-    close();
+    setAddError(null);
+    try {
+      // Awaited so a failed duplicate-id rewrite (DuplicateIdRewriteError) keeps
+      // the dialog open with an explanation instead of silently doing nothing.
+      await onAdded({ id: m.id, name: m.name, rootPath: folderPath, description: m.description, schemaVersion: m.schemaVersion, createdAt: m.createdAt });
+      close();
+    } catch {
+      setAddError(t["journal.addCopyFailed"] || "This notebook looks like a copy of one already in your library, and its identity couldn't be updated on disk. Check the folder's write permissions and try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRecreate = async () => {
@@ -114,6 +123,14 @@ export function AddExistingJournalDialog({ open, t, tConfig, onClose, onAdded }:
                 <p className="font-semibold mt-1">{checkResult.manifest.name}</p>
                 {checkResult.manifest.description && <p className="text-xs mt-0.5 opacity-80">{checkResult.manifest.description}</p>}
               </div>
+            </div>
+          )}
+
+          {addError && (
+            <div className="flex items-start gap-3 p-3 rounded border text-sm"
+              style={{ borderColor: "#fca5a5", backgroundColor: "#fef2f2", color: "#991b1b" }}>
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <p className="text-xs">{addError}</p>
             </div>
           )}
 

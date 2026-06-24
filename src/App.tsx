@@ -93,6 +93,7 @@ import { checkManifest } from "./features/journal/domain/manifest-service";
 import { addJournal } from "./features/journal/domain/library-service";
 import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { DoorOpen, Link2, Unlink2, Lock } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
@@ -610,6 +611,10 @@ function App() {
     isTauriRuntime() ||
     (typeof window !== "undefined" && Boolean((window as { DEBUG_SHOW_TITLEBAR?: boolean }).DEBUG_SHOW_TITLEBAR));
   const t = TRANSLATIONS[settings.language] ?? TRANSLATIONS["en-US"];
+  // Latest translations exposed to effects that register once (e.g. the
+  // window-close handler) and therefore can't close over `t` directly.
+  const tRef = useRef(t);
+  tRef.current = t;
   const activeShellTheme = useMemo(
     () => settings.themeLibrary.find((theme) => theme.id === settings.theme) ?? settings.themeLibrary[0],
     [settings.theme, settings.themeLibrary]
@@ -896,10 +901,32 @@ function App() {
         unlisten = await appWindow.onCloseRequested(async (event) => {
           if (allowClose) return; // second pass: let the close proceed
           event.preventDefault();
+          let failures = 0;
           try {
-            await flushAllPending();
+            ({ failures } = await flushAllPending());
           } catch {
-            /* never block shutdown on a flush failure */
+            failures = 1; // an unexpected flush error means work may be unsaved
+          }
+          if (failures > 0) {
+            // Some autosaves could not be persisted. Don't claim "edits are never
+            // lost on exit" and quit anyway — ask first; if the dialog can't be
+            // shown, keep the window open so the in-app error banner stays visible.
+            const tr = tRef.current;
+            let quitAnyway = false;
+            try {
+              quitAnyway = await ask(
+                tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
+                {
+                  title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
+                  kind: "warning",
+                  okLabel: tr["journal.quitAnyway"] || "Quit anyway",
+                  cancelLabel: tr["journal.cancel"] || "Cancel",
+                },
+              );
+            } catch {
+              quitAnyway = false;
+            }
+            if (!quitAnyway) return; // abort the close; nothing is destroyed
           }
           allowClose = true;
           // destroy() is clean (no re-fire); if it's ever unavailable, fall back
@@ -1653,7 +1680,7 @@ function App() {
       openFolder: handleOpenFolder,
       saveFile: (forceSaveAs: boolean) => {
         const target = getActiveTarget();
-        if (target?.kind === "journal-entry") return target.save();
+        if (target?.kind === "journal-entry") { void target.save(); return; }
         if (settingsRef.current.appMode === "journal") return;
         if (activeTab) return saveTab(activeTab, forceSaveAs);
       },

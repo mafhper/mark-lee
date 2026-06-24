@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Timer, Play, Pause, RotateCcw, Settings, X, GripHorizontal, Check, Coffee, Lock } from "lucide-react";
+import { Timer, Play, Pause, RotateCcw, Settings, X, GripHorizontal, Check, Coffee, Lock, Minus } from "lucide-react";
 import type { ThemeConfig } from "../types";
 
 interface PomodoroTimerProps {
@@ -53,13 +53,19 @@ export function PomodoroTimer({ tConfig, activated, onActivate, onLockedChange, 
   const [workCount, setWorkCount] = useState(0);
   const [breakCount, setBreakCount] = useState(0);
   const [justCompleted, setJustCompleted] = useState(false);
-  const [sound, setSound] = useState(prefs0.sound ?? true);
+  const [sound, setSound] = useState(prefs0.sound ?? false);
   const [animation, setAnimation] = useState(prefs0.animation ?? true);
   const [autoBreak, setAutoBreak] = useState(prefs0.autoBreak ?? true);
   const [lockMode, setLockMode] = useState(prefs0.lockMode ?? false);
   const [pos, setPos] = useState({ x: -999, y: 0 });
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest remaining, read when the countdown (re)starts without re-arming on
+  // every tick; plus an epoch that forces a fresh deadline when the phase advances
+  // while still running.
+  const remainingRef = useRef(remaining);
+  remainingRef.current = remaining;
+  const [runEpoch, setRunEpoch] = useState(0);
 
   const tr = (k: string, fallback: string) => t?.[k] || fallback;
 
@@ -76,12 +82,22 @@ export function PomodoroTimer({ tConfig, activated, onActivate, onLockedChange, 
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }, []);
 
+  // Count down to an absolute deadline rather than subtracting one per interval
+  // tick: setInterval is throttled/paused while the app is backgrounded or the
+  // machine sleeps, so a per-tick decrement drifts. Re-deriving from Date.now()
+  // keeps the displayed time correct across those gaps.
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => setRemaining((r) => (r > 0 ? r - 1 : 0)), 1000);
-    } else clearTimer();
+    if (!running) { clearTimer(); return; }
+    const end = Date.now() + remainingRef.current * 1000;
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      setRemaining(next);
+      if (next <= 0) clearTimer();
+    };
+    tick();
+    intervalRef.current = setInterval(tick, 250);
     return clearTimer;
-  }, [running, clearTimer]);
+  }, [running, runEpoch, clearTimer]);
 
   const beep = useCallback(() => {
     try {
@@ -108,6 +124,9 @@ export function PomodoroTimer({ tConfig, activated, onActivate, onLockedChange, 
       setPhase("work"); setRemaining(workTime);
     }
     setRunning(autoBreak);
+    // Phase changed while (possibly) still running — re-derive the deadline from
+    // the new remaining instead of keeping the elapsed one.
+    setRunEpoch((e) => e + 1);
   }, [remaining, running, phase, breakTime, workTime, beep, sound, animation, autoBreak]);
 
   useEffect(() => {
@@ -152,7 +171,9 @@ export function PomodoroTimer({ tConfig, activated, onActivate, onLockedChange, 
     document.addEventListener("pointerup", handleUp);
   };
 
-  const showCompact = running && viewMode !== "compact";
+  // Compact is a distinct minimized mode, mutually exclusive with the popover —
+  // so the pill and the popover can never show at the same time.
+  const showCompact = viewMode === "compact";
 
   return (
     <>
@@ -174,10 +195,18 @@ export function PomodoroTimer({ tConfig, activated, onActivate, onLockedChange, 
               {locked && <Lock size={9} />}
               {phase === "work" ? tr("pomodoro.focus", "Focus") : tr("pomodoro.break", "Break")}
             </span>
-            <button type="button" onClick={() => { onActivate(false); setViewMode("hidden"); }}
-              className="hover:opacity-60" style={{ color: tConfig.fgHex + "40" }}>
-              <X size={11} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => setViewMode("compact")}
+                className="hover:opacity-60" style={{ color: tConfig.fgHex + "40" }}
+                title={tr("pomodoro.minimize", "Minimize")}>
+                <Minus size={12} />
+              </button>
+              <button type="button" onClick={() => { onActivate(false); setViewMode("hidden"); }}
+                className="hover:opacity-60" style={{ color: tConfig.fgHex + "40" }}
+                title={tr("pomodoro.close", "Close")}>
+                <X size={11} />
+              </button>
+            </div>
           </div>
 
           {showSettings ? (

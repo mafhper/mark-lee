@@ -4,6 +4,7 @@ import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { loadImage } from "../../../services/filesystem";
+import { resolveEntryAssetPath } from "../domain/export-paths";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalLightbox } from "./JournalLightbox";
 
@@ -58,16 +59,15 @@ export function JournalGalleryView({ t, tConfig, journal, entries, onSelectEntry
       const re = /!\[.*?\]\((.+?)\)/g;
       let m: RegExpExecArray | null;
       while ((m = re.exec(entry.body)) !== null) {
-        const rel = m[1];
-        if (!/^(https?:\/|data:)/.test(rel)) {
-          const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-          result.push({ entry, src: dir + "/" + rel });
-        }
+        // Constrain every gallery/lightbox source to the entry's own folder;
+        // external/absolute/`..` refs resolve to null and are skipped.
+        const src = resolveEntryAssetPath(entry.path, m[1]);
+        if (src) result.push({ entry, src });
       }
       if (entry.metadata.cover) {
-        const dir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-        if (!result.some((r) => r.entry.metadata.id === entry.metadata.id && r.src === dir + "/" + entry.metadata.cover)) {
-          result.push({ entry, src: dir + "/" + entry.metadata.cover });
+        const src = resolveEntryAssetPath(entry.path, entry.metadata.cover);
+        if (src && !result.some((r) => r.entry.metadata.id === entry.metadata.id && r.src === src)) {
+          result.push({ entry, src });
         }
       }
     }

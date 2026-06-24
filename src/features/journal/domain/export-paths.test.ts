@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { safeRelativeAssetPath } from "./export-paths.ts";
+import { safeRelativeAssetPath, resolveEntryAssetPath } from "./export-paths.ts";
 
 test("accepts a plain relative file name", () => {
   assert.equal(safeRelativeAssetPath("photo.png"), "photo.png");
@@ -47,4 +47,20 @@ test("rejects backslash-encoded traversal after decoding", () => {
 test("rejects empty and whitespace-only refs", () => {
   assert.equal(safeRelativeAssetPath(""), null);
   assert.equal(safeRelativeAssetPath("   "), null);
+});
+
+const ENTRY = "/notebook/entries/2026/06/2026-06-24--101010--abc.md";
+const ENTRY_DIR = "/notebook/entries/2026/06";
+
+test("resolveEntryAssetPath joins a safe ref to the entry directory", () => {
+  assert.equal(resolveEntryAssetPath(ENTRY, "photo.png"), `${ENTRY_DIR}/photo.png`);
+  assert.equal(resolveEntryAssetPath(ENTRY, "./assets/a.png"), `${ENTRY_DIR}/assets/a.png`);
+});
+
+test("resolveEntryAssetPath rejects traversal and external refs", () => {
+  assert.equal(resolveEntryAssetPath(ENTRY, "../../../secret.png"), null);
+  assert.equal(resolveEntryAssetPath(ENTRY, "/etc/passwd"), null);
+  assert.equal(resolveEntryAssetPath(ENTRY, "C:/Windows/x.png"), null);
+  assert.equal(resolveEntryAssetPath(ENTRY, "http://evil.com/x.png"), null);
+  assert.equal(resolveEntryAssetPath(ENTRY, "data:image/png;base64,AAAA"), null);
 });

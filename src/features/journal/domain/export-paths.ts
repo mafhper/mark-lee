@@ -34,3 +34,21 @@ export function safeRelativeAssetPath(ref: string): string | null {
   if (out.length === 0) return null;
   return out.join("/");
 }
+
+/**
+ * Resolve an asset reference from an entry's Markdown (cover, inline image, etc.)
+ * to an absolute filesystem path **constrained to the entry's own directory**.
+ *
+ * Returns `null` for any reference that is external (http/data), absolute, or
+ * tries to escape the entry directory with `..`. This is the single guard that
+ * keeps the `load_image` command — which would otherwise read any file on disk —
+ * confined to the notebook. Use it for every on-screen asset: cover, gallery,
+ * lightbox, thumbnails, and editorial previews.
+ */
+export function resolveEntryAssetPath(entryPath: string, ref: string): string | null {
+  const safe = safeRelativeAssetPath(ref);
+  if (!safe) return null;
+  const dir = entryPath.substring(0, entryPath.lastIndexOf("/"));
+  if (!dir) return null;
+  return `${dir}/${safe}`;
+}

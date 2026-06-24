@@ -5,6 +5,7 @@ import type { TrackerDefinition, JournalDescriptor } from "../domain/journal.typ
 import type { EntryRecord } from "../domain/entry-service";
 import { createEntry, readEntry, saveEntry } from "../domain/entry-service";
 import { readManifest, setPinnedMetrics } from "../domain/manifest-service";
+import { adjustActiveEntryTracker } from "../../editor/active-target";
 import { useJournalSession } from "../session/JournalSessionContext";
 
 interface TrackerSummaryPanelProps {
@@ -155,6 +156,10 @@ export function TrackerSummaryPanel({ t, tConfig, journal }: TrackerSummaryPanel
     try {
       const todayKey = localDateKey(new Date());
       let entry = entries.find((e) => localDateKey(new Date(e.metadata.date)) === todayKey) ?? null;
+      // If today's entry is the one open in the editor, delegate to its live draft
+      // so we neither overwrite unsaved edits nor get overwritten by a later
+      // autosave. Only fall back to a direct disk write for a closed/new entry.
+      if (entry && adjustActiveEntryTracker(entry.metadata.id, def.id, delta)) return;
       let isNew = false;
       if (!entry) { entry = await createEntry(journal.rootPath, "", new Date(), []); isNew = true; }
       const fresh = (await readEntry(entry.path)) ?? entry;

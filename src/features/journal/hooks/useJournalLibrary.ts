@@ -9,6 +9,14 @@ function pathKey(p: string): string {
   return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
+/** Raised when a copied notebook's duplicate manifest id could not be rewritten. */
+export class DuplicateIdRewriteError extends Error {
+  constructor(public readonly rootPath: string) {
+    super(`Could not rewrite the duplicate notebook id at ${rootPath}`);
+    this.name = "DuplicateIdRewriteError";
+  }
+}
+
 export function useJournalLibrary() {
   const [library, setLibrary] = useState<LibraryData | null>(null);
 
@@ -46,7 +54,15 @@ export function useJournalLibrary() {
     let entry = journal;
     if (library.journals.some((j) => j.id === journal.id)) {
       const newId = crypto.randomUUID();
-      try { await updateManifestId(journal.rootPath, newId); } catch { /* keep stored id in sync anyway */ }
+      // The library id and the on-disk manifest id must stay in sync. If the
+      // manifest can't be rewritten we must not proceed: adopting newId would
+      // diverge the two, and keeping the old id would put two notebooks with the
+      // same id in the library (breaking every id-based lookup). Abort instead.
+      try {
+        await updateManifestId(journal.rootPath, newId);
+      } catch {
+        throw new DuplicateIdRewriteError(journal.rootPath);
+      }
       entry = { ...journal, id: newId };
     }
 

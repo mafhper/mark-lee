@@ -3,13 +3,23 @@ import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
 
 interface JournalAtlasMapProps {
-  entries: EntryRecord[]; // only entries with numeric lat/lng
+  entries: EntryRecord[]; // only entries with manual coordinates
   tConfig: ThemeConfig;
   onSelectEntry: (entry: EntryRecord) => void;
+  t?: Record<string, string>;
 }
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Return an entry's valid geographic coordinate, or null if absent/out-of-range. */
+function entryCoord(e: EntryRecord): [number, number] | null {
+  const lat = e.metadata.location?.latitude;
+  const lng = e.metadata.location?.longitude;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if ((lat as number) < -90 || (lat as number) > 90 || (lng as number) < -180 || (lng as number) > 180) return null;
+  return [lat as number, lng as number];
 }
 
 const MOOD_EMOJI: Record<string, string> = {
@@ -23,15 +33,20 @@ const MOOD_EMOJI: Record<string, string> = {
  * neither the library nor any network request happens until this view is opened.
  * Markers are entries with manual coordinates; clicking one opens the entry.
  */
-export function JournalAtlasMap({ entries, tConfig, onSelectEntry }: JournalAtlasMapProps) {
+export function JournalAtlasMap({ entries, tConfig, onSelectEntry, t }: JournalAtlasMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onSelectRef = useRef(onSelectEntry);
   onSelectRef.current = onSelectEntry;
 
-  // Stable signature so the map only re-inits when the plotted points actually change.
+  // Signature that re-inits the map whenever anything a marker or popup renders
+  // changes — coordinates, title, mood, place label, or the accent (theme) color.
   const pointsKey = useMemo(
-    () => entries.map((e) => `${e.metadata.id}:${e.metadata.location?.latitude},${e.metadata.location?.longitude}`).join("|"),
-    [entries],
+    () => entries.map((e) => {
+      const c = entryCoord(e);
+      if (!c) return "";
+      return `${e.metadata.id}:${c[0]},${c[1]}:${e.metadata.title ?? ""}:${e.metadata.mood ?? ""}:${e.metadata.location?.label ?? ""}`;
+    }).filter(Boolean).join("|") + `#${tConfig.accentHex ?? ""}`,
+    [entries, tConfig.accentHex],
   );
 
   useEffect(() => {
@@ -58,9 +73,9 @@ export function JournalAtlasMap({ entries, tConfig, onSelectEntry }: JournalAtla
 
       const coords: [number, number][] = [];
       for (const e of entries) {
-        const lat = e.metadata.location?.latitude;
-        const lng = e.metadata.location?.longitude;
-        if (typeof lat !== "number" || typeof lng !== "number") continue;
+        const coord = entryCoord(e);
+        if (!coord) continue;
+        const [lat, lng] = coord;
         const title = escapeHtml(e.metadata.title || "Untitled");
         const label = escapeHtml(e.metadata.location?.label || "");
         const emoji = e.metadata.mood ? MOOD_EMOJI[e.metadata.mood] : undefined;
@@ -81,5 +96,14 @@ export function JournalAtlasMap({ entries, tConfig, onSelectEntry }: JournalAtla
     return () => { cancelled = true; map?.remove(); };
   }, [pointsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={containerRef} className="w-full h-full" style={{ minHeight: 320, backgroundColor: tConfig.uiHex }} />;
+  return (
+    <div className="relative w-full h-full" style={{ minHeight: 320 }}>
+      <div ref={containerRef} className="w-full h-full" style={{ minHeight: 320, backgroundColor: tConfig.uiHex }} />
+      {/* Be transparent that map tiles are fetched online (not local-first). */}
+      <div className="absolute top-2 left-2 z-[500] px-2 py-0.5 rounded-full text-[10px] pointer-events-none select-none"
+        style={{ backgroundColor: tConfig.bgHex + "D8", color: tConfig.fgHex + "90", border: `1px solid ${tConfig.uiBorderHex}` }}>
+        {t?.["journal.mapOnline"] || "Online map · OpenStreetMap"}
+      </div>
+    </div>
+  );
 }

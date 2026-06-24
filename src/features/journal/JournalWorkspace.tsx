@@ -37,7 +37,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   journals: JournalDescriptor[];
   activeJournal: JournalDescriptor | null;
   selectJournal: (id: string | null) => void;
-  addToLib: (j: JournalDescriptor) => void;
+  addToLib: (j: JournalDescriptor) => void | Promise<void>;
   removeFromLib: (id: string) => Promise<void>;
   reload: () => void;
 }) {
@@ -213,7 +213,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
           </div>
         ) : activeView === "map" && showWorldMap ? (
           <div className="flex-1 min-h-0">
-            <JournalAtlasMap entries={sessionState.entries} tConfig={tConfig} onSelectEntry={handleSelectEntry} />
+            <JournalAtlasMap entries={sessionState.entries} tConfig={tConfig} onSelectEntry={handleSelectEntry} t={t} />
           </div>
         ) : (
           <JournalEntryPanel
