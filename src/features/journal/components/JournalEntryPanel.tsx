@@ -52,6 +52,9 @@ interface JournalEntryPanelProps {
   onNewEntry?: () => void;
   onCreateJournal?: () => void;
   onAddJournal?: () => void;
+  prevEntry?: EntryRecord | null;
+  nextEntry?: EntryRecord | null;
+  onNavigateEntry?: (entry: EntryRecord) => void;
   language?: string;
   hasEntries?: boolean;
   readOnly?: boolean;
@@ -85,7 +88,7 @@ function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -582,7 +585,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
-      {coverUrl && (
+      {coverUrl && viewMode !== "preview" && (
         <div className="relative w-full shrink-0 overflow-hidden group transition-[height] duration-300 ease-out"
           style={{ height: coverExpanded ? 384 : 128, backgroundColor: tConfig.accentHex + "10" }}>
           <button type="button" onClick={() => setLightboxIndex(0)} className="block w-full h-full"
@@ -611,15 +614,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
           )}
         </div>
       )}
-      {viewMode === "preview" && showEntry ? (
-        <div className="flex items-center gap-2 px-6 py-2 border-b text-xs" style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "60" }}>
-          <BookOpen size={12} />
-          <span>{journalName}</span>
-          <span>&middot;</span>
-          <span>{new Date(entry.metadata.date).toLocaleDateString(language)}</span>
-          {entry.metadata.favorite && <Heart size={11} fill="#ef4444" style={{ color: "#ef4444" }} />}
-        </div>
-      ) : journal ? (
+      {viewMode === "preview" && showEntry ? null : journal ? (
         <div className="px-6 py-4 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
           <div className="flex items-center justify-between">
             <div className="space-y-1 min-w-0 flex-1">
@@ -889,7 +884,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
             {viewMode === "preview" && (
               <div className="flex-1">
-                <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language} />
+                <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language}
+                  prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry} />
               </div>
             )}
             {viewMode === "split" && (

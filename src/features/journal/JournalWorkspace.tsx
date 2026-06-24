@@ -59,6 +59,16 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
     ? sessionState.entries.find((e) => e.metadata.id === sessionState.activeEntryId) ?? null
     : null;
 
+  // Adjacent entries for blog-style prev/next paging in the reading view.
+  // sessionState.entries is sorted newest-first, so the older one sits after the
+  // active index and the newer one before it.
+  const activeIndex = activeEntry
+    ? sessionState.entries.findIndex((e) => e.metadata.id === activeEntry.metadata.id)
+    : -1;
+  const olderEntry = activeIndex >= 0 && activeIndex < sessionState.entries.length - 1
+    ? sessionState.entries[activeIndex + 1] : null;
+  const newerEntry = activeIndex > 0 ? sessionState.entries[activeIndex - 1] : null;
+
   // The world map only belongs to the Lugares view; hide it elsewhere.
   useEffect(() => {
     if (activeView !== "map") setShowWorldMap(false);
@@ -227,6 +237,9 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onNewEntry={handleNewEntry}
             onCreateJournal={() => setShowCreateDialog(true)}
             onAddJournal={() => setShowAddDialog(true)}
+            prevEntry={olderEntry}
+            nextEntry={newerEntry}
+            onNavigateEntry={handleSelectEntry}
             language={language}
             hasEntries={sessionState.entries.length > 0}
           />
