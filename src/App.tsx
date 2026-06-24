@@ -15,11 +15,14 @@ import {
   applyLink as applyLinkCommand,
   applyWrapSelection as applyWrapSelectionCommand,
   insertSnippetContent as insertSnippetContentCommand,
+  insertTable as insertTableCommand,
   selectAllEditorContent as selectAllEditorContentCommand,
   transformMarkdown as transformMarkdownCommand,
   undoEditor as undoEditorCommand,
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
+import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
+import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
 import {
   addRecentFile,
   getRecentFiles,
@@ -77,15 +80,23 @@ import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal"
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
-import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
+import { PomodoroTimer, PomodoroTrigger } from "./components/PomodoroTimer";import CommandPaletteModal, { CommandPaletteItem } from "./app/components/CommandPaletteModal";
 import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import { useEditorSelectionToolbar } from "./app/hooks/useEditorSelectionToolbar";
 import SelectionToolbar from "./app/components/SelectionToolbar";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
 import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
+import { AppModeSwitcher } from "./app/components/AppModeSwitcher";
+import { JournalWorkspace } from "./features/journal";
+import { checkManifest } from "./features/journal/domain/manifest-service";
+import { addJournal } from "./features/journal/domain/library-service";
+import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
-import { DoorOpen, Link2, Unlink2 } from "lucide-react";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { DoorOpen, Link2, Unlink2, Lock } from "lucide-react";
+import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
+import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
 
 const CODE_FILE_EXTENSIONS = new Set([
@@ -522,6 +533,8 @@ function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTabId>("general");
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>("tab-general");
   const [isZenMode, setIsZenMode] = useState(false);
+  const [pomodoroActive, setPomodoroActive] = useState(false);
+  const [breakLocked, setBreakLocked] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
@@ -598,6 +611,10 @@ function App() {
     isTauriRuntime() ||
     (typeof window !== "undefined" && Boolean((window as { DEBUG_SHOW_TITLEBAR?: boolean }).DEBUG_SHOW_TITLEBAR));
   const t = TRANSLATIONS[settings.language] ?? TRANSLATIONS["en-US"];
+  // Latest translations exposed to effects that register once (e.g. the
+  // window-close handler) and therefore can't close over `t` directly.
+  const tRef = useRef(t);
+  tRef.current = t;
   const activeShellTheme = useMemo(
     () => settings.themeLibrary.find((theme) => theme.id === settings.theme) ?? settings.themeLibrary[0],
     [settings.theme, settings.themeLibrary]
@@ -614,6 +631,13 @@ function App() {
     () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null,
     [activeTabId, tabs]
   );
+  useEffect(() => {
+    // Only the editor owns activeDocPathRef in editor mode; in journal mode the
+    // entry panel sets it. Clear (not keep) the previous path when on an Untitled.
+    if (settings.appMode !== "editor") return;
+    activeDocPathRef.current = activeTab?.path ?? "";
+  }, [activeTab?.path, settings.appMode]);
+
   const activePublicationPreset = useMemo(
     () =>
       publicationPresets.find((preset) => preset.id === settings.publicationPresetId) ??
@@ -836,10 +860,92 @@ function App() {
     });
   };
 
+  const handleJournalFolderSelected = useCallback(async (path: string) => {
+    try {
+      const result = await checkManifest(path);
+      if (result.manifest) {
+        const m = result.manifest;
+        const descriptor: JournalDescriptor = {
+          id: m.id,
+          name: m.name,
+          rootPath: path,
+          description: m.description,
+          schemaVersion: m.schemaVersion,
+          createdAt: m.createdAt,
+        };
+        await addJournal(descriptor);
+        setSettings((prev) => ({ ...prev, appMode: "journal" }));
+      }
+    } catch {
+      // folder doesn't contain a valid journal
+    }
+  }, []);
+
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // On window close (Tauri), intercept the request, flush all pending autosaves,
+  // then destroy the window — so debounced journal edits are never lost on exit.
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    let allowClose = false;
+    (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        unlisten = await appWindow.onCloseRequested(async (event) => {
+          if (allowClose) return; // second pass: let the close proceed
+          event.preventDefault();
+          let failures = 0;
+          try {
+            ({ failures } = await flushAllPending());
+          } catch {
+            failures = 1; // an unexpected flush error means work may be unsaved
+          }
+          if (failures > 0) {
+            // Some autosaves could not be persisted. Don't claim "edits are never
+            // lost on exit" and quit anyway — ask first; if the dialog can't be
+            // shown, keep the window open so the in-app error banner stays visible.
+            const tr = tRef.current;
+            let quitAnyway = false;
+            try {
+              quitAnyway = await ask(
+                tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
+                {
+                  title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
+                  kind: "warning",
+                  okLabel: tr["journal.quitAnyway"] || "Quit anyway",
+                  cancelLabel: tr["journal.cancel"] || "Cancel",
+                },
+              );
+            } catch {
+              quitAnyway = false;
+            }
+            if (!quitAnyway) return; // abort the close; nothing is destroyed
+          }
+          allowClose = true;
+          // destroy() is clean (no re-fire); if it's ever unavailable, fall back
+          // to close() — guarded by allowClose so the window always shuts.
+          try {
+            await appWindow.destroy();
+          } catch {
+            await appWindow.close();
+          }
+        });
+        if (disposed) unlisten?.();
+      } catch {
+        /* window API unavailable */
+      }
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -1120,6 +1226,16 @@ function App() {
     }
   };
 
+  // saveTab closes over current state and is recreated each render; the editor
+  // target is registered once (onCreateEditor), so route through a ref + live
+  // refs for the active tab to avoid saving a stale/previous tab.
+  const saveTabRef = useRef(saveTab);
+  saveTabRef.current = saveTab;
+  const saveActiveEditorTab = useCallback(async () => {
+    const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
+    if (tab) await saveTabRef.current(tab, false);
+  }, []);
+
   const buildEditorContextMenuItems = useCallback(
     (hasSelection: boolean): ContextMenuEntry[] => {
       const view = editorRef.current;
@@ -1196,6 +1312,10 @@ function App() {
           { type: "item", id: "link", label: t["tool.link"] || "Link", onSelect: () => {
             const view = editorRef.current;
             if (view) applyLinkCommand(view);
+          }},
+          { type: "item", id: "table", label: "Insert table", onSelect: () => {
+            const view = editorRef.current;
+            if (view) insertTableCommand(view);
           }}
         );
       }
@@ -1378,19 +1498,19 @@ function App() {
   };
 
   const applyWrapSelection = (before: string, after = before) => {
-    const view = editorRef.current;
+    const view = activeEditorRef.current;
     if (!view) return;
     applyWrapSelectionCommand(view, before, after);
   };
 
   const applyLinePrefix = (prefix: string) => {
-    const view = editorRef.current;
+    const view = activeEditorRef.current;
     if (!view) return;
     applyLinePrefixCommand(view, prefix);
   };
 
   const handleFormatAction = async (
-    action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task"
+    action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task" | "table"
   ) => {
     switch (action) {
       case "bold":
@@ -1412,14 +1532,15 @@ function App() {
         });
         const path = Array.isArray(selected) ? selected[0] : selected;
         if (!path) return;
-        if (!activeTab?.path) {
+        const docPath = activeDocPathRef.current;
+        if (!docPath) {
           window.alert(t["image.saveFirst"] || "Save the document before inserting images.");
           return;
         }
         let markdownPath = path.replace(/\\/g, "/");
         if (isTauriRuntime()) {
           try {
-            markdownPath = await copyImageToDocumentDir(path, activeTab.path);
+            markdownPath = await copyImageToDocumentDir(path, docPath);
           } catch (error) {
             console.error("Failed to copy image next to document:", error);
           }
@@ -1428,6 +1549,11 @@ function App() {
           markdownPath = `./${markdownPath}`;
         }
         applyWrapSelection(`![Image](${markdownPath})`, "");
+        break;
+      }
+      case "table": {
+        const view = activeEditorRef.current;
+        if (view) insertTableCommand(view);
         break;
       }
       case "ul":
@@ -1542,10 +1668,33 @@ function App() {
     setActiveTabId((current) => current ?? tabs[0]?.id ?? null);
   };
 
-  const shortcutLabels = useMemo(
+  const shortcutLabels: Record<string, string> = useMemo(
     () => ({ ...DEFAULT_SHORTCUTS, ...(settings.customShortcuts ?? {}) }),
     [settings.customShortcuts]
   );
+
+  const deps = useMemo<AppCommandDependencies>(
+    () => ({
+      newFile: handleNewFile,
+      openFile: handleOpenFile,
+      openFolder: handleOpenFolder,
+      saveFile: (forceSaveAs: boolean) => {
+        const target = getActiveTarget();
+        if (target?.kind === "journal-entry") { void target.save(); return; }
+        if (settingsRef.current.appMode === "journal") return;
+        if (activeTab) return saveTab(activeTab, forceSaveAs);
+      },
+      openFind: () => {
+        const target = getActiveTarget();
+        if (target?.kind === "journal-entry") { target.find?.(); return; }
+        if (settingsRef.current.appMode === "journal") return;
+        openDialog("find");
+      },
+    }),
+    [activeTab, handleNewFile, handleOpenFile, handleOpenFolder, openDialog, saveTab]
+  );
+
+  const commands = useMemo(() => createAppCommands(deps), [deps]);
 
   const commandPaletteItems = useMemo<CommandPaletteItem[]>(() => {
     const actionSection = t["palette.group.actions"] || "Actions";
@@ -1566,52 +1715,11 @@ function App() {
     const items: CommandPaletteItem[] = [];
 
     if (settings.commandPalette.includeActions) {
+      items.push(...toCommandPaletteItems(commands, {
+        t,
+        customShortcuts: settings.customShortcuts,
+      }));
       items.push(
-        {
-          id: "palette-new-file",
-          label: t["file.new"] || "New File",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-new"],
-          keywords: "new file tab untitled",
-          onSelect: handleNewFile,
-        },
-        {
-          id: "palette-open-file",
-          label: t["file.open"] || "Open...",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-open"],
-          keywords: "open file picker",
-          onSelect: handleOpenFile,
-        },
-        {
-          id: "palette-open-folder",
-          label: t["file.openFolder"] || "Open Folder...",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-open-folder"],
-          keywords: "open folder workspace",
-          onSelect: handleOpenFolder,
-        },
-        {
-          id: "palette-save",
-          label: t["file.save"] || "Save",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["file-save"],
-          keywords: "save file",
-          onSelect: () => activeTab && saveTab(activeTab, false),
-        },
-        {
-          id: "palette-find",
-          label: t["edit.find"] || "Find",
-          section: actionSection,
-          kind: "action",
-          hint: shortcutLabels["edit-find"],
-          keywords: "find replace search",
-          onSelect: () => openDialog("find"),
-        },
         {
           id: "palette-snippets",
           label: t["edit.snippets"] || "Snippets",
@@ -1849,17 +1957,14 @@ function App() {
     return items;
   }, [
     activeTab,
+    commands,
     cycleTheme,
-    handleNewFile,
-    handleOpenFile,
-    handleOpenFolder,
     insertSnippet,
     handleOpenIntent,
     openDialog,
     openSettingsPanel,
     publicationPresets,
     recentFiles,
-    saveTab,
     settings,
     shortcutLabels,
     snippets,
@@ -2196,6 +2301,25 @@ function App() {
       return event.ctrlKey === ctrl && event.shiftKey === shift && event.altKey === alt && eventKey === key;
     };
 
+    const executeCommand = (id: CommandId): void | Promise<void> | undefined =>
+      commands.find((command) => command.id === id)?.execute();
+
+    const matchesCommand = (
+      event: KeyboardEvent,
+      id: CommandId
+    ): boolean => {
+      const command = commands.find((item) => item.id === id);
+
+      if (!command?.shortcutId) return false;
+
+      const shortcut = resolveCommandShortcut(
+        command.shortcutId,
+        settings.customShortcuts
+      );
+
+      return shortcut ? testShortcut(event, shortcut) : false;
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toUpperCase();
       const isSelectAll =
@@ -2210,27 +2334,27 @@ function App() {
       if (testShortcut(event, getShortcut("app-command-palette", "CTRL+P"))) {
         event.preventDefault();
         openDialog("palette");
-      } else if (testShortcut(event, getShortcut("file-save", "CTRL+S"))) {
+      } else if (matchesCommand(event, "file.save")) {
         event.preventDefault();
-        if (activeTab) saveTab(activeTab, false);
+        void executeCommand("file.save");
       } else if (testShortcut(event, getShortcut("file-save-as", "CTRL+SHIFT+S"))) {
         event.preventDefault();
         if (activeTab) saveTab(activeTab, true);
-      } else if (testShortcut(event, getShortcut("file-open", "CTRL+O"))) {
+      } else if (matchesCommand(event, "file.open")) {
         event.preventDefault();
-        handleOpenFile();
-      } else if (testShortcut(event, getShortcut("file-open-folder", "CTRL+SHIFT+O"))) {
+        void executeCommand("file.open");
+      } else if (matchesCommand(event, "file.openFolder")) {
         event.preventDefault();
-        handleOpenFolder();
-      } else if (testShortcut(event, getShortcut("file-new", "CTRL+N"))) {
+        void executeCommand("file.openFolder");
+      } else if (matchesCommand(event, "file.new")) {
         event.preventDefault();
-        handleNewFile();
+        void executeCommand("file.new");
       } else if (testShortcut(event, getShortcut("file-export", "CTRL+E"))) {
         event.preventDefault();
         openDialog("export");
-      } else if (testShortcut(event, getShortcut("edit-find", "CTRL+F"))) {
+      } else if (matchesCommand(event, "edit.find")) {
         event.preventDefault();
-        openDialog("find");
+        void executeCommand("edit.find");
       } else if (testShortcut(event, getShortcut("edit-replace", "CTRL+H"))) {
         event.preventDefault();
         openDialog("find");
@@ -2290,7 +2414,7 @@ function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeTab, closeAllDialogs, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
+  }, [activeTab, closeAllDialogs, commands, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
 
   useEffect(() => {
     if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
@@ -2313,6 +2437,38 @@ function App() {
     }, settings.autoSaveInterval * 1000);
     return () => clearInterval(timer);
   }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
+
+  // Toolbar actions must follow the active document, matching the Command Registry
+  // (Ctrl+S etc). In journal mode we route to the journal target and never fall
+  // back to the hidden editor tab; in editor mode we act on the active tab.
+  const saveActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") return target.save();
+    if (settings.appMode === "journal") return;
+    if (activeTab) return saveTab(activeTab, false);
+  };
+  const findInActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.find?.(); return; }
+    if (settings.appMode === "journal") return;
+    openDialog("find");
+  };
+  const exportActiveDocument = () => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.export?.(); return; }
+    if (settings.appMode === "journal") return;
+    openDialog("export");
+  };
+  const transformActiveDocument = (mode: "format" | "minify") => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") {
+      if (mode === "format") target.format?.();
+      else target.minify?.();
+      return;
+    }
+    if (settings.appMode === "journal") return;
+    transformActiveMarkdown(mode);
+  };
 
   const topChromeComponent = (
     <TopChrome
@@ -2341,9 +2497,9 @@ function App() {
       onNewFile={handleNewFile}
       onOpenFile={handleOpenFile}
       onOpenFolder={handleOpenFolder}
-      onSave={() => activeTab && saveTab(activeTab, false)}
-      onExport={() => openDialog("export")}
-      onFindReplace={() => openDialog("find")}
+      onSave={saveActiveDocument}
+      onExport={exportActiveDocument}
+      onFindReplace={findInActiveDocument}
       onOpenSettings={() => openDialog("settings")}
       onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
@@ -2354,7 +2510,7 @@ function App() {
         updateSettings({ viewMode: mode });
       }}
       onFormatAction={handleFormatAction}
-      onTransformMarkdown={transformActiveMarkdown}
+      onTransformMarkdown={transformActiveDocument}
     />
   );
   const topChromeBlock = topChromeComponent;
@@ -2381,6 +2537,7 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <PomodoroTrigger tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} t={t} />
           <span>{tabs.length} tabs</span>
           {!isTinyViewport && <span>{workspacePath ? workspacePath.split(/[\\/]/).pop() : "-"}</span>}
           <span>{effectiveViewMode}</span>
@@ -2426,6 +2583,17 @@ function App() {
             <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
             <span className="text-[11px] font-semibold opacity-60">v{APP_VERSION}</span>
           </div>
+          <div
+            className="flex items-center gap-2"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          >
+            <AppModeSwitcher
+              mode={settings.appMode}
+              onModeChange={(mode) => updateSettings({ appMode: mode })}
+              labelEditor={t["journal.editor"] || "Editor"}
+              labelBlog={t["journal.mode"] || "Memórias"}
+            />
+          </div>
           <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
       )}
@@ -2436,7 +2604,8 @@ function App() {
           } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
           }`}
       >
-        {!isZenMode && settings.sidebarEnabled && (
+      {settings.appMode === "editor" ? (
+        <>{!isZenMode && settings.sidebarEnabled && (
           <div
             style={{ width: `${clampedSidebarWidth}px`, minWidth: "180px", maxWidth: `${dynamicSidebarMax}px` }}
             className={`relative h-full border-r ${tConfig.uiBorder}`}
@@ -2508,6 +2677,8 @@ function App() {
                   height="100%"
                   className="h-full ml-editor-shell"
                   extensions={editorExtensions}
+                  editable={!breakLocked}
+                  readOnly={breakLocked}
                   onChange={(value) => {
                     updateActiveTabContent(value);
                   }}
@@ -2519,6 +2690,12 @@ function App() {
                   onCreateEditor={(view) => {
                     editorRef.current = view;
                     setEditorView(view);
+                    activeEditorRef.current = view;
+                    setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
+                    view.dom.addEventListener("focus", () => {
+                      activeEditorRef.current = view;
+                      setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
+                    });
                   }}
                 />
               </div>
@@ -2593,6 +2770,13 @@ function App() {
             </PreviewContextMenuWrapper>
           </div>
         </div>
+        </>
+      ) : (
+        <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language}
+          viewMode={effectiveViewMode} journalDataDir={settings.journalDataDir}
+          sidebarEnabled={!isZenMode && settings.sidebarEnabled} readOnly={breakLocked}
+          onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
+      )}
       </div>
       {!isZenMode && settings.floatingToolbarAnchor === "bottom" && topChromeComponent}
       {statusBar}
@@ -2674,7 +2858,16 @@ function App() {
         onClose={closeAllDialogs}
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
+        onJournalFolderSelected={handleJournalFolderSelected}
       />
+      <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} onLockedChange={setBreakLocked} t={t} />
+      {breakLocked && (
+        <div className="fixed top-0 inset-x-0 z-[9998] flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium shadow-md"
+          style={{ backgroundColor: "#3b82f6", color: "#fff" }}>
+          <Lock size={13} />
+          {t["pomodoro.locked"] || "Break — editing locked (focus mode)"}
+        </div>
+      )}
     </div>
     </ContextMenuProvider>
   );

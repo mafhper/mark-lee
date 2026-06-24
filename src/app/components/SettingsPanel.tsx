@@ -45,6 +45,7 @@ type SettingsPanelProps = {
   onClose: () => void;
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onPublicationPresetsChange: React.Dispatch<React.SetStateAction<PublicationPreset[]>>;
+  onJournalFolderSelected?: (path: string) => void;
 };
 
 const tabs: Array<{ id: SettingsTabId; icon: React.ReactNode }> = [
@@ -191,6 +192,7 @@ export default function SettingsPanel({
   onClose,
   onSettingsChange,
   onPublicationPresetsChange,
+  onJournalFolderSelected,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
   const [expandedPresetIds, setExpandedPresetIds] = useState<string[]>([]);
@@ -623,6 +625,58 @@ export default function SettingsPanel({
                 </p>
               </div>
               {renderSwitch(settings.sidebarEnabled, (sidebarEnabled) => onSettingsChange({ sidebarEnabled }))}
+            </div>
+          </div>
+        )}
+        {renderSectionCard(
+          tr("Sistema de Medidas", "Measurement System", "Sistema de Medidas"),
+          tr(
+            "Unidades usadas na interface (distância, temperatura, etc.).",
+            "Units used in the interface (distance, temperature, etc.).",
+            "Unidades usadas en la interfaz (distancia, temperatura, etc.)."
+          ),
+          <div className="grid gap-4">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{tr("Unidades", "Units", "Unidades")}</p>
+              </div>
+              <select value={settings.measurementSystem} onChange={(e) => onSettingsChange({ measurementSystem: e.target.value as "metric" | "imperial" })}
+                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium"
+                style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}>
+                <option value="metric">{tr("Métrico (km, °C, kg)", "Metric (km, °C, kg)", "Métrico (km, °C, kg)")}</option>
+                <option value="imperial">{tr("Imperial (mi, °F, lb)", "Imperial (mi, °F, lb)", "Imperial (mi, °F, lb)")}</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {renderSectionCard(
+          tr("Diário", "Journal", "Diario"),
+          tr(
+            "Pasta onde os diários serão criados por padrão.",
+            "Folder where journals will be created by default.",
+            "Carpeta donde los diarios se crearán por defecto."
+          ),
+          <div className="grid gap-4">
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{tr("Pasta de dados", "Data folder", "Carpeta de datos")}</p>
+                <p className="text-xs opacity-70 truncate">
+                  {settings.journalDataDir || tr("Nenhuma pasta definida", "No folder set", "Ninguna carpeta definida")}
+                </p>
+              </div>
+              <button type="button" onClick={async () => {
+                const { openFileDialog } = await import("../../services/filesystem");
+                const selected = await openFileDialog({ directory: true, multiple: false });
+                const path = Array.isArray(selected) ? selected[0] : selected;
+                if (path) {
+                  onSettingsChange({ journalDataDir: path });
+                  onJournalFolderSelected?.(path);
+                }
+              }}
+                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium whitespace-nowrap"
+                style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>
+                {tr("Selecionar pasta", "Select folder", "Seleccionar carpeta")}
+              </button>
             </div>
           </div>
         )}

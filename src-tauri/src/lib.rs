@@ -34,6 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::filesystem::read_file,
+            commands::filesystem::read_binary_file,
+            commands::filesystem::get_file_metadata,
             commands::filesystem::write_file,
             commands::filesystem::list_dir,
             commands::filesystem::read_workspace_tree,
@@ -45,6 +47,9 @@ pub fn run() {
             commands::filesystem::get_user_data_path,
             commands::filesystem::read_user_data_file,
             commands::filesystem::write_user_data_file,
+            commands::filesystem::atomic_write_text,
+            commands::filesystem::create_directory_tree,
+            commands::filesystem::ensure_directory_tree,
             commands::filesystem::copy_image_to_document_dir,
             commands::image_loader::load_image,
             watcher::watch_workspace,

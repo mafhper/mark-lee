@@ -1,4 +1,5 @@
 import {
+  AppMode,
   AppSettings,
   PublicationPreset,
   Snippet,
@@ -263,7 +264,7 @@ export function createDefaultThemeLibrary(): ThemeDefinition[] {
   }));
 }
 
-export const DEFAULT_SHORTCUTS: Record<string, string> = {
+export const DEFAULT_SHORTCUTS = {
   "file-new": "Ctrl+N",
   "file-open": "Ctrl+O",
   "file-open-folder": "Ctrl+Shift+O",
@@ -292,7 +293,9 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   "fmt-ul": "Ctrl+Shift+8",
   "fmt-ol": "Ctrl+Shift+7",
   "fmt-task": "Ctrl+Shift+9",
-};
+} as const satisfies Record<string, string>;
+
+export type ShortcutId = keyof typeof DEFAULT_SHORTCUTS;
 
 export const TEXT_PRESETS: Record<string, TextPreset> = {
   minimalist: {
@@ -546,8 +549,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     editItalic: true,
     editCode: true,
     editLink: true,
-    editImage: true,
-    editUL: true,
+        editImage: true,
+        editTable: true,
+        editUL: true,
     editOL: true,
     editTask: true,
   },
@@ -584,6 +588,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         editCode: true,
         editLink: true,
         editImage: true,
+        editTable: true,
         editUL: true,
         editOL: true,
         editTask: true,
@@ -621,6 +626,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         editCode: true,
         editLink: true,
         editImage: true,
+        editTable: true,
         editUL: true,
         editOL: true,
         editTask: true,
@@ -658,6 +664,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         editCode: true,
         editLink: true,
         editImage: true,
+        editTable: true,
         editUL: true,
         editOL: true,
         editTask: true,
@@ -695,6 +702,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         editCode: true,
         editLink: true,
         editImage: true,
+        editTable: true,
         editUL: true,
         editOL: true,
         editTask: true,
@@ -726,6 +734,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showHints: true,
     maxResults: 18,
   },
+  appMode: "editor" as AppMode,
+  measurementSystem: "metric",
+  journalDataDir: "",
 };
 
 export const INITIAL_MARKDOWN = `# Mark-Lee

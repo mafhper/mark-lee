@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { writeFile as fsWriteFile } from "@tauri-apps/plugin-fs";
 import { WorkspaceNode } from "../types";
 import { isTauriRuntime } from "./runtime";
 
@@ -11,14 +12,38 @@ function requireTauri(action: string) {
   }
 }
 
+export interface FileMetadata {
+  mtime: number;
+}
+
+export async function getFileMetadata(path: string): Promise<FileMetadata> {
+  requireTauri("Get file metadata");
+  return invoke("get_file_metadata", { path });
+}
+
 export async function readFile(path: string): Promise<string> {
   requireTauri("Read file");
   return invoke("read_file", { path });
 }
 
+export async function readBinaryFile(path: string): Promise<Uint8Array> {
+  requireTauri("Read binary file");
+  return invoke<number[]>("read_binary_file", { path }).then((arr) => new Uint8Array(arr));
+}
+
 export async function writeFile(path: string, content: string): Promise<void> {
   requireTauri("Write file");
   await invoke("write_file", { path, content });
+}
+
+export async function atomicWriteText(path: string, content: string): Promise<void> {
+  requireTauri("Atomic write");
+  await invoke("atomic_write_text", { path, content });
+}
+
+export async function writeBinaryFile(path: string, data: Uint8Array): Promise<void> {
+  requireTauri("Write binary file");
+  await fsWriteFile(path, data);
 }
 
 export async function listDir(path: string): Promise<string[]> {
@@ -39,6 +64,21 @@ export async function createWorkspaceFile(path: string): Promise<void> {
 export async function createWorkspaceDirectory(path: string): Promise<void> {
   requireTauri("Create workspace directory");
   await invoke("create_workspace_directory", { path });
+}
+
+export async function createDirectoryTree(path: string): Promise<void> {
+  requireTauri("Create directory tree");
+  await invoke("create_directory_tree", { path });
+}
+
+/**
+ * Idempotent directory-tree creation. Succeeds if the directory already exists,
+ * creates the full tree when missing, and rejects only on real failures (path is
+ * a file, permission denied). Safe to call repeatedly for nested asset folders.
+ */
+export async function ensureDirectoryTree(path: string): Promise<void> {
+  requireTauri("Ensure directory tree");
+  await invoke("ensure_directory_tree", { path });
 }
 
 export async function renameWorkspacePath(oldPath: string, newPath: string): Promise<void> {
@@ -72,6 +112,11 @@ export async function writeUserDataFile(fileName: string, content: string): Prom
     return;
   }
   await invoke("write_user_data_file", { fileName, content });
+}
+
+export async function loadImage(path: string): Promise<string> {
+  requireTauri("Load image");
+  return invoke("load_image", { path });
 }
 
 export async function copyImageToDocumentDir(
@@ -164,6 +209,8 @@ export async function saveFileDialog(currentName?: string): Promise<string | nul
       ? { name: "PDF", extensions: ["pdf"] }
       : ext === "html" || ext === "htm"
       ? { name: "HTML", extensions: ["html", "htm"] }
+      : ext === "zip"
+      ? { name: "ZIP Archive", extensions: ["zip"] }
       : { name: "Markdown", extensions: ["md", "markdown"] };
 
   const selected = await save({
@@ -173,6 +220,7 @@ export async function saveFileDialog(currentName?: string): Promise<string | nul
       { name: "Markdown", extensions: ["md", "markdown"] },
       { name: "HTML", extensions: ["html", "htm"] },
       { name: "PDF", extensions: ["pdf"] },
+      { name: "ZIP Archive", extensions: ["zip"] },
       { name: "Text", extensions: ["txt", "text", "log"] },
       { name: "JSON", extensions: ["json"] },
       { name: "TypeScript", extensions: ["ts", "tsx"] },

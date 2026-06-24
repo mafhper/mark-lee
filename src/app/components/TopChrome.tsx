@@ -23,6 +23,7 @@ import {
   Search,
   Settings2,
   PenLine,
+  Table,
 } from "lucide-react";
 import { AppSettings, ThemeConfig } from "../../types";
 import { isTauriRuntime } from "../../services/runtime";
@@ -35,6 +36,7 @@ type ToolbarAction = {
   icon: React.ReactNode;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
   shortcutId?: string;
 };
 type ToolbarSectionModel = {
@@ -72,7 +74,7 @@ interface TopChromeProps {
   onToggleSidebar: () => void;
   onToggleZen: () => void;
   onViewModeChange: (mode: "edit" | "split" | "preview") => void;
-  onFormatAction: (action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task") => void;
+  onFormatAction: (action: "bold" | "italic" | "code" | "link" | "image" | "ul" | "ol" | "task" | "table") => void;
   onTransformMarkdown: (mode: "format" | "minify") => void;
 }
 
@@ -381,6 +383,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["tool.image"] || "Image",
               icon: toolIcon(Image),
               onClick: () => onFormatAction("image"),
+            }
+            : null,
+          toolbarItems.editTable
+            ? {
+              id: "edit-table",
+              label: "Table",
+              icon: toolIcon(Table),
+              onClick: () => onFormatAction("table"),
             }
             : null,
           toolbarItems.editUL
@@ -732,15 +742,15 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const buttonClass =
       variant === "popover"
-        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""}`
-        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""}`;
+        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
+        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
     return (
       <button
         key={action.id}
         className={buttonClass}
         onClick={(event) => {
           event.stopPropagation();
-          action.onClick();
+          if (!action.disabled) action.onClick();
         }}
         title={shortcutText ? `${action.label} (${shortcutText})` : action.label}
         type="button"

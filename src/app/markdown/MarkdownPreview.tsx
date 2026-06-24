@@ -13,6 +13,9 @@ type MarkdownPreviewProps = {
   content: string;
   shellBackground: string;
   surfaceStyle?: React.CSSProperties;
+  /** Drop the outer padding and the bordered "surface" card so the prose flows
+   *  directly into the page — used by the journal reading view. */
+  bare?: boolean;
 };
 
 function isExternalHref(href?: string) {
@@ -120,14 +123,15 @@ export default function MarkdownPreview({
   content,
   shellBackground,
   surfaceStyle,
+  bare = false,
 }: MarkdownPreviewProps) {
   const { meta, body } = React.useMemo(() => parseMarkdownFrontmatter(content), [content]);
   const processedBody = React.useMemo(() => preprocessMarkdown(body), [body]);
   const hasMeta = Object.keys(meta).length > 0;
 
   return (
-    <div className="min-h-full p-5" style={{ backgroundColor: shellBackground }}>
-      <div className="ml-preview-surface mx-auto" style={surfaceStyle}>
+    <div className={bare ? "min-h-full" : "min-h-full p-5"} style={{ backgroundColor: shellBackground }}>
+      <div className={bare ? "mx-auto" : "ml-preview-surface mx-auto"} style={surfaceStyle}>
         {hasMeta ? (
           <div className="ml-frontmatter-card mb-6 rounded-lg border px-5 py-4">
             <div className="ml-frontmatter-title mb-2">Metadata</div>
@@ -180,7 +184,11 @@ export default function MarkdownPreview({
                   <p {...props}>{children}</p>
                 ),
               table: ({ node: _node, children, ...props }) => (
-                <table {...props}>{removeInvalidTableText(children)}</table>
+                <div className="ml-preview-table-wrap" style={{ overflowX: "auto" }}>
+                  <table {...props} style={{ minWidth: "100%", width: "auto", tableLayout: "auto" }}>
+                    {removeInvalidTableText(children)}
+                  </table>
+                </div>
               ),
               video: ({ node: _node, children: _children, poster, width }) => (
                 <MediaPlaceholder label="Video">

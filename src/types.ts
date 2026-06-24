@@ -1,5 +1,7 @@
 export type ViewMode = 'split' | 'edit' | 'preview';
 
+export type AppMode = "editor" | "journal";
+
 export enum Theme {
   Coffee = 'coffee',
   Light = 'light',
@@ -114,6 +116,7 @@ export interface AppSettings {
     editCode: boolean;
     editLink: boolean;
     editImage: boolean;
+    editTable: boolean;
     editUL: boolean;
     editOL: boolean;
     editTask: boolean;
@@ -152,6 +155,9 @@ export interface AppSettings {
   theme: ThemeId;
   viewMode: ViewMode; // Last used view mode (edit/split/preview)
   selectionToolbarEnabled: boolean;
+  appMode: AppMode;
+  measurementSystem: "metric" | "imperial";
+  journalDataDir?: string;
 }
 
 export interface DocumentTab {
