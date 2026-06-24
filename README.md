@@ -9,11 +9,13 @@
   <a href="README.es.md">Espanol</a>
 </p>
 
-Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with tabs, workspace navigation, split preview, and robust file management.
+Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with tabs, workspace navigation, split preview, and robust file management — plus **Memórias**, a local-first journaling mode for keeping notebooks of dated entries.
 
 ![App Screenshot](assets/screen.png)
 
 ## Features
+
+### Editor
 
 - **Zen Mode** - UI fades away when you stop moving the mouse
 - **Focus Mode** - Spotlight effect highlighting only the active paragraph
@@ -25,6 +27,16 @@ Mark-Lee is a desktop Markdown editor engineered for performance and focus, brid
 - **Productivity Tools** - Auto-save, Reading Time, and Custom Shortcuts
 - **Lightweight** - ~3MB installer, low memory footprint
 - **Cross-Platform** - Windows, macOS, and Linux
+
+### Memórias — Journaling Mode
+
+- **Notebooks & Entries** - Keep multiple local notebooks (Cadernos) of dated entries (Registros), each stored as plain Markdown with YAML front-matter
+- **Multiple Views** - Browse entries by list, calendar, photo gallery, or an interactive map of places
+- **Rich Metadata** - Cover images, moods, tags, location, favorites, and custom numeric/boolean/text trackers ("Pins") summarized by day/week/month
+- **Blog-style Reading View** - A calm, theme-aware publication layout with prev/next paging between entries
+- **Pomodoro Focus Timer** - A floating timer with an optional read-only "break lock" to protect focus
+- **Local-first & Resilient** - Atomic writes with backups, CRLF-tolerant import, and a safe asset path guard keep your data portable and intact
+- **Quick Actions** - Right-click any entry for open / favorite / duplicate / open-in-editor / delete
 
 ## Technical Architecture
 
