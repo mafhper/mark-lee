@@ -1239,6 +1239,15 @@
   padding: 0.06em 0.42em;
 }
 
+/* When the host wires onTagClick, body hashtags become real filter triggers. */
+.ml-preview-tags-clickable .ml-preview-tag {
+  cursor: pointer;
+}
+
+.ml-preview-tags-clickable .ml-preview-tag:hover {
+  background: color-mix(in srgb, var(--ml-preview-accent, #172554) 18%, transparent);
+}
+
 .ml-preview-prose section[data-footnotes],
 .ml-preview-prose .footnotes {
   margin-top: calc(var(--ml-preview-block-gap, 22px) * 1.3);
