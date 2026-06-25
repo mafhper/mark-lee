@@ -1,20 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, FolderPlus, ChevronDown, ChevronUp } from "lucide-react";
-
-const MOODS: { key: string; emoji: string }[] = [
-  { key: "great", emoji: "\u{1F60A}" },
-  { key: "good", emoji: "\u{1F642}" },
-  { key: "neutral", emoji: "\u{1F610}" },
-  { key: "sad", emoji: "\u{1F622}" },
-  { key: "angry", emoji: "\u{1F624}" },
-  { key: "anxious", emoji: "\u{1F630}" },
-  { key: "tired", emoji: "\u{1F634}" },
-  { key: "loved", emoji: "\u{1F970}" },
-  { key: "thankful", emoji: "\u{1F64F}" },
-  { key: "creative", emoji: "\u{2728}" },
-  { key: "sick", emoji: "\u{1F912}" },
-  { key: "excited", emoji: "\u{1F929}" },
-];
+import { MOODS } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
@@ -26,6 +12,8 @@ import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
 import type { TrackerDefinition } from "../domain/journal.types";
 import { JournalEmptyState } from "./JournalEmptyState";
+import { LocationPicker } from "./LocationPicker";
+import { parseCoordinateInput } from "../location/coordinates";
 import { JournalGettingStarted } from "./JournalGettingStarted";
 import { JournalLightbox } from "./JournalLightbox";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
@@ -55,6 +43,7 @@ interface JournalEntryPanelProps {
   prevEntry?: EntryRecord | null;
   nextEntry?: EntryRecord | null;
   onNavigateEntry?: (entry: EntryRecord) => void;
+  onOpenTag?: (tag: string) => void;
   language?: string;
   hasEntries?: boolean;
   readOnly?: boolean;
@@ -88,7 +77,7 @@ function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, onOpenTag, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -120,6 +109,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [locationState, setLocationState] = useState("");
   const [locationCountry, setLocationCountry] = useState("");
   const [locationAttraction, setLocationAttraction] = useState("");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   // Latest handlers exposed to the global toolbar target. Kept in a ref so the
@@ -418,6 +408,23 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
         current.lat ? Number(current.lat) : undefined,
         current.lng ? Number(current.lng) : undefined,
         current.city, current.state, current.country, current.attraction,
+      ));
+    }
+  };
+
+  // Set latitude and longitude together (from the map picker or a pasted
+  // coordinate/link). Doing both in one call avoids the stale-snapshot bug that
+  // two sequential setLocationField calls would hit.
+  const setLocationCoords = (lat: string, lng: string) => {
+    if (readOnly) return;
+    setLocationLat(lat);
+    setLocationLng(lng);
+    if (entry && journal) {
+      scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocationFrom(
+        locationLabel,
+        lat ? Number(lat) : undefined,
+        lng ? Number(lng) : undefined,
+        locationCity, locationState, locationCountry, locationAttraction,
       ));
     }
   };
@@ -846,6 +853,29 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                             className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none font-mono"
                             style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.longitude"] || "Lng"} />
                         </div>
+                        {!readOnly && (
+                          <>
+                            <input type="text"
+                              onChange={(e) => {
+                                const parsed = parseCoordinateInput(e.target.value);
+                                if (parsed) { setLocationCoords(String(parsed.lat), String(parsed.lng)); e.target.value = ""; }
+                              }}
+                              className="w-full text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                              style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
+                              placeholder={t["journal.pasteCoordinates"] || "Paste coordinates or a map link"} />
+                            <button type="button" onClick={() => setShowLocationPicker((v) => !v)}
+                              className="w-full flex items-center justify-center gap-1.5 text-[11px] rounded px-2 py-1 transition-colors"
+                              style={{ color: tConfig.accentHex, backgroundColor: tConfig.accentHex + "12" }}>
+                              <MapPin size={12} /> {showLocationPicker ? (t["journal.hideMap"] || "Hide map") : (t["journal.pickOnMap"] || "Pick on map")}
+                            </button>
+                            {showLocationPicker && (
+                              <LocationPicker tConfig={tConfig} t={t}
+                                lat={locationLat ? Number(locationLat) : undefined}
+                                lng={locationLng ? Number(locationLng) : undefined}
+                                onPick={(la, ln) => setLocationCoords(String(la), String(ln))} />
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
                     {openPopover === "trackers" && (
@@ -905,7 +935,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             {viewMode === "preview" && (
               <div className="flex-1">
                 <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language}
-                  prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry} />
+                  prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry} onOpenTag={onOpenTag} />
               </div>
             )}
             {viewMode === "split" && (

@@ -1,21 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { FileText, Heart, HeartOff, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
-
-const MOOD_EMOJI: Record<string, string> = {
-  great: "\u{1F60A}",
-  good: "\u{1F642}",
-  neutral: "\u{1F610}",
-  sad: "\u{1F622}",
-  angry: "\u{1F624}",
-  anxious: "\u{1F630}",
-  tired: "\u{1F634}",
-  loved: "\u{1F970}",
-  thankful: "\u{1F64F}",
-  creative: "\u{2728}",
-  sick: "\u{1F912}",
-  excited: "\u{1F929}",
-};
+import { MOOD_EMOJI } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -37,6 +23,12 @@ interface JournalListViewProps {
   onOpenInEditor?: (path: string) => void;
   searchQuery?: string;
   language?: string;
+  /** Controlled tag filter (lifted to the workspace so the reading view's
+   *  clickable tags can drive it). */
+  filterTag?: string;
+  onFilterTagChange?: (tag: string) => void;
+  filterImages?: boolean;
+  onFilterImagesChange?: (value: boolean) => void;
 }
 
 function groupByMonth(entries: EntryRecord[]): Map<string, EntryRecord[]> {
@@ -73,10 +65,16 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en" }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTag: filterTagProp, onFilterTagChange, filterImages: filterImagesProp, onFilterImagesChange }: JournalListViewProps) {
   const { openContextMenu } = useContextMenu();
-  const [filterTag, setFilterTag] = useState("");
-  const [filterImages, setFilterImages] = useState(false);
+  // Filters are controlled when the workspace passes them in (so the reading
+  // view can open a tag), with a local fallback for standalone use.
+  const [filterTagLocal, setFilterTagLocal] = useState("");
+  const [filterImagesLocal, setFilterImagesLocal] = useState(false);
+  const filterTag = filterTagProp ?? filterTagLocal;
+  const filterImages = filterImagesProp ?? filterImagesLocal;
+  const setFilterTag = (tag: string) => (onFilterTagChange ?? setFilterTagLocal)(tag);
+  const setFilterImages = (value: boolean) => (onFilterImagesChange ?? setFilterImagesLocal)(value);
   const [tagsCollapsed, setTagsCollapsed] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
 
@@ -94,11 +92,15 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   }
 
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+    const counts = new Map<string, number>();
     for (const e of entries) {
-      for (const t of e.metadata.tags) tagSet.add(t);
+      for (const tag of e.metadata.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
-    return Array.from(tagSet).sort();
+    // Most-used first, ties broken alphabetically, so the noisiest cadernos
+    // surface the relevant tags rather than an arbitrary alphabetical wall.
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag, count]) => ({ tag, count }));
   }, [entries]);
 
   const today = new Date();
@@ -234,14 +236,16 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     <div className="flex flex-col">
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-        {!tagsCollapsed && allTags.map((tag) => (
+        {!tagsCollapsed && allTags.map(({ tag, count }) => (
           <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
-            className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
+            aria-pressed={filterTag === tag}
+            className="px-1.5 py-0.5 rounded text-[11px] transition-colors inline-flex items-center gap-1"
             style={{
               backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
               color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
             }}>
             {tag}
+            <span className="tabular-nums opacity-60">{count}</span>
           </button>
         ))}
         {allTags.length > 0 && (

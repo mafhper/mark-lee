@@ -54,6 +54,16 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [showWorldMap, setShowWorldMap] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<EntryRecord | null>(null);
+  // Tag/image filters live here (not inside JournalListView) so the reading
+  // view's clickable tags can drive the same filter the list shows.
+  const [filterTag, setFilterTag] = useState("");
+  const [filterImages, setFilterImages] = useState(false);
+
+  // Clicking a tag in the reading view filters the list and brings it forward.
+  const handleOpenTag = useCallback((tag: string) => {
+    setFilterTag(tag);
+    setActiveView("list");
+  }, []);
   const sidebarWidthRef = useRef(240);
   const handleSidebarWidthChange = useCallback((w: number) => { sidebarWidthRef.current = w; }, []);
 
@@ -236,6 +246,8 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               language={language}
               worldMapActive={showWorldMap}
               onToggleWorldMap={() => setShowWorldMap((v) => !v)}
+              filterTag={filterTag} onFilterTagChange={setFilterTag}
+              filterImages={filterImages} onFilterImagesChange={setFilterImages}
             />
           </div>
         </ResizablePanel>
@@ -268,6 +280,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             prevEntry={olderEntry}
             nextEntry={newerEntry}
             onNavigateEntry={handleSelectEntry}
+            onOpenTag={handleOpenTag}
             language={language}
             hasEntries={sessionState.entries.length > 0}
           />

@@ -31,12 +31,17 @@ interface JournalContextPanelProps {
   language?: string;
   worldMapActive?: boolean;
   onToggleWorldMap?: () => void;
+  filterTag?: string;
+  onFilterTagChange?: (tag: string) => void;
+  filterImages?: boolean;
+  onFilterImagesChange?: (value: boolean) => void;
 }
 
 export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, activeSection, onManageTemplates, onCreateEntryForDate,
   journal, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor,
   sessionState, language, worldMapActive, onToggleWorldMap,
+  filterTag, onFilterTagChange, filterImages, onFilterImagesChange,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
@@ -102,6 +107,8 @@ export function JournalContextPanel({
             onToggleFavorite={onToggleFavorite} onDuplicateEntry={onDuplicateEntry}
             onDeleteEntry={onDeleteEntry} onOpenInEditor={onOpenInEditor}
             searchQuery={searchQuery} language={language}
+            filterTag={filterTag} onFilterTagChange={onFilterTagChange}
+            filterImages={filterImages} onFilterImagesChange={onFilterImagesChange}
           />
         )}
       </div>

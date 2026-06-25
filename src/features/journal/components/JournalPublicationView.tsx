@@ -1,15 +1,10 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { Heart, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, MapPin, ChevronLeft, ChevronRight, Ruler } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
-
-const MOOD_EMOJI: Record<string, string> = {
-  great: "\u{1F60A}", good: "\u{1F642}", neutral: "\u{1F610}",
-  sad: "\u{1F622}", angry: "\u{1F624}", anxious: "\u{1F630}",
-  tired: "\u{1F634}", loved: "\u{1F970}", thankful: "\u{1F64F}",
-  creative: "\u{2728}", sick: "\u{1F912}", excited: "\u{1F929}",
-};
+import { MOOD_EMOJI } from "../domain/moods";
+import { READING_WIDTHS, readingWidthCss, useReadingWidth, type ReadingWidth } from "../presentation/readingWidth";
 
 interface JournalPublicationViewProps {
   tConfig: ThemeConfig;
@@ -20,6 +15,8 @@ interface JournalPublicationViewProps {
   prevEntry?: EntryRecord | null;
   nextEntry?: EntryRecord | null;
   onNavigate?: (entry: EntryRecord) => void;
+  /** Filter the entry list by this tag (and switch to the list view). */
+  onOpenTag?: (tag: string) => void;
 }
 
 /**
@@ -30,9 +27,10 @@ interface JournalPublicationViewProps {
  * end let you page through entries like browsing a blog.
  */
 export function JournalPublicationView({
-  tConfig, entry, coverUrl, t, language, prevEntry, nextEntry, onNavigate,
+  tConfig, entry, coverUrl, t, language, prevEntry, nextEntry, onNavigate, onOpenTag,
 }: JournalPublicationViewProps) {
   const fg = tConfig.editorFgHex; // guaranteed-readable on editorBgHex
+  const [readingWidth, setReadingWidth] = useReadingWidth();
   const date = new Date(entry.metadata.date);
   const dateLabel = date.toLocaleDateString(language || undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -75,9 +73,34 @@ export function JournalPublicationView({
     </button>
   );
 
+  const widthLabels: Record<ReadingWidth, string> = {
+    narrow: t?.["journal.widthNarrow"] || "Narrow",
+    comfortable: t?.["journal.widthComfortable"] || "Comfortable",
+    wide: t?.["journal.widthWide"] || "Wide",
+    full: t?.["journal.widthFull"] || "Full",
+  };
+
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
-      <article className="mx-auto px-6 sm:px-10 pt-10 pb-16" style={{ maxWidth: "44rem" }}>
+    <div className="relative h-full">
+      {/* Discreet reading-width control, pinned to the top-right of the pane. */}
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-0.5 rounded-full border px-1 py-1 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+        style={{ backgroundColor: tConfig.editorBgHex + "E6", borderColor: tConfig.uiBorderHex }}
+        title={t?.["journal.readingWidth"] || "Reading width"}>
+        <Ruler size={13} className="mx-1 shrink-0" style={{ color: fg + "70" }} />
+        {READING_WIDTHS.map((w) => (
+          <button key={w} type="button" onClick={() => setReadingWidth(w)}
+            className="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors"
+            aria-pressed={readingWidth === w}
+            style={{
+              backgroundColor: readingWidth === w ? tConfig.accentHex + "22" : "transparent",
+              color: readingWidth === w ? tConfig.accentHex : fg + "85",
+            }}>
+            {widthLabels[w]}
+          </button>
+        ))}
+      </div>
+      <div ref={scrollRef} className="h-full overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
+      <article className="mx-auto px-6 sm:px-10 pt-10 pb-16" style={{ maxWidth: readingWidthCss(readingWidth) }}>
         {coverUrl && (
           <div className="mb-9 overflow-hidden rounded-2xl" style={{ boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
             <img src={coverUrl} alt="" className="w-full object-cover" style={{ maxHeight: 400 }} />
@@ -105,12 +128,21 @@ export function JournalPublicationView({
                 <MapPin size={12} /> {loc}
               </span>
             )}
-            {tags.map((tag) => (
-              <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11.5px] font-medium"
-                style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>
-                {tag}
-              </span>
-            ))}
+            {tags.map((tag) =>
+              onOpenTag ? (
+                <button key={tag} type="button" onClick={() => onOpenTag(tag)}
+                  className="px-2.5 py-0.5 rounded-full text-[11.5px] font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}
+                  aria-label={(t?.["journal.filterByTag"] || "Filter by tag {tag}").replace("{tag}", tag)}>
+                  #{tag}
+                </button>
+              ) : (
+                <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11.5px] font-medium"
+                  style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>
+                  #{tag}
+                </span>
+              ),
+            )}
           </div>
         )}
 
@@ -121,6 +153,7 @@ export function JournalPublicationView({
             shellBackground="transparent"
             surfaceStyle={{ maxWidth: "none" }}
             bare
+            onTagClick={onOpenTag}
           />
         </div>
 
@@ -138,6 +171,7 @@ export function JournalPublicationView({
           </nav>
         )}
       </article>
+      </div>
     </div>
   );
 }

@@ -144,6 +144,17 @@ function TreeNode({ group, depth, tConfig, onSelectEntry }: {
 export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapActive, onToggleWorldMap }: JournalMapViewProps) {
   const locatedEntries = useMemo(() => entries.filter((e) => e.metadata.location), [entries]);
   const tree = useMemo(() => buildTree(locatedEntries), [locatedEntries]);
+  // How many located entries actually have coordinates (so they appear on the
+  // map) vs. only a textual place — the map looking "empty" is usually this gap.
+  const withCoords = useMemo(
+    () => locatedEntries.filter((e) => {
+      const lat = e.metadata.location?.latitude;
+      const lng = e.metadata.location?.longitude;
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    }).length,
+    [locatedEntries],
+  );
+  const withoutCoords = locatedEntries.length - withCoords;
 
   if (locatedEntries.length === 0) {
     return (
@@ -159,27 +170,32 @@ export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapAct
   const countries = tree.length;
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b sticky top-0 z-10 flex items-center justify-between gap-2"
+      <div className="border-b sticky top-0 z-10"
         style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex }}>
-        <div className="flex items-center gap-1.5 min-w-0 text-[11px] font-semibold" style={{ color: tConfig.fgHex + "70" }}>
-          <Globe size={13} className="shrink-0" style={{ color: tConfig.accentHex }} />
-          <span className="truncate">
-            {locatedEntries.length} {t["journal.locations"] || "locations"}
-            {countries > 1 ? ` · ${countries} ${t["journal.countries"] || "countries"}` : ""}
-          </span>
+        <div className="px-3 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 text-[11px] font-semibold" style={{ color: tConfig.fgHex + "70" }}>
+            <Globe size={13} className="shrink-0" style={{ color: tConfig.accentHex }} />
+            <span className="truncate">
+              {locatedEntries.length} {t["journal.locations"] || "locations"}
+              {countries > 1 ? ` · ${countries} ${t["journal.countries"] || "countries"}` : ""}
+            </span>
+          </div>
+          {onToggleWorldMap && (
+            <button type="button" onClick={onToggleWorldMap}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0"
+              style={{
+                backgroundColor: worldMapActive ? tConfig.accentHex + "1F" : tConfig.bgHex,
+                color: worldMapActive ? tConfig.accentHex : tConfig.fgHex + "80",
+                border: `1px solid ${worldMapActive ? tConfig.accentHex + "55" : tConfig.uiBorderHex}`,
+              }}
+              aria-pressed={worldMapActive} title={t["journal.viewOnMap"] || "View on map"}>
+              <MapIcon size={13} /> {t["journal.viewOnMap"] || "View on map"}
+            </button>
+          )}
         </div>
-        {onToggleWorldMap && (
-          <button type="button" onClick={onToggleWorldMap}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0"
-            style={{
-              backgroundColor: worldMapActive ? tConfig.accentHex + "1F" : tConfig.bgHex,
-              color: worldMapActive ? tConfig.accentHex : tConfig.fgHex + "80",
-              border: `1px solid ${worldMapActive ? tConfig.accentHex + "55" : tConfig.uiBorderHex}`,
-            }}
-            aria-pressed={worldMapActive} title={t["journal.viewOnMap"] || "View on map"}>
-            <MapIcon size={13} /> {t["journal.viewOnMap"] || "View on map"}
-          </button>
-        )}
+        <div className="px-3 pb-1.5 text-[10px]" style={{ color: tConfig.fgHex + "55" }}>
+          {withCoords} {t["journal.withCoordinates"] || "on map"} · {withoutCoords} {t["journal.withoutCoordinates"] || "without coordinates"}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
