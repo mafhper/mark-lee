@@ -6,6 +6,7 @@ import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { getExcerpt, searchEntries } from "../domain/entry-service";
+import { entryMatchesLocation, type LocationFilter } from "../location/locationFilter";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { loadImage } from "../../../services/filesystem";
 
@@ -29,6 +30,9 @@ interface JournalListViewProps {
   onFilterTagChange?: (tag: string) => void;
   filterImages?: boolean;
   onFilterImagesChange?: (value: boolean) => void;
+  /** Place filter chosen from the Lugares tree; cleared via onClearLocation. */
+  filterLocation?: LocationFilter | null;
+  onClearLocation?: () => void;
 }
 
 function groupByMonth(entries: EntryRecord[]): Map<string, EntryRecord[]> {
@@ -65,7 +69,7 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTag: filterTagProp, onFilterTagChange, filterImages: filterImagesProp, onFilterImagesChange }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTag: filterTagProp, onFilterTagChange, filterImages: filterImagesProp, onFilterImagesChange, filterLocation, onClearLocation }: JournalListViewProps) {
   const { openContextMenu } = useContextMenu();
   // Filters are controlled when the workspace passes them in (so the reading
   // view can open a tag), with a local fallback for standalone use.
@@ -120,10 +124,11 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     let result = searched;
     if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
     if (filterImages) result = result.filter((e) => entryHasImages(e));
+    if (filterLocation) result = result.filter((e) => entryMatchesLocation(e.metadata.location, filterLocation));
     return result;
-  }, [searched, filterTag, filterImages]);
+  }, [searched, filterTag, filterImages, filterLocation]);
 
-  const hasActiveFilters = filterTag !== "" || filterImages;
+  const hasActiveFilters = filterTag !== "" || filterImages || !!filterLocation;
 
   if (!journal) {
     return (
@@ -264,8 +269,18 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
           <ImageIcon size={11} />
           {t["journal.images"] || "Images"}
         </button>
+        {filterLocation && (
+          <button type="button" onClick={onClearLocation}
+            className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
+            style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
+            title={t["journal.clear"] || "Clear"}>
+            <MapPin size={11} />
+            {filterLocation.value}
+            <span aria-hidden>×</span>
+          </button>
+        )}
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); }}
+          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); onClearLocation?.(); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
             {t["journal.clear"] || "Clear"}
           </button>

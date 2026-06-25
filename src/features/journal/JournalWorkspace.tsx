@@ -20,6 +20,7 @@ import { toggleActiveEntryFavorite } from "../editor/active-target";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
+import type { LocationFilter } from "./location/locationFilter";
 import { JournalSessionProvider, useJournalSession } from "./session/JournalSessionContext";
 
 interface JournalWorkspaceProps {
@@ -58,10 +59,18 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   // view's clickable tags can drive the same filter the list shows.
   const [filterTag, setFilterTag] = useState("");
   const [filterImages, setFilterImages] = useState(false);
+  const [filterLocation, setFilterLocation] = useState<LocationFilter | null>(null);
 
   // Clicking a tag in the reading view filters the list and brings it forward.
   const handleOpenTag = useCallback((tag: string) => {
     setFilterTag(tag);
+    setActiveView("list");
+  }, []);
+
+  // Clicking a place in the Lugares tree filters the rich list (and shows it),
+  // instead of the tree being a separate, dead-end way to browse.
+  const handleFilterLocation = useCallback((filter: LocationFilter) => {
+    setFilterLocation(filter);
     setActiveView("list");
   }, []);
   const sidebarWidthRef = useRef(240);
@@ -248,6 +257,8 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onToggleWorldMap={() => setShowWorldMap((v) => !v)}
               filterTag={filterTag} onFilterTagChange={setFilterTag}
               filterImages={filterImages} onFilterImagesChange={setFilterImages}
+              filterLocation={filterLocation} onFilterLocation={handleFilterLocation}
+              onClearLocation={() => setFilterLocation(null)}
             />
           </div>
         </ResizablePanel>

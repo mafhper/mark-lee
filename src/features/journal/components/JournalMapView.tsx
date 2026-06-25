@@ -3,6 +3,7 @@ import { MapPin, Globe, ChevronRight, ChevronDown, Map as MapIcon } from "lucide
 import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
 import { JournalEmptyState } from "./JournalEmptyState";
+import type { LocationFilter } from "../location/locationFilter";
 
 interface JournalMapViewProps {
   t: Record<string, string>;
@@ -12,11 +13,14 @@ interface JournalMapViewProps {
   /** When set, shows a "view on map" toggle that drives the world map in the canvas. */
   worldMapActive?: boolean;
   onToggleWorldMap?: () => void;
+  /** Filter the entry list by a place (country/state/city) clicked in the tree. */
+  onFilterLocation?: (filter: LocationFilter) => void;
 }
 
 interface LocationGroup {
   key: string;
   label: string;
+  level: "country" | "state" | "city";
   children: LocationGroup[] | EntryRecord[];
   count: number;
 }
@@ -34,7 +38,7 @@ function buildTree(entries: EntryRecord[]): LocationGroup[] {
 
     let countryGroup = tree.find((g) => g.key === country);
     if (!countryGroup) {
-      countryGroup = { key: country, label: country, children: [], count: 0 };
+      countryGroup = { key: country, label: country, level: "country", children: [], count: 0 };
       tree.push(countryGroup);
     }
     countryGroup.count++;
@@ -43,7 +47,7 @@ function buildTree(entries: EntryRecord[]): LocationGroup[] {
         const stateKey = `${country}|${state}`;
         let stateGroup = countryGroup.children.find((g) => (g as LocationGroup).key === stateKey) as LocationGroup | undefined;
         if (!stateGroup) {
-          stateGroup = { key: stateKey, label: state, children: [], count: 0 };
+          stateGroup = { key: stateKey, label: state, level: "state", children: [], count: 0 };
           (countryGroup.children as LocationGroup[]).push(stateGroup);
         }
         stateGroup.count++;
@@ -52,7 +56,7 @@ function buildTree(entries: EntryRecord[]): LocationGroup[] {
           const cityKey = `${stateKey}|${city}`;
           let cityGroup = stateGroup.children.find((g) => (g as LocationGroup).key === cityKey) as LocationGroup | undefined;
           if (!cityGroup) {
-            cityGroup = { key: cityKey, label: city, children: [], count: 0 };
+            cityGroup = { key: cityKey, label: city, level: "city", children: [], count: 0 };
             (stateGroup.children as LocationGroup[]).push(cityGroup);
           }
           cityGroup.count++;
@@ -64,7 +68,7 @@ function buildTree(entries: EntryRecord[]): LocationGroup[] {
         const cityKey = `${country}|${city}`;
         let cityGroup = countryGroup.children.find((g) => (g as LocationGroup).key === cityKey) as LocationGroup | undefined;
         if (!cityGroup) {
-          cityGroup = { key: cityKey, label: city, children: [], count: 0 };
+          cityGroup = { key: cityKey, label: city, level: "city", children: [], count: 0 };
           (countryGroup.children as LocationGroup[]).push(cityGroup);
         }
         cityGroup.count++;
@@ -103,11 +107,13 @@ function LocationEntryCard({ entry, tConfig, onSelectEntry }: { entry: EntryReco
   );
 }
 
-function TreeNode({ group, depth, tConfig, onSelectEntry }: {
+function TreeNode({ group, depth, tConfig, onSelectEntry, onFilterLocation, t }: {
   group: LocationGroup;
   depth: number;
   tConfig: ThemeConfig;
   onSelectEntry: (e: EntryRecord) => void;
+  onFilterLocation?: (filter: LocationFilter) => void;
+  t: Record<string, string>;
 }) {
   const [collapsed, setCollapsed] = useState(depth >= 2);
   const isLeaf = group.children.length > 0 && "metadata" in group.children[0];
@@ -115,33 +121,42 @@ function TreeNode({ group, depth, tConfig, onSelectEntry }: {
 
   return (
     <div>
-      <button type="button" onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-1.5 py-1 text-left transition-colors hover:opacity-80"
-        style={{ paddingLeft: `${8 + depth * 12}px` }}>
+      {/* Chevron toggles the branch; the label filters the entry list by this
+          place (so the tree drives the same list rather than being a parallel,
+          dead-end browser). */}
+      <div className="w-full flex items-center gap-1.5 py-1" style={{ paddingLeft: `${8 + depth * 12}px` }}>
         {hasChildren ? (
-          collapsed ? <ChevronRight size={10} style={{ color: tConfig.fgHex + "40" }} />
-            : <ChevronDown size={10} style={{ color: tConfig.fgHex + "40" }} />
+          <button type="button" onClick={() => setCollapsed(!collapsed)}
+            className="shrink-0 transition-opacity hover:opacity-70"
+            aria-label={collapsed ? (t["journal.expand"] || "Expand") : (t["journal.collapseTree"] || "Collapse")} aria-expanded={!collapsed}>
+            {collapsed ? <ChevronRight size={10} style={{ color: tConfig.fgHex + "40" }} />
+              : <ChevronDown size={10} style={{ color: tConfig.fgHex + "40" }} />}
+          </button>
         ) : (
-          <span className="w-[10px]" />
+          <span className="w-[10px] shrink-0" />
         )}
-        <span className="text-[11px] font-medium truncate" style={{ color: tConfig.fgHex }}>
+        <button type="button" onClick={() => onFilterLocation?.({ field: group.level, value: group.label })}
+          disabled={!onFilterLocation}
+          className="flex-1 min-w-0 text-left text-[11px] font-medium truncate transition-colors hover:opacity-70 disabled:cursor-default"
+          style={{ color: tConfig.fgHex }}
+          title={onFilterLocation ? (t["journal.filterByPlace"] || "Filter entries by this place") : undefined}>
           {group.label}
-        </span>
-        <span className="text-[9px] ml-auto shrink-0" style={{ color: tConfig.fgHex + "40" }}>
+        </button>
+        <span className="text-[9px] shrink-0" style={{ color: tConfig.fgHex + "40" }}>
           {group.count}
         </span>
-      </button>
+      </div>
       {!collapsed && group.children.map((child) => {
         if ("metadata" in child) {
           return <LocationEntryCard key={child.metadata.id} entry={child} tConfig={tConfig} onSelectEntry={onSelectEntry} />;
         }
-        return <TreeNode key={(child as LocationGroup).key} group={child as LocationGroup} depth={depth + 1} tConfig={tConfig} onSelectEntry={onSelectEntry} />;
+        return <TreeNode key={(child as LocationGroup).key} group={child as LocationGroup} depth={depth + 1} tConfig={tConfig} onSelectEntry={onSelectEntry} onFilterLocation={onFilterLocation} t={t} />;
       })}
     </div>
   );
 }
 
-export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapActive, onToggleWorldMap }: JournalMapViewProps) {
+export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapActive, onToggleWorldMap, onFilterLocation }: JournalMapViewProps) {
   const locatedEntries = useMemo(() => entries.filter((e) => e.metadata.location), [entries]);
   const tree = useMemo(() => buildTree(locatedEntries), [locatedEntries]);
   // How many located entries actually have coordinates (so they appear on the
@@ -201,7 +216,7 @@ export function JournalMapView({ t, tConfig, entries, onSelectEntry, worldMapAct
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
         {tree.map((group) => (
           <div key={group.key} className="rounded-lg border" style={{ borderColor: tConfig.uiBorderHex }}>
-            <TreeNode group={group} depth={0} tConfig={tConfig} onSelectEntry={onSelectEntry} />
+            <TreeNode group={group} depth={0} tConfig={tConfig} onSelectEntry={onSelectEntry} onFilterLocation={onFilterLocation} t={t} />
           </div>
         ))}
       </div>
