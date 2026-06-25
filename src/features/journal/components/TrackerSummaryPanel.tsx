@@ -175,7 +175,6 @@ export function TrackerSummaryPanel({ t, tConfig, journal }: TrackerSummaryPanel
 
   if (defs.length === 0 && allPins.length === 0) return null;
 
-  const maxPct = Math.max(...visiblePins.map((p) => p.pct), 0.01);
   const focusLabel: Record<FocusPeriod, string> = {
     day: t["tracker.day"] || "Day",
     week: t["tracker.week"] || "Week",
@@ -249,8 +248,13 @@ export function TrackerSummaryPanel({ t, tConfig, journal }: TrackerSummaryPanel
               <span className="text-[12px] font-medium shrink-0" style={{ color: tConfig.fgHex }}>{p.value}</span>
             </div>
             {p.pct > 0 && (
+              // Each bar is relative to its OWN scale (boolean: share of days
+              // true; numeric: average vs. the tracker's reference max), never
+              // renormalized against the other pins — mixing units on one shared
+              // scale made the fullest bar merely "the largest visible", not real
+              // progress.
               <div className="mx-1.5 mt-0.5 h-1 rounded-full overflow-hidden" style={{ backgroundColor: tConfig.uiBorderHex }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((p.pct / maxPct) * 100, 100)}%`, backgroundColor: p.color ?? tConfig.accentHex }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(p.pct * 100, 100)}%`, backgroundColor: p.color ?? tConfig.accentHex }} />
               </div>
             )}
           </div>
