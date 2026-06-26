@@ -86,14 +86,15 @@ export function JournalPublicationView({
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [entry.path]);
 
-  const navCard = (target: EntryRecord, dir: "prev" | "next") => (
+  // Blog-style pager: newer entries on the left (←), older on the right (→).
+  const navCard = (target: EntryRecord, side: "left" | "right", label: string) => (
     <button type="button" onClick={() => onNavigate?.(target)}
-      className={`group flex flex-col gap-1 rounded-xl border px-4 py-3 transition-colors hover:border-current ${dir === "next" ? "items-end text-right" : "items-start text-left"}`}
+      className={`group flex flex-col gap-1 rounded-xl border px-4 py-3 transition-colors hover:border-current ${side === "right" ? "items-end text-right" : "items-start text-left"}`}
       style={{ borderColor: tConfig.uiBorderHex, color: fg }}>
       <span className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider" style={{ color: fg + "70" }}>
-        {dir === "prev" && <ChevronLeft size={12} />}
-        {dir === "prev" ? (t?.["journal.previousEntry"] || "Previous") : (t?.["journal.nextEntry"] || "Next")}
-        {dir === "next" && <ChevronRight size={12} />}
+        {side === "left" && <ChevronLeft size={12} />}
+        {label}
+        {side === "right" && <ChevronRight size={12} />}
       </span>
       <span className="text-[13.5px] font-semibold leading-snug line-clamp-2" style={{ color: fg }}>
         {target.metadata.title || (t?.["journal.blankEntry"] || "Untitled")}
@@ -222,8 +223,9 @@ export function JournalPublicationView({
 
         {onNavigate && (prevEntry || nextEntry) && (
           <nav className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {prevEntry ? navCard(prevEntry, "prev") : <span />}
-            {nextEntry ? navCard(nextEntry, "next") : <span />}
+            {/* nextEntry is the chronologically newer one → left; prevEntry is older → right */}
+            {nextEntry ? navCard(nextEntry, "left", t?.["journal.newerEntry"] || "Newer") : <span />}
+            {prevEntry ? navCard(prevEntry, "right", t?.["journal.olderEntry"] || "Older") : <span />}
           </nav>
         )}
       </article>

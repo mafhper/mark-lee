@@ -961,9 +961,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
       <div className="flex-1 min-h-0 flex">
         {showEntry ? (
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 min-w-0">
             {(viewMode === "edit" || viewMode === "split" || !viewMode) && (
-              <div className={viewMode === "split" ? "w-1/2 border-r" : "flex-1"} style={{ borderColor: tConfig.uiBorderHex }}>
+              <div className={viewMode === "split" ? "w-1/2 min-w-0 border-r" : "flex-1 min-w-0"} style={{ borderColor: tConfig.uiBorderHex }}>
                 <MarkdownEditor
                   value={body}
                   onChange={handleBodyChange}
@@ -975,7 +975,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </div>
             )}
             {viewMode === "preview" && (
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language}
                   blogView={blogConfig} blogLogoUrl={blogLogoUrl} journalName={journalName}
                   prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry}
@@ -983,7 +983,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </div>
             )}
             {viewMode === "split" && (
-              <div className="w-1/2 overflow-y-auto">
+              <div className="w-1/2 min-w-0 overflow-y-auto">
                 <MarkdownPreview
                   activePath={entry.path}
                   content={`---\ntitle: ${title}\n---\n\n${body}`}

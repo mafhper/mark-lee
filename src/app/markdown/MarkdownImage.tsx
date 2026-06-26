@@ -196,15 +196,18 @@ export default function MarkdownImage({
       style.aspectRatio = `${intrinsicW} / ${intrinsicH}`;
     }
 
-    // 2. Determine the display width constraint
+    // 2. Determine the display width constraint, capped to the column. The figure
+    //    is pinned to the image's natural width so small images aren't upscaled,
+    //    but a width larger than the container (e.g. a 2400px photo) must never
+    //    leak into ancestors' intrinsic sizing — `max-width: 100%` only clamps the
+    //    rendered width, not the max-content contribution, which would shove an
+    //    `mx-auto` reading column off-screen. `min(100%, …)` caps the preferred
+    //    width itself, so large images stay contained while small ones keep size.
     const displayW = attrWidth || (dimensions?.width ? `${dimensions.width}px` : undefined);
     if (displayW) {
       const numericWidth = Number(displayW);
-      if (!isNaN(numericWidth)) {
-        style.width = `${numericWidth}px`;
-      } else {
-        style.width = displayW;
-      }
+      const widthValue = !isNaN(numericWidth) ? `${numericWidth}px` : displayW;
+      style.width = `min(100%, ${widthValue})`;
     }
 
     return Object.keys(style).length > 0 ? style : undefined;
