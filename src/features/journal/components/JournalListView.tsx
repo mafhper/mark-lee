@@ -79,8 +79,8 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   const filterImages = filterImagesProp ?? filterImagesLocal;
   const setFilterTag = (tag: string) => (onFilterTagChange ?? setFilterTagLocal)(tag);
   const setFilterImages = (value: boolean) => (onFilterImagesChange ?? setFilterImagesLocal)(value);
-  const [tagsCollapsed, setTagsCollapsed] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
 
   const toggleMonth = (key: string) => {
     setCollapsedMonths((prev) => {
@@ -94,18 +94,6 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     if (e.metadata.cover) return true;
     return /!\[.*?\]\(.*?\)/.test(e.body);
   }
-
-  const allTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const e of entries) {
-      for (const tag of e.metadata.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    // Most-used first, ties broken alphabetically, so the noisiest cadernos
-    // surface the relevant tags rather than an arbitrary alphabetical wall.
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([tag, count]) => ({ tag, count }));
-  }, [entries]);
 
   const today = new Date();
   const scopeFiltered = useMemo(() => {
@@ -129,6 +117,12 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   }, [searched, filterTag, filterImages, filterLocation]);
 
   const hasActiveFilters = filterTag !== "" || filterImages || !!filterLocation;
+
+  useEffect(() => {
+    if (!selectedEntryId || typeof CSS === "undefined" || !CSS.escape) return;
+    const node = listRef.current?.querySelector(`[data-journal-entry-id="${CSS.escape(selectedEntryId)}"]`);
+    node?.scrollIntoView({ block: "nearest" });
+  }, [selectedEntryId, filtered]);
 
   if (!journal) {
     return (
@@ -198,6 +192,7 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     return (
       <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
         onContextMenu={(e) => handleEntryContextMenu(e, entry)}
+        data-journal-entry-id={entry.metadata.id}
         className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors border-b"
         style={{
           borderColor: tConfig.uiBorderHex,
@@ -238,37 +233,19 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   };
 
   return (
-    <div className="flex flex-col">
+    <div ref={listRef} className="flex flex-col">
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-        {!tagsCollapsed && allTags.map(({ tag, count }) => (
-          <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
-            aria-pressed={filterTag === tag}
-            className="px-1.5 py-0.5 rounded text-[11px] transition-colors inline-flex items-center gap-1"
-            style={{
-              backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
-              color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
-            }}>
-            {tag}
-            <span className="tabular-nums opacity-60">{count}</span>
-          </button>
-        ))}
-        {allTags.length > 0 && (
-          <button type="button" onClick={() => setTagsCollapsed(!tagsCollapsed)}
-            className="px-1 py-0.5 rounded text-[10px] transition-colors"
-            style={{ color: tConfig.fgHex + "40" }}>
-            {tagsCollapsed ? `+${allTags.length} ${t["journal.tags"] || "tags"}` : `−`}
+        {filterTag && (
+          <button type="button" onClick={() => setFilterTag("")}
+            className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
+            style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
+            title={t["journal.clear"] || "Clear"}>
+            <span>#</span>
+            {filterTag}
+            <span aria-hidden>×</span>
           </button>
         )}
-        <button type="button" onClick={() => setFilterImages(!filterImages)}
-          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
-          style={{
-            backgroundColor: filterImages ? tConfig.accentHex + "30" : "transparent",
-            color: filterImages ? tConfig.accentHex : tConfig.fgHex + "60",
-          }}>
-          <ImageIcon size={11} />
-          {t["journal.images"] || "Images"}
-        </button>
         {filterLocation && (
           <button type="button" onClick={onClearLocation}
             className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { BookOpen, Calendar, Heart, Plus, FolderPlus, AlertTriangle, PenLine, ChevronDown, ChevronRight, ChevronUp, Menu, Pin, Tags as TagsIcon } from "lucide-react";
+import { BookOpen, Calendar, Heart, Plus, FolderPlus, AlertTriangle, PenLine, ChevronDown, ChevronRight, ChevronUp, Menu, Pin, Save, Tags as TagsIcon } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import { useContextMenu } from "../../../app/components/context-menu";
@@ -7,25 +7,46 @@ import { TrackerSummaryPanel } from "./TrackerSummaryPanel";
 import { useJournalSession } from "../session/JournalSessionContext";
 import { loadImage } from "../../../services/filesystem";
 
-/** Cover thumbnail when set, otherwise a colored monogram of the notebook name. */
-function JournalAvatar({ journal, size = 22, tConfig }: { journal: JournalDescriptor; size?: number; tConfig: ThemeConfig }) {
+/** Cover card: rectangular cover image (or colored monogram) + title + subtitle. */
+function JournalCard({ journal, tConfig, active }: { journal: JournalDescriptor; tConfig: ThemeConfig; active: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    let active = true;
+    let act = true;
     setUrl(null);
     if (journal.cover && !journal.unavailable) {
-      loadImage(`${journal.rootPath}/${journal.cover}`).then((u) => { if (active) setUrl(u); }).catch(() => { if (active) setUrl(null); });
+      loadImage(`${journal.rootPath}/${journal.cover}`).then((u) => { if (act) setUrl(u); }).catch(() => { if (act) setUrl(null); });
     }
-    return () => { active = false; };
+    return () => { act = false; };
   }, [journal.cover, journal.rootPath, journal.unavailable]);
 
   const color = journal.color || tConfig.accentHex;
   const letter = (journal.name || "?").trim().charAt(0).toUpperCase() || "?";
+
   return (
-    <span className="shrink-0 rounded-md overflow-hidden flex items-center justify-center font-semibold"
-      style={{ width: size, height: size, backgroundColor: url ? "transparent" : color + "26", color }}>
-      {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <span style={{ fontSize: size * 0.5 }}>{letter}</span>}
-    </span>
+    <div className="relative w-full overflow-hidden rounded-lg" style={{ height: 72 }}>
+      {/* Background: cover image or gradient */}
+      {url
+        ? <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        : <div className="absolute inset-0" style={{
+            background: `linear-gradient(135deg, ${color}55, ${color}22)`,
+          }}>
+            <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold opacity-25" style={{ color }}>
+              {letter}
+            </span>
+          </div>
+      }
+      {/* Gradient overlay for text legibility */}
+      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 20%, rgba(0,0,0,0.62) 100%)" }} />
+      {/* Active indicator */}
+      {active && <div className="absolute inset-0 rounded-lg pointer-events-none" style={{ outline: `2px solid ${color}`, outlineOffset: -2 }} />}
+      {/* Text */}
+      <div className="absolute bottom-0 left-0 right-0 px-2 pb-1.5">
+        <p className="truncate text-[12px] font-semibold leading-tight text-white drop-shadow-sm">{journal.name}</p>
+        {journal.description && (
+          <p className="truncate text-[10px] leading-tight" style={{ color: "rgba(255,255,255,0.72)" }}>{journal.description}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -42,6 +63,7 @@ interface JournalNavigationProps {
   onSelectJournal: (id: string | null) => void;
   onCreateJournal: () => void;
   onAddJournal: () => void;
+  onSaveActive?: () => void;
   onNewEntry?: () => void;
   onRelocateJournal: (journalId: string) => void;
   onRemoveJournal: (journalId: string) => void;
@@ -49,6 +71,8 @@ interface JournalNavigationProps {
   loading: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  filterTag?: string;
+  onFilterTagChange?: (tag: string) => void;
 }
 
 function AccordionSection({
@@ -85,8 +109,9 @@ function AccordionSection({
 
 export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange, onViewChange,
-  journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onNewEntry,
+  journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onSaveActive, onNewEntry,
   onRelocateJournal, onRemoveJournal, onCustomizeJournal, collapsed = false, onToggleCollapse,
+  filterTag = "", onFilterTagChange,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
   const { state: sessionState } = useJournalSession();
@@ -112,11 +137,13 @@ export function JournalNavigation({
   }, [collapsed, focusSection]);
 
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+    const counts = new Map<string, number>();
     for (const e of sessionState.entries) {
-      for (const tag of e.metadata.tags) tagSet.add(tag);
+      for (const tag of e.metadata.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
-    return Array.from(tagSet).sort();
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag, count]) => ({ tag, count }));
   }, [sessionState.entries, sessionState.revision]);
 
   const sectionItems = [
@@ -181,7 +208,7 @@ export function JournalNavigation({
         <button
           type="button" onClick={() => requestSection("tags")}
           className="p-1.5 rounded transition-colors hover:opacity-70"
-          style={{ color: tConfig.fgHex + "60" }}
+          style={{ color: filterTag ? tConfig.accentHex : tConfig.fgHex + "60", backgroundColor: filterTag ? tConfig.accentHex + "12" : "transparent" }}
           title={t["journal.tags"] || "Tags"}
         >
           <TagsIcon size={16} />
@@ -231,28 +258,40 @@ export function JournalNavigation({
           <Menu size={16} />
         </button>
       </div>
+      <div className="px-3 pb-3">
+        {onNewEntry && activeJournal && (
+          <button type="button" onClick={onNewEntry}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90"
+            style={{ color: "#fff", backgroundColor: tConfig.accentHex }}>
+            <PenLine size={15} />
+            <span className="truncate">{t["journal.newEntry"] || "Novo registro"}</span>
+          </button>
+        )}
+        <div className="grid grid-cols-3 gap-1.5">
+          <button type="button" onClick={onSaveActive}
+            className="flex h-8 items-center justify-center rounded-md border transition-opacity hover:opacity-80 disabled:opacity-35"
+            style={{ color: tConfig.fgHex + "86", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.bgHex + "80" }}
+            disabled={!onSaveActive}
+            title={t["journal.save"] || "Salvar"}>
+            <Save size={14} />
+          </button>
+          <button type="button" onClick={onCreateJournal}
+            className="flex h-8 items-center justify-center rounded-md border transition-opacity hover:opacity-80"
+            style={{ color: tConfig.fgHex + "86", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.bgHex + "80" }}
+            title={t["journal.newJournal"] || "Novo caderno"}>
+            <Plus size={14} />
+          </button>
+          <button type="button" onClick={onAddJournal}
+            className="flex h-8 items-center justify-center rounded-md border transition-opacity hover:opacity-80"
+            style={{ color: tConfig.fgHex + "86", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.bgHex + "80" }}
+            title={t["journal.addJournal"] || "Adicionar caderno"}>
+            <FolderPlus size={15} />
+          </button>
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <AccordionSection title={t["journal.journals"] || "Notebooks"} tConfig={tConfig}
           containerRef={(el) => { sectionRefs.current.notebooks = el; }} openWhen={focusSection === "notebooks"}>
-          {/* Compact action row: "New" stays the primary, "Add existing" is a
-              quiet icon button beside it — keeps the notebook list right at the
-              top instead of pushing it down. */}
-          <div className="px-3 pt-1 pb-2 flex items-center gap-1.5">
-            <button type="button" onClick={onCreateJournal}
-              className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition-colors hover:opacity-90"
-              style={{ color: "#fff", backgroundColor: tConfig.accentHex }}
-              title={t["journal.newJournal"] || "New notebook"}>
-              <Plus size={14} className="shrink-0" />
-              <span className="truncate">{t["journal.newJournal"] || "New notebook"}</span>
-            </button>
-            <button type="button" onClick={onAddJournal}
-              className="shrink-0 h-[30px] w-[30px] flex items-center justify-center rounded-md transition-colors hover:opacity-80"
-              style={{ color: tConfig.fgHex + "90", border: `1px solid ${tConfig.uiBorderHex}` }}
-              title={t["journal.addJournal"] || "Add existing notebook"}>
-              <FolderPlus size={15} />
-            </button>
-          </div>
-
           {journals.length === 0 && (
             <div className="px-3 py-2 text-[13px]" style={{ color: tConfig.fgHex + "50" }}>
               {t["journal.noBlogs"] || "No notebooks yet."}
@@ -261,32 +300,31 @@ export function JournalNavigation({
 
           {journals.map((journal) => {
             const active = activeJournalId === journal.id;
-            const accent = journal.color || tConfig.accentHex;
             return (
-              <button
-                key={journal.id}
-                type="button"
-                onClick={() => {
-                  if (journal.unavailable) {
-                    onRelocateJournal(journal.id);
-                  } else {
-                    onSelectJournal(journal.id);
+              <div key={journal.id} className="px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (journal.unavailable) {
+                      onRelocateJournal(journal.id);
+                    } else {
+                      onSelectJournal(journal.id);
+                    }
+                  }}
+                  onContextMenu={(e) => handleJournalContextMenu(e, journal)}
+                  className="w-full text-left transition-opacity hover:opacity-90"
+                  title={journal.unavailable ? `Pasta não encontrada: ${journal.rootPath}\nClique para relocar.` : journal.rootPath}
+                >
+                  {journal.unavailable
+                    ? <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px]"
+                        style={{ borderColor: "#f59e0b55", backgroundColor: "#f59e0b0F", color: "#f59e0b" }}>
+                        <AlertTriangle size={14} />
+                        <span className="truncate font-medium">{journal.name}</span>
+                      </div>
+                    : <JournalCard journal={journal} tConfig={tConfig} active={active} />
                   }
-                }}
-                onContextMenu={(e) => handleJournalContextMenu(e, journal)}
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] transition-colors text-left group"
-                style={{
-                  color: journal.unavailable ? "#f59e0b" : active ? accent : tConfig.fgHex + "CC",
-                  backgroundColor: active ? accent + "14" : "transparent",
-                  borderLeft: active ? `2px solid ${accent}` : "2px solid transparent",
-                }}
-                title={journal.unavailable ? `Folder not found: ${journal.rootPath}\nClick to relocate.` : journal.rootPath}
-              >
-                {journal.unavailable
-                  ? <span className="shrink-0 h-[22px] w-[22px] flex items-center justify-center"><AlertTriangle size={15} /></span>
-                  : <JournalAvatar journal={journal} tConfig={tConfig} />}
-                <span className="truncate">{journal.name}</span>
-              </button>
+                </button>
+              </div>
             );
           })}
         </AccordionSection>
@@ -314,19 +352,6 @@ export function JournalNavigation({
               <span className="truncate flex-1">{item.label}</span>
             </button>
           ))}
-          {onNewEntry && activeJournal && (
-            <button
-              type="button"
-              onClick={onNewEntry}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] transition-colors text-left"
-              style={{
-                color: tConfig.accentHex,
-              }}
-            >
-              <PenLine size={15} />
-              <span className="truncate flex-1">{t["journal.newEntry"] || "New entry"}</span>
-            </button>
-          )}
         </AccordionSection>
 
         {allTags.length > 0 && (
@@ -339,15 +364,35 @@ export function JournalNavigation({
                   className="flex flex-wrap gap-1 overflow-hidden transition-all"
                   style={{ maxHeight: `${maxTagHeight}px` }}
                 >
-                  {allTags.map((tag) => (
-                    <span key={tag}
-                      className="px-1.5 py-0.5 rounded text-[11px] leading-tight"
-                      style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex }}
+                  {allTags.map(({ tag, count }) => {
+                    const active = filterTag === tag;
+                    return (
+                    <button key={tag} type="button"
+                      onClick={() => {
+                        onFilterTagChange?.(active ? "" : tag);
+                        onSectionChange("entries");
+                        onViewChange("list");
+                      }}
+                      aria-pressed={active}
+                      className="px-1.5 py-0.5 rounded text-[11px] leading-tight inline-flex items-center gap-1 transition-colors hover:opacity-80"
+                      style={{
+                        backgroundColor: active ? tConfig.accentHex + "2E" : tConfig.accentHex + "12",
+                        color: active ? tConfig.accentHex : tConfig.fgHex + "85",
+                        border: `1px solid ${active ? tConfig.accentHex + "55" : "transparent"}`,
+                      }}
                     >
                       {tag}
-                    </span>
-                  ))}
+                      <span className="tabular-nums opacity-60">{count}</span>
+                    </button>
+                  );})}
                 </div>
+                {filterTag && (
+                  <button type="button" onClick={() => onFilterTagChange?.("")}
+                    className="mt-1 text-[11px] font-medium transition-colors hover:opacity-70"
+                    style={{ color: tConfig.fgHex + "55" }}>
+                    {t["journal.clear"] || "Clear"}
+                  </button>
+                )}
                 {allTags.length > 6 && (
                   <button
                     type="button"

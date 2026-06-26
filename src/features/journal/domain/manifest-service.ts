@@ -1,5 +1,5 @@
 import { readFile, atomicWriteText, ensureDirectoryTree, copyImageToDocumentDir } from "../../../services/filesystem";
-import type { JournalManifest, ManifestCheckResult, JournalDescriptor } from "./journal.types";
+import type { BlogViewConfig, JournalManifest, ManifestCheckResult, JournalDescriptor, PinConfig, PinsConfig } from "./journal.types";
 
 const SCHEMA = "marklee-journal" as const;
 const CURRENT_SCHEMA_VERSION = 1 as const;
@@ -25,6 +25,106 @@ export function createManifestPayload(
 
 function manifestPath(rootPath: string): string {
   return `${rootPath}/.marklee/journal.json`;
+}
+
+function pinFromLegacyId(id: string, order: number): PinConfig | null {
+  const base = {
+    id: crypto.randomUUID(),
+    period: "month" as const,
+    aggregation: "sum" as const,
+    target: undefined,
+    color: undefined,
+    format: "value" as const,
+    order,
+    visible: true,
+  };
+  if (id === "metric:streak") return { ...base, source: "metric", metricId: "streak", label: "Streak", aggregation: "count" };
+  if (id === "metric:words") return { ...base, source: "metric", metricId: "words", label: "Words" };
+  if (id === "metric:entries") return { ...base, source: "metric", metricId: "entries", label: "Entries", aggregation: "count" };
+  if (id.startsWith("tracker:")) {
+    return { ...base, source: "tracker", trackerId: id.slice("tracker:".length), label: id.slice("tracker:".length), aggregation: "avg", format: "bar" };
+  }
+  return null;
+}
+
+function normalizePinsConfig(value: unknown, legacyPinned: unknown): PinsConfig | undefined {
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const rawItems = Array.isArray(obj.items) ? obj.items : [];
+    const items = rawItems
+      .map((item, index): PinConfig | null => {
+        if (!item || typeof item !== "object") return null;
+        const raw = item as Record<string, unknown>;
+        const source = raw.source === "metric" || raw.source === "tracker" ? raw.source : null;
+        if (!source) return null;
+        const period = raw.period === "day" || raw.period === "week" || raw.period === "month" || raw.period === "all" ? raw.period : "month";
+        const aggregation =
+          raw.aggregation === "sum" || raw.aggregation === "avg" || raw.aggregation === "min" ||
+          raw.aggregation === "max" || raw.aggregation === "latest" || raw.aggregation === "count"
+            ? raw.aggregation
+            : source === "tracker" ? "avg" : "sum";
+        const format = raw.format === "value" || raw.format === "bar" || raw.format === "sparkline" ? raw.format : "value";
+        const metricId = raw.metricId === "streak" || raw.metricId === "words" || raw.metricId === "entries" ? raw.metricId : undefined;
+        const trackerId = typeof raw.trackerId === "string" ? raw.trackerId : undefined;
+        if (source === "metric" && !metricId) return null;
+        if (source === "tracker" && !trackerId) return null;
+        const target = Number(raw.target);
+        const order = Number(raw.order);
+        return {
+          id: typeof raw.id === "string" && raw.id ? raw.id : crypto.randomUUID(),
+          source,
+          metricId,
+          trackerId,
+          label: typeof raw.label === "string" && raw.label.trim() ? raw.label : metricId ?? trackerId ?? "Pin",
+          period,
+          aggregation,
+          target: Number.isFinite(target) && target > 0 ? target : undefined,
+          color: typeof raw.color === "string" ? raw.color : undefined,
+          format,
+          order: Number.isFinite(order) ? order : index,
+          visible: typeof raw.visible === "boolean" ? raw.visible : true,
+        };
+      })
+      .filter((item): item is PinConfig => item !== null)
+      .sort((a, b) => a.order - b.order);
+    return { version: 1, items: items.map((item, index) => ({ ...item, order: index })) };
+  }
+
+  if (Array.isArray(legacyPinned)) {
+    const items = legacyPinned
+      .filter((m: unknown): m is string => typeof m === "string")
+      .map((id, index) => pinFromLegacyId(id, index))
+      .filter((item): item is PinConfig => item !== null);
+    return { version: 1, items };
+  }
+
+  return undefined;
+}
+
+function normalizeBlogView(value: unknown): BlogViewConfig | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const theme = raw.theme === "paper" || raw.theme === "magazine" || raw.theme === "notebook" || raw.theme === "clean" ? raw.theme : "clean";
+  const menu = Array.isArray(raw.menu)
+    ? raw.menu
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          if (typeof row.label !== "string" || typeof row.href !== "string") return null;
+          return { label: row.label, href: row.href };
+        })
+        .filter((item): item is { label: string; href: string } => item !== null)
+    : [];
+  return {
+    version: 1,
+    title: typeof raw.title === "string" ? raw.title : undefined,
+    subtitle: typeof raw.subtitle === "string" ? raw.subtitle : undefined,
+    logo: typeof raw.logo === "string" ? raw.logo : undefined,
+    theme,
+    menu,
+    showMeta: typeof raw.showMeta === "boolean" ? raw.showMeta : true,
+    showLogo: typeof raw.showLogo === "boolean" ? raw.showLogo : true,
+  };
 }
 
 async function mkdirIfMissing(path: string): Promise<void> {
@@ -86,6 +186,8 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
       pinnedMetrics: Array.isArray(parsed.pinnedMetrics)
         ? parsed.pinnedMetrics.filter((m: unknown): m is string => typeof m === "string")
         : undefined,
+      pinsConfig: normalizePinsConfig(parsed.pinsConfig, parsed.pinnedMetrics),
+      blogView: normalizeBlogView(parsed.blogView),
     };
 
     return { found: true, valid: true, manifest };
@@ -134,10 +236,19 @@ export async function createJournal(
  */
 export async function updateJournalAppearance(
   rootPath: string,
-  patch: { color?: string | null; cover?: string | null },
+  patch: { name?: string; description?: string | null; color?: string | null; cover?: string | null },
 ): Promise<void> {
   const raw = await readFile(manifestPath(rootPath));
   const parsed = JSON.parse(raw) as Record<string, unknown>;
+  if (patch.name !== undefined) {
+    const name = patch.name.trim();
+    if (name) parsed.name = name;
+  }
+  if (patch.description !== undefined) {
+    const description = patch.description?.trim();
+    if (!description) delete parsed.description;
+    else parsed.description = description;
+  }
   if (patch.color !== undefined) {
     if (patch.color === null) delete parsed.color;
     else parsed.color = patch.color;
@@ -165,6 +276,35 @@ export async function setPinnedMetrics(rootPath: string, ids: string[]): Promise
   const raw = await readFile(manifestPath(rootPath));
   const parsed = JSON.parse(raw) as Record<string, unknown>;
   parsed.pinnedMetrics = ids;
+  parsed.pinsConfig = normalizePinsConfig(undefined, ids);
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+}
+
+export async function setPinsConfig(rootPath: string, config: PinsConfig): Promise<void> {
+  const raw = await readFile(manifestPath(rootPath));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.pinsConfig = { version: 1, items: config.items.map((item, order) => ({ ...item, order })) };
+  delete parsed.pinnedMetrics;
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+}
+
+export async function setJournalInsights(
+  rootPath: string,
+  trackerDefinitions: JournalManifest["trackerDefinitions"],
+  pinsConfig: PinsConfig,
+): Promise<void> {
+  const raw = await readFile(manifestPath(rootPath));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.trackerDefinitions = trackerDefinitions ?? [];
+  parsed.pinsConfig = { version: 1, items: pinsConfig.items.map((item, order) => ({ ...item, order })) };
+  delete parsed.pinnedMetrics;
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+}
+
+export async function setBlogView(rootPath: string, blogView: BlogViewConfig): Promise<void> {
+  const raw = await readFile(manifestPath(rootPath));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.blogView = blogView;
   await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
 }
 
@@ -212,6 +352,8 @@ export async function repairJournal(
     color: typeof existing.color === "string" ? existing.color : undefined,
     cover: typeof existing.cover === "string" ? existing.cover : undefined,
     pinnedMetrics: Array.isArray(existing.pinnedMetrics) ? (existing.pinnedMetrics as string[]).filter((m) => typeof m === "string") : undefined,
+    pinsConfig: normalizePinsConfig(existing.pinsConfig, existing.pinnedMetrics),
+    blogView: normalizeBlogView(existing.blogView),
   };
 
   await mkdirIfMissing(`${rootPath}/.marklee`);

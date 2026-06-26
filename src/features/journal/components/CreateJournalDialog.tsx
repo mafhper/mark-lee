@@ -140,7 +140,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
 
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: tConfig.fgHex + "90" }}>
-              Location *
+              {t["journal.notebookFolder"] || "Pasta do caderno"} *
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -149,7 +149,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
                 readOnly
                 className="flex-1 px-3 py-2 text-sm rounded border outline-none bg-transparent truncate"
                 style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "80" }}
-                placeholder="Select a parent folder..."
+                placeholder={t["journal.selectFolder"] || "Selecione a pasta do caderno..."}
               />
               <button
                 type="button"
@@ -161,11 +161,11 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
                   backgroundColor: tConfig.accentHex + "10",
                 }}
               >
-                Browse...
+                {t["journal.browse"] || "Procurar..."}
               </button>
             </div>
             <p className="text-[11px] mt-1" style={{ color: tConfig.fgHex + "50" }}>
-              Parent folder. Journal will be created at: <code>{folderPath || "\u2014"}</code>
+              {(t["journal.createAtPath"] || "O caderno sera criado em:")} <code>{folderPath || "\u2014"}</code>
             </p>
           </div>
 
@@ -183,7 +183,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
             className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
             style={{ color: tConfig.fgHex + "80", borderColor: tConfig.uiBorderHex }}
           >
-            Cancel
+            {t["journal.cancel"] || "Cancelar"}
           </button>
           <button
             type="button"
@@ -195,7 +195,7 @@ export function CreateJournalDialog({ open, t, tConfig, defaultLanguage, journal
               backgroundColor: tConfig.accentHex,
             }}
           >
-            {creating ? "Creating..." : t["journal.newJournal"] || "Create journal"}
+            {creating ? (t["journal.creating"] || "Criando...") : (t["journal.createJournal"] || t["journal.newJournal"] || "Criar caderno")}
           </button>
         </div>
       </div>

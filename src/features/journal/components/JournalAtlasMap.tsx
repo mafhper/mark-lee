@@ -5,6 +5,7 @@ import { MOOD_EMOJI, EMOJI_FONT_STACK } from "../domain/moods";
 
 interface JournalAtlasMapProps {
   entries: EntryRecord[]; // only entries with manual coordinates are plotted
+  selectedEntryId?: string | null;
   tConfig: ThemeConfig;
   onSelectEntry: (entry: EntryRecord) => void;
   t?: Record<string, string>;
@@ -62,7 +63,7 @@ function entryDateLabel(e: EntryRecord): string {
  * theme no longer tears down and reloads the whole map. Entries sharing a
  * coordinate are merged into a counted group whose popup lists every memory.
  */
-export function JournalAtlasMap({ entries, tConfig, onSelectEntry, t }: JournalAtlasMapProps) {
+export function JournalAtlasMap({ entries, selectedEntryId, tConfig, onSelectEntry, t }: JournalAtlasMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onSelectRef = useRef(onSelectEntry);
   onSelectRef.current = onSelectEntry;
@@ -120,25 +121,29 @@ export function JournalAtlasMap({ entries, tConfig, onSelectEntry, t }: JournalA
     const accent = tConfig.accentHex || "#3b82f6";
     const groups = groupByCoordinate(entries);
 
-    const ring = "box-shadow:0 1px 4px rgba(0,0,0,.4)";
-    const circleBase = (size: number, bg: string, border: string) =>
-      `width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid ${border};${ring};display:flex;align-items:center;justify-content:center`;
-
-    const moodIcon = (emoji: string) => L.divIcon({
-      className: "",
-      html: `<div style="${circleBase(32, "#fff", accent)};font-size:18px;line-height:1;font-family:${EMOJI_FONT_STACK}">${emoji}</div>`,
-      iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -18],
-    });
-    const dotIcon = L.divIcon({
-      className: "",
-      html: `<div style="${circleBase(32, "#fff", accent)}"><span style="width:12px;height:12px;border-radius:50%;background:${accent};display:block"></span></div>`,
-      iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -18],
-    });
-    const clusterIcon = (count: number) => L.divIcon({
-      className: "",
-      html: `<div style="${circleBase(38, accent, "#fff")};color:#fff;font-size:13px;font-weight:700;font-family:system-ui,sans-serif">${count}</div>`,
-      iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20],
-    });
+    const markerIcon = (group: CoordGroup, selected: boolean) => {
+      const count = group.entries.length;
+      const fill = selected ? "#111827" : accent;
+      const stroke = selected ? accent : "#fff";
+      const label = count > 1 ? String(count) : "";
+      const mood = count === 1 && group.entries[0].metadata.mood ? MOOD_EMOJI[group.entries[0].metadata.mood!] : "";
+      const size = selected ? 46 : count > 1 ? 42 : 38;
+      return L.divIcon({
+        className: "marklee-map-marker",
+        html: `
+          <div style="position:relative;width:${size}px;height:${size + 8}px;filter:drop-shadow(0 4px 7px rgba(0,0,0,.35));transform:${selected ? "scale(1.08)" : "scale(1)"};">
+            <svg viewBox="0 0 40 48" width="${size}" height="${size + 8}" aria-hidden="true">
+              <path d="M20 46s16-13.4 16-28A16 16 0 1 0 4 18c0 14.6 16 28 16 28Z" fill="${fill}" stroke="${stroke}" stroke-width="${selected ? 3 : 2}"/>
+              <circle cx="20" cy="18" r="9.5" fill="#fff" opacity=".96"/>
+            </svg>
+            <span style="position:absolute;left:0;right:0;top:9px;text-align:center;color:${fill};font:${count > 1 ? "700 13px" : "600 15px"} system-ui,sans-serif;line-height:1;font-family:${mood ? EMOJI_FONT_STACK : "system-ui,sans-serif"}">${label || mood || "•"}</span>
+          </div>
+        `,
+        iconSize: [size, size + 8],
+        iconAnchor: [size / 2, size + 6],
+        popupAnchor: [0, -(size + 2)],
+      });
+    };
 
     const openButton = (entry: EntryRecord) => {
       const btn = document.createElement("button");
@@ -193,20 +198,16 @@ export function JournalAtlasMap({ entries, tConfig, onSelectEntry, t }: JournalA
     };
 
     for (const group of groups) {
-      let icon: import("leaflet").DivIcon;
-      if (group.entries.length > 1) {
-        icon = clusterIcon(group.entries.length);
-      } else {
-        const mood = group.entries[0].metadata.mood;
-        const emoji = mood ? MOOD_EMOJI[mood] : undefined;
-        icon = emoji ? moodIcon(emoji) : dotIcon;
-      }
+      const selected = group.entries.some((entry) => entry.metadata.id === selectedEntryId);
       const marker = L.marker([group.lat, group.lng], {
-        icon,
+        icon: markerIcon(group, selected),
         title: group.entries.length > 1
           ? (t?.["journal.entriesAtPlace"] || "{n} entries at this place").replace("{n}", String(group.entries.length))
           : (group.entries[0].metadata.title || "Untitled"),
       }).addTo(layer);
+      marker.on("click", () => {
+        if (group.entries.length === 1) onSelectRef.current(group.entries[0]);
+      });
       marker.bindPopup(group.entries.length > 1 ? multiPopup(group) : singlePopup(group.entries[0]));
     }
 
@@ -220,7 +221,7 @@ export function JournalAtlasMap({ entries, tConfig, onSelectEntry, t }: JournalA
       else if (coords.length > 1) map.fitBounds(coords, { padding: [48, 48], maxZoom: 12 });
       else map.setView([20, 0], 2);
     }
-  }, [ready, entries, tConfig.accentHex, t]);
+  }, [ready, entries, selectedEntryId, tConfig.accentHex, t]);
 
   return (
     <div className="relative w-full h-full" style={{ minHeight: 320 }}>

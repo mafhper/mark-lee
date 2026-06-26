@@ -54,6 +54,41 @@ function mayHaveTransparency(src: string) {
   return path.endsWith(".png") || path.endsWith(".svg") || path.endsWith(".webp");
 }
 
+function imageCopy() {
+  const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en";
+  if (lang.startsWith("pt")) {
+    return {
+      notFound: "Imagem indisponivel",
+      empty: "Origem da imagem vazia",
+      failed: "Falha ao carregar imagem",
+      unsupported: "Tipo de imagem sem suporte",
+    };
+  }
+  if (lang.startsWith("es")) {
+    return {
+      notFound: "Imagen no disponible",
+      empty: "Origen de imagen vacio",
+      failed: "No se pudo cargar la imagen",
+      unsupported: "Tipo de imagen no compatible",
+    };
+  }
+  return {
+    notFound: "Image not found",
+    empty: "Image source is empty",
+    failed: "Image failed to load",
+    unsupported: "Unsupported image type",
+  };
+}
+
+function localizeImageError(message: string) {
+  const copy = imageCopy();
+  const unsupported = message.match(/Unsupported image type:\s*([^\s]+)/i);
+  if (unsupported) return `${copy.unsupported}: ${unsupported[1]}`;
+  if (/Image source is empty/i.test(message)) return copy.empty;
+  if (/Image failed to load/i.test(message)) return copy.failed;
+  return message;
+}
+
 export default function MarkdownImage({
   src,
   alt,
@@ -89,7 +124,7 @@ export default function MarkdownImage({
 
   useEffect(() => {
     if (!originalSrc) {
-      setState({ status: "error", message: "Image source is empty" });
+      setState({ status: "error", message: imageCopy().empty });
       return;
     }
 
@@ -185,7 +220,7 @@ export default function MarkdownImage({
           .join(" ")}
         loading={isRemoteImage(originalSrc) ? "lazy" : "eager"}
         decoding="async"
-        onError={() => setState({ status: "error", message: "Image failed to load" })}
+        onError={() => setState({ status: "error", message: imageCopy().failed })}
         src={state.src}
         title={title}
         width={attrWidth}
@@ -199,10 +234,10 @@ export default function MarkdownImage({
         <span />
       </div>
     ) : (
-      <div className="ml-preview-image-placeholder" role="img" aria-label={alt ?? "Image not found"}>
-        <span className="ml-preview-image-placeholder-title">Image not found</span>
+      <div className="ml-preview-image-placeholder" role="img" aria-label={alt ?? imageCopy().notFound}>
+        <span className="ml-preview-image-placeholder-title">{imageCopy().notFound}</span>
         <code>{decodeImagePath(originalSrc)}</code>
-        <span className="ml-preview-image-placeholder-detail">{state.message}</span>
+        <span className="ml-preview-image-placeholder-detail">{localizeImageError(state.message)}</span>
       </div>
     );
 

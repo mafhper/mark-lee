@@ -222,6 +222,12 @@ function hexLuminance(hex: string): number {
   return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
 }
 
+function editorTextCursor(pointer: AppSettings["editorCursor"]["pointer"], color: string) {
+  if (pointer === "system") return "text";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="30" viewBox="0 0 18 30"><path d="M9 3v24M5 3h8M5 27h8" fill="none" stroke="white" stroke-width="4" stroke-linecap="square"/><path d="M9 3v24M5 3h8M5 27h8" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="square"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 9 15, text`;
+}
+
 function resolveEditorFontFamily(fontFamily: string, fallback: string): string {
   const map: Record<string, string> = {
     theme_default: fallback,
@@ -622,6 +628,13 @@ function App() {
   const tConfig = activeShellTheme?.config ?? THEMES.golden;
   const themeDataTheme = activeShellTheme?.baseThemeId ?? activeShellTheme?.id ?? "golden";
   const editorFontFamily = resolveEditorFontFamily(settings.fontFamily, tConfig.editorFont);
+  const editorCaretColor =
+    settings.editorCursor.caretColorMode === "accent"
+      ? tConfig.accentHex
+      : settings.editorCursor.caretColorMode === "custom"
+        ? settings.editorCursor.caretCustomColor
+        : tConfig.editorFgHex;
+  const editorCursorCss = editorTextCursor(settings.editorCursor.pointer, editorCaretColor);
   const sortedThemes = useMemo(() => settings.themeLibrary.map((theme) => theme.id), [settings.themeLibrary]);
   const isNarrowViewport = viewportWidth < 980;
   const isTinyViewport = viewportWidth < 560;
@@ -874,7 +887,11 @@ function App() {
           createdAt: m.createdAt,
         };
         await addJournal(descriptor);
-        setSettings((prev) => ({ ...prev, appMode: "journal" }));
+        setSettings((prev) => {
+          const next = { ...prev, appMode: "journal" as const };
+          saveSettings(next);
+          return next;
+        });
       }
     } catch {
       // folder doesn't contain a valid journal
@@ -2558,6 +2575,12 @@ function App() {
           "--ml-editor-font": editorFontFamily,
           "--ml-editor-font-size": `${settings.fontSize}px`,
           "--ml-editor-line-height": `${settings.lineHeight}`,
+          "--ml-editor-caret-width": `${settings.editorCursor.caretWidth}px`,
+          "--ml-editor-caret-color": editorCaretColor,
+          "--ml-editor-caret-animation": settings.editorCursor.caretBlink
+            ? `cm-blink ${settings.editorCursor.caretBlinkIntervalMs}ms steps(1) infinite`
+            : "none",
+          "--ml-editor-text-cursor": editorCursorCss,
           "--ml-editor-bg": tConfig.editorBgHex,
           "--ml-editor-fg": tConfig.editorFgHex,
           "--ml-fg": tConfig.fgHex,

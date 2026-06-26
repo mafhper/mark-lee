@@ -553,6 +553,8 @@
   line-height: var(--ml-editor-line-height, 1.6);
   box-sizing: border-box;
   background-color: transparent;
+  caret-color: var(--ml-editor-caret-color, var(--ml-editor-fg, #e5e7eb));
+  cursor: var(--ml-editor-text-cursor, text);
 }
 
 .cm-content:focus,
@@ -600,6 +602,12 @@
 .cm-editor .cm-selectionLayer,
 .cm-editor .cm-cursorLayer {
   pointer-events: none;
+}
+
+.cm-editor .cm-cursor {
+  border-left-width: var(--ml-editor-caret-width, 2px) !important;
+  border-left-color: var(--ml-editor-caret-color, var(--ml-editor-fg, #e5e7eb)) !important;
+  animation: var(--ml-editor-caret-animation, cm-blink 640ms steps(1) infinite) !important;
 }
 
 .cm-editor .cm-selectionBackground {

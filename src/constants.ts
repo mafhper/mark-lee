@@ -1,6 +1,7 @@
 import {
   AppMode,
   AppSettings,
+  EditorCursorSettings,
   PublicationPreset,
   Snippet,
   TextPreset,
@@ -296,6 +297,15 @@ export const DEFAULT_SHORTCUTS = {
 } as const satisfies Record<string, string>;
 
 export type ShortcutId = keyof typeof DEFAULT_SHORTCUTS;
+
+export const DEFAULT_EDITOR_CURSOR: EditorCursorSettings = {
+  pointer: "outlined",
+  caretWidth: 2,
+  caretColorMode: "accent",
+  caretCustomColor: "#4f46e5",
+  caretBlink: true,
+  caretBlinkIntervalMs: 640,
+};
 
 export const TEXT_PRESETS: Record<string, TextPreset> = {
   minimalist: {
@@ -737,6 +747,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appMode: "editor" as AppMode,
   measurementSystem: "metric",
   journalDataDir: "",
+  editorCursor: DEFAULT_EDITOR_CURSOR,
 };
 
 export const INITIAL_MARKDOWN = `# Mark-Lee
