@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import process from "node:process";
 import { chromium } from "playwright";
+import { createGitHubApiFixture } from "./smoke-github-api.mjs";
 
 const preferredPort = Number(process.env.SITE_SMOKE_PORT || 43180);
 const isWindows = process.platform === "win32";
@@ -252,6 +253,22 @@ async function run() {
 
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    const unexpectedGitHubApiRequests = [];
+
+    await page.route("https://api.github.com/**", async (route) => {
+      const requestUrl = route.request().url();
+      const fixture = createGitHubApiFixture(requestUrl);
+      if (!fixture) {
+        unexpectedGitHubApiRequests.push(requestUrl);
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Unexpected GitHub API request in site smoke" }),
+        });
+        return;
+      }
+      await route.fulfill(fixture);
+    });
 
     const consoleErrors = [];
     const pageErrors = [];
@@ -278,6 +295,12 @@ async function run() {
     await assertScrollResetOnNavigation(page, baseUrl);
     await assertMobileNavigation(page, baseUrl);
     await assertSpaFallback(baseUrl);
+
+    if (unexpectedGitHubApiRequests.length > 0) {
+      throw new Error(
+        `Unexpected GitHub API request(s): ${unexpectedGitHubApiRequests.join(", ")}`,
+      );
+    }
 
     await browser.close();
 
