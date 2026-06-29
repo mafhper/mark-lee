@@ -175,7 +175,8 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
   pre { background: #f1f5f9; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
   code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.9em; }
   pre code { background: none; padding: 0; }
-  blockquote { border-left: 3px solid #3b82f6; padding-left: 16px; color: #64748b; margin: 1em 0; }
+  blockquote { position: relative; padding: 10px 0 10px 16px; color: #64748b; margin: 1em 0; }
+  blockquote::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; background: #64748b; opacity: 0.55; }
   ul, ol { margin: 0.5em 0 1em 1.5em; }
   li { margin-bottom: 0.25em; }
   hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }

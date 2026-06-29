@@ -1073,12 +1073,23 @@
 }
 
 .ml-preview-prose blockquote {
+  position: relative;
   margin: 0 0 var(--ml-preview-block-gap, 22px);
   padding: var(--ml-preview-quote-pad-y, 14px) var(--ml-preview-quote-pad-x, 18px);
-  border-left: var(--ml-preview-quote-border, 4px) solid var(--ml-preview-quote-tone, var(--ml-preview-accent, #172554));
-  border-radius: var(--ml-preview-quote-radius, 18px);
-  background: var(--ml-preview-quote-bg, transparent);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--ml-preview-muted, #64748b);
+}
+
+.ml-preview-prose blockquote:not(.ml-preview-callout)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: var(--ml-preview-quote-pad-y, 14px);
+  bottom: var(--ml-preview-quote-pad-y, 14px);
+  width: var(--ml-preview-quote-line-width, 2px);
+  background: var(--ml-preview-quote-tone, var(--ml-preview-muted, #64748b));
 }
 
 .ml-preview-prose blockquote > :last-child {
@@ -1088,7 +1099,8 @@
 .ml-preview-prose .ml-preview-callout {
   position: relative;
   padding-top: calc(var(--ml-preview-quote-pad-y, 14px) + 1.2rem);
-  border-left-color: color-mix(in srgb, var(--ml-preview-accent, #172554) 76%, var(--ml-preview-border, transparent));
+  border: 1px solid color-mix(in srgb, var(--ml-preview-accent, #172554) 28%, var(--ml-preview-border, transparent));
+  border-radius: min(var(--ml-preview-quote-radius, 14px), 14px);
   background: color-mix(in srgb, var(--ml-preview-accent, #172554) 8%, transparent);
 }
 
@@ -1107,7 +1119,7 @@
 
 .ml-preview-prose .ml-preview-callout[data-callout="warning"],
 .ml-preview-prose .ml-preview-callout[data-callout="caution"] {
-  border-left-color: color-mix(in srgb, #b45309 72%, var(--ml-preview-border, transparent));
+  border-color: color-mix(in srgb, #b45309 32%, var(--ml-preview-border, transparent));
   background: color-mix(in srgb, #b45309 10%, transparent);
 }
 
@@ -1138,7 +1150,6 @@
   margin: 0 0 var(--ml-preview-block-gap, 22px);
   padding: 1rem 1.1rem;
   border: 1px solid var(--ml-preview-border, color-mix(in srgb, var(--ml-preview-text, #111827) 16%, transparent));
-  border-left: 3px solid var(--ml-preview-accent, #172554);
   border-radius: min(var(--ml-preview-radius, 14px), 14px);
   background: color-mix(in srgb, var(--ml-preview-accent, #172554) 7%, transparent);
 }

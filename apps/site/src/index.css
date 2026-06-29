@@ -370,7 +370,6 @@
     max-width: 9rem;
     align-items: center;
     gap: 0.45rem;
-    border-right: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     margin: 0.24rem 0 0.24rem 0.28rem;
     border: 1px solid color-mix(in srgb, var(--hero-mockup-border) 68%, transparent);
     border-radius: 0.38rem;

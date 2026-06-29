@@ -345,7 +345,6 @@ export function JournalNavigation({
               style={{
                 color: activeSection === item.id ? tConfig.accentHex : tConfig.fgHex + "CC",
                 backgroundColor: activeSection === item.id ? tConfig.accentHex + "12" : "transparent",
-                borderLeft: activeSection === item.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
               }}
             >
               {item.icon}

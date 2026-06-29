@@ -197,7 +197,6 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
         style={{
           borderColor: tConfig.uiBorderHex,
           backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
-          borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
         }}>
         <div className="flex flex-col items-center shrink-0 w-8 pt-0.5">
           <span className="text-lg font-bold leading-none" style={{ color: tConfig.fgHex }}>{d.getDate()}</span>
