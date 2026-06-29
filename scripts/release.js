@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { exec } from "child_process";
 import util from "util";
+import { assertAlignedVersions } from "./release-version.mjs";
 
 const execAsync = util.promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +58,31 @@ async function updatePackageJson(type) {
   }
 }
 
+async function readCurrentVersions() {
+  const packagePath = path.join(__dirname, "..", "package.json");
+  const tauriConfigPath = path.join(__dirname, "..", "src-tauri", "tauri.conf.json");
+  const cargoPath = path.join(__dirname, "..", "src-tauri", "Cargo.toml");
+
+  const [packageContent, tauriContent, cargoContent] = await Promise.all([
+    fs.readFile(packagePath, "utf8"),
+    fs.readFile(tauriConfigPath, "utf8"),
+    fs.readFile(cargoPath, "utf8"),
+  ]);
+
+  const packageVersion = JSON.parse(packageContent).version;
+  const tauriVersion = JSON.parse(tauriContent).version;
+  const cargoVersion = cargoContent.match(/^version\s*=\s*"([^"]+)"$/m)?.[1];
+  if (!packageVersion || !tauriVersion || !cargoVersion) {
+    throw new Error("Could not read every desktop version before release.");
+  }
+
+  return {
+    "package.json": packageVersion,
+    "tauri.conf.json": tauriVersion,
+    "Cargo.toml": cargoVersion,
+  };
+}
+
 async function updateChangeLog(version) {
   const logPath = path.join(__dirname, "..", "docs", "plan", "change.log");
   const date = new Date().toISOString().split("T")[0].replace(/-/g, "/");
@@ -81,6 +107,10 @@ async function main() {
   }
 
   console.log(`${COLORS.bold}🚀 Automating Release: ${type}${COLORS.reset}\n`);
+
+  const currentVersions = await readCurrentVersions();
+  const currentVersion = assertAlignedVersions(currentVersions);
+  console.log(`${COLORS.green}✔ Desktop versions aligned at ${currentVersion}${COLORS.reset}`);
 
   const newVersion = await updatePackageJson(type);
   console.log(`${COLORS.green}✔ package.json updated to ${newVersion}${COLORS.reset}`);
