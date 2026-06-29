@@ -33,6 +33,7 @@ src-tauri/gen/
 *.sw?
 
 # Project-local private workspaces
+.worktrees/
 @development/
 .dev/
 _dev/
