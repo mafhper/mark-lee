@@ -31,10 +31,13 @@ async function normalizeLibrary(parsed: unknown): Promise<LibraryData> {
       return { ...j, name: manifest.name, description: manifest.description, color: manifest.color, cover: manifest.cover, unavailable: false };
     })
   );
+  const storedActiveId = typeof obj.activeJournalId === "string" ? obj.activeJournalId : null;
+  const activeJournal = validJournals.find((journal) => journal.id === storedActiveId && !journal.unavailable);
+  const fallbackJournal = validJournals.find((journal) => !journal.unavailable);
   return {
     version: 1,
     journals: validJournals,
-    activeJournalId: typeof obj.activeJournalId === "string" ? obj.activeJournalId : null,
+    activeJournalId: activeJournal?.id ?? fallbackJournal?.id ?? null,
   };
 }
 

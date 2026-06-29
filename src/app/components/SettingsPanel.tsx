@@ -863,6 +863,74 @@ export default function SettingsPanel({
           </div>
         )}
         {renderSectionCard(
+          tr("Cursor e caret", "Pointer and caret", "Cursor y caret"),
+          tr(
+            "Ajusta a visibilidade do ponto de edição sem alterar o conteúdo.",
+            "Adjusts the editing point visibility without changing content.",
+            "Ajusta la visibilidad del punto de edición sin cambiar el contenido."
+          ),
+          <div className="grid gap-4">
+            <label className="space-y-2">
+              <span className="text-sm opacity-80">{tr("Cursor do mouse", "Mouse pointer", "Cursor del mouse")}</span>
+              <select
+                className={inputClass}
+                value={settings.editorCursor.pointer}
+                onChange={(event) =>
+                  onSettingsChange({
+                    editorCursor: { ...settings.editorCursor, pointer: event.target.value as AppSettings["editorCursor"]["pointer"] },
+                  })
+                }
+              >
+                <option value="outlined">{tr("I-beam com contorno", "Outlined I-beam", "I-beam con contorno")}</option>
+                <option value="system">{tr("Sistema", "System", "Sistema")}</option>
+              </select>
+            </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              {renderRangeField(tr("Espessura da caret", "Caret width", "Grosor de caret"), settings.editorCursor.caretWidth, 1, 6, 1, "px", (caretWidth) =>
+                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretWidth } })
+              )}
+              {renderRangeField(tr("Pulso da caret", "Caret blink", "Pulso de caret"), settings.editorCursor.caretBlinkIntervalMs, 240, 1400, 40, "ms", (caretBlinkIntervalMs) =>
+                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlinkIntervalMs } })
+              )}
+            </div>
+            <label className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <span className="text-sm">{tr("Piscar caret", "Blink caret", "Parpadear caret")}</span>
+              {renderSwitch(settings.editorCursor.caretBlink, (caretBlink) =>
+                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlink } })
+              )}
+            </label>
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
+              <label className="space-y-2">
+                <span className="text-sm opacity-80">{tr("Cor da caret", "Caret color", "Color de caret")}</span>
+                <select
+                  className={inputClass}
+                  value={settings.editorCursor.caretColorMode}
+                  onChange={(event) =>
+                    onSettingsChange({
+                      editorCursor: { ...settings.editorCursor, caretColorMode: event.target.value as AppSettings["editorCursor"]["caretColorMode"] },
+                    })
+                  }
+                >
+                  <option value="accent">{tr("Acento do tema", "Theme accent", "Acento del tema")}</option>
+                  <option value="text">{tr("Texto do editor", "Editor text", "Texto del editor")}</option>
+                  <option value="custom">{tr("Personalizada", "Custom", "Personalizada")}</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm opacity-80">{tr("Cor custom", "Custom color", "Color personalizada")}</span>
+                <input
+                  type="color"
+                  className="ml-settings-field h-10 w-full rounded-lg border px-2 py-1"
+                  value={settings.editorCursor.caretCustomColor}
+                  onChange={(event) =>
+                    onSettingsChange({ editorCursor: { ...settings.editorCursor, caretCustomColor: event.target.value } })
+                  }
+                />
+              </label>
+            </div>
+          </div>
+        )}
+        {renderSectionCard(
           tr("Escrita e persistência", "Writing and persistence", "Escritura y persistencia"),
           tr("Leitura, foco e salvamento do texto.", "Reading, focus, and text persistence.", "Lectura, foco y guardado del texto."),
           <div className="grid gap-3">

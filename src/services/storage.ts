@@ -1,4 +1,4 @@
-import { createDefaultThemeLibrary, DEFAULT_SETTINGS, THEMES } from "../constants";
+import { createDefaultThemeLibrary, DEFAULT_EDITOR_CURSOR, DEFAULT_SETTINGS, THEMES } from "../constants";
 import { AppSettings, DocumentTab, Language, Theme, ThemeDefinition, ThemeId } from "../types";
 
 const SETTINGS_KEY = "mark-lee-settings";
@@ -18,6 +18,31 @@ function normalizeLanguage(lang?: string): Language {
   if (source.startsWith("pt")) return "pt-BR";
   if (source.startsWith("es")) return "es-ES";
   return "en-US";
+}
+
+function normalizeEditorCursor(value: unknown): AppSettings["editorCursor"] {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const pointer = source.pointer === "system" || source.pointer === "outlined"
+    ? source.pointer
+    : DEFAULT_EDITOR_CURSOR.pointer;
+  const caretColorMode =
+    source.caretColorMode === "text" || source.caretColorMode === "accent" || source.caretColorMode === "custom"
+      ? source.caretColorMode
+      : DEFAULT_EDITOR_CURSOR.caretColorMode;
+  const caretWidthRaw = Number(source.caretWidth);
+  const caretBlinkIntervalRaw = Number(source.caretBlinkIntervalMs);
+  const custom = typeof source.caretCustomColor === "string" ? source.caretCustomColor : DEFAULT_EDITOR_CURSOR.caretCustomColor;
+
+  return {
+    pointer,
+    caretColorMode,
+    caretCustomColor: /^#[0-9a-fA-F]{6}$/.test(custom) ? custom : DEFAULT_EDITOR_CURSOR.caretCustomColor,
+    caretWidth: Number.isFinite(caretWidthRaw) ? Math.max(1, Math.min(6, Math.round(caretWidthRaw))) : DEFAULT_EDITOR_CURSOR.caretWidth,
+    caretBlink: typeof source.caretBlink === "boolean" ? source.caretBlink : DEFAULT_EDITOR_CURSOR.caretBlink,
+    caretBlinkIntervalMs: Number.isFinite(caretBlinkIntervalRaw)
+      ? Math.max(240, Math.min(1400, Math.round(caretBlinkIntervalRaw)))
+      : DEFAULT_EDITOR_CURSOR.caretBlinkIntervalMs,
+  };
 }
 
 function withMigrations(settings: Partial<AppSettings>): AppSettings {
@@ -178,6 +203,8 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
 
   if (!merged.sidebarWidth || merged.sidebarWidth < 220) merged.sidebarWidth = 300;
   if (merged.sidebarWidth > 520) merged.sidebarWidth = 520;
+
+  merged.editorCursor = normalizeEditorCursor((settings as Partial<AppSettings>).editorCursor);
 
   merged.commandPalette = {
     ...DEFAULT_SETTINGS.commandPalette,

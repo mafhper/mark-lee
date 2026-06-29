@@ -48,7 +48,8 @@ export function safeRelativeAssetPath(ref: string): string | null {
 export function resolveEntryAssetPath(entryPath: string, ref: string): string | null {
   const safe = safeRelativeAssetPath(ref);
   if (!safe) return null;
-  const dir = entryPath.substring(0, entryPath.lastIndexOf("/"));
+  const normalized = entryPath.replace(/\\/g, "/");
+  const dir = normalized.substring(0, normalized.lastIndexOf("/"));
   if (!dir) return null;
   return `${dir}/${safe}`;
 }

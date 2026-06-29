@@ -193,10 +193,22 @@ function normalizeMystDirectives(markdown: string) {
   return output.join("\n");
 }
 
+// A CSS hex color: exactly 3, 4, 6 or 8 hex digits (#rgb / #rgba / #rrggbb / #rrggbbaa).
+const HEX_COLOR = /^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
 function normalizeTags(markdown: string) {
-  return markdown.replace(/(^|\s)#([\p{L}\p{N}_/-]+)/gu, (_match, prefix: string, tag: string) => {
-    return `${prefix}<span class="ml-preview-tag">#${escapeHtmlAttribute(tag)}</span>`;
-  });
+  // Only treat `#token` as a tag when the token contains at least one letter and
+  // is not a hex color. This stops the old regex from turning issue numbers
+  // (`#42`), hex colors (`#fff`, `#1d4ed8`) and prices (`#10`) into tag pills.
+  // `/` is intentionally excluded from the token (`#path/sub` is rarely a tag).
+  return markdown.replace(
+    /(^|\s)#([\p{L}\p{N}_-]*\p{L}[\p{L}\p{N}_-]*)/gu,
+    (match, prefix: string, tag: string) => {
+      if (HEX_COLOR.test(tag)) return match;
+      const escaped = escapeHtmlAttribute(tag);
+      return `${prefix}<span class="ml-preview-tag" data-tag="${escaped}">#${escaped}</span>`;
+    },
+  );
 }
 
 function normalizeInlineExtensions(markdown: string) {

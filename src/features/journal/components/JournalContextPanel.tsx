@@ -7,6 +7,7 @@ import { JournalHeader } from "./JournalHeader";
 import { JournalListView } from "./JournalListView";
 import { JournalCalendarView } from "./JournalCalendarView";
 import { JournalMapView } from "./JournalMapView";
+import type { LocationFilter } from "../location/locationFilter";
 import { ExportRangeDialog } from "./ExportRangeDialog";
 import { ExportJournalDialog } from "./ExportJournalDialog";
 import type { JournalSessionState } from "../session/journalSession.types";
@@ -31,12 +32,21 @@ interface JournalContextPanelProps {
   language?: string;
   worldMapActive?: boolean;
   onToggleWorldMap?: () => void;
+  filterTag?: string;
+  onFilterTagChange?: (tag: string) => void;
+  filterImages?: boolean;
+  onFilterImagesChange?: (value: boolean) => void;
+  filterLocation?: LocationFilter | null;
+  onFilterLocation?: (filter: LocationFilter) => void;
+  onClearLocation?: () => void;
 }
 
 export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, activeSection, onManageTemplates, onCreateEntryForDate,
   journal, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor,
   sessionState, language, worldMapActive, onToggleWorldMap,
+  filterTag, onFilterTagChange, filterImages, onFilterImagesChange,
+  filterLocation, onFilterLocation, onClearLocation,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportRange, setShowExportRange] = useState(false);
@@ -93,6 +103,7 @@ export function JournalContextPanel({
           <JournalMapView
             t={t} tConfig={tConfig} entries={allEntries} onSelectEntry={onSelectEntry}
             worldMapActive={worldMapActive} onToggleWorldMap={onToggleWorldMap}
+            onFilterLocation={onFilterLocation}
           />
         ) : (
           <JournalListView
@@ -102,6 +113,9 @@ export function JournalContextPanel({
             onToggleFavorite={onToggleFavorite} onDuplicateEntry={onDuplicateEntry}
             onDeleteEntry={onDeleteEntry} onOpenInEditor={onOpenInEditor}
             searchQuery={searchQuery} language={language}
+            filterTag={filterTag} onFilterTagChange={onFilterTagChange}
+            filterImages={filterImages} onFilterImagesChange={onFilterImagesChange}
+            filterLocation={filterLocation} onClearLocation={onClearLocation}
           />
         )}
       </div>

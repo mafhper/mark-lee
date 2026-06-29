@@ -16,6 +16,9 @@ type MarkdownPreviewProps = {
   /** Drop the outer padding and the bordered "surface" card so the prose flows
    *  directly into the page — used by the journal reading view. */
   bare?: boolean;
+  /** When set, clicking a hashtag in the body (`#tag`) invokes this — lets the
+   *  reading view filter the entry list by a tag mentioned in the prose. */
+  onTagClick?: (tag: string) => void;
 };
 
 function isExternalHref(href?: string) {
@@ -124,10 +127,21 @@ export default function MarkdownPreview({
   shellBackground,
   surfaceStyle,
   bare = false,
+  onTagClick,
 }: MarkdownPreviewProps) {
   const { meta, body } = React.useMemo(() => parseMarkdownFrontmatter(content), [content]);
   const processedBody = React.useMemo(() => preprocessMarkdown(body), [body]);
   const hasMeta = Object.keys(meta).length > 0;
+
+  // Delegate clicks on body hashtags (rendered as <span class="ml-preview-tag"
+  // data-tag="…">) to the host instead of wiring a handler per span.
+  const handleTagClick = onTagClick
+    ? (e: React.MouseEvent<HTMLElement>) => {
+        const el = (e.target as HTMLElement).closest<HTMLElement>(".ml-preview-tag[data-tag]");
+        const tag = el?.dataset.tag;
+        if (tag) { e.preventDefault(); onTagClick(tag); }
+      }
+    : undefined;
 
   return (
     <div className={bare ? "min-h-full" : "min-h-full p-5"} style={{ backgroundColor: shellBackground }}>
@@ -146,7 +160,7 @@ export default function MarkdownPreview({
           </div>
         ) : null}
 
-        <article className="ml-preview-prose">
+        <article className={onTagClick ? "ml-preview-prose ml-preview-tags-clickable" : "ml-preview-prose"} onClick={handleTagClick}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}

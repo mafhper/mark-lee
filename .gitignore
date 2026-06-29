@@ -16,6 +16,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 /performance-reports/
+/output/
 
 # Rust / Tauri
 src-tauri/target/
@@ -33,6 +34,7 @@ src-tauri/gen/
 *.sw?
 
 # Project-local private workspaces
+.worktrees/
 @development/
 .dev/
 _dev/

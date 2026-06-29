@@ -1,22 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, FolderPlus, ChevronDown, ChevronUp } from "lucide-react";
-
-const MOODS: { key: string; emoji: string }[] = [
-  { key: "great", emoji: "\u{1F60A}" },
-  { key: "good", emoji: "\u{1F642}" },
-  { key: "neutral", emoji: "\u{1F610}" },
-  { key: "sad", emoji: "\u{1F622}" },
-  { key: "angry", emoji: "\u{1F624}" },
-  { key: "anxious", emoji: "\u{1F630}" },
-  { key: "tired", emoji: "\u{1F634}" },
-  { key: "loved", emoji: "\u{1F970}" },
-  { key: "thankful", emoji: "\u{1F64F}" },
-  { key: "creative", emoji: "\u{2728}" },
-  { key: "sick", emoji: "\u{1F912}" },
-  { key: "excited", emoji: "\u{1F929}" },
-];
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { MOODS } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
-import type { JournalDescriptor } from "../domain/journal.types";
+import type { BlogViewConfig, JournalDescriptor, TrackerDefinition } from "../domain/journal.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry, readEntry } from "../domain/entry-service";
 import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
@@ -24,12 +10,14 @@ import { exportEntryAsMarkdown, exportEntryAsHtml } from "../domain/export-servi
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
 import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
-import type { TrackerDefinition } from "../domain/journal.types";
-import { JournalEmptyState } from "./JournalEmptyState";
+import { readManifest } from "../domain/manifest-service";
+import { LocationPicker } from "./LocationPicker";
+import { parseCoordinateInput } from "../location/coordinates";
 import { JournalGettingStarted } from "./JournalGettingStarted";
 import { JournalLightbox } from "./JournalLightbox";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
 import { JournalPublicationView } from "./JournalPublicationView";
+import { BlogSettingsDialog } from "./BlogSettingsDialog";
 import { EditorView } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
@@ -50,11 +38,13 @@ interface JournalEntryPanelProps {
   onDuplicateEntry?: (entry: EntryRecord) => void;
   onReloadEntry?: () => void;
   onNewEntry?: () => void;
+  onCreateEntryFromTemplate?: (templateBody: string) => void;
   onCreateJournal?: () => void;
   onAddJournal?: () => void;
   prevEntry?: EntryRecord | null;
   nextEntry?: EntryRecord | null;
   onNavigateEntry?: (entry: EntryRecord) => void;
+  onOpenTag?: (tag: string) => void;
   language?: string;
   hasEntries?: boolean;
   readOnly?: boolean;
@@ -88,7 +78,7 @@ function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateEntryFromTemplate, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, onOpenTag, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -108,7 +98,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
+  const [blogConfig, setBlogConfig] = useState<BlogViewConfig | null>(null);
+  const [showBlogSettings, setShowBlogSettings] = useState(false);
+  const [blogLogoUrl, setBlogLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [journalCoverUrl, setJournalCoverUrl] = useState<string | null>(null);
   // Inline cover height toggle — a middle ground between the thin band and the
   // full-screen lightbox: see more of the cover without leaving the entry.
   const [coverExpanded, setCoverExpanded] = useState(false);
@@ -120,6 +114,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const [locationState, setLocationState] = useState("");
   const [locationCountry, setLocationCountry] = useState("");
   const [locationAttraction, setLocationAttraction] = useState("");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   // Latest handlers exposed to the global toolbar target. Kept in a ref so the
@@ -422,6 +417,23 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     }
   };
 
+  // Set latitude and longitude together (from the map picker or a pasted
+  // coordinate/link). Doing both in one call avoids the stale-snapshot bug that
+  // two sequential setLocationField calls would hit.
+  const setLocationCoords = (lat: string, lng: string) => {
+    if (readOnly) return;
+    setLocationLat(lat);
+    setLocationLng(lng);
+    if (entry && journal) {
+      scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocationFrom(
+        locationLabel,
+        lat ? Number(lat) : undefined,
+        lng ? Number(lng) : undefined,
+        locationCity, locationState, locationCountry, locationAttraction,
+      ));
+    }
+  };
+
   useEffect(() => {
     if (journal) {
       getTrackerDefinitions(journal.rootPath).then(setTrackerDefs).catch(() => setTrackerDefs([]));
@@ -429,6 +441,42 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setTrackerDefs([]);
     }
   }, [journal?.rootPath]);
+
+  useEffect(() => {
+    let active = true;
+    if (!journal) {
+      setBlogConfig(null);
+      return () => { active = false; };
+    }
+    readManifest(journal.rootPath)
+      .then((manifest) => { if (active) setBlogConfig(manifest?.blogView ?? null); })
+      .catch(() => { if (active) setBlogConfig(null); });
+    return () => { active = false; };
+  }, [journal?.rootPath]);
+
+  useEffect(() => {
+    let active = true;
+    if (!journal || !blogConfig?.logo) {
+      setBlogLogoUrl(null);
+      return () => { active = false; };
+    }
+    loadImage(`${journal.rootPath}/${blogConfig.logo}`)
+      .then((url) => { if (active) setBlogLogoUrl(url); })
+      .catch(() => { if (active) setBlogLogoUrl(null); });
+    return () => { active = false; };
+  }, [blogConfig?.logo, journal?.rootPath]);
+
+  useEffect(() => {
+    let active = true;
+    if (!journal?.cover) {
+      setJournalCoverUrl(null);
+      return () => { active = false; };
+    }
+    loadImage(`${journal.rootPath}/${journal.cover}`)
+      .then((url) => { if (active) setJournalCoverUrl(url); })
+      .catch(() => { if (active) setJournalCoverUrl(null); });
+    return () => { active = false; };
+  }, [journal?.cover, journal?.rootPath]);
 
   const handleTrackerChange = (id: string, value: string | number | boolean | null) => {
     if (readOnly) return;
@@ -634,7 +682,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
           )}
         </div>
       )}
-      {viewMode === "preview" && showEntry ? null : journal ? (
+      {showEntry && viewMode !== "preview" && journal ? (
         <div className="px-6 py-4 border-b" style={{ borderColor: tConfig.uiBorderHex }}>
           <div className="flex items-center justify-between">
             <div className="space-y-1 min-w-0 flex-1">
@@ -651,8 +699,8 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               ) : (
                 <h1 className="text-2xl font-bold tracking-tight truncate" style={{ color: tConfig.fgHex }}>
                   {journal
-                    ? (t["journal.selectEntry"] || "No entry selected")
-                    : (t["journal.noJournalTitle"] || "No journal open")}
+                    ? (t["journal.selectEntry"] || "Selecione um registro")
+                    : (t["journal.noJournalTitle"] || "Nenhum caderno aberto")}
                 </h1>
               )}
             </div>
@@ -688,6 +736,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                           <div className="border-t my-1" style={{ borderColor: tConfig.uiBorderHex }} />
                           <DropdownItem icon={Activity} label={t["journal.trackers"] || "Trackers"} onClick={() => { setShowTrackerManager(true); setShowMoreMenu(false); }} />
                           <DropdownItem icon={TrendingUp} label={t["journal.stats"] || "Stats"} onClick={() => { setShowTrackerStats(true); setShowMoreMenu(false); }} />
+                          <DropdownItem icon={Settings2} label={t["blog.settings"] || "Blog"} onClick={() => { setShowBlogSettings(true); setShowMoreMenu(false); }} />
                           <DropdownItem icon={Download} label="MD" onClick={() => { handleExportEntry(); setShowMoreMenu(false); }} />
                           <DropdownItem icon={Globe} label="HTML" onClick={() => { handleExportHtml(); setShowMoreMenu(false); }} />
                         </>
@@ -846,6 +895,29 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                             className="text-[11px] bg-transparent border rounded px-2 py-1 outline-none font-mono"
                             style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }} placeholder={t["journal.longitude"] || "Lng"} />
                         </div>
+                        {!readOnly && (
+                          <>
+                            <input type="text"
+                              onChange={(e) => {
+                                const parsed = parseCoordinateInput(e.target.value);
+                                if (parsed) { setLocationCoords(String(parsed.lat), String(parsed.lng)); e.target.value = ""; }
+                              }}
+                              className="w-full text-[11px] bg-transparent border rounded px-2 py-1 outline-none"
+                              style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
+                              placeholder={t["journal.pasteCoordinates"] || "Paste coordinates or a map link"} />
+                            <button type="button" onClick={() => setShowLocationPicker((v) => !v)}
+                              className="w-full flex items-center justify-center gap-1.5 text-[11px] rounded px-2 py-1 transition-colors"
+                              style={{ color: tConfig.accentHex, backgroundColor: tConfig.accentHex + "12" }}>
+                              <MapPin size={12} /> {showLocationPicker ? (t["journal.hideMap"] || "Hide map") : (t["journal.pickOnMap"] || "Pick on map")}
+                            </button>
+                            {showLocationPicker && (
+                              <LocationPicker tConfig={tConfig} t={t}
+                                lat={locationLat ? Number(locationLat) : undefined}
+                                lng={locationLng ? Number(locationLng) : undefined}
+                                onPick={(la, ln) => setLocationCoords(String(la), String(ln))} />
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
                     {openPopover === "trackers" && (
@@ -880,7 +952,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </>
             ) : (
               <span className="flex items-center gap-1 text-xs" style={{ color: tConfig.fgHex + "70" }}>
-                <BookOpen size={12} />{t["journal.noJournalDesc"] || "Select an entry"}
+                <BookOpen size={12} />{t["journal.noJournalDesc"] || "Selecione um registro"}
               </span>
             )}
           </div>
@@ -889,9 +961,9 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
       <div className="flex-1 min-h-0 flex">
         {showEntry ? (
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 min-w-0">
             {(viewMode === "edit" || viewMode === "split" || !viewMode) && (
-              <div className={viewMode === "split" ? "w-1/2 border-r" : "flex-1"} style={{ borderColor: tConfig.uiBorderHex }}>
+              <div className={viewMode === "split" ? "w-1/2 min-w-0 border-r" : "flex-1 min-w-0"} style={{ borderColor: tConfig.uiBorderHex }}>
                 <MarkdownEditor
                   value={body}
                   onChange={handleBodyChange}
@@ -903,13 +975,15 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
               </div>
             )}
             {viewMode === "preview" && (
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language}
-                  prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry} />
+                  blogView={blogConfig} blogLogoUrl={blogLogoUrl} journalName={journalName}
+                  prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry}
+                  onConfigureBlog={() => setShowBlogSettings(true)} onOpenTag={onOpenTag} />
               </div>
             )}
             {viewMode === "split" && (
-              <div className="w-1/2 overflow-y-auto">
+              <div className="w-1/2 min-w-0 overflow-y-auto">
                 <MarkdownPreview
                   activePath={entry.path}
                   content={`---\ntitle: ${title}\n---\n\n${body}`}
@@ -919,18 +993,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
           </div>
         ) : journal ? (
-          <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={hasEntries} onNewEntry={onNewEntry ?? (() => {})} />
+          <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={hasEntries}
+            onNewEntry={onNewEntry ?? (() => {})}
+            onCreateFromTemplate={onCreateEntryFromTemplate}
+            journalRootPath={journal.rootPath}
+            journalName={journal.name}
+            backgroundUrl={journalCoverUrl} />
         ) : (
           <div className="flex-1 min-h-0">
-            <JournalEmptyState icon={<BookOpen size={36} />}
-              title={t["journal.noJournalTitle"] || "No notebook open"}
-              description={t["journal.noJournalDesc"] || "Create or add a notebook to start recording."}
-              tConfig={tConfig}
-              actions={[
-                ...(onCreateJournal ? [{ label: t["journal.newJournal"] || "New notebook", onSelect: onCreateJournal, icon: <Plus size={15} />, primary: true }] : []),
-                ...(onAddJournal ? [{ label: t["journal.addJournal"] || "Add notebook", onSelect: onAddJournal, icon: <FolderPlus size={15} /> }] : []),
-              ]}
-            />
+            <JournalGettingStarted t={t} tConfig={tConfig} hasEntries={false} hasJournal={false}
+              onNewEntry={onNewEntry ?? (() => {})}
+              onCreateJournal={onCreateJournal}
+              onAddJournal={onAddJournal} />
           </div>
         )}
       </div>
@@ -969,6 +1043,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       {showTrackerStats && (
         <TrackerStatsPanel open={showTrackerStats} tConfig={tConfig}
           journal={journal} onClose={() => setShowTrackerStats(false)} />
+      )}
+      {showBlogSettings && journal && (
+        <BlogSettingsDialog open={showBlogSettings} t={t} tConfig={tConfig}
+          journalRootPath={journal.rootPath} journalName={journal.name} value={blogConfig}
+          onClose={() => setShowBlogSettings(false)}
+          onSaved={setBlogConfig} />
       )}
       {confirmDelete && entry && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">

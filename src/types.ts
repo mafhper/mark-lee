@@ -2,6 +2,15 @@ export type ViewMode = 'split' | 'edit' | 'preview';
 
 export type AppMode = "editor" | "journal";
 
+export interface EditorCursorSettings {
+  pointer: "system" | "outlined";
+  caretWidth: number;
+  caretColorMode: "text" | "accent" | "custom";
+  caretCustomColor: string;
+  caretBlink: boolean;
+  caretBlinkIntervalMs: number;
+}
+
 export enum Theme {
   Coffee = 'coffee',
   Light = 'light',
@@ -158,6 +167,7 @@ export interface AppSettings {
   appMode: AppMode;
   measurementSystem: "metric" | "imperial";
   journalDataDir?: string;
+  editorCursor: EditorCursorSettings;
 }
 
 export interface DocumentTab {

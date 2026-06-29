@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, ImagePlus, Trash2, Check } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
@@ -23,6 +23,16 @@ const PALETTE = [
 export function CustomizeJournalDialog({ open, t, tConfig, journal, onClose, onSaved }: CustomizeJournalDialogProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (!journal || !open) return;
+    setName(journal.name);
+    setDescription(journal.description ?? "");
+    setError("");
+    setBusy(false);
+  }, [journal, open]);
 
   if (!open || !journal) return null;
 
@@ -56,6 +66,12 @@ export function CustomizeJournalDialog({ open, t, tConfig, journal, onClose, onS
   const handleRemoveCover = () =>
     apply(() => updateJournalAppearance(journal.rootPath, { cover: null }));
 
+  const handleSaveDetails = () =>
+    apply(() => updateJournalAppearance(journal.rootPath, {
+      name,
+      description: description.trim() ? description : null,
+    }));
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="w-[400px] max-w-[95vw] rounded-lg shadow-2xl border"
@@ -69,6 +85,30 @@ export function CustomizeJournalDialog({ open, t, tConfig, journal, onClose, onS
         </div>
 
         <div className="px-5 py-4 space-y-4">
+          <div className="rounded-lg border p-3" style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.accentHex + "08" }}>
+            <div className="grid gap-3">
+              <label className="block text-xs font-medium" style={{ color: tConfig.fgHex + "90" }}>
+                <span className="mb-1 block">{t["journal.notebookName"] || "Nome do caderno"}</span>
+                <input value={name} onChange={(event) => setName(event.target.value)}
+                  className="w-full rounded border bg-transparent px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
+              </label>
+              <label className="block text-xs font-medium" style={{ color: tConfig.fgHex + "90" }}>
+                <span className="mb-1 block">{t["journal.description"] || "Subtitulo"}</span>
+                <input value={description} onChange={(event) => setDescription(event.target.value)}
+                  className="w-full rounded border bg-transparent px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
+              </label>
+              <div className="flex justify-end">
+                <button type="button" disabled={busy || !name.trim()} onClick={handleSaveDetails}
+                  className="rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+                  style={{ color: "#fff", backgroundColor: tConfig.accentHex }}>
+                  {t["journal.save"] || "Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-medium mb-2" style={{ color: tConfig.fgHex + "90" }}>
               {t["journal.color"] || "Color"}
@@ -93,13 +133,13 @@ export function CustomizeJournalDialog({ open, t, tConfig, journal, onClose, onS
 
           <div>
             <label className="block text-xs font-medium mb-2" style={{ color: tConfig.fgHex + "90" }}>
-              {t["journal.cover"] || "Cover"}
+              {t["journal.notebookCover"] || t["journal.cover"] || "Cover"}
             </label>
             <div className="flex items-center gap-2">
               <button type="button" disabled={busy} onClick={handlePickCover}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border transition-colors disabled:opacity-40"
                 style={{ color: tConfig.accentHex, borderColor: tConfig.accentHex + "40", backgroundColor: tConfig.accentHex + "10" }}>
-                <ImagePlus size={13} /> {journal.cover ? (t["journal.changeCover"] || "Change cover") : (t["journal.cover"] || "Choose image")}
+                <ImagePlus size={13} /> {journal.cover ? (t["journal.changeCover"] || "Change cover") : (t["journal.notebookCoverChoose"] || "Choose image")}
               </button>
               {journal.cover && (
                 <button type="button" disabled={busy} onClick={handleRemoveCover}

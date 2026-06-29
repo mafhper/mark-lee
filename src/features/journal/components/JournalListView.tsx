@@ -1,25 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { FileText, Heart, HeartOff, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
-
-const MOOD_EMOJI: Record<string, string> = {
-  great: "\u{1F60A}",
-  good: "\u{1F642}",
-  neutral: "\u{1F610}",
-  sad: "\u{1F622}",
-  angry: "\u{1F624}",
-  anxious: "\u{1F630}",
-  tired: "\u{1F634}",
-  loved: "\u{1F970}",
-  thankful: "\u{1F64F}",
-  creative: "\u{2728}",
-  sick: "\u{1F912}",
-  excited: "\u{1F929}",
-};
+import { MOOD_EMOJI } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { getExcerpt, searchEntries } from "../domain/entry-service";
+import { entryMatchesLocation, type LocationFilter } from "../location/locationFilter";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { loadImage } from "../../../services/filesystem";
 
@@ -37,6 +24,15 @@ interface JournalListViewProps {
   onOpenInEditor?: (path: string) => void;
   searchQuery?: string;
   language?: string;
+  /** Controlled tag filter (lifted to the workspace so the reading view's
+   *  clickable tags can drive it). */
+  filterTag?: string;
+  onFilterTagChange?: (tag: string) => void;
+  filterImages?: boolean;
+  onFilterImagesChange?: (value: boolean) => void;
+  /** Place filter chosen from the Lugares tree; cleared via onClearLocation. */
+  filterLocation?: LocationFilter | null;
+  onClearLocation?: () => void;
 }
 
 function groupByMonth(entries: EntryRecord[]): Map<string, EntryRecord[]> {
@@ -73,12 +69,18 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en" }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTag: filterTagProp, onFilterTagChange, filterImages: filterImagesProp, onFilterImagesChange, filterLocation, onClearLocation }: JournalListViewProps) {
   const { openContextMenu } = useContextMenu();
-  const [filterTag, setFilterTag] = useState("");
-  const [filterImages, setFilterImages] = useState(false);
-  const [tagsCollapsed, setTagsCollapsed] = useState(false);
+  // Filters are controlled when the workspace passes them in (so the reading
+  // view can open a tag), with a local fallback for standalone use.
+  const [filterTagLocal, setFilterTagLocal] = useState("");
+  const [filterImagesLocal, setFilterImagesLocal] = useState(false);
+  const filterTag = filterTagProp ?? filterTagLocal;
+  const filterImages = filterImagesProp ?? filterImagesLocal;
+  const setFilterTag = (tag: string) => (onFilterTagChange ?? setFilterTagLocal)(tag);
+  const setFilterImages = (value: boolean) => (onFilterImagesChange ?? setFilterImagesLocal)(value);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
 
   const toggleMonth = (key: string) => {
     setCollapsedMonths((prev) => {
@@ -92,14 +94,6 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     if (e.metadata.cover) return true;
     return /!\[.*?\]\(.*?\)/.test(e.body);
   }
-
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const e of entries) {
-      for (const t of e.metadata.tags) tagSet.add(t);
-    }
-    return Array.from(tagSet).sort();
-  }, [entries]);
 
   const today = new Date();
   const scopeFiltered = useMemo(() => {
@@ -118,10 +112,17 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     let result = searched;
     if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
     if (filterImages) result = result.filter((e) => entryHasImages(e));
+    if (filterLocation) result = result.filter((e) => entryMatchesLocation(e.metadata.location, filterLocation));
     return result;
-  }, [searched, filterTag, filterImages]);
+  }, [searched, filterTag, filterImages, filterLocation]);
 
-  const hasActiveFilters = filterTag !== "" || filterImages;
+  const hasActiveFilters = filterTag !== "" || filterImages || !!filterLocation;
+
+  useEffect(() => {
+    if (!selectedEntryId || typeof CSS === "undefined" || !CSS.escape) return;
+    const node = listRef.current?.querySelector(`[data-journal-entry-id="${CSS.escape(selectedEntryId)}"]`);
+    node?.scrollIntoView({ block: "nearest" });
+  }, [selectedEntryId, filtered]);
 
   if (!journal) {
     return (
@@ -191,11 +192,11 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     return (
       <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
         onContextMenu={(e) => handleEntryContextMenu(e, entry)}
+        data-journal-entry-id={entry.metadata.id}
         className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors border-b"
         style={{
           borderColor: tConfig.uiBorderHex,
           backgroundColor: selectedEntryId === entry.metadata.id ? tConfig.accentHex + "0C" : "transparent",
-          borderLeft: selectedEntryId === entry.metadata.id ? `2px solid ${tConfig.accentHex}` : "2px solid transparent",
         }}>
         <div className="flex flex-col items-center shrink-0 w-8 pt-0.5">
           <span className="text-lg font-bold leading-none" style={{ color: tConfig.fgHex }}>{d.getDate()}</span>
@@ -231,37 +232,31 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   };
 
   return (
-    <div className="flex flex-col">
+    <div ref={listRef} className="flex flex-col">
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-        {!tagsCollapsed && allTags.map((tag) => (
-          <button key={tag} type="button" onClick={() => setFilterTag(filterTag === tag ? "" : tag)}
-            className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
-            style={{
-              backgroundColor: filterTag === tag ? tConfig.accentHex + "30" : tConfig.accentHex + "10",
-              color: filterTag === tag ? tConfig.accentHex : tConfig.fgHex + "70",
-            }}>
-            {tag}
-          </button>
-        ))}
-        {allTags.length > 0 && (
-          <button type="button" onClick={() => setTagsCollapsed(!tagsCollapsed)}
-            className="px-1 py-0.5 rounded text-[10px] transition-colors"
-            style={{ color: tConfig.fgHex + "40" }}>
-            {tagsCollapsed ? `+${allTags.length} ${t["journal.tags"] || "tags"}` : `−`}
+        {filterTag && (
+          <button type="button" onClick={() => setFilterTag("")}
+            className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
+            style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
+            title={t["journal.clear"] || "Clear"}>
+            <span>#</span>
+            {filterTag}
+            <span aria-hidden>×</span>
           </button>
         )}
-        <button type="button" onClick={() => setFilterImages(!filterImages)}
-          className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 transition-colors"
-          style={{
-            backgroundColor: filterImages ? tConfig.accentHex + "30" : "transparent",
-            color: filterImages ? tConfig.accentHex : tConfig.fgHex + "60",
-          }}>
-          <ImageIcon size={11} />
-          {t["journal.images"] || "Images"}
-        </button>
+        {filterLocation && (
+          <button type="button" onClick={onClearLocation}
+            className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
+            style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
+            title={t["journal.clear"] || "Clear"}>
+            <MapPin size={11} />
+            {filterLocation.value}
+            <span aria-hidden>×</span>
+          </button>
+        )}
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); }}
+          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); onClearLocation?.(); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
             {t["journal.clear"] || "Clear"}
           </button>

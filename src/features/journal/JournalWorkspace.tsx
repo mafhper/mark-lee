@@ -16,10 +16,11 @@ import { CustomizeJournalDialog } from "./components/CustomizeJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
 import { createEntry, deleteEntry, duplicateEntry, readEntry, saveEntry } from "./domain/entry-service";
-import { toggleActiveEntryFavorite } from "../editor/active-target";
+import { flushAllPending, toggleActiveEntryFavorite } from "../editor/active-target";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
+import type { LocationFilter } from "./location/locationFilter";
 import { JournalSessionProvider, useJournalSession } from "./session/JournalSessionContext";
 
 interface JournalWorkspaceProps {
@@ -43,6 +44,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   reload: () => void;
 }) {
   const { state: sessionState, dispatch } = useJournalSession();
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1200 : window.innerWidth));
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map" | "gallery">("list");
   const [activeSection, setActiveSection] = useState("entries");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -54,8 +56,33 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [showWorldMap, setShowWorldMap] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<EntryRecord | null>(null);
+  // Tag/image filters live here (not inside JournalListView) so the reading
+  // view's clickable tags can drive the same filter the list shows.
+  const [filterTag, setFilterTag] = useState("");
+  const [filterImages, setFilterImages] = useState(false);
+  const [filterLocation, setFilterLocation] = useState<LocationFilter | null>(null);
+
+  // Clicking a tag in the reading view filters the list and brings it forward.
+  const handleOpenTag = useCallback((tag: string) => {
+    setFilterTag(tag);
+    setActiveView("list");
+  }, []);
+
+  // Clicking a place in the Lugares tree filters the rich list (and shows it),
+  // instead of the tree being a separate, dead-end way to browse.
+  const handleFilterLocation = useCallback((filter: LocationFilter) => {
+    setFilterLocation(filter);
+    setActiveView("list");
+  }, []);
   const sidebarWidthRef = useRef(240);
   const handleSidebarWidthChange = useCallback((w: number) => { sidebarWidthRef.current = w; }, []);
+  const compactLayout = viewportWidth < 820;
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const activeEntry = sessionState.activeEntryId
     ? sessionState.entries.find((e) => e.metadata.id === sessionState.activeEntryId) ?? null
@@ -149,6 +176,10 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
     setShowTemplatePicker(true);
   }, [activeJournal]);
 
+  const handleSaveActive = useCallback(async () => {
+    await flushAllPending();
+  }, []);
+
   const handleCreateFromTemplate = useCallback(async (templateBody: string) => {
     if (!activeJournal) return;
     const entry = await createEntry(activeJournal.rootPath, "", new Date(), [], templateBody);
@@ -162,13 +193,6 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
     setShowWorldMap(false); // selecting an entry shows it in the canvas
   }, [dispatch]);
 
-  // Selecting an entry from a full-canvas view (calendar/gallery/map) returns to
-  // the entry surface so the reader/editor takes over the canvas.
-  const handleSelectEntryFromView = useCallback((entry: EntryRecord) => {
-    dispatch({ type: "SET_ACTIVE_ENTRY", entryId: entry.metadata.id });
-    setActiveView("list");
-  }, [dispatch]);
-
   const handleCreateEntryForDate = useCallback(async (date: Date) => {
     if (!activeJournal) return;
     const entry = await createEntry(activeJournal.rootPath, "", date, []);
@@ -179,7 +203,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
 
   return (
     <div className="flex-1 min-h-0 flex flex-row">
-      {!isZenMode && sidebarEnabled && (navCollapsed ? (
+      {!isZenMode && sidebarEnabled && !compactLayout && (navCollapsed ? (
         <div className="h-full shrink-0 border-r overflow-hidden" style={{ width: 48, borderColor: tConfig.uiBorderHex }}>
           <JournalNavigation
             t={t} tConfig={tConfig} activeSection={activeSection} onSectionChange={setActiveSection}
@@ -188,12 +212,15 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onSelectJournal={(id) => { selectJournal(id); dispatch({ type: "SET_ACTIVE_ENTRY", entryId: null }); }}
             onCreateJournal={() => setShowCreateDialog(true)}
             onAddJournal={() => setShowAddDialog(true)}
+            onSaveActive={handleSaveActive}
             onNewEntry={handleNewEntry}
             onRelocateJournal={handleRelocate}
             onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
             onCustomizeJournal={(id) => setCustomizeId(id)}
             loading={sessionState.loading}
             collapsed={true} onToggleCollapse={() => setNavCollapsed(false)}
+            filterTag={filterTag}
+            onFilterTagChange={setFilterTag}
           />
         </div>
       ) : (
@@ -206,18 +233,21 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               onSelectJournal={(id) => { selectJournal(id); dispatch({ type: "SET_ACTIVE_ENTRY", entryId: null }); }}
               onCreateJournal={() => setShowCreateDialog(true)}
               onAddJournal={() => setShowAddDialog(true)}
+              onSaveActive={handleSaveActive}
               onNewEntry={handleNewEntry}
               onRelocateJournal={handleRelocate}
               onRemoveJournal={(id) => setRemoveTarget(journals.find((j) => j.id === id) ?? null)}
             onCustomizeJournal={(id) => setCustomizeId(id)}
               loading={sessionState.loading}
               collapsed={false} onToggleCollapse={() => setNavCollapsed(true)}
+              filterTag={filterTag}
+              onFilterTagChange={setFilterTag}
             />
           </div>
         </ResizablePanel>
       ))}
 
-      {!isZenMode && (
+      {!isZenMode && !compactLayout && (
         <ResizablePanel initialWidth={380} minWidth={300} maxWidth={600} theme={tConfig}>
           <div className="h-full overflow-hidden">
             <JournalContextPanel
@@ -236,6 +266,10 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               language={language}
               worldMapActive={showWorldMap}
               onToggleWorldMap={() => setShowWorldMap((v) => !v)}
+              filterTag={filterTag} onFilterTagChange={setFilterTag}
+              filterImages={filterImages} onFilterImagesChange={setFilterImages}
+              filterLocation={filterLocation} onFilterLocation={handleFilterLocation}
+              onClearLocation={() => setFilterLocation(null)}
             />
           </div>
         </ResizablePanel>
@@ -245,13 +279,15 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
         {activeView === "gallery" ? (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
             <JournalGalleryView t={t} tConfig={tConfig} journal={activeJournal}
-              entries={sessionState.entries} onSelectEntry={handleSelectEntryFromView}
+              entries={sessionState.entries} selectedEntryId={sessionState.activeEntryId}
+              onSelectEntry={handleSelectEntry} onEntryUpdated={handleEntryUpdated}
               onToggleFavorite={handleToggleEntryFavorite} onDuplicateEntry={handleDuplicateEntry}
               onDeleteEntry={(e) => setEntryToDelete(e)} onOpenInEditor={onOpenFile} />
           </div>
         ) : activeView === "map" && showWorldMap ? (
           <div className="flex-1 min-h-0">
-            <JournalAtlasMap entries={sessionState.entries} tConfig={tConfig} onSelectEntry={handleSelectEntry} t={t} />
+            <JournalAtlasMap entries={sessionState.entries} selectedEntryId={sessionState.activeEntryId}
+              tConfig={tConfig} onSelectEntry={handleSelectEntry} t={t} />
           </div>
         ) : (
           <JournalEntryPanel
@@ -263,11 +299,13 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onDuplicateEntry={handleDuplicateEntry}
             onReloadEntry={handleReloadEntry}
             onNewEntry={handleNewEntry}
+            onCreateEntryFromTemplate={handleCreateFromTemplate}
             onCreateJournal={() => setShowCreateDialog(true)}
             onAddJournal={() => setShowAddDialog(true)}
             prevEntry={olderEntry}
             nextEntry={newerEntry}
             onNavigateEntry={handleSelectEntry}
+            onOpenTag={handleOpenTag}
             language={language}
             hasEntries={sessionState.entries.length > 0}
           />

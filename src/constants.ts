@@ -1,6 +1,7 @@
 import {
   AppMode,
   AppSettings,
+  EditorCursorSettings,
   PublicationPreset,
   Snippet,
   TextPreset,
@@ -297,6 +298,15 @@ export const DEFAULT_SHORTCUTS = {
 
 export type ShortcutId = keyof typeof DEFAULT_SHORTCUTS;
 
+export const DEFAULT_EDITOR_CURSOR: EditorCursorSettings = {
+  pointer: "outlined",
+  caretWidth: 2,
+  caretColorMode: "accent",
+  caretCustomColor: "#4f46e5",
+  caretBlink: true,
+  caretBlinkIntervalMs: 640,
+};
+
 export const TEXT_PRESETS: Record<string, TextPreset> = {
   minimalist: {
     id: "minimalist",
@@ -310,7 +320,7 @@ export const TEXT_PRESETS: Record<string, TextPreset> = {
       h2: "font-sans font-semibold tracking-tight",
       p: "font-sans leading-relaxed",
       img: "rounded-xl shadow-sm",
-      blockquote: "border-l-2 border-slate-300 pl-4 italic",
+      blockquote: "pl-4 italic text-slate-600 dark:text-slate-300",
       code: "rounded-md",
       link: "underline decoration-1 underline-offset-2",
     },
@@ -327,7 +337,7 @@ export const TEXT_PRESETS: Record<string, TextPreset> = {
       h2: "font-serif font-medium",
       p: "font-serif text-lg leading-loose",
       img: "rounded-sm shadow-md",
-      blockquote: "border-l-4 border-stone-400 pl-6 italic font-serif text-xl",
+      blockquote: "pl-6 italic font-serif text-xl text-stone-600 dark:text-stone-300",
       code: "rounded",
       link: "decoration-2 underline-offset-4",
     },
@@ -345,7 +355,7 @@ export const TEXT_PRESETS: Record<string, TextPreset> = {
       p: "font-sans text-base",
       img: "rounded-none border-2 border-gray-200",
       blockquote:
-        "bg-gray-100 dark:bg-gray-800 p-4 border-l-4 border-gray-500 not-italic font-mono text-sm",
+        "bg-gray-100 dark:bg-gray-800 p-4 border border-gray-300 dark:border-gray-700 not-italic font-mono text-sm",
       code: "rounded-sm border border-gray-200 dark:border-gray-700",
       link: "text-blue-600 dark:text-blue-400 hover:underline",
     },
@@ -363,7 +373,7 @@ export const TEXT_PRESETS: Record<string, TextPreset> = {
       p: "font-medium",
       img: "rounded-[2rem] shadow-xl rotate-1 hover:rotate-0 transition-transform",
       blockquote:
-        "border-l-8 border-pink-400 pl-6 font-bold text-lg bg-pink-50 dark:bg-pink-900/20 py-2 rounded-r-xl",
+        "border border-pink-200 dark:border-pink-800 px-6 font-bold text-lg bg-pink-50 dark:bg-pink-900/20 py-3 rounded-xl",
       code: "rounded-xl shadow-inner",
       link: "font-bold hover:text-pink-500 transition-colors",
     },
@@ -737,6 +747,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appMode: "editor" as AppMode,
   measurementSystem: "metric",
   journalDataDir: "",
+  editorCursor: DEFAULT_EDITOR_CURSOR,
 };
 
 export const INITIAL_MARKDOWN = `# Mark-Lee
