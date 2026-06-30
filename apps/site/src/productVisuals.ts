@@ -2,6 +2,8 @@ import { Locale, ProductVisual } from "@/i18n";
 
 export type ProductVisualKey =
   | "editor"
+  | "editorSecondary"
+  | "continuityReading"
   | "memoriesReading"
   | "memoriesReadingDark"
   | "memoriesExplore"
@@ -18,6 +20,32 @@ export const PRODUCT_VISUALS: Record<ProductVisualKey, ProductVisual> = {
       "pt-BR": "Editor do Mark-Lee com árvore de arquivos, Markdown e preview lado a lado.",
       "en-US": "Mark-Lee Editor with a file tree, Markdown, and side-by-side preview.",
       "es-ES": "Editor de Mark-Lee con árbol de archivos, Markdown y vista previa lado a lado.",
+    },
+    focalPoint: "50% 50%",
+    capturedAt: "2026-06-30",
+    appVersion: "1.3.3",
+  },
+  editorSecondary: {
+    source: asset("editor-secondary.png"),
+    width: 1600,
+    height: 1000,
+    alt: {
+      "pt-BR": "Editor do Mark-Lee em tema Nord, com workspace, Markdown e preview de um registro.",
+      "en-US": "Mark-Lee Editor in the Nord theme, with workspace, Markdown, and an entry preview.",
+      "es-ES": "Editor de Mark-Lee en tema Nord, con workspace, Markdown y vista previa de un registro.",
+    },
+    focalPoint: "50% 50%",
+    capturedAt: "2026-06-30",
+    appVersion: "1.3.3",
+  },
+  continuityReading: {
+    source: asset("continuity-reading.png"),
+    width: 1600,
+    height: 1000,
+    alt: {
+      "pt-BR": "O mesmo registro do Editor reaberto em Memórias, no modo de leitura.",
+      "en-US": "The same entry from the Editor reopened in Memories, in reading mode.",
+      "es-ES": "El mismo registro del Editor reabierto en Memorias, en modo de lectura.",
     },
     focalPoint: "50% 50%",
     capturedAt: "2026-06-30",

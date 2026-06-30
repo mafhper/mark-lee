@@ -77,7 +77,7 @@ export const esESCopy: SiteCopy = {
         title: "Un archivo. Dos contextos.",
         description:
           "Trabaja con precisión en Editor y redescubre el mismo contenido en Memorias. Nada se convierte, duplica ni queda atrapado en un formato propietario.",
-        fileName: "viaje-a-paraty.md",
+        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Editar con precisión",
         memoriesLabel: "Redescubrir con contexto",
       },
@@ -109,7 +109,7 @@ export const esESCopy: SiteCopy = {
         description:
           "Mark-Lee trabaja con carpetas y archivos legibles en tu computadora. Tú decides dónde guardarlos, sincronizarlos o publicarlos.",
         folderLabel: "mi-workspace",
-        files: ["proyectos/roadmap.md", "memorias/viajes/paraty.md", "assets/atardecer.jpg"],
+        files: ["proyectos/roadmap.md", "memorias/ensayo-acustico.md", "assets/atardecer.jpg"],
         principles: [
           { title: "Markdown abierto", description: "Archivos portables y editables fuera de la app." },
           { title: "Sin cuenta", description: "Empieza con una carpeta, sin registro obligatorio." },

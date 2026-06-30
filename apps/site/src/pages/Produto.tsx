@@ -55,7 +55,7 @@ const Produto = ({ locale }: ProdutoProps) => {
               className="product-frame--paper"
             />
             <ProductFrame
-              visual="memoriesReading"
+              visual="continuityReading"
               locale={locale}
               label={copy.continuity.memoriesLabel}
               className="product-frame--paper"
@@ -76,7 +76,7 @@ const Produto = ({ locale }: ProdutoProps) => {
             description={copy.editor.description}
             highlights={copy.editor.highlights}
           />
-          <ProductFrame visual="editor" locale={locale} />
+          <ProductFrame visual="editorSecondary" locale={locale} />
         </div>
       </section>
 

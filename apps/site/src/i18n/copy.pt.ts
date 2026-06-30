@@ -77,7 +77,7 @@ export const ptBRCopy: SiteCopy = {
         title: "Um arquivo. Dois contextos.",
         description:
           "Trabalhe com precisão no Editor e reencontre o mesmo conteúdo em Memórias. Nada é convertido, duplicado ou preso a um formato proprietário.",
-        fileName: "viagem-a-paraty.md",
+        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Editar com precisão",
         memoriesLabel: "Reencontrar com contexto",
       },
@@ -109,7 +109,7 @@ export const ptBRCopy: SiteCopy = {
         description:
           "O Mark-Lee trabalha com pastas e arquivos legíveis no seu computador. Você escolhe onde guardar, sincronizar ou publicar.",
         folderLabel: "meu-workspace",
-        files: ["projetos/roadmap.md", "memorias/viagens/paraty.md", "assets/por-do-sol.jpg"],
+        files: ["projetos/roadmap.md", "memorias/ensaio-acustico-noturno.md", "assets/por-do-sol.jpg"],
         principles: [
           { title: "Markdown aberto", description: "Arquivos comuns, portáveis e editáveis fora do app." },
           { title: "Sem conta", description: "Comece com uma pasta, sem cadastro obrigatório." },

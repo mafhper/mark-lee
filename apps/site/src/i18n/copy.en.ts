@@ -77,7 +77,7 @@ export const enUSCopy: SiteCopy = {
         title: "One file. Two contexts.",
         description:
           "Work with precision in Editor and revisit the same content in Memories. Nothing is converted, duplicated, or locked into a proprietary format.",
-        fileName: "trip-to-paraty.md",
+        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Edit with precision",
         memoriesLabel: "Revisit with context",
       },
@@ -109,7 +109,7 @@ export const enUSCopy: SiteCopy = {
         description:
           "Mark-Lee works with readable folders and files on your computer. You decide where to store, sync, or publish them.",
         folderLabel: "my-workspace",
-        files: ["projects/roadmap.md", "memories/travel/paraty.md", "assets/sunset.jpg"],
+        files: ["projects/roadmap.md", "memories/acoustic-session.md", "assets/sunset.jpg"],
         principles: [
           { title: "Open Markdown", description: "Portable files you can edit outside the app." },
           { title: "No account", description: "Start with a folder, without required registration." },

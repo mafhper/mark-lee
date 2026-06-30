@@ -52,6 +52,8 @@ describe("promo-site contract", () => {
   it("ships bounded product captures and a social image", () => {
     const assets = [
       ["editor.png", 450_000],
+      ["editor-secondary.png", 450_000],
+      ["continuity-reading.png", 450_000],
       ["memories-reading.png", 450_000],
       ["memories-reading-dark.png", 450_000],
       ["memories-explore.png", 450_000],
