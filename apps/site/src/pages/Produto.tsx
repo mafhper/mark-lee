@@ -1,6 +1,7 @@
 import { Folder, Github, ArrowDownToLine, FileText, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
+import ProductCarousel from "@/components/ProductCarousel";
 import ProductFrame from "@/components/ProductFrame";
 import { Locale, REPO_URL, getCopy, pathFor } from "@/i18n";
 import "./Produto.css";
@@ -31,7 +32,11 @@ const Produto = ({ locale }: ProdutoProps) => {
             </div>
             <p className="home-note">{copy.hero.note}</p>
           </div>
-          <ProductFrame visual="editor" locale={locale} eager className="home-hero__visual" />
+          <ProductCarousel
+            visuals={["editor", "memoriesReading", "memoriesExplore"]}
+            locale={locale}
+            className="home-hero__visual"
+          />
         </div>
       </section>
 

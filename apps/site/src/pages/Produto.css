@@ -173,13 +173,6 @@
   object-fit: cover;
 }
 
-.product-frame figcaption {
-  margin-top: 10px;
-  color: #7f8791;
-  font-size: 0.68rem;
-  text-align: right;
-}
-
 .product-frame__label {
   margin: 0 0 11px;
   color: currentColor;
@@ -198,12 +191,29 @@
   background: #ded5c6;
 }
 
-.product-frame--paper figcaption {
-  color: #776e62;
-}
-
 .home-hero__visual {
   width: min(700px, 61vw);
+}
+
+/* Hero carousel: subtle crossfade between same-size frames, no controls. */
+.product-carousel__viewport {
+  display: grid;
+}
+
+.product-carousel__slide {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+.product-carousel__slide[data-active="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-carousel__slide {
+    transition: none;
+  }
 }
 
 .continuity-pair {

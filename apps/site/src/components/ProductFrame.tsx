@@ -13,7 +13,11 @@ const ProductFrame = ({ visual: key, locale, eager = false, label, className = "
   const visual = productVisual(key, locale);
 
   return (
-    <figure className={`product-frame ${className}`.trim()}>
+    <figure
+      className={`product-frame ${className}`.trim()}
+      data-app-version={visual.appVersion}
+      data-captured-at={visual.capturedAt}
+    >
       {label && <div className="product-frame__label">{label}</div>}
       <div className="product-frame__viewport">
         <img
@@ -26,9 +30,6 @@ const ProductFrame = ({ visual: key, locale, eager = false, label, className = "
           style={{ objectPosition: visual.focalPoint }}
         />
       </div>
-      <figcaption>
-        Mark-Lee {visual.appVersion} <span aria-hidden="true">·</span> {visual.capturedAt}
-      </figcaption>
     </figure>
   );
 };
