@@ -2,6 +2,7 @@ import { Folder, Github, ArrowDownToLine, FileText, Image as ImageIcon } from "l
 import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
 import ProductCarousel from "@/components/ProductCarousel";
+import ProductCoverflow from "@/components/ProductCoverflow";
 import ProductFrame from "@/components/ProductFrame";
 import { Locale, REPO_URL, getCopy, pathFor } from "@/i18n";
 import "./Produto.css";
@@ -60,10 +61,6 @@ const Produto = ({ locale }: ProdutoProps) => {
               label={copy.continuity.memoriesLabel}
               className="product-frame--paper"
             />
-            <div className="continuity-file">
-              <FileText size={16} aria-hidden="true" />
-              <span>{copy.continuity.fileName}</span>
-            </div>
           </div>
         </div>
       </section>
@@ -81,26 +78,28 @@ const Produto = ({ locale }: ProdutoProps) => {
       </section>
 
       <section id="memorias" className="home-section home-paper">
-        <div className="home-shell memories-stage">
-          <FeatureCopy
-            label={copy.memories.label}
-            title={copy.memories.title}
-            description={copy.memories.description}
-            highlights={copy.memories.highlights}
-            paper
-          />
-          <div className="memories-mosaic">
-            <ProductFrame
-              visual="memoriesReadingDark"
-              locale={locale}
-              className="product-frame--paper memories-mosaic__primary"
-            />
-            <ProductFrame
-              visual="memoriesExplore"
-              locale={locale}
-              className="product-frame--paper memories-mosaic__secondary"
+        <div className="home-shell">
+          <div className="memories-intro">
+            <FeatureCopy
+              label={copy.memories.label}
+              title={copy.memories.title}
+              description={copy.memories.description}
+              highlights={copy.memories.highlights}
+              paper
             />
           </div>
+          <ProductCoverflow
+            visuals={[
+              "editor",
+              "continuityReading",
+              "memoriesReading",
+              "memoriesReadingDark",
+              "memoriesExplore",
+              "memoriesPlaces",
+              "editorSecondary",
+            ]}
+            locale={locale}
+          />
         </div>
       </section>
 

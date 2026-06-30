@@ -95,7 +95,6 @@ export interface HomeCopy {
     label: string;
     title: string;
     description: string;
-    fileName: string;
     editorLabel: string;
     memoriesLabel: string;
   };

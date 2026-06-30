@@ -77,7 +77,6 @@ export const esESCopy: SiteCopy = {
         title: "Un archivo. Dos contextos.",
         description:
           "Trabaja con precisión en Editor y redescubre el mismo contenido en Memorias. Nada se convierte, duplica ni queda atrapado en un formato propietario.",
-        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Editar con precisión",
         memoriesLabel: "Redescubrir con contexto",
       },

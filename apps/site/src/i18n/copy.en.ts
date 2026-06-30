@@ -77,7 +77,6 @@ export const enUSCopy: SiteCopy = {
         title: "One file. Two contexts.",
         description:
           "Work with precision in Editor and revisit the same content in Memories. Nothing is converted, duplicated, or locked into a proprietary format.",
-        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Edit with precision",
         memoriesLabel: "Revisit with context",
       },

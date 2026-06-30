@@ -77,7 +77,6 @@ export const ptBRCopy: SiteCopy = {
         title: "Um arquivo. Dois contextos.",
         description:
           "Trabalhe com precisão no Editor e reencontre o mesmo conteúdo em Memórias. Nada é convertido, duplicado ou preso a um formato proprietário.",
-        fileName: "ensaio-acustico-noturno.md",
         editorLabel: "Editar com precisão",
         memoriesLabel: "Reencontrar com contexto",
       },
