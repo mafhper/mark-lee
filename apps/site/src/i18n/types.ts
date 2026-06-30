@@ -11,6 +11,16 @@ export type PageKey =
   | "downloads";
 
 export type DownloadPlatform = "windows" | "macos" | "linux";
+export type HomeSectionId = "dois-contextos" | "editor" | "memorias" | "local";
+
+export const HOME_SECTION_IDS: readonly HomeSectionId[] = [
+  "dois-contextos",
+  "editor",
+  "memorias",
+  "local",
+];
+
+export const PRIMARY_HOME_SECTIONS = ["editor", "memorias", "local"] as const;
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
@@ -55,6 +65,7 @@ export const NAV_PAGE_ORDER: Array<Exclude<PageKey, "downloads">> = [
 export interface FooterLink {
   label: string;
   page?: PageKey;
+  section?: HomeSectionId;
   href?: string;
   external?: boolean;
 }
@@ -76,27 +87,58 @@ export interface HomeCopy {
     label: string;
     title: string;
     description: string;
+    primaryCta: string;
+    secondaryCta: string;
+    note: string;
   };
-  statsSection: {
+  continuity: {
     label: string;
+    title: string;
+    description: string;
+    editorLabel: string;
+    memoriesLabel: string;
+  };
+  editor: {
+    label: string;
+    title: string;
+    description: string;
+    highlights: string[];
+  };
+  memories: {
+    label: string;
+    title: string;
+    description: string;
+    highlights: string[];
+  };
+  localProof: {
+    label: string;
+    title: string;
+    description: string;
+    folderLabel: string;
+    files: string[];
+    principles: Array<{ title: string; description: string }>;
+  };
+  closingCta: {
     title: string;
     description: string;
     primaryCta: string;
     secondaryCta: string;
-    cards: Array<{ value: string; label: string }>;
   };
-  capabilitiesSection: {
-    label: string;
-    title: string;
-    description: string;
-    items: Array<{
-      label: string;
-      title: string;
-      description: string;
-      highlights?: string[];
-    }>;
-  };
-  ctaSection: CtaCopy;
+}
+
+export interface ProductVisual {
+  source: string;
+  width: number;
+  height: number;
+  alt: Record<Locale, string>;
+  focalPoint: string;
+  capturedAt: string;
+  appVersion: string;
+}
+
+export interface PageMeta {
+  title: string;
+  description: string;
 }
 
 export type GalleryPreviewVisual = "preview" | "focus" | "workspace" | "export";
@@ -260,7 +302,13 @@ export interface DownloadsCopy {
 export interface SiteCopy {
   languageName: string;
   languageSwitcherLabel: string;
-  nav: Record<Exclude<PageKey, "downloads">, string>;
+  nav: Record<Exclude<PageKey, "downloads">, string> & {
+    editor: string;
+    memories: string;
+    localFirst: string;
+    primaryAriaLabel: string;
+    mobileAriaLabel: string;
+  };
   downloadLabel: string;
   githubLabel: string;
   openMenuAria: string;
@@ -313,6 +361,10 @@ export function pathFor(locale: Locale, page: PageKey): string {
     return `/${locale}`;
   }
   return `/${locale}/${segment}`;
+}
+
+export function homeSectionPath(locale: Locale, section: HomeSectionId): string {
+  return `${pathFor(locale, "home")}#${section}`;
 }
 
 export function localeFromPathname(pathname: string): Locale | null {

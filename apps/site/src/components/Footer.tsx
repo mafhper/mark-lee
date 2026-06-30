@@ -1,6 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo-light.svg";
-import { DEFAULT_LOCALE, getCopy, localeFromPathname, pathFor } from "@/i18n";
+import {
+  DEFAULT_LOCALE,
+  getCopy,
+  homeSectionPath,
+  localeFromPathname,
+  pathFor,
+} from "@/i18n";
 
 const Footer = () => {
   const location = useLocation();
@@ -42,6 +48,13 @@ const Footer = () => {
                       >
                         {link.label}
                       </a>
+                    ) : link.section ? (
+                      <Link
+                        to={homeSectionPath(locale, link.section)}
+                        className="rounded-sm text-sm text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none"
+                      >
+                        {link.label}
+                      </Link>
                     ) : (
                       <Link
                         to={pathFor(locale, link.page ?? "home")}

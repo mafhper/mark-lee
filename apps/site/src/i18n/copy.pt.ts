@@ -9,41 +9,49 @@ export const ptBRCopy: SiteCopy = {
     engineering: "Engenharia",
     contributing: "Contribuir",
     faq: "FAQ",
+    editor: "Editor",
+    memories: "Memórias",
+    localFirst: "Local-first",
+    primaryAriaLabel: "Navegação principal",
+    mobileAriaLabel: "Menu móvel",
   },
-  downloadLabel: "Downloads",
+  downloadLabel: "Baixar",
   githubLabel: "GitHub",
   openMenuAria: "Abrir menu principal",
   closeMenuAria: "Fechar menu principal",
   footer: {
-    description: "Editor markdown desktop para escrever e publicar com clareza.",
+    description: "Editor e Memórias para escrever, organizar e reencontrar arquivos Markdown locais.",
     copyright: "© 2026 · Open source · Licença MIT",
     groups: [
       {
         title: "Produto",
         links: [
-          { label: "Produto", page: "home" },
+          { label: "Editor", section: "editor" },
+          { label: "Memórias", section: "memorias" },
+          { label: "Local-first", section: "local" },
+        ],
+      },
+      {
+        title: "Projeto",
+        links: [
           { label: "Experiência", page: "gallery" },
           { label: "Engenharia", page: "engineering" },
-        ],
-      },
-      {
-        title: "Comunidade",
-        links: [
           { label: "Contribuir", page: "contributing" },
-          { label: "FAQ", page: "faq" },
-          { label: "Issues", href: REPO_URL, external: true },
         ],
       },
       {
-        title: "Downloads",
+        title: "Ajuda",
         links: [
+          { label: "FAQ", page: "faq" },
           { label: "Baixar", page: "downloads" },
-          { label: "Histórico", href: RELEASES_URL, external: true },
         ],
       },
       {
-        title: "Repositório",
-        links: [{ label: "Ver código", href: REPO_URL, external: true }],
+        title: "Código",
+        links: [
+          { label: "GitHub", href: REPO_URL, external: true },
+          { label: "Releases", href: RELEASES_URL, external: true },
+        ],
       },
     ],
   },
@@ -56,65 +64,63 @@ export const ptBRCopy: SiteCopy = {
   pages: {
     home: {
       hero: {
-        label: "Editor desktop para escrita focada",
-        title: "A ferramenta certa para o seu texto.",
-        description: "Edição, preview e exportação no mesmo fluxo, com controle total do ambiente.",
+        label: "Editor + Memórias, no seu computador",
+        title: "Escreva o que precisa. Guarde o que importa.",
+        description:
+          "O Mark-Lee reúne um editor Markdown completo e um espaço de Memórias sobre os mesmos arquivos locais — sem conta, formato fechado ou servidor obrigatório.",
+        primaryCta: "Baixar Mark-Lee",
+        secondaryCta: "Ver os dois contextos",
+        note: "Windows, macOS e Linux · Open source · Licença MIT",
       },
-      statsSection: {
-        label: "Pronto para o dia a dia",
-        title: "Tudo para escrever, revisar e entregar.",
-        description: "Sem trocar de ferramenta.",
-        primaryCta: "Baixar",
-        secondaryCta: "Experiência",
-        cards: [
-          { value: "Markdown", label: "Texto rápido e portável" },
-          { value: "Multiplataforma", label: "Windows, macOS e Linux" },
-          { value: "Open source", label: "Código aberto, sem caixa-preta" },
-          { value: "Leve", label: "Resposta rápida em uso contínuo" },
+      continuity: {
+        label: "Um arquivo, dois ritmos",
+        title: "Um arquivo. Dois contextos.",
+        description:
+          "Trabalhe com precisão no Editor e reencontre o mesmo conteúdo em Memórias. Nada é convertido, duplicado ou preso a um formato proprietário.",
+        editorLabel: "Editar com precisão",
+        memoriesLabel: "Reencontrar com contexto",
+      },
+      editor: {
+        label: "Editor",
+        title: "Precisão para trabalhar.",
+        description:
+          "Abra uma pasta, mantenha seus documentos em contexto e avance da escrita à publicação sem trocar de ferramenta.",
+        highlights: [
+          "Workspace, abas e busca para não perder contexto",
+          "Markdown e preview lado a lado",
+          "Comandos, snippets, temas e exportação",
         ],
       },
-      capabilitiesSection: {
-        label: "Recursos",
-        title: "Ferramentas úteis, customização plena",
-        description: "Cada bloco pode se adaptar ao seu fluxo.",
-        items: [
-          {
-            label: "Escrever",
-            title: "Edição markdown focada",
-            description: "Atalhos e sintaxe clara para manter ritmo.",
-            highlights: ["Modo zen para reduzir distrações", "Bloco ativo com destaque suave"],
-          },
-          {
-            label: "Organizar",
-            title: "Workspace com contexto",
-            description: "Arquivos e abas para manter contexto.",
-            highlights: ["Estrutura de pastas clara", "Troca rápida entre documentos"],
-          },
-          {
-            label: "Prévia",
-            title: "Preview lado a lado",
-            description: "Veja o resultado enquanto escreve.",
-            highlights: ["Presets visuais prontos", "CRUD de presets para seu fluxo"],
-          },
-          {
-            label: "Comandos",
-            title: "Command palette para navegar e agir",
-            description: "Abra ações, arquivos e snippets a partir de uma única busca.",
-            highlights: ["Busca por ações e arquivos", "Execução rápida de snippets e atalhos"],
-          },
-          {
-            label: "Snippets",
-            title: "Modelos reutilizáveis",
-            description: "Acelere padrões de escrita.",
-            highlights: ["Crie atalhos", "Organize no workspace"],
-          },
+      memories: {
+        label: "Memórias",
+        title: "Contexto para reencontrar.",
+        description:
+          "Transforme pastas locais em cadernos vivos, com registros organizados por tempo, lugar, imagem e aquilo que você escolhe acompanhar.",
+        highlights: [
+          "Cadernos, registros e templates",
+          "Calendário, Lugares, mapa e galeria",
+          "Pins configuráveis e leitura editorial",
         ],
       },
-      ctaSection: {
-        title: "Quer escrever do seu jeito?",
-        description: "Baixe a versão atual e comece no seu workspace.",
-        primaryCta: "Baixar",
-        secondaryCta: "Repositório",
+      localProof: {
+        label: "Local por princípio",
+        title: "Seus arquivos continuam sendo seus.",
+        description:
+          "O Mark-Lee trabalha com pastas e arquivos legíveis no seu computador. Você escolhe onde guardar, sincronizar ou publicar.",
+        folderLabel: "meu-workspace",
+        files: ["projetos/roadmap.md", "memorias/ensaio-acustico-noturno.md", "assets/por-do-sol.jpg"],
+        principles: [
+          { title: "Markdown aberto", description: "Arquivos comuns, portáveis e editáveis fora do app." },
+          { title: "Sem conta", description: "Comece com uma pasta, sem cadastro obrigatório." },
+          { title: "Offline", description: "Escrita e organização essenciais funcionam sem rede." },
+          { title: "Open source", description: "Código aberto e licença MIT, sem caixa-preta." },
+        ],
+      },
+      closingCta: {
+        title: "Comece com uma pasta.",
+        description: "Baixe o Mark-Lee e escolha o que merece ser escrito — ou lembrado.",
+        primaryCta: "Baixar Mark-Lee",
+        secondaryCta: "Ver código no GitHub",
       },
     },
     gallery: {

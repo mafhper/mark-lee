@@ -1,40 +1,11 @@
-import { motion } from "framer-motion";
+import { Folder, Github, ArrowDownToLine, FileText, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  CommandPaletteMockup,
-  EditorMockup,
-  SnippetModelsMockup,
-  WorkspaceContextMockup,
-  SplitViewMockup,
-} from "@/components/EditorMockup";
-import {
-  LightweightIllustration,
-  MarkdownIllustration,
-  MultiplatformIllustration,
-  OpenSourceIllustration,
-} from "@/components/FeatureIllustrations";
 import PageLayout from "@/components/PageLayout";
-import {
-  FeatureRow,
-  HeroSection,
-  PageCtaSection,
-  SectionLabel,
-} from "@/components/SectionComponents";
-import { Locale, getCopy, pathFor } from "@/i18n";
-
-const fadeInUp = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true },
-  transition: { duration: 0.5 },
-};
-
-const statIllustrations = [
-  <MarkdownIllustration key="markdown" />,
-  <MultiplatformIllustration key="multiplatform" />,
-  <OpenSourceIllustration key="opensource" />,
-  <LightweightIllustration key="lightweight" />,
-];
+import ProductCarousel from "@/components/ProductCarousel";
+import ProductCoverflow from "@/components/ProductCoverflow";
+import ProductFrame from "@/components/ProductFrame";
+import { Locale, REPO_URL, getCopy, pathFor } from "@/i18n";
+import "./Produto.css";
 
 interface ProdutoProps {
   locale: Locale;
@@ -42,102 +13,173 @@ interface ProdutoProps {
 
 const Produto = ({ locale }: ProdutoProps) => {
   const copy = getCopy(locale).pages.home;
-  const capabilityMockups = [
-    <EditorMockup key="editor" locale={locale} />,
-    <WorkspaceContextMockup key="workspace" locale={locale} />,
-    <SplitViewMockup key="splitview" locale={locale} />,
-    <CommandPaletteMockup key="palette" locale={locale} />,
-    <SnippetModelsMockup key="snippets" locale={locale} />,
-  ];
 
   return (
     <PageLayout locale={locale}>
-      <HeroSection
-        label={copy.hero.label}
-        title={copy.hero.title}
-        description={copy.hero.description}
-        mockup={<EditorMockup locale={locale} animated />}
-      />
-
-      <section className="relative border-t border-border/50">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-section" />
-        <div className="container py-24">
-          <motion.div {...fadeInUp}>
-            <SectionLabel>{copy.statsSection.label}</SectionLabel>
-            <h2 className="mt-3 max-w-lg text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              {copy.statsSection.title}
-            </h2>
-            <p className="mt-3 max-w-lg text-sm text-muted-foreground">{copy.statsSection.description}</p>
-          </motion.div>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              to={pathFor(locale, "downloads")}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none"
-            >
-              {copy.statsSection.primaryCta}
-            </Link>
-            <Link
-              to={pathFor(locale, "gallery")}
-              className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
-            >
-              {copy.statsSection.secondaryCta}
-            </Link>
+      <section className="home-hero">
+        <div className="home-shell home-hero__grid">
+          <div className="home-hero__copy">
+            <p className="home-eyebrow">{copy.hero.label}</p>
+            <h1>{copy.hero.title}</h1>
+            <p className="home-lede">{copy.hero.description}</p>
+            <div className="home-actions">
+              <Link to={pathFor(locale, "downloads")} className="site-button">
+                <ArrowDownToLine size={17} aria-hidden="true" />
+                {copy.hero.primaryCta}
+              </Link>
+              <a href="#dois-contextos" className="site-text-link">
+                {copy.hero.secondaryCta}
+              </a>
+            </div>
+            <p className="home-note">{copy.hero.note}</p>
           </div>
+          <ProductCarousel
+            visuals={["editor", "memoriesReading", "memoriesExplore", "memoriesPlaces"]}
+            locale={locale}
+            className="home-hero__visual"
+          />
+        </div>
+      </section>
 
-          <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {copy.statsSection.cards.map((card, i) => (
-              <motion.div
-                key={card.value}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.08 }}
-                className="group"
-              >
-                {statIllustrations[i]}
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-foreground">{card.value}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{card.label}</p>
+      <section id="dois-contextos" className="home-paper home-section">
+        <div className="home-shell">
+          <header className="home-section-heading home-section-heading--paper">
+            <p className="home-eyebrow">{copy.continuity.label}</p>
+            <h2>{copy.continuity.title}</h2>
+            <p>{copy.continuity.description}</p>
+          </header>
+          <div className="continuity-pair">
+            <ProductFrame
+              visual="editor"
+              locale={locale}
+              label={copy.continuity.editorLabel}
+              className="product-frame--paper"
+            />
+            <ProductFrame
+              visual="continuityReading"
+              locale={locale}
+              label={copy.continuity.memoriesLabel}
+              className="product-frame--paper"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="editor" className="home-section home-dark">
+        <div className="home-shell feature-stage">
+          <FeatureCopy
+            label={copy.editor.label}
+            title={copy.editor.title}
+            description={copy.editor.description}
+            highlights={copy.editor.highlights}
+          />
+          <ProductFrame visual="editorSecondary" locale={locale} />
+        </div>
+      </section>
+
+      <section id="memorias" className="home-section home-paper">
+        <div className="home-shell">
+          <div className="memories-intro">
+            <FeatureCopy
+              label={copy.memories.label}
+              title={copy.memories.title}
+              description={copy.memories.description}
+              highlights={copy.memories.highlights}
+              paper
+            />
+          </div>
+          <ProductCoverflow
+            visuals={[
+              "editor",
+              "continuityReading",
+              "memoriesReading",
+              "memoriesReadingDark",
+              "memoriesExplore",
+              "memoriesPlaces",
+              "editorSecondary",
+            ]}
+            locale={locale}
+          />
+        </div>
+      </section>
+
+      <section id="local" className="home-section home-local">
+        <div className="home-shell home-local__grid">
+          <div className="file-tree" aria-label={copy.localProof.folderLabel}>
+            <div className="file-tree__folder">
+              <Folder size={18} aria-hidden="true" />
+              <span>{copy.localProof.folderLabel}</span>
+            </div>
+            <ul>
+              {copy.localProof.files.map((file) => (
+                <li key={file}>
+                  {file.endsWith(".jpg") ? (
+                    <ImageIcon size={15} aria-hidden="true" />
+                  ) : (
+                    <FileText size={15} aria-hidden="true" />
+                  )}
+                  <span>{file}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <header className="home-section-heading">
+              <p className="home-eyebrow">{copy.localProof.label}</p>
+              <h2>{copy.localProof.title}</h2>
+              <p>{copy.localProof.description}</p>
+            </header>
+            <dl className="local-principles">
+              {copy.localProof.principles.map((principle) => (
+                <div key={principle.title}>
+                  <dt>{principle.title}</dt>
+                  <dd>{principle.description}</dd>
                 </div>
-              </motion.div>
-            ))}
+              ))}
+            </dl>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-border/50">
-        <div className="container py-24">
-          <motion.div {...fadeInUp} className="mb-16 text-center">
-            <SectionLabel>{copy.capabilitiesSection.label}</SectionLabel>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              {copy.capabilitiesSection.title}
-            </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-              {copy.capabilitiesSection.description}
-            </p>
-          </motion.div>
-
-          <div className="space-y-24">
-            {copy.capabilitiesSection.items.map((item, i) => (
-              <motion.div key={item.title} {...fadeInUp}>
-                <FeatureRow
-                  label={item.label}
-                  title={item.title}
-                  description={item.description}
-                  highlights={item.highlights}
-                  reversed={i % 2 === 1}
-                  mockup={capabilityMockups[i] ?? <EditorMockup locale={locale} />}
-                />
-              </motion.div>
-            ))}
+      <section className="home-closing">
+        <div className="home-shell home-closing__inner">
+          <h2>{copy.closingCta.title}</h2>
+          <p>{copy.closingCta.description}</p>
+          <div className="home-actions home-actions--center">
+            <Link to={pathFor(locale, "downloads")} className="site-button">
+              <ArrowDownToLine size={17} aria-hidden="true" />
+              {copy.closingCta.primaryCta}
+            </Link>
+            <a className="site-text-link" href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              <Github size={17} aria-hidden="true" />
+              {copy.closingCta.secondaryCta}
+            </a>
           </div>
         </div>
       </section>
-
-      <PageCtaSection locale={locale} copy={copy.ctaSection} />
     </PageLayout>
   );
 };
+
+interface FeatureCopyProps {
+  label: string;
+  title: string;
+  description: string;
+  highlights: string[];
+  paper?: boolean;
+}
+
+const FeatureCopy = ({ label, title, description, highlights, paper = false }: FeatureCopyProps) => (
+  <div className={`feature-copy${paper ? " feature-copy--paper" : ""}`}>
+    <p className="home-eyebrow">{label}</p>
+    <h2>{title}</h2>
+    <p>{description}</p>
+    <ul>
+      {highlights.map((highlight) => (
+        <li key={highlight}>{highlight}</li>
+      ))}
+    </ul>
+  </div>
+);
 
 export default Produto;
