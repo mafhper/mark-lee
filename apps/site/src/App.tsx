@@ -82,36 +82,9 @@ const LocaleRedirect = () => {
   );
 };
 
-const RouteChunkWarmup = () => {
-  useEffect(() => {
-    const warm = () => {
-      void Promise.allSettled([
-        loadProduto(),
-        loadGaleria(),
-        loadEngenharia(),
-        loadContribuir(),
-        loadFAQ(),
-        loadDownloads(),
-        loadNotFound(),
-      ]);
-    };
-
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-
-    const timeoutId = setTimeout(warm, 700);
-    return () => clearTimeout(timeoutId);
-  }, []);
-
-  return null;
-};
-
 const App = () => (
   <BrowserRouter basename={import.meta.env.BASE_URL}>
     <ScrollToTop />
-    <RouteChunkWarmup />
     <Suspense
       fallback={
         <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-6 text-center text-sm text-muted-foreground">

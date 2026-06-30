@@ -1,83 +1,66 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import logo from "@/assets/logo-light.svg";
-import { resetPageScroll } from "@/lib/scroll";
 import {
   DEFAULT_LOCALE,
-  NAV_PAGE_ORDER,
+  PRIMARY_HOME_SECTIONS,
+  REPO_URL,
   getCopy,
+  homeSectionPath,
   localeFromPathname,
-  pageFromPathname,
   pathFor,
 } from "@/i18n";
 
 const Header = () => {
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
-
+  const [mobileState, setMobileState] = useState({ locationKey: location.key, open: false });
   const locale = useMemo(
     () => localeFromPathname(location.pathname) ?? DEFAULT_LOCALE,
     [location.pathname]
   );
-  const activePage = useMemo(
-    () => pageFromPathname(location.pathname) ?? "home",
-    [location.pathname]
-  );
   const copy = getCopy(locale);
+  const mobileOpen = mobileState.locationKey === location.key && mobileState.open;
+  const sectionLabels = {
+    editor: copy.nav.editor,
+    memorias: copy.nav.memories,
+    local: copy.nav.localFirst,
+  } as const;
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
-
-  const resetScrollForNavigation = (target: string) => {
-    if (target !== location.pathname) resetPageScroll();
+  const closeMobileMenu = () => {
+    setMobileState({ locationKey: location.key, open: false });
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-border/50 bg-background/85 backdrop-blur-xl">
-      <div className="container flex h-14 items-center justify-between gap-3">
+    <header className="site-header">
+      <div className="container site-header__inner">
         <Link
           to={pathFor(locale, "home")}
-          className="flex items-end gap-2.5 rounded-md px-1.5 py-1 focus-visible:outline-none"
+          onClick={closeMobileMenu}
+          className="site-brand"
+          aria-label="Mark-Lee"
         >
-          <img src={logo} alt="Mark-Lee" className="h-7 w-7 rounded-md" />
-          <span className="text-sm font-semibold leading-none tracking-tight text-foreground">Mark-Lee</span>
+          <img src={logo} alt="" className="site-brand__mark" />
+          <span>Mark-Lee</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-          {NAV_PAGE_ORDER.map((pageKey) => {
-            const target = pathFor(locale, pageKey);
-            const isActive = activePage === pageKey;
-            return (
-              <Link
-                key={pageKey}
-                to={target}
-                onClick={() => resetScrollForNavigation(target)}
-                className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none ${
-                  isActive
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {copy.nav[pageKey]}
-              </Link>
-            );
-          })}
+        <nav className="site-nav" aria-label={copy.nav.primaryAriaLabel}>
+          {PRIMARY_HOME_SECTIONS.map((section) => (
+            <Link key={section} to={homeSectionPath(locale, section)} className="site-nav__link">
+              {sectionLabels[section]}
+            </Link>
+          ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Link
-            to={pathFor(locale, "downloads")}
-            className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none"
-          >
+        <div className="site-header__actions">
+          <Link to={pathFor(locale, "downloads")} className="site-button site-button--small">
             {copy.downloadLabel}
           </Link>
           <a
-            href="https://github.com/mafhper/mark-lee"
+            href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-md px-2 py-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
+            className="site-header__github"
           >
             {copy.githubLabel}
           </a>
@@ -85,48 +68,43 @@ const Header = () => {
 
         <button
           type="button"
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none md:hidden"
-          onClick={() => setMobileOpen((prev) => !prev)}
+          className="site-menu-button"
+          onClick={() =>
+            setMobileState({ locationKey: location.key, open: !mobileOpen })
+          }
           aria-expanded={mobileOpen}
           aria-controls="mobile-main-nav"
           aria-label={mobileOpen ? copy.closeMenuAria : copy.openMenuAria}
         >
-          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
         </button>
       </div>
 
       {mobileOpen && (
-        <div
-          id="mobile-main-nav"
-          className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden"
-        >
-          <nav className="container flex flex-col gap-1 py-4" aria-label="Mobile">
-            {NAV_PAGE_ORDER.map((pageKey) => {
-              const isActive = activePage === pageKey;
-              return (
-                <Link
-                  key={pageKey}
-                  to={pathFor(locale, pageKey)}
-                  onClick={() => resetScrollForNavigation(pathFor(locale, pageKey))}
-                  className={`rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none ${
-                    isActive ? "bg-secondary text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  {copy.nav[pageKey]}
-                </Link>
-              );
-            })}
+        <div id="mobile-main-nav" className="site-mobile-nav">
+          <nav className="container site-mobile-nav__inner" aria-label={copy.nav.mobileAriaLabel}>
+            {PRIMARY_HOME_SECTIONS.map((section) => (
+              <Link
+                key={section}
+                to={homeSectionPath(locale, section)}
+                onClick={closeMobileMenu}
+                className="site-mobile-nav__link"
+              >
+                {sectionLabels[section]}
+              </Link>
+            ))}
             <Link
               to={pathFor(locale, "downloads")}
-              className="mt-2 rounded-full bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground focus-visible:outline-none"
+              onClick={closeMobileMenu}
+              className="site-button site-mobile-nav__download"
             >
               {copy.downloadLabel}
             </Link>
             <a
-              href="https://github.com/mafhper/mark-lee"
+              href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 rounded-md px-3 py-2 text-sm text-muted-foreground focus-visible:outline-none"
+              className="site-mobile-nav__link"
             >
               {copy.githubLabel}
             </a>

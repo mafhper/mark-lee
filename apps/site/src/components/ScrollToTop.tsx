@@ -9,20 +9,24 @@ const ScrollToTop = () => {
     if (typeof window === "undefined") return;
 
     window.history.scrollRestoration = "manual";
-    resetPageScroll();
-    const frame = window.requestAnimationFrame(resetPageScroll);
-    const timers = [
-      window.setTimeout(resetPageScroll, 0),
-      window.setTimeout(resetPageScroll, 80),
-      window.setTimeout(resetPageScroll, 180),
-      window.setTimeout(resetPageScroll, 360),
-    ];
+    const scroll = () => {
+      if (location.hash) {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        target?.scrollIntoView({ block: "start" });
+        return;
+      }
+      resetPageScroll();
+    };
+
+    scroll();
+    const frame = window.requestAnimationFrame(scroll);
+    const timers = [0, 80, 180, 360].map((delay) => window.setTimeout(scroll, delay));
 
     return () => {
       window.cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [location.pathname, location.key]);
+  }, [location.pathname, location.hash, location.key]);
 
   return null;
 };

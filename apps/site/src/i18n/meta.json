@@ -1,0 +1,80 @@
+{
+  "pt-BR": {
+    "home": {
+      "title": "Mark-Lee — Editor e Memórias em arquivos locais",
+      "description": "Escreva, organize e reencontre textos no Editor e em Memórias, usando arquivos Markdown locais sob seu controle."
+    },
+    "gallery": {
+      "title": "Experiência — Mark-Lee",
+      "description": "Conheça temas, preview, foco e opções de personalização do Mark-Lee."
+    },
+    "engineering": {
+      "title": "Engenharia — Mark-Lee",
+      "description": "Arquitetura, stack e decisões técnicas por trás do Mark-Lee."
+    },
+    "contributing": {
+      "title": "Contribuir — Mark-Lee",
+      "description": "Fluxo, padrões de qualidade e caminhos para contribuir com o Mark-Lee."
+    },
+    "faq": {
+      "title": "FAQ — Mark-Lee",
+      "description": "Respostas sobre instalação, edição, preview e publicação no Mark-Lee."
+    },
+    "downloads": {
+      "title": "Downloads — Mark-Lee",
+      "description": "Baixe a versão estável mais recente do Mark-Lee para seu sistema."
+    }
+  },
+  "en-US": {
+    "home": {
+      "title": "Mark-Lee — Editor and Memories in local files",
+      "description": "Write, organize, and revisit your work through Editor and Memories, using local Markdown files you control."
+    },
+    "gallery": {
+      "title": "Experience — Mark-Lee",
+      "description": "Explore Mark-Lee themes, preview, focus, and customization."
+    },
+    "engineering": {
+      "title": "Engineering — Mark-Lee",
+      "description": "Architecture, stack, and technical decisions behind Mark-Lee."
+    },
+    "contributing": {
+      "title": "Contributing — Mark-Lee",
+      "description": "Workflow, quality standards, and ways to contribute to Mark-Lee."
+    },
+    "faq": {
+      "title": "FAQ — Mark-Lee",
+      "description": "Answers about installing, editing, previewing, and publishing with Mark-Lee."
+    },
+    "downloads": {
+      "title": "Downloads — Mark-Lee",
+      "description": "Download the latest stable Mark-Lee release for your system."
+    }
+  },
+  "es-ES": {
+    "home": {
+      "title": "Mark-Lee — Editor y Memorias en archivos locales",
+      "description": "Escribe, organiza y redescubre textos en Editor y Memorias usando archivos Markdown locales bajo tu control."
+    },
+    "gallery": {
+      "title": "Experiencia — Mark-Lee",
+      "description": "Conoce los temas, la vista previa, el foco y la personalización de Mark-Lee."
+    },
+    "engineering": {
+      "title": "Ingeniería — Mark-Lee",
+      "description": "Arquitectura, stack y decisiones técnicas detrás de Mark-Lee."
+    },
+    "contributing": {
+      "title": "Contribuir — Mark-Lee",
+      "description": "Flujo, estándares de calidad y formas de contribuir a Mark-Lee."
+    },
+    "faq": {
+      "title": "FAQ — Mark-Lee",
+      "description": "Respuestas sobre instalación, edición, vista previa y publicación en Mark-Lee."
+    },
+    "downloads": {
+      "title": "Descargas — Mark-Lee",
+      "description": "Descarga la versión estable más reciente de Mark-Lee para tu sistema."
+    }
+  }
+}

@@ -13,4 +13,5 @@ export function getCopy(locale: Locale): SiteCopy {
   return SITE_COPY[locale];
 }
 
+export * from "@/i18n/meta";
 export * from "@/i18n/types";

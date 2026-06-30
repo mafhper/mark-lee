@@ -9,41 +9,49 @@ export const enUSCopy: SiteCopy = {
     engineering: "Engineering",
     contributing: "Contributing",
     faq: "FAQ",
+    editor: "Editor",
+    memories: "Memories",
+    localFirst: "Local-first",
+    primaryAriaLabel: "Primary navigation",
+    mobileAriaLabel: "Mobile menu",
   },
-  downloadLabel: "Downloads",
+  downloadLabel: "Download",
   githubLabel: "GitHub",
   openMenuAria: "Open main menu",
   closeMenuAria: "Close main menu",
   footer: {
-    description: "Desktop markdown editor for clear writing and predictable delivery.",
+    description: "Editor and Memories for writing, organizing, and revisiting local Markdown files.",
     copyright: "© 2026 · Open source · MIT License",
     groups: [
       {
         title: "Product",
         links: [
-          { label: "Product", page: "home" },
+          { label: "Editor", section: "editor" },
+          { label: "Memories", section: "memorias" },
+          { label: "Local-first", section: "local" },
+        ],
+      },
+      {
+        title: "Project",
+        links: [
           { label: "Experience", page: "gallery" },
           { label: "Engineering", page: "engineering" },
-        ],
-      },
-      {
-        title: "Community",
-        links: [
           { label: "Contributing", page: "contributing" },
-          { label: "FAQ", page: "faq" },
-          { label: "Issues", href: REPO_URL, external: true },
         ],
       },
       {
-        title: "Downloads",
+        title: "Help",
         links: [
+          { label: "FAQ", page: "faq" },
           { label: "Download", page: "downloads" },
-          { label: "Release history", href: RELEASES_URL, external: true },
         ],
       },
       {
-        title: "Repository",
-        links: [{ label: "View source", href: REPO_URL, external: true }],
+        title: "Code",
+        links: [
+          { label: "GitHub", href: REPO_URL, external: true },
+          { label: "Releases", href: RELEASES_URL, external: true },
+        ],
       },
     ],
   },
@@ -56,65 +64,64 @@ export const enUSCopy: SiteCopy = {
   pages: {
     home: {
       hero: {
-        label: "Desktop editor for focused writing",
-        title: "The right tool for your text.",
-        description: "Editing, preview, and export in one place, with full control over the workspace.",
+        label: "Editor + Memories, on your computer",
+        title: "Write what you need. Keep what matters.",
+        description:
+          "Mark-Lee brings together a complete Markdown editor and a Memories space over the same local files — with no account, closed format, or required server.",
+        primaryCta: "Download Mark-Lee",
+        secondaryCta: "See both contexts",
+        note: "Windows, macOS, and Linux · Open source · MIT License",
       },
-      statsSection: {
-        label: "Ready for daily work",
-        title: "Everything you need to write, review, and ship.",
-        description: "No tool hopping in the middle of delivery.",
-        primaryCta: "Download",
-        secondaryCta: "Experience",
-        cards: [
-          { value: "Markdown", label: "Fast and portable text" },
-          { value: "Multiplatform", label: "Windows, macOS, and Linux" },
-          { value: "Open source", label: "Transparent codebase" },
-          { value: "Lightweight", label: "Fast response in long sessions" },
+      continuity: {
+        label: "One file, two rhythms",
+        title: "One file. Two contexts.",
+        description:
+          "Work with precision in Editor and revisit the same content in Memories. Nothing is converted, duplicated, or locked into a proprietary format.",
+        fileName: "trip-to-paraty.md",
+        editorLabel: "Edit with precision",
+        memoriesLabel: "Revisit with context",
+      },
+      editor: {
+        label: "Editor",
+        title: "Precision for the work.",
+        description:
+          "Open a folder, keep documents in context, and move from writing to publishing without changing tools.",
+        highlights: [
+          "Workspace, tabs, and search that preserve context",
+          "Markdown and side-by-side preview",
+          "Commands, snippets, themes, and export",
         ],
       },
-      capabilitiesSection: {
-        label: "Capabilities",
-        title: "Useful tools, full customization",
-        description: "Each block can adapt to the way you work.",
-        items: [
-          {
-            label: "Write",
-            title: "Focused markdown editing",
-            description: "Keyboard-friendly editing with clear syntax and low visual noise.",
-            highlights: ["Zen mode for distraction-free writing", "Soft active-block emphasis"],
-          },
-          {
-            label: "Organize",
-            title: "Workspace with context",
-            description: "Tabs and files stay visible so context is never lost.",
-            highlights: ["Clear folder hierarchy", "Fast document switching"],
-          },
-          {
-            label: "Preview",
-            title: "Side-by-side preview",
-            description: "See final output while you type, without window switching.",
-            highlights: ["Built-in preview presets", "Preset CRUD for custom workflows"],
-          },
-          {
-            label: "Commands",
-            title: "Command palette for navigation and actions",
-            description: "Open actions, files, and snippets from a single search surface.",
-            highlights: ["Search actions and files", "Trigger snippets and shortcuts quickly"],
-          },
-          {
-            label: "Snippets",
-            title: "Reusable templates",
-            description: "Speed up your writing patterns.",
-            highlights: ["Create shortcuts", "Organize in workspace"],
-          },
+      memories: {
+        label: "Memories",
+        title: "Context to find it again.",
+        description:
+          "Turn local folders into living notebooks, with entries organized by time, place, images, and whatever you choose to track.",
+        highlights: [
+          "Notebooks, entries, and templates",
+          "Calendar, Places, map, and gallery",
+          "Configurable Pins and an editorial reading view",
         ],
       },
-      ctaSection: {
-        title: "Want to write your way?",
-        description: "Get the latest build and start inside your own workspace.",
-        primaryCta: "Download",
-        secondaryCta: "Repository",
+      localProof: {
+        label: "Local by principle",
+        title: "Your files remain yours.",
+        description:
+          "Mark-Lee works with readable folders and files on your computer. You decide where to store, sync, or publish them.",
+        folderLabel: "my-workspace",
+        files: ["projects/roadmap.md", "memories/travel/paraty.md", "assets/sunset.jpg"],
+        principles: [
+          { title: "Open Markdown", description: "Portable files you can edit outside the app." },
+          { title: "No account", description: "Start with a folder, without required registration." },
+          { title: "Offline", description: "Essential writing and organization work without a network." },
+          { title: "Open source", description: "Transparent MIT-licensed code, with no black box." },
+        ],
+      },
+      closingCta: {
+        title: "Start with a folder.",
+        description: "Download Mark-Lee and choose what deserves to be written — or remembered.",
+        primaryCta: "Download Mark-Lee",
+        secondaryCta: "View source on GitHub",
       },
     },
     gallery: {
