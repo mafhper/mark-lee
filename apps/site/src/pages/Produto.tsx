@@ -1,5 +1,6 @@
-import { Folder, Github, ArrowDownToLine, FileText, Image as ImageIcon } from "lucide-react";
+import { Folder, ArrowDownToLine, FileText, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import GithubIcon from "@/components/GithubIcon";
 import PageLayout from "@/components/PageLayout";
 import ProductCarousel from "@/components/ProductCarousel";
 import ProductCoverflow from "@/components/ProductCoverflow";
@@ -151,7 +152,7 @@ const Produto = ({ locale }: ProdutoProps) => {
               {copy.closingCta.primaryCta}
             </Link>
             <a className="site-text-link" href={REPO_URL} target="_blank" rel="noopener noreferrer">
-              <Github size={17} aria-hidden="true" />
+              <GithubIcon size={17} />
               {copy.closingCta.secondaryCta}
             </a>
           </div>
