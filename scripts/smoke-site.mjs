@@ -56,9 +56,19 @@ async function killProcessTree(child) {
     });
     return;
   }
-  child.kill("SIGTERM");
+  // The server is spawned detached (its own process group), so signal the whole
+  // group with a negative pid — otherwise `vite preview` child workers survive and
+  // keep the parent's event loop alive until the CI step times out.
+  const signalGroup = (signal) => {
+    try {
+      process.kill(-child.pid, signal);
+    } catch {
+      child.kill(signal);
+    }
+  };
+  signalGroup("SIGTERM");
   await Promise.race([new Promise((resolve) => child.once("close", resolve)), sleep(1200)]);
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  if (child.exitCode === null && child.signalCode === null) signalGroup("SIGKILL");
 }
 
 function createServerProcess(port) {
@@ -72,6 +82,7 @@ function createServerProcess(port) {
   return spawn("npx", ["vite", "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
     cwd: "apps/site",
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
   });
 }
 
@@ -261,7 +272,9 @@ async function run() {
   }
 }
 
-run().catch((error) => {
-  console.error("Site smoke failed:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+run()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("Site smoke failed:", error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });

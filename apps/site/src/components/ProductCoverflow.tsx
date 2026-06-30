@@ -69,7 +69,7 @@ const ProductCoverflow = ({ visuals, locale, intervalMs = 3800 }: ProductCoverfl
                 width={visual.width}
                 height={visual.height}
                 alt={visual.localizedAlt}
-                loading="lazy"
+                loading="eager"
                 decoding="async"
               />
             </button>
