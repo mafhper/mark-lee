@@ -1,0 +1,358 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to content" [ref=e3] [cursor=pointer]:
+      - /url: "#primary"
+    - banner [ref=e4]:
+      - link "Day One App Logo" [ref=e6] [cursor=pointer]:
+        - /url: https://dayoneapp.com/
+        - img "Day One App Logo" [ref=e7]
+      - navigation [ref=e8]:
+        - list [ref=e10]:
+          - listitem [ref=e11]:
+            - link "Features" [ref=e12] [cursor=pointer]:
+              - /url: https://dayoneapp.com/features/
+          - listitem [ref=e13]:
+            - link "Pricing" [ref=e14] [cursor=pointer]:
+              - /url: https://dayoneapp.com/plans/
+          - listitem [ref=e15]:
+            - link "What’s New" [ref=e16] [cursor=pointer]:
+              - /url: https://dayoneapp.com/releases
+          - listitem [ref=e17]:
+            - link "Blog" [ref=e18] [cursor=pointer]:
+              - /url: https://dayoneapp.com/blog/
+          - listitem [ref=e19]:
+            - link "Get the App" [ref=e20] [cursor=pointer]:
+              - /url: http://dayoneapp.com/download
+    - main [ref=e21]:
+      - article [ref=e22]:
+        - generic [ref=e23]:
+          - heading "Your journal for life." [level=1] [ref=e24]
+          - paragraph [ref=e25]: "The #1 journaling app."
+          - generic [ref=e26]:
+            - link "App Store" [ref=e30] [cursor=pointer]:
+              - /url: https://apps.apple.com/us/app/day-one-journal-private-diary/id1044867788?ct=web-web_homepage_top
+            - link "Android" [ref=e34] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.dayoneapp.dayone&referrer=utm_source%3Dweb%26utm_campaign%3Dweb_homepage_top
+            - link "Mac" [ref=e38] [cursor=pointer]:
+              - /url: https://apps.apple.com/app/apple-store/id1055511498?pt=343955&ct=web-homepage&mt=8
+            - figure [ref=e41]:
+              - link [ref=e42] [cursor=pointer]:
+                - /url: https://apps.microsoft.com/detail/9nn2h8x92wbt?cid=web_homepage_top
+            - link "Download now" [ref=e46] [cursor=pointer]:
+              - /url: https://dayone.me
+          - paragraph [ref=e47]:
+            - text: Free to use. Better with the
+            - link "Gold" [ref=e48] [cursor=pointer]:
+              - /url: https://dayoneapp.com/premium/
+            - text: plan.
+          - generic [ref=e49]:
+            - paragraph [ref=e51]: App of the Year
+            - paragraph [ref=e53]: Apple Editors’ Choice
+            - paragraph [ref=e55]: Apple Design Award
+          - figure [ref=e57]
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - figure [ref=e63]:
+                - img "Time magazine logo" [ref=e64]
+              - figure [ref=e66]:
+                - img "The verge logo" [ref=e67]
+              - figure [ref=e69]:
+                - img "The washington post logo" [ref=e70]
+              - figure [ref=e72]:
+                - img "Lifehacker logo" [ref=e73]
+              - figure [ref=e75]:
+                - img "9to5 mac logo" [ref=e76]
+              - figure [ref=e78]:
+                - img "Wired logo" [ref=e79]
+            - generic [ref=e81]:
+              - paragraph [ref=e82]:
+                - emphasis [ref=e83]: "“It feels almost sacred: A completely private digital space.”"
+              - figure [ref=e85]:
+                - img "The new york times logo" [ref=e86]
+          - generic [ref=e88]:
+            - figure [ref=e90]
+            - generic [ref=e91]:
+              - heading "Beautiful, award-winning design." [level=2] [ref=e92]
+              - paragraph [ref=e93]: Focus on your writing with a layout that has everything you need and nothing you don’t.
+          - generic [ref=e94]:
+            - figure [ref=e96]
+            - generic [ref=e97]:
+              - heading "Quickly revisit moments from the past." [level=2] [ref=e98]
+              - paragraph [ref=e99]:
+                - text: Use
+                - emphasis [ref=e100]:
+                  - link "On This Day" [ref=e101] [cursor=pointer]:
+                    - /url: https://dayoneapp.com/features/on-this-day/
+                - text: to take a trip back in time. No time machine needed.
+          - generic [ref=e102]:
+            - figure [ref=e104]
+            - generic [ref=e105]:
+              - heading "Tell your story, words optional." [level=2] [ref=e106]
+              - paragraph [ref=e107]: Add photos, videos, drawings, or audio recordings to bring your journal entries to life.
+          - generic [ref=e108]:
+            - figure [ref=e110]:
+              - img "You own the data, we keep it safe image." [ref=e111]
+            - generic [ref=e112]:
+              - heading "You own the data, we keep it safe." [level=2] [ref=e113]
+              - paragraph [ref=e114]:
+                - text: Protect your journal with
+                - link "passcodes and biometric security" [ref=e115] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/features/passcode-biometric-security/
+                - text: ","
+                - link "end-to-end encryption" [ref=e116] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/features/end-to-end-encryption/
+                - text: ", and automatic backups with the ability to export your data anytime."
+          - generic [ref=e117]:
+            - figure [ref=e119]
+            - generic [ref=e120]:
+              - heading "On your lap and in your pocket." [level=2] [ref=e121]
+              - paragraph [ref=e122]:
+                - text: An award-winning Day One Mac application.
+                - link "Learn more →" [ref=e123] [cursor=pointer]:
+                  - /url: https://geo.itunes.apple.com/us/app/day-one-2-journal-+-notes/id1055511498?mt=12&at=10lnHI&ct=dayoneappcom
+          - generic [ref=e125]:
+            - heading "Capture life’s moments, anytime, anywhere." [level=2] [ref=e126]
+            - paragraph [ref=e127]: Download the free Day One journal app for free on iPhone, Android, iPad, Mac, and Apple Watch. Or access your Day One Journal from any browser.
+            - generic [ref=e128]:
+              - link "App Store" [ref=e130] [cursor=pointer]:
+                - /url: https://apps.apple.com/us/app/day-one-journal-private-diary/id1044867788?ct=web-web_lower_download_cta
+              - link "Android" [ref=e132] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.dayoneapp.dayone&referrer=utm_source%3Dweb%26utm_campaign%3Dweb_lower_download_cta
+              - link "Mac" [ref=e134] [cursor=pointer]:
+                - /url: https://apps.apple.com/app/apple-store/id1055511498?pt=343955&ct=web_lower_download_cta&mt=8
+              - link "Login now" [ref=e136] [cursor=pointer]:
+                - /url: https://dayone.me
+          - separator [ref=e137]
+          - heading "People ❤️ Day One." [level=2] [ref=e138]
+          - figure [ref=e140]:
+            - iframe [ref=e143]
+          - heading "Over 150,000 5-star reviews." [level=3] [ref=e145]:
+            - text: Over 150,000
+            - link "5-star reviews" [ref=e146] [cursor=pointer]:
+              - /url: https://geo.itunes.apple.com/us/app/day-one-2-journal-+-notes/id1044867788?mt=8&at=10lnHI&ct=dayoneappcom
+            - text: .
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - generic [ref=e150]:
+                  - generic [ref=e151]:
+                    - link [ref=e152] [cursor=pointer]:
+                      - /url: https://twitter.com/AliAbdaal
+                    - link "Ali Abdaal" [ref=e153] [cursor=pointer]:
+                      - /url: https://twitter.com/AliAbdaal
+                    - link "@AliAbdaal" [ref=e154] [cursor=pointer]:
+                      - /url: https://twitter.com/AliAbdaal
+                  - img [ref=e156]
+                - paragraph [ref=e159]:
+                  - text: I’ve been journaling since 2014 and Day One is by far the best journaling app I’ve ever found.
+                  - text: Even if I physically journal, I’ll take a picture and upload it to Day One to keep track. I especially like how it reminds you where you were a year ago.
+              - generic [ref=e160]:
+                - generic [ref=e161]:
+                  - generic [ref=e162]:
+                    - link [ref=e163] [cursor=pointer]:
+                      - /url: https://twitter.com/_AppForThat_
+                    - link "Julia" [ref=e164] [cursor=pointer]:
+                      - /url: https://twitter.com/_AppForThat_
+                    - link "@_AppForThat_" [ref=e165] [cursor=pointer]:
+                      - /url: https://twitter.com/_AppForThat_
+                  - img [ref=e167]
+                - paragraph [ref=e170]:
+                  - text: "Constant source of joy:"
+                  - link "@dayoneapp" [ref=e171] [cursor=pointer]:
+                    - /url: https://twitter.com/dayoneapp
+                  - text: ’s “On this Day” feature which offers up memories from years past. I’m looking forward to these every day and it’s a great motivator to journal about all the big (and small) things that matter to me on any given day.
+              - generic [ref=e172]:
+                - generic [ref=e173]:
+                  - generic [ref=e174]:
+                    - link [ref=e175] [cursor=pointer]:
+                      - /url: https://twitter.com/Orchestorm
+                    - link "Eric E. Britt" [ref=e176] [cursor=pointer]:
+                      - /url: https://twitter.com/Orchestorm
+                    - link "@Orchestorm" [ref=e177] [cursor=pointer]:
+                      - /url: https://twitter.com/Orchestorm
+                  - img [ref=e179]
+                - paragraph [ref=e182]:
+                  - text: A little under two years ago I installed
+                  - link "@dayoneapp" [ref=e183] [cursor=pointer]:
+                    - /url: https://twitter.com/dayoneapp
+                  - text: ", initially to keep a pandemic journal. It wasn’t long until I realized how beneficial is to write about my personal life as well! This is my favorite app. I use it everyday, if 72,000 words wasn’t telling enough 😂"
+                  - link:
+                    - /url: https://twitter.com/Orchestorm/status/1479202279454613510/photo/1
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - generic [ref=e187]:
+                    - link [ref=e188] [cursor=pointer]:
+                      - /url: https://twitter.com/tylergold
+                    - link "Tyler Gold" [ref=e189] [cursor=pointer]:
+                      - /url: https://twitter.com/tylergold
+                    - link "@tylergold" [ref=e190] [cursor=pointer]:
+                      - /url: https://twitter.com/tylergold
+                  - img [ref=e192]
+                - paragraph [ref=e195]:
+                  - text: my most prized possession in the entire world is my
+                  - link "@dayoneapp" [ref=e196] [cursor=pointer]:
+                    - /url: https://twitter.com/dayoneapp
+                  - text: library, with thousands of entries going back to 2014 covering every imaginable topic
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - generic [ref=e199]:
+                    - link [ref=e200] [cursor=pointer]:
+                      - /url: https://twitter.com/tsmells
+                    - link "Todd Utterback" [ref=e201] [cursor=pointer]:
+                      - /url: https://twitter.com/tsmells
+                    - link "@tsmells" [ref=e202] [cursor=pointer]:
+                      - /url: https://twitter.com/tsmells
+                  - img [ref=e204]
+                - paragraph [ref=e207]:
+                  - text: I’ve journaled with
+                  - link "@dayoneapp" [ref=e208] [cursor=pointer]:
+                    - /url: https://twitter.com/dayoneapp
+                  - text: for 10+ years(!!), & I’m currently riding a 1,469 day journaling streak 🌊🏄‍♂️ (thats 4+ years of daily 🖊📸!). It’s an essential app, & there’s no better time to try it out!
+              - generic [ref=e209]:
+                - generic [ref=e210]:
+                  - generic [ref=e211]:
+                    - link [ref=e212] [cursor=pointer]:
+                      - /url: https://twitter.com/jtabeling
+                    - link "Jason Tabeling" [ref=e213] [cursor=pointer]:
+                      - /url: https://twitter.com/jtabeling
+                    - link "@jtabeling" [ref=e214] [cursor=pointer]:
+                      - /url: https://twitter.com/jtabeling
+                  - img [ref=e216]
+                - paragraph [ref=e219]:
+                  - text: The amount of times I pull out
+                  - link "@dayoneapp" [ref=e220] [cursor=pointer]:
+                    - /url: https://twitter.com/dayoneapp
+                  - text: to answer the question…”When did we” or “where were we when” is amazing. 10 years digital yearbook and counting.
+          - separator [ref=e221]
+          - generic [ref=e223]:
+            - heading "Get inspired." [level=2] [ref=e224]
+            - paragraph [ref=e225]:
+              - text: Check out our blog for
+              - link "journaling ideas" [ref=e226] [cursor=pointer]:
+                - /url: https://dayoneapp.com/blog/journaling-ideas/
+              - text: and follow us on Instagram for tips and prompts to help you get the most from your journal.
+              - link "Read the blog →" [ref=e227] [cursor=pointer]:
+                - /url: https://dayoneapp.com/blog
+                - strong [ref=e228]: Read the blog →
+    - contentinfo [ref=e229]:
+      - generic [ref=e230]:
+        - list [ref=e232]:
+          - listitem [ref=e233]:
+            - link "Get The App":
+              - /url: "#"
+            - list [ref=e234]:
+              - listitem [ref=e235]:
+                - link "iPhone/iPad/Watch" [ref=e236] [cursor=pointer]:
+                  - /url: https://apps.apple.com/us/app/day-one-journal-private-diary/id1044867788?ct=web-footer_download_link
+              - listitem [ref=e237]:
+                - link "Android" [ref=e238] [cursor=pointer]:
+                  - /url: https://play.google.com/store/apps/details?id=com.dayoneapp.dayone&referrer=utm_source%3Dweb%26utm_campaign%3Dfooter_download_link
+              - listitem [ref=e239]:
+                - link "Mac" [ref=e240] [cursor=pointer]:
+                  - /url: https://apps.apple.com/app/apple-store/id1055511498?pt=343955&ct=web-footer_download_linke&mt=8
+              - listitem [ref=e241]:
+                - link "Windows" [ref=e242] [cursor=pointer]:
+                  - /url: https://apps.microsoft.com/detail/9nn2h8x92wbt?cid=web_footer
+              - listitem [ref=e243]:
+                - link "Browser Extensions" [ref=e244] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/browser-extensions/
+              - listitem [ref=e245]:
+                - link "Web" [ref=e246] [cursor=pointer]:
+                  - /url: https://dayone.me
+          - listitem [ref=e247]:
+            - link "Offers":
+              - /url: "#"
+            - list [ref=e248]:
+              - listitem [ref=e249]:
+                - link "Features" [ref=e250] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/features/
+              - listitem [ref=e251]:
+                - link "Pricing" [ref=e252] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/pricing/
+              - listitem [ref=e253]:
+                - link "Book Printing" [ref=e254] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/book-printing/
+              - listitem [ref=e255]:
+                - link "Send a gift" [ref=e256] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/gift/
+              - listitem [ref=e257]:
+                - link "Redeem a gift" [ref=e258] [cursor=pointer]:
+                  - /url: https://www.dayone.app/redeem/
+          - listitem [ref=e259]:
+            - link "About":
+              - /url: "#"
+            - list [ref=e260]:
+              - listitem [ref=e261]:
+                - link "About Day One" [ref=e262] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/about/
+              - listitem [ref=e263]:
+                - link "Privacy Pledge" [ref=e264] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/privacy-pledge/
+              - listitem [ref=e265]:
+                - link "Release Notes" [ref=e266] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/releases
+              - listitem [ref=e267]:
+                - link "Podcast" [ref=e268] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/podcast
+              - listitem [ref=e269]:
+                - link "Blog" [ref=e270] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/blog/
+              - listitem [ref=e271]:
+                - link "Press" [ref=e272] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/press/
+          - listitem [ref=e273]:
+            - link "Help":
+              - /url: "#"
+            - list [ref=e274]:
+              - listitem [ref=e275]:
+                - link "Help Guides" [ref=e276] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/guides/
+              - listitem [ref=e277]:
+                - link "Forum" [ref=e278] [cursor=pointer]:
+                  - /url: https://forums.dayoneapp.com
+              - listitem [ref=e279]:
+                - link "Contact Us" [ref=e280] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/contact/
+              - listitem [ref=e281]:
+                - link "Terms" [ref=e282] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/terms-of-use/
+              - listitem [ref=e283]:
+                - link "Privacy" [ref=e284] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/privacy-policy/
+              - listitem [ref=e285]:
+                - link "Accessibility Statement" [ref=e286] [cursor=pointer]:
+                  - /url: https://dayoneapp.com/accessibility-statement/
+          - listitem [ref=e287]:
+            - link "Social":
+              - /url: "#"
+            - list [ref=e288]:
+              - listitem [ref=e289]:
+                - link "Instagram" [ref=e290] [cursor=pointer]:
+                  - /url: https://www.instagram.com/dayoneapp/
+              - listitem [ref=e291]:
+                - link "X" [ref=e292] [cursor=pointer]:
+                  - /url: https://x.com/dayone
+              - listitem [ref=e293]:
+                - link "Facebook Group" [ref=e294] [cursor=pointer]:
+                  - /url: https://www.facebook.com/groups/DayOneCommunity/
+              - listitem [ref=e295]:
+                - link "LinkedIn" [ref=e296] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/day-one-app/
+              - listitem [ref=e297]:
+                - link "Bluesky" [ref=e298] [cursor=pointer]:
+                  - /url: https://bsky.app/profile/dayoneapp.com
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+        - generic [ref=e299]:
+          - paragraph [ref=e300]: © Automattic
+          - paragraph [ref=e301]:
+            - text: Part of the
+            - link "Automattic Logo" [ref=e302] [cursor=pointer]:
+              - /url: https://automattic.com
+              - img "Automattic Logo" [ref=e303]
+            - text: family.
+  - status [ref=e306]

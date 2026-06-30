@@ -1,0 +1,471 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - link "Cozy home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - img "Cozy logo" [ref=e4]
+    - navigation "Primary" [ref=e5]:
+      - link "Features" [ref=e6] [cursor=pointer]:
+        - /url: /#features
+      - link "Pricing" [ref=e7] [cursor=pointer]:
+        - /url: /#pricing
+      - link "FAQ" [ref=e8] [cursor=pointer]:
+        - /url: /#faq
+      - link "Docs" [ref=e9] [cursor=pointer]:
+        - /url: /docs
+      - link "Blog" [ref=e10] [cursor=pointer]:
+        - /url: /blog
+      - link "Changelog" [ref=e11] [cursor=pointer]:
+        - /url: /changelog
+    - link "Get Cozy" [ref=e13] [cursor=pointer]:
+      - /url: /#pricing
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - heading "A private journal that stays yours" [level=1] [ref=e16]
+      - paragraph [ref=e17]: Cozy is a 100% local journal. Nothing synced to a server, nothing fed to an AI. Your words stay right on your device, yours to keep or share as you please.
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - link "Get Cozy" [ref=e20] [cursor=pointer]:
+            - /url: /#pricing
+          - link "See how it works" [ref=e21] [cursor=pointer]:
+            - /url: /#features
+            - text: See how it works
+            - img [ref=e22]
+        - paragraph [ref=e24]: For macOS & Windows · One-time purchase, no subscription · 14-day money-back guarantee
+    - generic [ref=e25]:
+      - img
+      - img
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - img [ref=e28]
+          - generic [ref=e29]:
+            - generic "Cozy desktop app — writing a daily journal entry in a private, local plain text file" [ref=e30]
+            - button "Turn sound on" [ref=e31]:
+              - img [ref=e32]
+              - img [ref=e34]
+        - generic:
+          - generic: click to hear Cozy!
+          - img
+  - generic [ref=e36]:
+    - img
+    - img
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "What can you find in Cozy?" [level=2] [ref=e39]
+        - paragraph [ref=e40]: I wanted a journal that stays yours and feels good to open. So Cozy keeps your writing in plain files on your computer, with small touches that make you want to come back.
+      - generic [ref=e41]:
+        - article [ref=e42]:
+          - heading "Your files, on your computer" [level=3] [ref=e43]
+          - paragraph [ref=e44]: Nothing is stored on a server. Your thoughts, experiences and writing are yours forever. So don't worry about it.
+          - generic [ref=e46]:
+            - generic [ref=e52]:
+              - img [ref=e53]
+              - generic [ref=e55]: My Journal
+            - generic [ref=e56]:
+              - generic [ref=e57]: Name
+              - generic [ref=e58]: Size
+            - generic [ref=e59]:
+              - img [ref=e60]
+              - generic [ref=e63]: 2026-06-01-coffee-with-marta.md
+              - generic [ref=e64]: 1 KB
+            - generic [ref=e65]:
+              - img [ref=e66]
+              - generic [ref=e69]: 2026-05-31-a-slow-good-day.md
+              - generic [ref=e70]: 812 bytes
+            - generic [ref=e71]:
+              - img [ref=e72]
+              - generic [ref=e75]: 2026-05-29-morning-by-the-river.md
+              - generic [ref=e76]: 2 KB
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - generic [ref=e81]: 2026-05-28-back-to-the-mountains.md
+              - generic [ref=e82]: 1 KB
+            - generic [ref=e83]:
+              - img [ref=e84]
+              - generic [ref=e87]: 2026-05-26-feria-with-my-parents.md
+              - generic [ref=e88]: 3 KB
+        - article [ref=e89]:
+          - heading "More than text" [level=3] [ref=e90]
+          - paragraph [ref=e91]: You can add a photo or several, an audio file, or a video, whether it lives on your computer or comes from YouTube. Drop in whatever made your day so you can find it again later.
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - generic [ref=e96]: TUE
+                - generic [ref=e97]: "26"
+              - generic [ref=e98]:
+                - generic [ref=e99]: Feria with my parents
+                - generic [ref=e100]: Writing this a bit later, but that whole…
+                - generic [ref=e101]:
+                  - img [ref=e102]
+                  - text: Córdoba, Spain
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]: SUN
+                - generic [ref=e108]: "24"
+              - generic [ref=e109]:
+                - generic [ref=e110]: Morning walk by the river
+                - generic [ref=e111]: Took a short clip before anyone was up…
+                - generic [ref=e112]:
+                  - img [ref=e113]
+                  - text: Lisbon, Portugal
+              - img [ref=e118]
+        - article [ref=e120]:
+          - heading "Make it yours" [level=3] [ref=e121]
+          - paragraph [ref=e122]: Tag your entries, mark where you were, or build your own trackers for any habit or thing you want to follow. Cozy bends to the way you like to journal.
+          - generic [ref=e133]:
+            - generic [ref=e134]: 371 words
+            - generic [ref=e135]:
+              - img [ref=e136]
+              - text: Bangkok
+            - generic [ref=e138]:
+              - text: "Mood: Good"
+              - img [ref=e139]
+            - generic [ref=e141]:
+              - img [ref=e142]
+              - text: travel
+            - generic [ref=e144]: Aa
+        - article [ref=e145]:
+          - heading "A quiet place to write" [level=3] [ref=e146]
+          - paragraph [ref=e147]: "Slip into a full-screen writing mode with soft sound in the background: rain, a forest, a café. Little touches that help you settle in and keep going."
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - paragraph [ref=e151]: Mon, June 1, 2026
+              - paragraph [ref=e152]: Coffee with Marta
+            - generic [ref=e162]:
+              - img [ref=e164]
+              - img [ref=e166]
+              - img [ref=e169]
+              - img [ref=e171]
+              - img [ref=e174]
+              - img [ref=e177]
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - img [ref=e181]
+                - text: Soundscape
+              - generic [ref=e183]: Rain
+              - generic [ref=e185]: Forest
+              - generic [ref=e186]: Café
+              - generic [ref=e187]: Fireplace
+        - article [ref=e188]:
+          - heading "Different ways to look back" [level=3] [ref=e189]
+          - paragraph [ref=e190]: See your entries laid out on a calendar, or pinned to the places you wrote them. However you remember, Cozy helps you find your way back.
+          - generic [ref=e192]:
+            - generic [ref=e193]:
+              - generic [ref=e198]: "5"
+              - generic [ref=e199]: Córdoba
+            - generic [ref=e201]:
+              - generic [ref=e202]: "1"
+              - generic [ref=e203]: "2"
+              - generic [ref=e204]: "3"
+              - generic [ref=e205]: "4"
+              - generic [ref=e206]: "5"
+              - generic [ref=e207]: "6"
+              - generic [ref=e208]: "7"
+              - generic [ref=e209]: "8"
+              - generic [ref=e210]: "9"
+              - generic [ref=e211]: "10"
+              - generic [ref=e212]: "11"
+              - generic [ref=e213]: "12"
+              - generic [ref=e214]: "13"
+              - generic [ref=e215]: "14"
+              - generic [ref=e216]: "15"
+              - generic [ref=e217]: "16"
+              - generic [ref=e218]: "17"
+              - generic [ref=e219]: "18"
+              - generic [ref=e221]: "19"
+              - generic [ref=e223]: "20"
+              - generic [ref=e225]: "21"
+              - generic [ref=e227]: "22"
+              - generic [ref=e228]: "23"
+              - generic [ref=e229]: "24"
+              - generic [ref=e230]: "25"
+              - generic [ref=e231]: "26"
+              - generic [ref=e233]: "27"
+              - generic [ref=e234]: "28"
+        - article [ref=e235]:
+          - heading "Write in any language" [level=3] [ref=e236]
+          - paragraph [ref=e237]: Your journal speaks whatever language you do. Write in Japanese, Arabic, or Spanish, mix a few in one entry, and the languages that read right to left flow that way on their own.
+          - generic [ref=e239]:
+            - generic [ref=e240]:
+              - generic [ref=e241]: Español
+              - paragraph [ref=e242]: La vida es bella
+            - generic [ref=e247]:
+              - generic [ref=e248]: 日本語
+              - paragraph [ref=e249]: 東京での朝
+            - generic [ref=e254]:
+              - generic [ref=e255]: العربية
+              - paragraph [ref=e256]: يوم في المدينة القديمة
+        - article [ref=e261]:
+          - generic [ref=e262]:
+            - generic [ref=e263]:
+              - heading "Already journaling somewhere?" [level=3] [ref=e264]
+              - paragraph [ref=e265]: Moving from another app shouldn't mean starting over. Cozy brings your old entries in from Notion, Day One, Obsidian, and Bear, so you keep your whole history instead of a blank page.
+            - generic [ref=e267]:
+              - generic [ref=e268]:
+                - img [ref=e269]
+                - generic [ref=e270]:
+                  - generic [ref=e271]: Import from Notion
+                  - generic [ref=e272]: A Markdown & CSV export folder.
+                - generic [ref=e273]: Import
+              - generic [ref=e274]:
+                - img [ref=e275]
+                - generic [ref=e276]:
+                  - generic [ref=e277]: Import from Day One
+                  - generic [ref=e278]: A .zip export.
+                - generic [ref=e279]: Import
+              - generic [ref=e280]:
+                - img [ref=e281]
+                - generic [ref=e282]:
+                  - generic [ref=e283]: Import from Obsidian
+                  - generic [ref=e284]: A vault folder. Daily notes only.
+                - generic [ref=e285]: Import
+              - generic [ref=e286]:
+                - img [ref=e287]
+                - generic [ref=e288]:
+                  - generic [ref=e289]: Import from Bear
+                  - generic [ref=e290]: A Markdown export folder.
+                - generic [ref=e291]: Import
+  - generic [ref=e293]:
+    - generic [ref=e294]:
+      - heading "Your thoughts stay in your head. Your entries stay on your device." [level=2] [ref=e295]:
+        - text: Your thoughts stay in your head.
+        - text: Your entries stay on your device.
+      - paragraph [ref=e296]: I built Cozy because I wanted a private place to write, not another app quietly collecting what I put into it. Everything you write stays on your own device. That's the whole point.
+    - generic [ref=e297]:
+      - img
+      - img
+      - generic [ref=e298]:
+        - article [ref=e299]:
+          - img [ref=e301]
+          - heading "Nothing synced to a server" [level=3] [ref=e304]
+          - paragraph [ref=e305]: There's no mystery cloud. Your journal lives right where you write it, on your own computer. No breach to worry about, no subscription to pay, no stranger who can open your diary.
+        - article [ref=e306]:
+          - img [ref=e308]
+          - heading "Nothing fed to an AI" [level=3] [ref=e311]
+          - paragraph [ref=e312]: I don't think your private writing should be used to train anything. Nothing you write in Cozy is scraped, read, or sent off to an algorithm. No AI, simple as that.
+        - article [ref=e313]:
+          - img [ref=e315]
+          - heading "Your words are yours" [level=3] [ref=e318]
+          - paragraph [ref=e319]: "What you write belongs to you. Maybe you're working through a rough day, maybe you're just keeping track of life as it happens. Either way, you stay in charge: keep your entries to yourself, or export and share them whenever you like."
+  - generic [ref=e321]:
+    - generic [ref=e322]:
+      - heading "What early users are saying" [level=2] [ref=e323]
+      - paragraph [ref=e324]: Still, Cozy is still in its baby stage, but here are some of the things my wonderful early users have said about it ✨
+    - generic [ref=e325]:
+      - 'link "akalanaya on Reddit: After using Day One for 15 years, I''ve made the jump to another journaling app. I never thought this day would come to be honest, I was locked in to Day One and even put my old handwritten entries in there. The never ending push to upgrade, AI inclusion and lack of quality updates is just too much. I''ve moved to Cozy and I''m really enjoying it. Cozy is lightweight, actively being worked on and already offers some features I''ve been wanting in Day One, such as image resizing. I had some issues with the import feature and the developer was very responsive, even releasing a fix that same day. I hope everyone who is frustrated with Day One finds an alternative that suits them." [ref=e326] [cursor=pointer]':
+        - /url: https://www.reddit.com/r/dayoneapp/comments/1u4qty8/comment/orx5k4k/
+        - 'img "akalanaya on Reddit: After using Day One for 15 years, I''ve made the jump to another journaling app. I never thought this day would come to be honest, I was locked in to Day One and even put my old handwritten entries in there. The never ending push to upgrade, AI inclusion and lack of quality updates is just too much. I''ve moved to Cozy and I''m really enjoying it. Cozy is lightweight, actively being worked on and already offers some features I''ve been wanting in Day One, such as image resizing. I had some issues with the import feature and the developer was very responsive, even releasing a fix that same day. I hope everyone who is frustrated with Day One finds an alternative that suits them." [ref=e327]'
+      - img "I was a Day One user, but woke up one morning to them encouraging me to use AI to “interrogate” my journal. Nope. That sent me looking for an alternative. I really like Cozy so far! It's clean, it's easy to use, my Day One entries zipped right into it. Thank you!" [ref=e329]
+      - img "I'm loving Cozy so far and can't wait to try out the iPhone app as well when it's ready. Everything is working really well and it is a great writing experience in the app, very enjoyable to use." [ref=e331]
+      - img "Hey Alberto, I just wanted to say you're really awesome for making an app like this. It has so much potential, and even in its current state it is a joy to journal with. — PJ" [ref=e333]
+  - generic [ref=e335]:
+    - generic [ref=e336]:
+      - heading "Buy your license" [level=2] [ref=e337]
+      - paragraph [ref=e338]: Buy today and, if Cozy isn't right for you, you can request a refund within 14 days.
+    - generic [ref=e339]:
+      - generic [ref=e340]:
+        - img [ref=e342]
+        - heading "Cozy for Desktop" [level=3] [ref=e345]
+        - paragraph [ref=e346]: Available now
+        - paragraph [ref=e347]:
+          - generic [ref=e348]: $35
+          - generic [ref=e349]: one-time
+        - generic [ref=e350]:
+          - link "Buy a license" [ref=e351] [cursor=pointer]:
+            - /url: https://buy.polar.sh/polar_cl_H9llQQ1V2HFu1VXrRKuCMYoSJ3J5uYWJeJDQd3V1a3j
+          - link "Already have a license? Download" [ref=e352] [cursor=pointer]:
+            - /url: /download
+        - paragraph [ref=e353]: One license covers every Mac and Windows you own.
+      - generic [ref=e354]:
+        - img [ref=e356]
+        - heading "Cozy for Mobile" [level=3] [ref=e359]
+        - paragraph [ref=e360]: In development
+        - paragraph [ref=e361]:
+          - generic [ref=e362]: $12
+          - generic [ref=e363]: one-time
+        - generic [ref=e364]:
+          - generic [ref=e365]:
+            - img [ref=e366]
+            - img [ref=e368]
+            - text: iOS & Android
+          - link "Get notified" [ref=e370] [cursor=pointer]:
+            - /url: /#newsletter
+        - paragraph [ref=e371]: A separate app, coming later to the App Store and Google Play.
+    - paragraph [ref=e372]: Prices in USD. VAT may apply. Secure payment via Polar.
+  - generic [ref=e373]:
+    - img
+    - img
+    - generic [ref=e374]:
+      - heading "Frequently Asked Questions" [level=2] [ref=e375]
+      - generic [ref=e376]:
+        - group [ref=e377]:
+          - generic "How much does Cozy cost?" [ref=e378] [cursor=pointer]:
+            - heading "How much does Cozy cost?" [level=3] [ref=e379]
+            - img [ref=e380]
+        - group [ref=e382]:
+          - generic "Do you offer student or country discounts?" [ref=e383] [cursor=pointer]:
+            - heading "Do you offer student or country discounts?" [level=3] [ref=e384]
+            - img [ref=e385]
+        - group [ref=e387]:
+          - generic "Do I have to pay for updates?" [ref=e388] [cursor=pointer]:
+            - heading "Do I have to pay for updates?" [level=3] [ref=e389]
+            - img [ref=e390]
+        - group [ref=e392]:
+          - generic "Where do my entries go?" [ref=e393] [cursor=pointer]:
+            - heading "Where do my entries go?" [level=3] [ref=e394]
+            - img [ref=e395]
+        - group [ref=e397]:
+          - generic "Is there a mobile version?" [ref=e398] [cursor=pointer]:
+            - heading "Is there a mobile version?" [level=3] [ref=e399]
+            - img [ref=e400]
+        - group [ref=e402]:
+          - generic "Can I sync between devices?" [ref=e403] [cursor=pointer]:
+            - heading "Can I sync between devices?" [level=3] [ref=e404]
+            - img [ref=e405]
+        - group [ref=e407]:
+          - generic "Does it use AI?" [ref=e408] [cursor=pointer]:
+            - heading "Does it use AI?" [level=3] [ref=e409]
+            - img [ref=e410]
+  - generic [ref=e413]:
+    - heading "Time to write about your day?" [level=2] [ref=e414]
+    - paragraph [ref=e415]: Buy Cozy once, and it covers every Mac and Windows you own. Simple as that.
+    - generic [ref=e416]:
+      - link "Buy a license ($35)" [ref=e417] [cursor=pointer]:
+        - /url: https://buy.polar.sh/polar_cl_H9llQQ1V2HFu1VXrRKuCMYoSJ3J5uYWJeJDQd3V1a3j
+      - link "Already have a license? Download" [ref=e418] [cursor=pointer]:
+        - /url: /download
+    - paragraph [ref=e419]: One license covers every Mac and Windows you own.
+    - paragraph [ref=e420]:
+      - img [ref=e421]
+      - generic [ref=e423]: 14-day money-back guarantee
+  - generic [ref=e424]:
+    - img
+    - img
+    - img
+    - img
+    - img
+    - img
+    - generic [ref=e425]:
+      - heading "Stay in the loop" [level=2] [ref=e426]
+      - paragraph [ref=e427]: Subscribe to get updates on new features and releases. I only send emails when there's something worth sharing, and you can unsubscribe anytime.
+      - generic [ref=e430]:
+        - textbox "Email address" [ref=e431]:
+          - /placeholder: me@example.com
+        - button "Subscribe" [ref=e432] [cursor=pointer]
+  - contentinfo [ref=e433]:
+    - generic [ref=e435]:
+      - generic [ref=e436]:
+        - link "Cozy logo" [ref=e437] [cursor=pointer]:
+          - /url: /
+          - img "Cozy logo" [ref=e438]
+        - generic [ref=e439]:
+          - button "Toggle dark mode" [ref=e440]:
+            - img [ref=e441]
+            - img [ref=e443]
+          - paragraph [ref=e445]:
+            - text: © 2026 Cantimplora Studio LLC ·
+            - generic [ref=e446]:
+              - text: Made by
+              - link "Alberto" [ref=e447] [cursor=pointer]:
+                - /url: https://albertogalca.com
+      - generic [ref=e448]:
+        - heading "Product" [level=6] [ref=e449]
+        - list [ref=e450]:
+          - listitem [ref=e451]:
+            - link "Features" [ref=e452] [cursor=pointer]:
+              - /url: /#features
+          - listitem [ref=e453]:
+            - link "Pricing" [ref=e454] [cursor=pointer]:
+              - /url: /#pricing
+          - listitem [ref=e455]:
+            - link "FAQ" [ref=e456] [cursor=pointer]:
+              - /url: /#faq
+          - listitem [ref=e457]:
+            - link "Docs" [ref=e458] [cursor=pointer]:
+              - /url: /docs
+          - listitem [ref=e459]:
+            - link "Blog" [ref=e460] [cursor=pointer]:
+              - /url: /blog
+          - listitem [ref=e461]:
+            - link "Download" [ref=e462] [cursor=pointer]:
+              - /url: /download
+      - generic [ref=e463]:
+        - heading "Compare" [level=6] [ref=e464]
+        - list [ref=e465]:
+          - listitem [ref=e466]:
+            - link "vs Day One" [ref=e467] [cursor=pointer]:
+              - /url: /vs-day-one
+          - listitem [ref=e468]:
+            - link "vs Obsidian" [ref=e469] [cursor=pointer]:
+              - /url: /vs-obsidian
+          - listitem [ref=e470]:
+            - link "vs Bear" [ref=e471] [cursor=pointer]:
+              - /url: /vs-bear
+          - listitem [ref=e472]:
+            - link "vs Diarium" [ref=e473] [cursor=pointer]:
+              - /url: /vs-diarium
+          - listitem [ref=e474]:
+            - link "vs Apple Journal" [ref=e475] [cursor=pointer]:
+              - /url: /vs-apple-journal
+      - generic [ref=e476]:
+        - heading "Features" [level=6] [ref=e477]
+        - list [ref=e478]:
+          - listitem [ref=e479]:
+            - link "Private" [ref=e480] [cursor=pointer]:
+              - /url: /private-journaling-app
+          - listitem [ref=e481]:
+            - link "Offline" [ref=e482] [cursor=pointer]:
+              - /url: /offline-journaling-app
+          - listitem [ref=e483]:
+            - link "Plain files" [ref=e484] [cursor=pointer]:
+              - /url: /markdown-journaling-app
+          - listitem [ref=e485]:
+            - link "No subscription" [ref=e486] [cursor=pointer]:
+              - /url: /no-subscription-journaling-app
+          - listitem [ref=e487]:
+            - link "With photos" [ref=e488] [cursor=pointer]:
+              - /url: /journaling-app-with-photos
+      - generic [ref=e489]:
+        - heading "Resources" [level=6] [ref=e490]
+        - list [ref=e491]:
+          - listitem [ref=e492]:
+            - link "Best journaling apps" [ref=e493] [cursor=pointer]:
+              - /url: /best-journaling-app
+          - listitem [ref=e494]:
+            - link "Writing prompts" [ref=e495] [cursor=pointer]:
+              - /url: /tools/writing-prompts
+          - listitem [ref=e496]:
+            - link "Blog" [ref=e497] [cursor=pointer]:
+              - /url: /blog
+      - generic [ref=e498]:
+        - heading "Company" [level=6] [ref=e499]
+        - list [ref=e500]:
+          - listitem [ref=e501]:
+            - link "Privacy" [ref=e502] [cursor=pointer]:
+              - /url: /privacy
+          - listitem [ref=e503]:
+            - link "Terms" [ref=e504] [cursor=pointer]:
+              - /url: /terms
+          - listitem [ref=e505]:
+            - link "More projects" [ref=e506] [cursor=pointer]:
+              - /url: https://albertogalca.com
+          - listitem [ref=e507]:
+            - link "Twitter" [ref=e508] [cursor=pointer]:
+              - /url: https://twitter.com/cozyjournalapp
+          - listitem [ref=e509]:
+            - link "Instagram" [ref=e510] [cursor=pointer]:
+              - /url: https://instagram.com/cozyjournalapp
+          - listitem [ref=e511]:
+            - link "Reddit" [ref=e512] [cursor=pointer]:
+              - /url: https://www.reddit.com/r/cozyjournalapp/
+          - listitem [ref=e513]:
+            - link "Email" [ref=e514] [cursor=pointer]:
+              - /url: mailto:dear@cozyjournal.app
+    - link "Featured on SUBMITATOR" [ref=e517] [cursor=pointer]:
+      - /url: https://submitator.com?ref=4989f43c-f5fd-46cf-a5b9-a42eb66089a5
+      - generic [ref=e518]:
+        - img [ref=e519]
+        - generic [ref=e522]:
+          - generic [ref=e523]: Featured on
+          - generic [ref=e524]: SUBMITATOR
+    - generic [ref=e525]:
+      - img

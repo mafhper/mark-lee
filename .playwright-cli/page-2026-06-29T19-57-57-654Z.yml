@@ -1,0 +1,515 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Go to the Obsidian home page" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+      - list [ref=e21]:
+        - listitem [ref=e22]:
+          - link "Download" [ref=e23] [cursor=pointer]:
+            - /url: /download
+        - listitem [ref=e24]:
+          - link "Pricing" [ref=e25] [cursor=pointer]:
+            - /url: /pricing
+        - listitem [ref=e26]:
+          - link "Sync" [ref=e27] [cursor=pointer]:
+            - /url: /sync
+        - listitem [ref=e28]:
+          - link "Publish" [ref=e29] [cursor=pointer]:
+            - /url: /publish
+        - listitem [ref=e30]:
+          - link "Enterprise" [ref=e31] [cursor=pointer]:
+            - /url: /enterprise
+        - listitem [ref=e32]:
+          - button "Change language" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+            - img [ref=e37]
+        - listitem [ref=e39]:
+          - link "Community" [ref=e40] [cursor=pointer]:
+            - /url: https://community.obsidian.md
+        - listitem [ref=e41]:
+          - link "Account" [ref=e42] [cursor=pointer]:
+            - /url: /account
+  - generic [ref=e43]:
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - heading "Sharpen your thinking." [level=1] [ref=e47]
+        - paragraph [ref=e48]: The free and flexible app for your private thoughts.
+      - generic [ref=e49]:
+        - link "Get Obsidian for Windows" [ref=e50] [cursor=pointer]:
+          - /url: /download
+        - link "More platforms" [ref=e51] [cursor=pointer]:
+          - /url: /download
+    - generic [ref=e53]:
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - img [ref=e61]
+            - img [ref=e63]
+            - img [ref=e66]
+            - img [ref=e70]
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]: Writing is telepathy
+              - img [ref=e76]
+            - generic [ref=e80]: Evergreen notes
+            - img [ref=e82]
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - img [ref=e85]
+              - generic [ref=e90]: Graph of Writing is t...
+              - img [ref=e91]
+            - img [ref=e95]
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - img [ref=e100]
+                - generic [ref=e102]: Clippings
+              - generic [ref=e103]:
+                - img [ref=e104]
+                - generic [ref=e106]: Daily
+              - generic [ref=e107]:
+                - img [ref=e108]
+                - generic [ref=e110]: Ideas
+              - generic [ref=e111]: Writing is telepathy
+              - generic [ref=e112]:
+                - img [ref=e113]
+                - generic [ref=e115]: Meta
+              - generic [ref=e116]:
+                - img [ref=e117]
+                - generic [ref=e119]: Projects
+              - generic [ref=e120]:
+                - img [ref=e121]
+                - generic [ref=e123]: References
+              - generic [ref=e124]: Evergreen notes
+              - generic [ref=e125]: Calmness is a superpower
+              - generic [ref=e126]: Travel
+              - generic [ref=e127]: Creativity is combinatory u...
+              - generic [ref=e128]: Emergence
+              - generic [ref=e129]: Recipes
+              - generic [ref=e130]: Books
+              - generic [ref=e131]: Health
+              - generic [ref=e132]: What if it were easy
+              - generic [ref=e133]: Tools
+              - generic [ref=e134]: Specialization is for insects
+              - generic [ref=e135]: First principles
+              - generic [ref=e136]: Philosophy
+              - generic [ref=e137]: A little bit every day
+              - generic [ref=e138]: 1,000 true fans
+            - generic [ref=e139]:
+              - img [ref=e140]
+              - generic [ref=e143]: Notes
+              - generic [ref=e144]:
+                - img [ref=e145]
+                - img [ref=e148]
+          - generic [ref=e153]:
+            - generic [ref=e154]: Writing is telepathy
+            - generic [ref=e155]: "#evergreen"
+            - paragraph [ref=e156]: From On Writing
+            - generic [ref=e157]: Ideas can travel through time and space
+            - paragraph [ref=e158]: "Ideas can travel through time and space without being uttered out loud. The process of telepathy requires two places:"
+            - list [ref=e159]:
+              - listitem [ref=e160]:
+                - text: A
+                - strong [ref=e161]: sending place
+                - text: ", a transmission place — where the writer sends ideas, such as a desk"
+              - listitem [ref=e162]:
+                - text: A
+                - strong [ref=e163]: receiving place
+                - text: — where the reader receives the ideas/imagery such as a couch, a comfortable chair, in bed
+            - generic [ref=e164]: Quote
+            - blockquote [ref=e165]: Look, here’s a table covered with red cloth. On it is a cage the size of a small fish aquarium. In the cage is a white rabbit with a pink nose and pink-rimmed eyes. On its back, clearly marked in blue ink, is the numeral 8. The most interesting thing here isn’t even the carrot-munching rabbit in the cage, but the number on its back. I never opened my mouth and you never opened yours. We’re not even in the same year together, let alone the same room... except we are together. We are close. We’re having a meeting of the minds. We’ve engaged in an act of telepathy.
+          - img [ref=e168]
+        - generic [ref=e221]:
+          - generic [ref=e222]: 1 backlink
+          - img [ref=e223]
+          - generic [ref=e226]: 206 words
+          - generic [ref=e227]: 1139 char
+      - generic [ref=e229]:
+        - generic [ref=e230]:
+          - generic [ref=e231]: 16:57
+          - generic [ref=e232]:
+            - img [ref=e233]
+            - img [ref=e234]
+            - img [ref=e238]
+        - generic [ref=e240]:
+          - img [ref=e242]
+          - generic [ref=e245]:
+            - img [ref=e246]
+            - img [ref=e249]
+        - generic [ref=e253]:
+          - generic [ref=e254]: Japan Trip Planning
+          - generic [ref=e255]:
+            - generic [ref=e256]: "#projects"
+            - generic [ref=e257]: "#travel"
+          - generic [ref=e258]: To-do
+          - generic [ref=e259]:
+            - generic [ref=e260]: Schedule flights
+            - generic [ref=e262]: Ask for recommendations
+            - generic [ref=e264]:
+              - generic [ref=e265]: ✓
+              - text: Keiko
+            - generic [ref=e266]:
+              - generic [ref=e267]: ✓
+              - text: Andrew
+            - generic [ref=e268]: Garrett
+            - generic [ref=e270]:
+              - text: Research ryokans in
+              - generic [ref=e272]: Kyoto
+            - generic [ref=e273]: Itinerary
+        - generic [ref=e276]:
+          - img [ref=e277]
+          - img [ref=e279]
+          - img [ref=e281]
+          - img [ref=e284]
+          - generic [ref=e285]: "1"
+          - img [ref=e286]
+  - generic [ref=e288]:
+    - generic [ref=e290]:
+      - generic [ref=e291]:
+        - term [ref=e292]: Your thoughts are yours.
+        - definition [ref=e293]: Obsidian stores notes privately on your device, so you can access them quickly, even offline. No one else can read them, not even us.
+      - generic [ref=e294]:
+        - term [ref=e295]: Your mind is unique.
+        - definition [ref=e296]:
+          - text: With
+          - link "thousands of plugins" [ref=e297] [cursor=pointer]:
+            - /url: https://community.obsidian.md
+          - text: and themes, you can shape Obsidian to fit your way of thinking.
+      - generic [ref=e298]:
+        - term [ref=e299]: Your knowledge should last.
+        - definition [ref=e300]: Obsidian uses open file formats, so you’re never locked in. You own your data for the long term.
+    - generic [ref=e302]:
+      - link "Download Obsidian" [ref=e303] [cursor=pointer]:
+        - /url: /download
+        - img [ref=e305]
+        - img [ref=e318]
+      - generic [ref=e327]:
+        - text: Free without limits.
+        - link "Download now" [ref=e328] [cursor=pointer]:
+          - /url: /download
+  - generic [ref=e331]:
+    - generic [ref=e332]:
+      - heading "Spark ideas." [level=2] [ref=e333]
+      - paragraph [ref=e334]: From personal notes to journaling, knowledge bases, and project management, Obsidian gives you the tools to come up with ideas and organize them.
+    - generic [ref=e335]:
+      - generic [ref=e336]:
+        - generic [ref=e337]:
+          - term [ref=e338]: Links
+          - definition [ref=e339]: Create connections between your notes. Link anything and everything — ideas, people, places, books, and beyond. Invent your own personal Wikipedia.
+        - generic [ref=e341]:
+          - paragraph [ref=e342]: "In Meditations on First Philosophy the philosopher René Descartes describes a series of doubts about the nature of reality, arriving at the famous phrase:"
+          - generic [ref=e343]:
+            - list [ref=e344]:
+              - listitem [ref=e345]: "[[I thin]]"
+            - list [ref=e347]:
+              - listitem [ref=e348]:
+                - text: I
+                - strong [ref=e349]: thin
+                - text: k therefore I am
+              - listitem [ref=e350]:
+                - text: Just
+                - strong [ref=e351]: thin
+                - text: k about it
+              - listitem [ref=e352]:
+                - strong [ref=e353]: Thin
+                - text: king, Fast and Slow
+                - generic [ref=e354]: Books/
+              - listitem [ref=e355]:
+                - text: The
+                - strong [ref=e356]: Thin
+                - text: g
+                - generic [ref=e357]: Movies/
+          - paragraph [ref=e358]: He argues that doubting requires thinking, and therefore, the act of thinking confirms his existence.
+      - generic [ref=e360]:
+        - term [ref=e361]: Graph
+        - definition [ref=e362]: Visualize the relationships between your notes. Find hidden patterns in your thinking through a visually engaging and interactive graph.
+      - generic [ref=e367]:
+        - link "Canvas An infinite space to research, brainstorm, diagram, and lay out your ideas. Canvas is a limitless playground for your mind. Learn more." [ref=e368] [cursor=pointer]:
+          - /url: /canvas
+          - generic [ref=e369]:
+            - term [ref=e370]: Canvas
+            - definition [ref=e371]: An infinite space to research, brainstorm, diagram, and lay out your ideas. Canvas is a limitless playground for your mind. Learn more.
+        - generic [ref=e373]:
+          - generic [ref=e374]: Lecture 1
+          - generic [ref=e376]:
+            - paragraph [ref=e377]: Rationalists
+            - list [ref=e378]:
+              - listitem [ref=e379]: Reason and innate knowledge → acquire knowledge
+              - listitem [ref=e380]: Fundamental truths and principles can be known independent of experience
+              - listitem [ref=e381]: A priori reasoning
+              - listitem [ref=e382]: Reason and deduction
+          - img [ref=e383]
+          - generic [ref=e385]:
+            - paragraph [ref=e386]: Empiricists
+            - list [ref=e387]:
+              - listitem [ref=e388]: Experience and sensory perception → acquire knowledge
+              - listitem [ref=e389]: All knowledge is derived from experience and observation of the external world
+              - listitem [ref=e390]: A posteriori reasoning
+          - generic [ref=e391]:
+            - generic [ref=e392]: Cogito, ergo sum
+            - paragraph [ref=e393]: "In Meditations on First Philosophy the philosopher René Descartes describes a series of doubts about the nature of reality, arriving at the famous phrase:"
+            - paragraph [ref=e394]: I think therefore I am
+            - paragraph [ref=e395]: He argues that doubting requires thinking, and therefore, the act of thinking confirms his existence.
+          - generic [ref=e396]: Philosophers
+          - img [ref=e399]
+          - img [ref=e401]
+          - img [ref=e403]
+      - generic [ref=e404]:
+        - link "Plugins Build your ideal thinking space. With thousands of plugins and our open API, it’s easy to tailor Obsidian to fit your personal workflow. Learn more." [ref=e405] [cursor=pointer]:
+          - /url: https://community.obsidian.md
+          - generic [ref=e406]:
+            - term [ref=e407]: Plugins
+            - definition [ref=e408]: Build your ideal thinking space. With thousands of plugins and our open API, it’s easy to tailor Obsidian to fit your personal workflow. Learn more.
+        - generic [ref=e410]:
+          - generic [ref=e411]: Community plugins
+          - generic [ref=e412]:
+            - generic [ref=e413]:
+              - generic [ref=e414]: Calendar by Liam Cain
+              - generic [ref=e415]: Calendar view of your daily notes.
+            - checkbox [ref=e417]
+          - generic [ref=e418]:
+            - generic [ref=e419]:
+              - generic [ref=e420]: Kanban by Matthew Meyers
+              - generic [ref=e421]: Markdown-backed kanban boards.
+            - checkbox [ref=e423]
+          - generic [ref=e424]:
+            - generic [ref=e425]:
+              - generic [ref=e426]: Dataview by Michael Brenan
+              - generic [ref=e427]: Advanced queries for the data-obsessed.
+            - checkbox [ref=e429]
+          - generic [ref=e430]:
+            - generic [ref=e431]:
+              - generic [ref=e432]: Outliner by Viacheslav Slinko
+              - generic [ref=e433]: Work with your lists.
+            - checkbox [ref=e435]
+          - generic [ref=e436]:
+            - generic [ref=e437]:
+              - generic [ref=e438]: Tasks by Martin Schenck and Clare Macrae
+              - generic [ref=e439]: Track tasks across your entire vault.
+            - checkbox [ref=e441]
+  - generic [ref=e444]:
+    - generic [ref=e446]:
+      - heading "Sync securely." [level=2] [ref=e447]
+      - paragraph [ref=e448]:
+        - text: Access your notes on any device, secured with end-to-end encryption.
+        - link "Learn more." [ref=e449] [cursor=pointer]:
+          - /url: /sync
+      - generic [ref=e452]:
+        - generic [ref=e453]:
+          - term:
+            - img [ref=e454]
+          - definition [ref=e458]:
+            - strong [ref=e459]: Version history.
+            - text: Easily track changes between revisions, with one year of version history for every note.
+        - generic [ref=e460]:
+          - term:
+            - img [ref=e461]
+          - definition [ref=e466]:
+            - strong [ref=e467]: Collaboration.
+            - text: Work with your team on shared files without compromising your private data.
+        - generic [ref=e468]:
+          - term:
+            - img [ref=e469]
+          - definition [ref=e472]:
+            - strong [ref=e473]: Fine-grained control.
+            - text: Decide which files and preferences you want to sync to which devices.
+    - generic [ref=e477]:
+      - generic [ref=e478]: Shared vaults
+      - generic [ref=e479]:
+        - generic [ref=e481]: Invite by email...
+        - generic [ref=e482]:
+          - generic [ref=e483]: EX
+          - generic [ref=e484]: Erica Xu
+          - generic [ref=e485]: Owner
+        - generic [ref=e486]:
+          - generic [ref=e487]: SA
+          - generic [ref=e488]: Steph Ango
+          - generic [ref=e489]: Can edit
+        - generic [ref=e490]:
+          - generic [ref=e491]: LC
+          - generic [ref=e492]: Liam Cain
+          - generic [ref=e493]: Can edit
+        - generic [ref=e494]:
+          - generic [ref=e495]: TG
+          - generic [ref=e496]: Tony Grosinger
+          - generic [ref=e497]: Can edit
+  - generic [ref=e498]:
+    - generic [ref=e500]:
+      - generic [ref=e501]:
+        - heading "Publish instantly." [level=2] [ref=e502]
+        - paragraph [ref=e503]:
+          - text: Turn your notes into an online wiki, knowledge base, documentation, or digital garden.
+          - link "Learn more." [ref=e504] [cursor=pointer]:
+            - /url: /publish
+      - generic [ref=e505]:
+        - generic [ref=e506]:
+          - img [ref=e508]
+          - generic [ref=e511]:
+            - term [ref=e512]: Seamless editing
+            - definition [ref=e513]: Publish your notes instantly from the Obsidian app, and make it easy for readers to explore your web of ideas.
+        - generic [ref=e514]:
+          - img [ref=e516]
+          - generic [ref=e522]:
+            - term [ref=e523]: Customization
+            - definition [ref=e524]: Control the look and feel of your site with themes, custom domains, password protection, and more.
+        - generic [ref=e525]:
+          - img [ref=e527]
+          - generic [ref=e530]:
+            - term [ref=e531]: Optimized for performance
+            - definition [ref=e532]: Obsidian Publish sites are fast, mobile-friendly, and optimized for SEO, no configuration required.
+    - img "Example of Obsidian Help site powered by Obsidian Publish" [ref=e536]
+    - generic [ref=e538]:
+      - text: Explore the
+      - link "Obsidian Help" [ref=e539] [cursor=pointer]:
+        - /url: https://obsidian.md/help/
+      - text: site, powered by
+      - link "Obsidian Publish" [ref=e540] [cursor=pointer]:
+        - /url: /publish
+      - text: .
+  - generic [ref=e541]:
+    - generic [ref=e542]:
+      - heading "It’s your time to shine." [level=2] [ref=e543]
+      - link "Get Obsidian" [ref=e544] [cursor=pointer]:
+        - /url: /download
+    - generic [ref=e546]:
+      - link "Join us on Discord Get help, ask questions, meet other Obsidian users, and learn about their setup." [ref=e547] [cursor=pointer]:
+        - /url: https://discord.gg/obsidianmd
+        - generic [ref=e548]: Join us on Discord
+        - generic [ref=e549]: Get help, ask questions, meet other Obsidian users, and learn about their setup.
+      - link "Discussion forum Post feature requests, report bugs, and explore in-depth discussions about knowledge management." [ref=e550] [cursor=pointer]:
+        - /url: https://forum.obsidian.md/
+        - generic [ref=e551]: Discussion forum
+        - generic [ref=e552]: Post feature requests, report bugs, and explore in-depth discussions about knowledge management.
+      - link "Developer docs Learn how to build your own Obsidian plugins and themes, using our open API and documentation." [ref=e553] [cursor=pointer]:
+        - /url: https://docs.obsidian.md
+        - generic [ref=e554]: Developer docs
+        - generic [ref=e555]: Learn how to build your own Obsidian plugins and themes, using our open API and documentation.
+  - contentinfo [ref=e556]:
+    - generic [ref=e557]:
+      - generic [ref=e558]:
+        - list [ref=e559]:
+          - listitem [ref=e560]: Get started
+          - listitem [ref=e561]:
+            - link "Download" [ref=e562] [cursor=pointer]:
+              - /url: /download
+          - listitem [ref=e563]:
+            - link "Pricing" [ref=e564] [cursor=pointer]:
+              - /url: /pricing
+          - listitem [ref=e565]:
+            - link "Enterprise" [ref=e566] [cursor=pointer]:
+              - /url: /enterprise
+          - listitem [ref=e567]:
+            - link "Account" [ref=e568] [cursor=pointer]:
+              - /url: /account
+        - list [ref=e569]:
+          - listitem [ref=e570]: Obsidian
+          - listitem [ref=e571]:
+            - link "Overview" [ref=e572] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e573]:
+            - link "Sync" [ref=e574] [cursor=pointer]:
+              - /url: /sync
+          - listitem [ref=e575]:
+            - link "Publish" [ref=e576] [cursor=pointer]:
+              - /url: /publish
+          - listitem [ref=e577]:
+            - link "Canvas" [ref=e578] [cursor=pointer]:
+              - /url: /canvas
+          - listitem [ref=e579]:
+            - link "Mobile" [ref=e580] [cursor=pointer]:
+              - /url: /mobile
+          - listitem [ref=e581]:
+            - link "Web Clipper" [ref=e582] [cursor=pointer]:
+              - /url: /clipper
+          - listitem [ref=e583]:
+            - link "CLI" [ref=e584] [cursor=pointer]:
+              - /url: /cli
+      - generic [ref=e585]:
+        - list [ref=e586]:
+          - listitem [ref=e587]: Learn
+          - listitem [ref=e588]:
+            - link "Help" [ref=e589] [cursor=pointer]:
+              - /url: https://obsidian.md/help/
+          - listitem [ref=e590]:
+            - link "Developers" [ref=e591] [cursor=pointer]:
+              - /url: https://docs.obsidian.md/
+          - listitem [ref=e592]:
+            - link "Changelog" [ref=e593] [cursor=pointer]:
+              - /url: /changelog
+          - listitem [ref=e594]:
+            - link "About" [ref=e595] [cursor=pointer]:
+              - /url: /about
+          - listitem [ref=e596]:
+            - link "Roadmap" [ref=e597] [cursor=pointer]:
+              - /url: /roadmap
+          - listitem [ref=e598]:
+            - link "Blog" [ref=e599] [cursor=pointer]:
+              - /url: /blog
+        - list [ref=e600]:
+          - listitem [ref=e601]: Resources
+          - listitem [ref=e602]:
+            - link "System status" [ref=e603] [cursor=pointer]:
+              - /url: https://status.obsidian.md
+          - listitem [ref=e604]:
+            - link "License overview" [ref=e605] [cursor=pointer]:
+              - /url: /license
+          - listitem [ref=e606]:
+            - link "Terms of service" [ref=e607] [cursor=pointer]:
+              - /url: /terms
+          - listitem [ref=e608]:
+            - link "Privacy policy" [ref=e609] [cursor=pointer]:
+              - /url: /privacy
+          - listitem [ref=e610]:
+            - link "Security" [ref=e611] [cursor=pointer]:
+              - /url: /security
+      - list [ref=e613]:
+        - listitem [ref=e614]: Community
+        - listitem [ref=e615]:
+          - link "Plugins" [ref=e616] [cursor=pointer]:
+            - /url: https://community.obsidian.md/plugins
+        - listitem [ref=e617]:
+          - link "Themes" [ref=e618] [cursor=pointer]:
+            - /url: https://community.obsidian.md/themes
+        - listitem [ref=e619]:
+          - link "Discord" [ref=e620] [cursor=pointer]:
+            - /url: https://discord.gg/obsidianmd
+        - listitem [ref=e621]:
+          - link "Forum" [ref=e622] [cursor=pointer]:
+            - /url: https://forum.obsidian.md
+          - text: /
+          - link "中文论坛" [ref=e623] [cursor=pointer]:
+            - /url: https://forum-zh.obsidian.md
+        - listitem [ref=e624]:
+          - link "Merch store" [ref=e625] [cursor=pointer]:
+            - /url: /softwear
+        - listitem [ref=e626]:
+          - link "Brand guidelines" [ref=e627] [cursor=pointer]:
+            - /url: /brand
+    - generic [ref=e628]:
+      - link "Go to the Obsidian home page" [ref=e629] [cursor=pointer]:
+        - /url: /
+        - img [ref=e630]
+      - generic [ref=e643]: Follow us
+      - generic [ref=e644]:
+        - link "Discord" [ref=e645] [cursor=pointer]:
+          - /url: https://discord.com/invite/obsidianmd
+        - link "Twitter" [ref=e646] [cursor=pointer]:
+          - /url: https://x.com/obsdmd
+        - link "Bluesky" [ref=e647] [cursor=pointer]:
+          - /url: https://bsky.app/profile/obsidian.md
+        - link "Threads" [ref=e648] [cursor=pointer]:
+          - /url: https://www.threads.net/@obsdmd
+        - link "Mastodon" [ref=e649] [cursor=pointer]:
+          - /url: https://mas.to/@obsidian
+        - link "YouTube" [ref=e650] [cursor=pointer]:
+          - /url: https://www.youtube.com/@obsdmd
+        - link "GitHub" [ref=e651] [cursor=pointer]:
+          - /url: https://github.com/obsidianmd
+      - group [ref=e652]:
+        - generic "English" [ref=e653] [cursor=pointer]:
+          - img [ref=e654]
+          - text: English
+          - img [ref=e657]
+      - generic [ref=e659]: © 2026 Obsidian
