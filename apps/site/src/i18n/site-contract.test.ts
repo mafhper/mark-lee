@@ -53,7 +53,9 @@ describe("promo-site contract", () => {
     const assets = [
       ["editor.png", 450_000],
       ["memories-reading.png", 450_000],
+      ["memories-reading-dark.png", 450_000],
       ["memories-explore.png", 450_000],
+      ["memories-places.png", 450_000],
       ["og-mark-lee.png", 650_000],
     ] as const;
 

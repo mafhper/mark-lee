@@ -33,7 +33,7 @@ const Produto = ({ locale }: ProdutoProps) => {
             <p className="home-note">{copy.hero.note}</p>
           </div>
           <ProductCarousel
-            visuals={["editor", "memoriesReading", "memoriesExplore"]}
+            visuals={["editor", "memoriesReading", "memoriesExplore", "memoriesPlaces"]}
             locale={locale}
             className="home-hero__visual"
           />
@@ -91,7 +91,7 @@ const Produto = ({ locale }: ProdutoProps) => {
           />
           <div className="memories-mosaic">
             <ProductFrame
-              visual="memoriesReading"
+              visual="memoriesReadingDark"
               locale={locale}
               className="product-frame--paper memories-mosaic__primary"
             />
