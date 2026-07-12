@@ -11,6 +11,14 @@ export interface EditorCursorSettings {
   caretBlinkIntervalMs: number;
 }
 
+export interface JournalMediaSettings {
+  importMode: "copy" | "ask" | "move";
+  preserveOriginals: boolean;
+  optimizeWebp: boolean;
+  maxDimension: number;
+  quality: number;
+}
+
 export enum Theme {
   Coffee = 'coffee',
   Light = 'light',
@@ -167,6 +175,7 @@ export interface AppSettings {
   appMode: AppMode;
   measurementSystem: "metric" | "imperial";
   journalDataDir?: string;
+  journalMedia: JournalMediaSettings;
   editorCursor: EditorCursorSettings;
 }
 

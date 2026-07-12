@@ -69,6 +69,9 @@ export function createMetricPin(metricId: PinMetricId, order: number): PinConfig
     streak: "Streak",
     words: "Words",
     entries: "Entries",
+    tasks_created: "Tasks created",
+    tasks_in_progress: "Tasks in progress",
+    tasks_completed: "Tasks completed",
   };
   return {
     id: `pin:${crypto.randomUUID()}`,
@@ -76,7 +79,7 @@ export function createMetricPin(metricId: PinMetricId, order: number): PinConfig
     metricId,
     label: label[metricId],
     period: metricId === "streak" ? "all" : "month",
-    aggregation: metricId === "entries" || metricId === "streak" ? "count" : "sum",
+    aggregation: metricId === "words" ? "sum" : "count",
     format: metricId === "entries" ? "bar" : "value",
     order,
     visible: true,

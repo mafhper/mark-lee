@@ -1,4 +1,4 @@
-import { createDefaultThemeLibrary, DEFAULT_EDITOR_CURSOR, DEFAULT_SETTINGS, THEMES } from "../constants";
+import { createDefaultThemeLibrary, DEFAULT_EDITOR_CURSOR, DEFAULT_JOURNAL_MEDIA_SETTINGS, DEFAULT_SETTINGS, THEMES } from "../constants";
 import { AppSettings, DocumentTab, Language, Theme, ThemeDefinition, ThemeId } from "../types";
 
 const SETTINGS_KEY = "mark-lee-settings";
@@ -42,6 +42,29 @@ function normalizeEditorCursor(value: unknown): AppSettings["editorCursor"] {
     caretBlinkIntervalMs: Number.isFinite(caretBlinkIntervalRaw)
       ? Math.max(240, Math.min(1400, Math.round(caretBlinkIntervalRaw)))
       : DEFAULT_EDITOR_CURSOR.caretBlinkIntervalMs,
+  };
+}
+
+function normalizeJournalMedia(value: unknown): AppSettings["journalMedia"] {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const maxDimension = Number(source.maxDimension);
+  const quality = Number(source.quality);
+  return {
+    importMode: source.importMode === "copy" || source.importMode === "ask" || source.importMode === "move"
+      ? source.importMode
+      : DEFAULT_JOURNAL_MEDIA_SETTINGS.importMode,
+    preserveOriginals: typeof source.preserveOriginals === "boolean"
+      ? source.preserveOriginals
+      : DEFAULT_JOURNAL_MEDIA_SETTINGS.preserveOriginals,
+    optimizeWebp: typeof source.optimizeWebp === "boolean"
+      ? source.optimizeWebp
+      : DEFAULT_JOURNAL_MEDIA_SETTINGS.optimizeWebp,
+    maxDimension: Number.isFinite(maxDimension)
+      ? Math.max(512, Math.min(4096, Math.round(maxDimension)))
+      : DEFAULT_JOURNAL_MEDIA_SETTINGS.maxDimension,
+    quality: Number.isFinite(quality)
+      ? Math.max(0.5, Math.min(0.95, quality))
+      : DEFAULT_JOURNAL_MEDIA_SETTINGS.quality,
   };
 }
 
@@ -205,6 +228,7 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   if (merged.sidebarWidth > 520) merged.sidebarWidth = 520;
 
   merged.editorCursor = normalizeEditorCursor((settings as Partial<AppSettings>).editorCursor);
+  merged.journalMedia = normalizeJournalMedia((settings as Partial<AppSettings>).journalMedia);
 
   merged.commandPalette = {
     ...DEFAULT_SETTINGS.commandPalette,

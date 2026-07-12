@@ -710,6 +710,8 @@
   min-height: auto;
   border: 1px solid var(--ml-preview-border, color-mix(in srgb, var(--ml-preview-text, #111827) 16%, transparent));
   border-radius: var(--ml-preview-radius, 20px);
+  background: var(--ml-preview-bg, transparent);
+  color: var(--ml-preview-text, #111827);
   padding: clamp(1.35rem, 3vw, var(--ml-preview-page-padding, 2rem));
   overflow: hidden;
   box-shadow:

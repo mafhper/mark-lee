@@ -19,7 +19,7 @@ interface PinSettingsDialogProps {
 const PERIODS: PinPeriod[] = ["day", "week", "month", "all"];
 const AGGREGATIONS: PinAggregation[] = ["sum", "avg", "min", "max", "latest", "count"];
 const FORMATS: PinDisplayFormat[] = ["value", "bar", "sparkline"];
-const METRICS: PinMetricId[] = ["streak", "words", "entries"];
+const METRICS: PinMetricId[] = ["streak", "words", "entries", "tasks_created", "tasks_in_progress", "tasks_completed"];
 const TRACKER_TYPES: TrackerDefinition["type"][] = ["number", "boolean", "string"];
 
 function emptyTracker(): TrackerDefinition {
@@ -29,7 +29,10 @@ function emptyTracker(): TrackerDefinition {
 function metricLabel(metric: PinMetricId, t: Record<string, string>) {
   if (metric === "streak") return t["tracker.streak"] || "Sequencia";
   if (metric === "words") return t["tracker.words"] || "Palavras";
-  return t["journal.entries"] || "Registros";
+  if (metric === "entries") return t["journal.entries"] || "Registros";
+  if (metric === "tasks_created") return t["tracker.tasksCreated"] || "Tarefas criadas";
+  if (metric === "tasks_in_progress") return t["tracker.tasksInProgress"] || "Em execução";
+  return t["tracker.tasksCompleted"] || "Concluídas";
 }
 
 function periodLabel(period: PinPeriod, t: Record<string, string>) {
@@ -40,7 +43,8 @@ function defaultPinLabel(pin: PinConfig, defs: TrackerDefinition[], t: Record<st
   const label = (pin.label || "").trim();
   const normalized = label.toLowerCase();
   if (pin.source === "metric" && pin.metricId) {
-    const isDefault = !label || normalized === pin.metricId || normalized === "streak" || normalized === "words" || normalized === "entries";
+    const defaultMetricLabels = [pin.metricId, pin.metricId.replace(/_/g, " "), "streak", "words", "entries", "tasks created", "tasks in progress", "tasks completed"];
+    const isDefault = !label || defaultMetricLabels.includes(normalized);
     return isDefault ? metricLabel(pin.metricId, t) : label;
   }
   const def = defs.find((item) => item.id === pin.trackerId);

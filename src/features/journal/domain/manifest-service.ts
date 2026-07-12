@@ -1,8 +1,34 @@
 import { readFile, atomicWriteText, ensureDirectoryTree, copyImageToDocumentDir } from "../../../services/filesystem";
-import type { BlogViewConfig, JournalManifest, ManifestCheckResult, JournalDescriptor, PinConfig, PinsConfig } from "./journal.types";
+import type {
+  BlogViewConfig,
+  EntryFieldDefinition,
+  EntryFieldDefinitionsConfig,
+  EntryFieldType,
+  JournalManifest,
+  ManifestCheckResult,
+  JournalDescriptor,
+  PinConfig,
+  PinsConfig,
+  TemplatePreferences,
+} from "./journal.types";
+import { PIN_METRIC_IDS } from "./journal.types";
 
 const SCHEMA = "marklee-journal" as const;
 const CURRENT_SCHEMA_VERSION = 1 as const;
+
+export const DEFAULT_ENTRY_FIELD_DEFINITIONS: EntryFieldDefinitionsConfig = {
+  version: 1,
+  items: [
+    {
+      id: "reference",
+      label: "Referência",
+      type: "url",
+      visibleInHeader: true,
+      visibleInPublication: true,
+      order: 0,
+    },
+  ],
+};
 
 export function createManifestPayload(
   id: string,
@@ -64,7 +90,9 @@ function normalizePinsConfig(value: unknown, legacyPinned: unknown): PinsConfig 
             ? raw.aggregation
             : source === "tracker" ? "avg" : "sum";
         const format = raw.format === "value" || raw.format === "bar" || raw.format === "sparkline" ? raw.format : "value";
-        const metricId = raw.metricId === "streak" || raw.metricId === "words" || raw.metricId === "entries" ? raw.metricId : undefined;
+        const metricId = typeof raw.metricId === "string" && PIN_METRIC_IDS.includes(raw.metricId as (typeof PIN_METRIC_IDS)[number])
+          ? raw.metricId as (typeof PIN_METRIC_IDS)[number]
+          : undefined;
         const trackerId = typeof raw.trackerId === "string" ? raw.trackerId : undefined;
         if (source === "metric" && !metricId) return null;
         if (source === "tracker" && !trackerId) return null;
@@ -124,6 +152,49 @@ function normalizeBlogView(value: unknown): BlogViewConfig | undefined {
     menu,
     showMeta: typeof raw.showMeta === "boolean" ? raw.showMeta : true,
     showLogo: typeof raw.showLogo === "boolean" ? raw.showLogo : true,
+  };
+}
+
+function normalizeEntryFieldType(value: unknown): EntryFieldType {
+  return value === "url" || value === "text" || value === "date" || value === "number" ? value : "text";
+}
+
+function normalizeEntryFieldDefinitions(value: unknown): EntryFieldDefinitionsConfig {
+  if (!value || typeof value !== "object") return DEFAULT_ENTRY_FIELD_DEFINITIONS;
+  const raw = value as Record<string, unknown>;
+  const items = Array.isArray(raw.items)
+    ? raw.items
+        .map((item, index): EntryFieldDefinition | null => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          const id = typeof row.id === "string" ? row.id.trim() : "";
+          const label = typeof row.label === "string" ? row.label.trim() : "";
+          if (!id || !label) return null;
+          const order = Number(row.order);
+          return {
+            id,
+            label,
+            type: normalizeEntryFieldType(row.type),
+            visibleInHeader: typeof row.visibleInHeader === "boolean" ? row.visibleInHeader : true,
+            visibleInPublication: typeof row.visibleInPublication === "boolean" ? row.visibleInPublication : true,
+            order: Number.isFinite(order) ? order : index,
+          };
+        })
+        .filter((item): item is EntryFieldDefinition => item !== null)
+        .sort((a, b) => a.order - b.order)
+        .map((item, order) => ({ ...item, order }))
+    : [];
+  return items.length > 0 ? { version: 1, items } : DEFAULT_ENTRY_FIELD_DEFINITIONS;
+}
+
+function normalizeTemplatePreferences(value: unknown): TemplatePreferences | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    version: 1,
+    hiddenBuiltInIds: Array.isArray(raw.hiddenBuiltInIds)
+      ? raw.hiddenBuiltInIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      : [],
   };
 }
 
@@ -188,6 +259,8 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
         : undefined,
       pinsConfig: normalizePinsConfig(parsed.pinsConfig, parsed.pinnedMetrics),
       blogView: normalizeBlogView(parsed.blogView),
+      entryFieldDefinitions: normalizeEntryFieldDefinitions(parsed.entryFieldDefinitions),
+      templatePreferences: normalizeTemplatePreferences(parsed.templatePreferences),
     };
 
     return { found: true, valid: true, manifest };
@@ -308,6 +381,23 @@ export async function setBlogView(rootPath: string, blogView: BlogViewConfig): P
   await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
 }
 
+export async function setEntryFieldDefinitions(rootPath: string, config: EntryFieldDefinitionsConfig): Promise<void> {
+  const raw = await readFile(manifestPath(rootPath));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.entryFieldDefinitions = normalizeEntryFieldDefinitions(config);
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+}
+
+export async function setTemplatePreferences(rootPath: string, preferences: TemplatePreferences): Promise<void> {
+  const raw = await readFile(manifestPath(rootPath));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.templatePreferences = {
+    version: 1,
+    hiddenBuiltInIds: Array.from(new Set(preferences.hiddenBuiltInIds.filter(Boolean))),
+  };
+  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+}
+
 /**
  * Copy an image into the notebook's `.marklee/` folder and set it as the cover.
  * Returns the root-relative cover path stored in the manifest.
@@ -354,6 +444,8 @@ export async function repairJournal(
     pinnedMetrics: Array.isArray(existing.pinnedMetrics) ? (existing.pinnedMetrics as string[]).filter((m) => typeof m === "string") : undefined,
     pinsConfig: normalizePinsConfig(existing.pinsConfig, existing.pinnedMetrics),
     blogView: normalizeBlogView(existing.blogView),
+    entryFieldDefinitions: normalizeEntryFieldDefinitions(existing.entryFieldDefinitions),
+    templatePreferences: normalizeTemplatePreferences(existing.templatePreferences),
   };
 
   await mkdirIfMissing(`${rootPath}/.marklee`);

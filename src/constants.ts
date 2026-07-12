@@ -2,6 +2,7 @@ import {
   AppMode,
   AppSettings,
   EditorCursorSettings,
+  JournalMediaSettings,
   PublicationPreset,
   Snippet,
   TextPreset,
@@ -307,6 +308,14 @@ export const DEFAULT_EDITOR_CURSOR: EditorCursorSettings = {
   caretBlinkIntervalMs: 640,
 };
 
+export const DEFAULT_JOURNAL_MEDIA_SETTINGS: JournalMediaSettings = {
+  importMode: "copy",
+  preserveOriginals: true,
+  optimizeWebp: false,
+  maxDimension: 2048,
+  quality: 0.82,
+};
+
 export const TEXT_PRESETS: Record<string, TextPreset> = {
   minimalist: {
     id: "minimalist",
@@ -476,7 +485,7 @@ export const PUBLICATION_PRESET_DEFAULTS: PublicationPreset[] = [
       "magazine",
       "Magazine",
       "Revista minimalista com headings elegantes e ritmo amplo.",
-      { bg: "#faf7f1", text: "#171717", accent: "#4b5563", muted: "#78716c", border: "rgba(23,23,23,0.11)" },
+      { bg: "#faf7f1", text: "#171717", accent: "#4b5563", muted: "#746d68", border: "rgba(23,23,23,0.11)" },
       {
         fontFamily: "'Source Sans 3', 'Avenir Next', 'Segoe UI', sans-serif",
         lineHeight: 1.7,
@@ -747,6 +756,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appMode: "editor" as AppMode,
   measurementSystem: "metric",
   journalDataDir: "",
+  journalMedia: DEFAULT_JOURNAL_MEDIA_SETTINGS,
   editorCursor: DEFAULT_EDITOR_CURSOR,
 };
 

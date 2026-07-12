@@ -42,7 +42,7 @@ function normalizeWindowsExtendedPath(path: string) {
 
 function resolveLocalImagePath(src: string, basePath?: string | null) {
   let cleanPath = decodeImagePath(src);
-  if (!/^[a-zA-Z]:\\/i.test(cleanPath) && !cleanPath.startsWith("/") && basePath) {
+  if (!/^[a-zA-Z]:[\\/]/i.test(cleanPath) && !cleanPath.startsWith("/") && basePath) {
     const baseDir = basePath.replace(/[/\\][^/\\]*$/, "");
     cleanPath = `${baseDir}/${cleanPath.replace(/^\.\//, "")}`;
   }

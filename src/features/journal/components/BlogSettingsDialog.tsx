@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ImagePlus, Save, Trash2, X } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
-import { copyImageToDocumentDir, loadImage, openFileDialog } from "../../../services/filesystem";
+import type { JournalMediaSettings } from "../../../types";
+import { loadImage, openFileDialog } from "../../../services/filesystem";
+import { importJournalImage } from "../../../services/journal-media";
 import type { BlogViewConfig } from "../domain/journal.types";
 import { setBlogView } from "../domain/manifest-service";
 
@@ -12,6 +14,7 @@ interface BlogSettingsDialogProps {
   journalRootPath: string;
   journalName: string;
   value?: BlogViewConfig | null;
+  journalMedia: JournalMediaSettings;
   onClose: () => void;
   onSaved: (config: BlogViewConfig) => void;
 }
@@ -46,7 +49,7 @@ function parseMenu(raw: string): BlogViewConfig["menu"] {
 }
 
 export function BlogSettingsDialog({
-  open, t, tConfig, journalRootPath, journalName, value, onClose, onSaved,
+  open, t, tConfig, journalRootPath, journalName, value, journalMedia, onClose, onSaved,
 }: BlogSettingsDialogProps) {
   const [config, setConfig] = useState<BlogViewConfig>(() => value ?? defaultBlogView(journalName));
   const [menuText, setMenuText] = useState("");
@@ -88,7 +91,7 @@ export function BlogSettingsDialog({
     });
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (!path) return;
-    const relativeToMarklee = await copyImageToDocumentDir(path, `${journalRootPath}/.marklee/journal.json`);
+    const relativeToMarklee = await importJournalImage(path, `${journalRootPath}/.marklee/journal.json`, journalMedia);
     setConfig((prev) => ({ ...prev, logo: `.marklee/${relativeToMarklee}`, showLogo: true }));
   };
 

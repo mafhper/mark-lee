@@ -29,7 +29,14 @@ export function useJournalLibrary() {
 
   const selectJournal = useCallback(async (journalId: string | null) => {
     if (!library) return;
-    const next: LibraryData = { ...library, activeJournalId: journalId };
+    const openedAt = new Date().toISOString();
+    const next: LibraryData = {
+      ...library,
+      activeJournalId: journalId,
+      journals: journalId
+        ? library.journals.map((journal) => journal.id === journalId ? { ...journal, lastOpenedAt: openedAt } : journal)
+        : library.journals,
+    };
     setLibrary(next);
     await saveLibrary(next);
   }, [library]);
@@ -41,7 +48,7 @@ export function useJournalLibrary() {
     const samePath = library.journals.find((j) => pathKey(j.rootPath) === pathKey(journal.rootPath));
     if (samePath) {
       const journals = library.journals.map((j) =>
-        j.id === samePath.id ? { ...j, ...journal, id: samePath.id, unavailable: false } : j,
+        j.id === samePath.id ? { ...j, ...journal, id: samePath.id, unavailable: false, lastOpenedAt: new Date().toISOString() } : j,
       );
       const next: LibraryData = { ...library, journals, activeJournalId: samePath.id };
       setLibrary(next);
@@ -65,6 +72,8 @@ export function useJournalLibrary() {
       }
       entry = { ...journal, id: newId };
     }
+
+    entry = { ...entry, lastOpenedAt: new Date().toISOString() };
 
     const next: LibraryData = {
       ...library,

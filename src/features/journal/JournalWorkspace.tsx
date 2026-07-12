@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { ThemeConfig } from "../../types";
+import type { JournalMediaSettings } from "../../types";
 import { useJournalLibrary } from "./hooks/useJournalLibrary";
 import { JournalNavigation } from "./components/JournalNavigation";
 import { JournalContextPanel } from "./components/JournalContextPanel";
@@ -16,10 +17,12 @@ import { CustomizeJournalDialog } from "./components/CustomizeJournalDialog";
 import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
 import { createEntry, deleteEntry, duplicateEntry, readEntry, saveEntry } from "./domain/entry-service";
+import { collectLibraryTagStats, collectTagStats, mergeTagStats, type TagStat } from "./domain/tag-service";
 import { flushAllPending, toggleActiveEntryFavorite } from "../editor/active-target";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
+import type { JournalTaskStatus } from "./domain/journal-entry.types";
 import type { LocationFilter } from "./location/locationFilter";
 import { JournalSessionProvider, useJournalSession } from "./session/JournalSessionContext";
 
@@ -32,10 +35,11 @@ interface JournalWorkspaceProps {
   sidebarEnabled?: boolean;
   onOpenFile?: (path: string) => void;
   journalDataDir?: string;
+  journalMedia: JournalMediaSettings;
   readOnly?: boolean;
 }
 
-function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journals, activeJournal, selectJournal, addToLib, removeFromLib, reload, journalDataDir, readOnly }: JournalWorkspaceProps & {
+function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, sidebarEnabled, onOpenFile, journals, activeJournal, selectJournal, addToLib, removeFromLib, reload, journalDataDir, journalMedia, readOnly }: JournalWorkspaceProps & {
   journals: JournalDescriptor[];
   activeJournal: JournalDescriptor | null;
   selectJournal: (id: string | null) => void;
@@ -43,7 +47,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   removeFromLib: (id: string) => Promise<void>;
   reload: () => void;
 }) {
-  const { state: sessionState, dispatch } = useJournalSession();
+  const { state: sessionState, dispatch, loadJournal } = useJournalSession();
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1200 : window.innerWidth));
   const [activeView, setActiveView] = useState<"list" | "calendar" | "map" | "gallery">("list");
   const [activeSection, setActiveSection] = useState("entries");
@@ -56,15 +60,18 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [showWorldMap, setShowWorldMap] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<EntryRecord | null>(null);
+  const [journalConfigRevision, setJournalConfigRevision] = useState(0);
   // Tag/image filters live here (not inside JournalListView) so the reading
   // view's clickable tags can drive the same filter the list shows.
-  const [filterTag, setFilterTag] = useState("");
+  const [filterTags, setFilterTags] = useState<string[]>([]);
   const [filterImages, setFilterImages] = useState(false);
+  const [filterTaskStatus, setFilterTaskStatus] = useState<JournalTaskStatus | null>(null);
   const [filterLocation, setFilterLocation] = useState<LocationFilter | null>(null);
+  const [libraryTagStats, setLibraryTagStats] = useState<TagStat[]>([]);
 
   // Clicking a tag in the reading view filters the list and brings it forward.
   const handleOpenTag = useCallback((tag: string) => {
-    setFilterTag(tag);
+    setFilterTags((current) => current.includes(tag) ? current : [...current, tag]);
     setActiveView("list");
   }, []);
 
@@ -84,6 +91,14 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    collectLibraryTagStats(journals)
+      .then((stats) => { if (active) setLibraryTagStats(stats); })
+      .catch(() => { if (active) setLibraryTagStats([]); });
+    return () => { active = false; };
+  }, [journals]);
+
   const activeEntry = sessionState.activeEntryId
     ? sessionState.entries.find((e) => e.metadata.id === sessionState.activeEntryId) ?? null
     : null;
@@ -97,6 +112,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const olderEntry = activeIndex >= 0 && activeIndex < sessionState.entries.length - 1
     ? sessionState.entries[activeIndex + 1] : null;
   const newerEntry = activeIndex > 0 ? sessionState.entries[activeIndex - 1] : null;
+  const tagSuggestions = mergeTagStats(collectTagStats(sessionState.entries), libraryTagStats);
 
   // The world map only belongs to the Lugares view; hide it elsewhere.
   useEffect(() => {
@@ -128,6 +144,12 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
       dispatch({ type: "UPDATE_ENTRY", entry: reloaded });
     }
   };
+
+  const handleReloadJournal = useCallback(async () => {
+    if (!activeJournal) return;
+    await flushAllPending();
+    await loadJournal(activeJournal.rootPath);
+  }, [activeJournal, loadJournal]);
 
   const handleDuplicateEntry = async (entry: EntryRecord) => {
     if (!activeJournal) return;
@@ -170,6 +192,11 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   const handleEntryUpdated = useCallback((entry: EntryRecord) => {
     dispatch({ type: "UPDATE_ENTRY", entry });
   }, [dispatch]);
+
+  const handleJournalConfigSaved = useCallback(() => {
+    setJournalConfigRevision((revision) => revision + 1);
+    reload();
+  }, [reload]);
 
   const handleNewEntry = useCallback(() => {
     if (!activeJournal) return;
@@ -219,8 +246,11 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onCustomizeJournal={(id) => setCustomizeId(id)}
             loading={sessionState.loading}
             collapsed={true} onToggleCollapse={() => setNavCollapsed(false)}
-            filterTag={filterTag}
-            onFilterTagChange={setFilterTag}
+            filterTags={filterTags}
+            onFilterTagsChange={setFilterTags}
+            filterTaskStatus={filterTaskStatus}
+            onFilterTaskStatusChange={setFilterTaskStatus}
+            onReloadJournal={handleReloadJournal}
           />
         </div>
       ) : (
@@ -240,8 +270,11 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onCustomizeJournal={(id) => setCustomizeId(id)}
               loading={sessionState.loading}
               collapsed={false} onToggleCollapse={() => setNavCollapsed(true)}
-              filterTag={filterTag}
-              onFilterTagChange={setFilterTag}
+              filterTags={filterTags}
+              onFilterTagsChange={setFilterTags}
+              filterTaskStatus={filterTaskStatus}
+              onFilterTaskStatusChange={setFilterTaskStatus}
+              onReloadJournal={handleReloadJournal}
             />
           </div>
         </ResizablePanel>
@@ -266,8 +299,9 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
               language={language}
               worldMapActive={showWorldMap}
               onToggleWorldMap={() => setShowWorldMap((v) => !v)}
-              filterTag={filterTag} onFilterTagChange={setFilterTag}
+              filterTags={filterTags} onFilterTagsChange={setFilterTags}
               filterImages={filterImages} onFilterImagesChange={setFilterImages}
+              filterTaskStatus={filterTaskStatus} onFilterTaskStatusChange={setFilterTaskStatus}
               filterLocation={filterLocation} onFilterLocation={handleFilterLocation}
               onClearLocation={() => setFilterLocation(null)}
             />
@@ -280,6 +314,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: tConfig.editorBgHex }}>
             <JournalGalleryView t={t} tConfig={tConfig} journal={activeJournal}
               entries={sessionState.entries} selectedEntryId={sessionState.activeEntryId}
+              journalMedia={journalMedia}
               onSelectEntry={handleSelectEntry} onEntryUpdated={handleEntryUpdated}
               onToggleFavorite={handleToggleEntryFavorite} onDuplicateEntry={handleDuplicateEntry}
               onDeleteEntry={(e) => setEntryToDelete(e)} onOpenInEditor={onOpenFile} />
@@ -293,6 +328,8 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
           <JournalEntryPanel
             t={t} tConfig={tConfig} journal={activeJournal} entry={activeEntry}
             viewMode={viewMode} readOnly={readOnly}
+            journalMedia={journalMedia}
+            journalConfigRevision={journalConfigRevision}
             onEntryUpdated={handleEntryUpdated}
             onOpenInEditor={onOpenFile}
             onDeleteEntry={handleDeleteEntry}
@@ -308,6 +345,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
             onOpenTag={handleOpenTag}
             language={language}
             hasEntries={sessionState.entries.length > 0}
+            tagSuggestions={tagSuggestions}
           />
         )}
       </div>
@@ -338,14 +376,15 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
       )}
       <CustomizeJournalDialog open={customizeId !== null} t={t} tConfig={tConfig}
         journal={journals.find((j) => j.id === customizeId) ?? null}
+        journalMedia={journalMedia}
         onClose={() => setCustomizeId(null)}
-        onSaved={reload} />
+        onSaved={handleJournalConfigSaved} />
       <TemplatePickerDialog open={showTemplatePicker} t={t}
         tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
         onClose={() => setShowTemplatePicker(false)} onSelect={handleCreateFromTemplate}
         onManageTemplates={() => setShowTemplateManager(true)} />
       <TemplateManagerDialog open={showTemplateManager}
-        tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
+        t={t} tConfig={tConfig} journalRootPath={activeJournal?.rootPath ?? ""}
         onClose={() => setShowTemplateManager(false)} />
     </div>
   );

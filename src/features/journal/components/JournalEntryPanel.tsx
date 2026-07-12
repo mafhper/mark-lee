@@ -1,16 +1,19 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { BookOpen, ExternalLink, Trash2, Heart, Plus, X, Copy, AlertTriangle, SmilePlus, Info, Image, Download, Globe, MapPin, MoreHorizontal, Activity, TrendingUp, Maximize2, Tag, ChevronDown, ChevronUp, Settings2, ArrowUp, ArrowDown, Link as LinkIcon, ListTodo } from "lucide-react";
 import { MOODS } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
-import type { BlogViewConfig, JournalDescriptor, TrackerDefinition } from "../domain/journal.types";
+import type { JournalMediaSettings } from "../../../types";
+import type { BlogViewConfig, EntryFieldDefinition, JournalDescriptor, TrackerDefinition } from "../domain/journal.types";
+import { JOURNAL_TASK_STATUSES, type JournalEntryHeaderImage, type JournalTaskStatus } from "../domain/journal-entry.types";
 import type { EntryRecord, ConflictError } from "../domain/entry-service";
 import { saveEntry, readEntry } from "../domain/entry-service";
-import { openFileDialog, copyImageToDocumentDir, loadImage } from "../../../services/filesystem";
+import { deleteWorkspacePath, openFileDialog, loadImage } from "../../../services/filesystem";
+import { importJournalImage } from "../../../services/journal-media";
 import { exportEntryAsMarkdown, exportEntryAsHtml } from "../domain/export-service";
 import { TrackerManagerDialog } from "./TrackerManagerDialog";
 import { TrackerStatsPanel } from "./TrackerStatsPanel";
 import { getTrackerDefinitions } from "../domain/tracker-service";
-import { readManifest } from "../domain/manifest-service";
+import { DEFAULT_ENTRY_FIELD_DEFINITIONS, readManifest } from "../domain/manifest-service";
 import { LocationPicker } from "./LocationPicker";
 import { parseCoordinateInput } from "../location/coordinates";
 import { JournalGettingStarted } from "./JournalGettingStarted";
@@ -24,7 +27,10 @@ import { MarkdownEditor } from "../../editor/MarkdownEditor";
 import { activeDocPathRef } from "../../editor/active-editor";
 import { setActiveTarget, registerFlushHandler, setEntryTrackerAdjuster, setEntryFavoriteToggler } from "../../editor/active-target";
 import { resolveEntryAssetPath } from "../domain/export-paths";
+import { collectEntryImageRefs } from "../domain/entry-images";
+import type { TagStat } from "../domain/tag-service";
 import { formatMarkdown, minifyMarkdown } from "../../../services/markdown-processor";
+import { JournalImageLibraryDialog, type JournalLibraryImage } from "./JournalImageLibraryDialog";
 
 interface JournalEntryPanelProps {
   t: Record<string, string>;
@@ -48,6 +54,9 @@ interface JournalEntryPanelProps {
   language?: string;
   hasEntries?: boolean;
   readOnly?: boolean;
+  tagSuggestions?: TagStat[];
+  journalMedia: JournalMediaSettings;
+  journalConfigRevision?: number;
 }
 
 function DropdownItem({ icon: Icon, label, danger, onClick }: { icon: any; label: string; danger?: boolean; onClick: () => void }) {
@@ -78,15 +87,18 @@ function MetaChip({ icon, label, active, open, tConfig, onClick, disabled }: {
   );
 }
 
-export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateEntryFromTemplate, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, onOpenTag, language = "en", hasEntries = false, readOnly = false }: JournalEntryPanelProps) {
+export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntryUpdated, onOpenInEditor, onDeleteEntry, onDuplicateEntry, onReloadEntry, onNewEntry, onCreateEntryFromTemplate, onCreateJournal, onAddJournal, prevEntry, nextEntry, onNavigateEntry, onOpenTag, language = "en", hasEntries = false, readOnly = false, tagSuggestions = [], journalMedia, journalConfigRevision = 0 }: JournalEntryPanelProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [favorite, setFavorite] = useState(false);
   const [mood, setMood] = useState("");
+  const [taskStatus, setTaskStatus] = useState<JournalTaskStatus | undefined>(undefined);
   const [trackerValues, setTrackerValues] = useState<Record<string, string | number | boolean | null>>({});
+  const [entryFields, setEntryFields] = useState<Record<string, string | number | null>>({});
+  const [headerImages, setHeaderImages] = useState<JournalEntryHeaderImage[]>([]);
   const [tagInput, setTagInput] = useState("");
-  type MetaPopover = null | "tags" | "mood" | "location" | "trackers";
+  type MetaPopover = null | "tags" | "mood" | "task" | "location" | "trackers" | "fields";
   const [openPopover, setOpenPopover] = useState<MetaPopover>(null);
   const metaRef = useRef<HTMLDivElement>(null);
   type SaveState = "clean" | "dirty" | "saving" | "error" | "conflict";
@@ -98,10 +110,23 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [showTrackerStats, setShowTrackerStats] = useState(false);
   const [trackerDefs, setTrackerDefs] = useState<TrackerDefinition[]>([]);
+  const [entryFieldDefs, setEntryFieldDefs] = useState<EntryFieldDefinition[]>(DEFAULT_ENTRY_FIELD_DEFINITIONS.items);
   const [blogConfig, setBlogConfig] = useState<BlogViewConfig | null>(null);
   const [showBlogSettings, setShowBlogSettings] = useState(false);
   const [blogLogoUrl, setBlogLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [headerImageUrls, setHeaderImageUrls] = useState<Array<JournalEntryHeaderImage & { url: string }>>([]);
+  const [showImagePanel, setShowImagePanel] = useState(false);
+  const [pendingImageImports, setPendingImageImports] = useState<Array<{
+    id: string;
+    sourcePath: string;
+    alt: string;
+    caption: string;
+    useAsCover: boolean;
+  }>>([]);
+  const [showProjectImageLibrary, setShowProjectImageLibrary] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [journalCoverUrl, setJournalCoverUrl] = useState<string | null>(null);
   // Inline cover height toggle — a middle ground between the thin band and the
   // full-screen lightbox: see more of the cover without leaving the entry.
@@ -136,6 +161,10 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     rec: EntryRecord; t: string; b: string; tg: string[]; fav: boolean; m: string;
     tr: Record<string, string | number | boolean | null>;
     loc: ReturnType<typeof buildLocation>;
+    fields: Record<string, string | number | null>;
+    images: JournalEntryHeaderImage[];
+    taskStatus: JournalTaskStatus | undefined;
+    extraFrontmatter: Record<string, unknown> | undefined;
     /** Root-relative cover path; part of the draft so concurrent edits keep it. */
     cover: string | undefined;
     /** Monotonic draft revision; only the latest may mark the doc clean. */
@@ -148,6 +177,10 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   // every snapshot — autosave, tracker adjust, cover set/remove — carries the
   // current cover and a typed edit can never silently drop a just-set cover.
   const coverRelRef = useRef<string | undefined>(undefined);
+  const entryFieldsRef = useRef<Record<string, string | number | null>>({});
+  const headerImagesRef = useRef<JournalEntryHeaderImage[]>([]);
+  const taskStatusRef = useRef<JournalTaskStatus | undefined>(undefined);
+  const extraFrontmatterRef = useRef<Record<string, unknown> | undefined>(undefined);
   // Latest tracker values, so the Pins +/- delegate can compound rapid clicks off
   // the freshest value instead of a stale render closure.
   const trackerValuesRef = useRef(trackerValues);
@@ -167,21 +200,17 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
   // images), as filesystem paths for the lightbox. Reflects live edits to body.
   const entryImages = useMemo(() => {
     if (!entry) return [] as string[];
-    const imgs: string[] = [];
-    if (entry.metadata.cover) {
-      const cover = resolveEntryAssetPath(entry.path, entry.metadata.cover);
-      if (cover) imgs.push(cover);
-    }
-    const re = /!\[.*?\]\((.+?)\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(body)) !== null) {
-      // resolveEntryAssetPath rejects external (http/data), absolute and `..` refs,
-      // so the lightbox/load_image only ever sees files inside this entry's folder.
-      const full = resolveEntryAssetPath(entry.path, m[1]);
-      if (full && !imgs.includes(full)) imgs.push(full);
-    }
-    return imgs;
-  }, [entry?.path, entry?.metadata.cover, body]);
+    const liveEntry: EntryRecord = {
+      ...entry,
+      body,
+      metadata: {
+        ...entry.metadata,
+        cover: coverRelRef.current,
+        images: headerImages,
+      },
+    };
+    return collectEntryImageRefs(liveEntry, body).map((image) => image.src);
+  }, [entry, body, headerImages]);
 
   const buildLocation = () => {
     if (!locationLabel && !locationCity && !locationState && !locationCountry) return undefined;
@@ -228,8 +257,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
         tags: snap.tg,
         favorite: snap.fav,
         mood: snap.m || undefined,
+        taskStatus: snap.taskStatus,
+        extraFrontmatter: snap.extraFrontmatter,
         trackers: snap.tr ?? snap.rec.metadata.trackers,
         location: snap.loc,
+        fields: Object.keys(snap.fields).length > 0 ? snap.fields : undefined,
+        images: snap.images.length > 0 ? snap.images : undefined,
         cover: snap.cover,
       };
       setSaveState("saving");
@@ -266,7 +299,15 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     tr: Record<string, string | number | boolean | null>,
     loc: ReturnType<typeof buildLocation>,
   ) => {
-    const snap: PendingSave = { rec, t, b, tg, fav, m, tr, loc, cover: coverRelRef.current, revision: ++draftRevisionRef.current };
+    const snap: PendingSave = {
+      rec, t, b, tg, fav, m, tr, loc,
+      fields: { ...entryFieldsRef.current },
+      images: headerImagesRef.current.map((image) => ({ ...image })),
+      taskStatus: taskStatusRef.current,
+      extraFrontmatter: extraFrontmatterRef.current ? { ...extraFrontmatterRef.current } : undefined,
+      cover: coverRelRef.current,
+      revision: ++draftRevisionRef.current,
+    };
     pendingSaveRef.current = snap;
     setSaveState("dirty");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -294,7 +335,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     if (!entry || !journal) return null;
     return {
       rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood,
-      tr: trackerValues, loc: buildLocation(), cover: coverRelRef.current,
+      tr: trackerValues, loc: buildLocation(),
+      fields: { ...entryFieldsRef.current },
+      images: headerImagesRef.current.map((image) => ({ ...image })),
+      taskStatus: taskStatusRef.current,
+      extraFrontmatter: extraFrontmatterRef.current ? { ...extraFrontmatterRef.current } : undefined,
+      cover: coverRelRef.current,
       revision: ++draftRevisionRef.current,
     };
   };
@@ -306,11 +352,18 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setTitle(entry.metadata.title);
       setBody(entry.body);
       coverRelRef.current = entry.metadata.cover;
+      entryFieldsRef.current = entry.metadata.fields ?? {};
+      headerImagesRef.current = (entry.metadata.images ?? []).slice().sort((a, b) => a.order - b.order);
+      taskStatusRef.current = entry.metadata.taskStatus;
+      extraFrontmatterRef.current = entry.metadata.extraFrontmatter ? { ...entry.metadata.extraFrontmatter } : undefined;
       activeDocPathRef.current = entry.path;
       setTags(entry.metadata.tags ?? []);
       setFavorite(entry.metadata.favorite ?? false);
       setMood(entry.metadata.mood ?? "");
+      setTaskStatus(entry.metadata.taskStatus);
       setTrackerValues(entry.metadata.trackers ?? {});
+      setEntryFields(entry.metadata.fields ?? {});
+      setHeaderImages(headerImagesRef.current);
       setLocationLabel(entry.metadata.location?.label ?? "");
       setLocationLat(entry.metadata.location?.latitude !== undefined ? String(entry.metadata.location.latitude) : "");
       setLocationLng(entry.metadata.location?.longitude !== undefined ? String(entry.metadata.location.longitude) : "");
@@ -361,9 +414,17 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
 
   const handleAddTag = () => {
     if (readOnly) return;
-    const newTag = tagInput.trim();
+    const newTag = tagInput.trim().replace(/^#/, "");
     if (!newTag || tags.includes(newTag)) { setTagInput(""); return; }
     const next = [...tags, newTag];
+    setTags(next);
+    setTagInput("");
+    if (entry && journal) scheduleSave(entry, title, body, next, favorite, mood, trackerValues, buildLocation());
+  };
+
+  const handleAddSuggestedTag = (tag: string) => {
+    if (readOnly || tags.includes(tag)) return;
+    const next = [...tags, tag];
     setTags(next);
     setTagInput("");
     if (entry && journal) scheduleSave(entry, title, body, next, favorite, mood, trackerValues, buildLocation());
@@ -440,7 +501,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     } else {
       setTrackerDefs([]);
     }
-  }, [journal?.rootPath]);
+  }, [journal?.rootPath, journalConfigRevision]);
 
   useEffect(() => {
     let active = true;
@@ -449,8 +510,17 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       return () => { active = false; };
     }
     readManifest(journal.rootPath)
-      .then((manifest) => { if (active) setBlogConfig(manifest?.blogView ?? null); })
-      .catch(() => { if (active) setBlogConfig(null); });
+      .then((manifest) => {
+        if (!active) return;
+        setBlogConfig(manifest?.blogView ?? null);
+        setEntryFieldDefs(manifest?.entryFieldDefinitions?.items ?? DEFAULT_ENTRY_FIELD_DEFINITIONS.items);
+      })
+      .catch(() => {
+        if (active) {
+          setBlogConfig(null);
+          setEntryFieldDefs(DEFAULT_ENTRY_FIELD_DEFINITIONS.items);
+        }
+      });
     return () => { active = false; };
   }, [journal?.rootPath]);
 
@@ -486,6 +556,50 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, next, buildLocation());
   };
 
+  const handleFieldChange = (definition: EntryFieldDefinition, rawValue: string) => {
+    if (readOnly) return;
+    let value: string | number | null = rawValue;
+    if (definition.type === "number") {
+      value = rawValue.trim() ? Number(rawValue) : null;
+      if (typeof value === "number" && !Number.isFinite(value)) value = null;
+    } else if (!rawValue.trim()) {
+      value = null;
+    }
+    const next = { ...entryFields };
+    if (value === null) delete next[definition.id];
+    else next[definition.id] = value;
+    entryFieldsRef.current = next;
+    setEntryFields(next);
+    if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocation());
+  };
+
+  const handleTaskStatusChange = (next: JournalTaskStatus | undefined) => {
+    if (readOnly) return;
+    taskStatusRef.current = next;
+    if (extraFrontmatterRef.current && "taskStatus" in extraFrontmatterRef.current) {
+      const extra = { ...extraFrontmatterRef.current };
+      delete extra.taskStatus;
+      extraFrontmatterRef.current = Object.keys(extra).length > 0 ? extra : undefined;
+    }
+    setTaskStatus(next);
+    setOpenPopover(null);
+    if (entry && journal) {
+      // Status changes drive sidebar counts and filters, so persist this discrete
+      // action immediately instead of leaving navigation stale until autosave.
+      // The snapshot also carries any unsaved text/metadata already in the draft.
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      const snap = currentSnapshot();
+      if (snap) {
+        pendingSaveRef.current = snap;
+        setSaveState("dirty");
+        void doSave(snap, true);
+      }
+    }
+  };
+
   useEffect(() => {
     if (entry?.metadata.cover) {
       const resolved = resolveEntryAssetPath(entry.path, entry.metadata.cover);
@@ -495,6 +609,26 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setCoverUrl(null);
     }
   }, [entry?.metadata.cover, entry?.path]);
+
+  useEffect(() => {
+    let active = true;
+    const ordered = headerImages.slice().sort((a, b) => a.order - b.order);
+    Promise.all(
+      ordered.map(async (image) => {
+        const resolved = entry ? resolveEntryAssetPath(entry.path, image.path) : null;
+        if (!resolved) return null;
+        try {
+          const url = await loadImage(resolved);
+          return { ...image, url };
+        } catch {
+          return null;
+        }
+      }),
+    ).then((images) => {
+      if (active) setHeaderImageUrls(images.filter((image): image is JournalEntryHeaderImage & { url: string } => image !== null));
+    });
+    return () => { active = false; };
+  }, [entry?.path, headerImages]);
 
   // Persist a cover change together with the *current* draft, through the same
   // serial queue as autosave. The cover goes into the draft ref first, so it is
@@ -510,20 +644,144 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     return doSave(snap, true);
   };
 
-  const handleSetCover = async () => {
-    if (!entry || !journal || readOnly) return;
+  const stageImagePaths = (paths: string[]) => {
+    setMediaError(null);
+    setPendingImageImports((current) => [
+      ...current,
+      ...paths
+        .filter((path) => !current.some((item) => item.sourcePath === path))
+        .map((sourcePath) => ({ id: crypto.randomUUID(), sourcePath, alt: "", caption: "", useAsCover: false })),
+    ]);
+  };
+
+  const handleStageHeaderImages = async () => {
+    if (!entry || !journal || readOnly || mediaBusy) return;
     const selected = await openFileDialog({
-      multiple: false,
+      multiple: true,
       filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
     });
-    const imgPath = Array.isArray(selected) ? selected[0] : selected;
-    if (!imgPath) return;
-    try {
-      const relative = await copyImageToDocumentDir(imgPath, entry.path);
-      await persistCover(relative);
-    } catch (e) {
-      console.error("Failed to set cover:", e);
+    const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+    if (paths.length === 0) return;
+    stageImagePaths(paths);
+  };
+
+  const handleSelectProjectImages = (images: JournalLibraryImage[]) => stageImagePaths(images.map((image) => image.path));
+
+  const persistHeaderImages = async (images: JournalEntryHeaderImage[]) => {
+    const ordered = images.slice().sort((a, b) => a.order - b.order).map((image, order) => ({ ...image, order }));
+    headerImagesRef.current = ordered;
+    setHeaderImages(ordered);
+    await flushPendingSave();
+    const snap = currentSnapshot();
+    if (!snap) return false;
+    pendingSaveRef.current = snap;
+    return doSave(snap, true);
+  };
+
+  const handleImportPendingImages = async () => {
+    if (!entry || !journal || readOnly || pendingImageImports.length === 0 || mediaBusy) return;
+    setMediaBusy(true);
+    setMediaError(null);
+    const imported: JournalEntryHeaderImage[] = [];
+    const failedIds = new Set<string>();
+    let coverCandidate: string | undefined;
+    for (const item of pendingImageImports) {
+      try {
+        const relative = await importJournalImage(item.sourcePath, entry.path, journalMedia);
+        imported.push({
+          id: crypto.randomUUID(),
+          path: relative,
+          order: headerImagesRef.current.length + imported.length,
+          alt: item.alt.trim() || undefined,
+          caption: item.caption.trim() || undefined,
+        });
+        if (item.useAsCover) coverCandidate = relative;
+      } catch (error) {
+        console.error("Failed to import journal image:", error);
+        failedIds.add(item.id);
+      }
     }
+
+    if (imported.length > 0) {
+      const saved = await persistHeaderImages([...headerImagesRef.current, ...imported]);
+      if (!saved) {
+        setMediaError(t["journal.imageSaveFailed"] || "As imagens foram copiadas, mas não foi possível atualizar a memória.");
+      } else if (coverCandidate) {
+        await persistCover(coverCandidate);
+      }
+    }
+    setPendingImageImports((current) => current.filter((item) => failedIds.has(item.id)));
+    if (failedIds.size > 0) {
+      setMediaError(t["journal.imageImportFailed"] || "Algumas imagens não puderam ser importadas. Revise os arquivos e tente novamente.");
+    }
+    setMediaBusy(false);
+  };
+
+  const handleRemoveHeaderImage = async (id: string) => {
+    if (!entry || readOnly || mediaBusy) return;
+    const target = headerImagesRef.current.find((image) => image.id === id);
+    if (!target) return;
+    if (!window.confirm(t["journal.removeImageReferenceConfirm"] || "Remover esta imagem da memória?")) return;
+
+    const nextImages = headerImagesRef.current.filter((image) => image.id !== id);
+    const saved = await persistHeaderImages(nextImages);
+    if (!saved) return;
+
+    const nextEntry: EntryRecord = {
+      ...entry,
+      body,
+      metadata: {
+        ...entry.metadata,
+        cover: coverRelRef.current,
+        images: nextImages,
+      },
+    };
+    const stillReferenced = collectEntryImageRefs(nextEntry, body).some((image) => image.ref === target.path);
+    if (stillReferenced) return;
+    if (!window.confirm(t["journal.deleteImageFileConfirm"] || "A imagem não possui outras referências. Excluir também o arquivo físico?")) return;
+
+    const resolved = resolveEntryAssetPath(entry.path, target.path);
+    if (!resolved) return;
+    try {
+      await deleteWorkspacePath(resolved);
+    } catch (error) {
+      console.error("Failed to delete unreferenced image:", error);
+      setMediaError(t["journal.deleteImageFileFailed"] || "A referência foi removida, mas o arquivo não pôde ser excluído.");
+    }
+  };
+
+  const handleMoveHeaderImage = async (id: string, direction: -1 | 1) => {
+    if (readOnly) return;
+    const ordered = headerImagesRef.current.slice().sort((a, b) => a.order - b.order);
+    const index = ordered.findIndex((image) => image.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return;
+    const next = [...ordered];
+    const [item] = next.splice(index, 1);
+    next.splice(nextIndex, 0, item);
+    await persistHeaderImages(next);
+  };
+
+  const handleSetCoverFromHeaderImage = async (path: string) => {
+    if (readOnly) return;
+    await persistCover(path);
+  };
+
+  const handleUpdateHeaderImage = (id: string, patch: Partial<Pick<JournalEntryHeaderImage, "alt" | "caption">>) => {
+    if (readOnly) return;
+    const next = headerImagesRef.current.map((image) =>
+      image.id === id
+        ? {
+            ...image,
+            ...patch,
+            alt: patch.alt !== undefined && patch.alt.trim() === "" ? undefined : patch.alt ?? image.alt,
+            caption: patch.caption !== undefined && patch.caption.trim() === "" ? undefined : patch.caption ?? image.caption,
+          }
+        : image,
+    );
+    headerImagesRef.current = next;
+    setHeaderImages(next);
+    if (entry && journal) scheduleSave(entry, title, body, tags, favorite, mood, trackerValues, buildLocation());
   };
 
   const handleRemoveCover = async () => {
@@ -586,7 +844,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setTrackerValues(nextTrackers);
       const snap: PendingSave = {
         rec: entry, t: title, b: body, tg: tags, fav: favorite, m: mood,
-        tr: nextTrackers, loc: buildLocation(), cover: coverRelRef.current,
+        tr: nextTrackers, loc: buildLocation(),
+        fields: { ...entryFieldsRef.current },
+        images: headerImagesRef.current.map((image) => ({ ...image })),
+        taskStatus: taskStatusRef.current,
+        extraFrontmatter: extraFrontmatterRef.current ? { ...extraFrontmatterRef.current } : undefined,
+        cover: coverRelRef.current,
         revision: ++draftRevisionRef.current,
       };
       pendingSaveRef.current = snap;
@@ -602,7 +865,12 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       setFavorite(next);
       const snap: PendingSave = {
         rec: entry, t: title, b: body, tg: tags, fav: next, m: mood,
-        tr: trackerValues, loc: buildLocation(), cover: coverRelRef.current,
+        tr: trackerValues, loc: buildLocation(),
+        fields: { ...entryFieldsRef.current },
+        images: headerImagesRef.current.map((image) => ({ ...image })),
+        taskStatus: taskStatusRef.current,
+        extraFrontmatter: extraFrontmatterRef.current ? { ...extraFrontmatterRef.current } : undefined,
+        cover: coverRelRef.current,
         revision: ++draftRevisionRef.current,
       };
       pendingSaveRef.current = snap;
@@ -651,14 +919,40 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     };
   }, [flushPendingSave]);
 
+  const visibleHeaderFields = useMemo(
+    () => entryFieldDefs.filter((definition) => definition.visibleInHeader !== false).sort((a, b) => a.order - b.order),
+    [entryFieldDefs],
+  );
+  const filledHeaderFields = visibleHeaderFields.filter((definition) => {
+    const value = entryFields[definition.id];
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  });
+  const fieldChipLabel = filledHeaderFields.length > 0
+    ? filledHeaderFields.slice(0, 2).map((definition) => definition.label).join(", ") + (filledHeaderFields.length > 2 ? ` +${filledHeaderFields.length - 2}` : "")
+    : (t["journal.fields"] || "Campos");
+  const suggestedTags = useMemo(() => {
+    const q = tagInput.trim().replace(/^#/, "").toLowerCase();
+    return tagSuggestions
+      .filter((stat) => !tags.includes(stat.tag))
+      .filter((stat) => !q || stat.tag.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [tagInput, tagSuggestions, tags]);
+  const primaryHeaderUrl = coverUrl ?? headerImageUrls[0]?.url ?? null;
+  const taskStatusLabels: Record<JournalTaskStatus, string> = {
+    pending: t["journal.task.pending"] || "Pendente",
+    in_progress: t["journal.task.inProgress"] || "Em execução",
+    completed: t["journal.task.completed"] || "Finalizada",
+    cancelled: t["journal.task.cancelled"] || "Cancelada",
+  };
+
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col" style={{ backgroundColor: tConfig.editorBgHex, color: tConfig.editorFgHex }}>
-      {coverUrl && viewMode !== "preview" && (
+      {primaryHeaderUrl && viewMode !== "preview" && (
         <div className="relative w-full shrink-0 overflow-hidden group transition-[height] duration-300 ease-out"
           style={{ height: coverExpanded ? 384 : 128, backgroundColor: tConfig.accentHex + "10" }}>
           <button type="button" onClick={() => setLightboxIndex(0)} className="block w-full h-full"
             title={t["journal.expand"] || "Open full screen"}>
-            <img src={coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
+            <img src={primaryHeaderUrl} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
           </button>
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="h-9 w-9 rounded-full flex items-center justify-center bg-black/40 text-white/90"><Maximize2 size={16} /></div>
@@ -675,10 +969,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             title={coverExpanded ? (t["journal.collapse"] || "Collapse cover") : (t["journal.expandInline"] || "Expand cover")}>
             {coverExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-          {!readOnly && (
+          {!readOnly && coverUrl && (
             <button type="button" onClick={handleRemoveCover}
               className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center bg-black/40 text-white/80 hover:bg-black/60 text-xs"
               title={t["journal.clear"] || "Remove"}><X size={12} /></button>
+          )}
+          {headerImageUrls.length > 0 && (
+            <div className="absolute bottom-2 right-11 hidden max-w-[45%] gap-1 group-hover:flex">
+              {headerImageUrls.slice(0, 5).map((image, index) => (
+                <button key={image.id} type="button" onClick={() => setLightboxIndex(coverUrl ? index + 1 : index)}
+                  className="h-8 w-10 overflow-hidden rounded border border-white/35 bg-black/30">
+                  <img src={image.url} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -729,7 +1033,7 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                     <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border shadow-lg py-1"
                       style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
                       {!readOnly && (
-                        <DropdownItem icon={Image} label={coverUrl ? (t["journal.changeCover"] || "Change cover") : (t["journal.cover"] || "Cover")} onClick={() => { handleSetCover(); setShowMoreMenu(false); }} />
+                        <DropdownItem icon={Image} label={t["journal.images"] || "Imagens"} onClick={() => { setShowImagePanel(true); setMediaError(null); setShowMoreMenu(false); }} />
                       )}
                       {journal && (
                         <>
@@ -795,10 +1099,20 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                     active={!!mood} open={openPopover === "mood"}
                     label={mood ? (t["mood." + mood] || mood) : (t["journal.mood"] || "Mood")}
                     onClick={() => setOpenPopover(openPopover === "mood" ? null : "mood")} />
+                  <MetaChip tConfig={tConfig} icon={<ListTodo size={11} />} disabled={readOnly}
+                    active={!!taskStatus} open={openPopover === "task"}
+                    label={taskStatus ? taskStatusLabels[taskStatus] : (t["journal.tasks"] || "Tarefas")}
+                    onClick={() => setOpenPopover(openPopover === "task" ? null : "task")} />
                   <MetaChip tConfig={tConfig} icon={<MapPin size={11} />} disabled={readOnly}
                     active={!!(locationLabel || locationCity || locationCountry)} open={openPopover === "location"}
                     label={locationLabel || [locationCity, locationCountry].filter(Boolean).join(", ") || (t["journal.places"] || "Location")}
                     onClick={() => setOpenPopover(openPopover === "location" ? null : "location")} />
+                  {visibleHeaderFields.length > 0 && (
+                    <MetaChip tConfig={tConfig} icon={<LinkIcon size={11} />} disabled={readOnly}
+                      active={filledHeaderFields.length > 0} open={openPopover === "fields"}
+                      label={fieldChipLabel}
+                      onClick={() => setOpenPopover(openPopover === "fields" ? null : "fields")} />
+                  )}
                   {trackerDefs.length > 0 && (
                     <MetaChip tConfig={tConfig} icon={<Activity size={11} />} disabled={readOnly}
                       active={trackerDefs.some((d) => { const v = trackerValues[d.id]; return v !== undefined && v !== null && v !== ""; })}
@@ -856,6 +1170,23 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                             <Plus size={13} />
                           </button>
                         </div>
+                        {suggestedTags.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: tConfig.fgHex + "45" }}>
+                              {t["journal.suggestions"] || "Sugestões"}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {suggestedTags.map((stat) => (
+                                <button key={stat.tag} type="button" onClick={() => handleAddSuggestedTag(stat.tag)}
+                                  className="px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 hover:opacity-75"
+                                  style={{ backgroundColor: tConfig.uiHex, color: tConfig.fgHex + "85", border: `1px solid ${tConfig.uiBorderHex}` }}>
+                                  {stat.tag}
+                                  <span className="tabular-nums opacity-50">{stat.count}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     {openPopover === "mood" && (
@@ -868,6 +1199,34 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                             {m.emoji}
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {openPopover === "task" && (
+                      <div className="space-y-1" role="radiogroup" aria-label={t["journal.taskStatus"] || "Status da tarefa"}>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: tConfig.fgHex + "65" }}>
+                          {t["journal.taskStatus"] || "Status da tarefa"}
+                        </p>
+                        {JOURNAL_TASK_STATUSES.map((status) => {
+                          const selected = taskStatus === status;
+                          return (
+                            <button key={status} type="button" role="radio" aria-checked={selected}
+                              onClick={() => handleTaskStatusChange(status)}
+                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-opacity hover:opacity-80"
+                              style={{
+                                color: selected ? tConfig.accentHex : tConfig.fgHex + "CC",
+                                backgroundColor: selected ? tConfig.accentHex + "14" : "transparent",
+                              }}>
+                              <span aria-hidden className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: selected ? tConfig.accentHex : tConfig.uiBorderHex }} />
+                              <span className="flex-1">{taskStatusLabels[status]}</span>
+                            </button>
+                          );
+                        })}
+                        <button type="button" onClick={() => handleTaskStatusChange(undefined)}
+                          className="mt-1 w-full rounded border px-2 py-1.5 text-left text-xs transition-opacity hover:opacity-80"
+                          style={{ color: tConfig.fgHex + "75", borderColor: tConfig.uiBorderHex }}>
+                          {t["journal.task.none"] || "Não é uma tarefa"}
+                        </button>
                       </div>
                     )}
                     {openPopover === "location" && (
@@ -947,6 +1306,24 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
                         })}
                       </div>
                     )}
+                    {openPopover === "fields" && (
+                      <div className="space-y-2" style={{ minWidth: 280 }}>
+                        {visibleHeaderFields.map((definition) => {
+                          const value = entryFields[definition.id];
+                          return (
+                            <label key={definition.id} className="block text-[11px] font-medium" style={{ color: tConfig.fgHex + "75" }}>
+                              <span className="mb-1 block">{definition.label}</span>
+                              <input type={definition.type === "url" ? "url" : definition.type}
+                                value={value === null || value === undefined ? "" : String(value)}
+                                onChange={(event) => handleFieldChange(definition, event.target.value)}
+                                className="w-full bg-transparent border rounded px-2 py-1 outline-none"
+                                style={{ color: tConfig.fgHex, borderColor: tConfig.uiBorderHex }}
+                                placeholder={definition.type === "url" ? "https://..." : definition.label} />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -976,7 +1353,11 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             )}
             {viewMode === "preview" && (
               <div className="flex-1 min-w-0">
-                <JournalPublicationView tConfig={tConfig} entry={{ ...entry, body }} coverUrl={coverUrl} t={t} language={language}
+                <JournalPublicationView tConfig={tConfig}
+                  entry={{ ...entry, body, metadata: { ...entry.metadata, fields: entryFields, images: headerImages, cover: coverRelRef.current } }}
+                  coverUrl={coverUrl} t={t} language={language}
+                  headerImageUrls={headerImageUrls}
+                  entryFieldDefinitions={entryFieldDefs}
                   blogView={blogConfig} blogLogoUrl={blogLogoUrl} journalName={journalName}
                   prevEntry={prevEntry} nextEntry={nextEntry} onNavigate={onNavigateEntry}
                   onConfigureBlog={() => setShowBlogSettings(true)} onOpenTag={onOpenTag} />
@@ -1047,8 +1428,154 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
       {showBlogSettings && journal && (
         <BlogSettingsDialog open={showBlogSettings} t={t} tConfig={tConfig}
           journalRootPath={journal.rootPath} journalName={journal.name} value={blogConfig}
+          journalMedia={journalMedia}
           onClose={() => setShowBlogSettings(false)}
           onSaved={setBlogConfig} />
+      )}
+      {showImagePanel && entry && (
+        <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+          <div className="flex max-h-[86vh] w-[680px] max-w-[94vw] flex-col rounded-lg border shadow-2xl"
+            style={{ backgroundColor: tConfig.bgHex, borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}>
+            <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: tConfig.uiBorderHex }}>
+              <div>
+                <h3 className="text-sm font-semibold">{t["journal.images"] || "Imagens"}</h3>
+                <p className="text-xs" style={{ color: tConfig.fgHex + "65" }}>
+                  {t["journal.imagesDesc"] || "Capa e imagens de cabeçalho desta memória."}
+                </p>
+              </div>
+              <button type="button" onClick={() => setShowImagePanel(false)} className="rounded p-1 hover:opacity-70">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setShowProjectImageLibrary(true)} disabled={mediaBusy}
+                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 disabled:opacity-50"
+                  style={{ backgroundColor: tConfig.accentHex, color: "#fff" }}>
+                  <Plus size={13} /> {t["journal.addImages"] || "Adicionar imagens"}
+                </button>
+                {coverUrl && (
+                  <button type="button" onClick={handleRemoveCover}
+                    className="inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-semibold"
+                    style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "85" }}>
+                    <Trash2 size={13} /> {t["journal.removeCover"] || "Remover capa"}
+                  </button>
+                )}
+                {coverRelRef.current && (
+                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded border px-2 py-1 text-[11px]"
+                    style={{ borderColor: tConfig.accentHex + "55", color: tConfig.accentHex, backgroundColor: tConfig.accentHex + "0D" }}>
+                    <Image size={11} />
+                    <span className="truncate">{t["journal.currentCover"] || "Capa atual"}: {coverRelRef.current}</span>
+                  </span>
+                )}
+              </div>
+              {mediaError && (
+                <div className="mb-4 flex items-start gap-2 rounded border px-3 py-2 text-xs" role="alert"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "CC", backgroundColor: tConfig.accentHex + "08" }}>
+                  <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                  <span className="flex-1">{mediaError}</span>
+                  <button type="button" onClick={() => setMediaError(null)} aria-label={t["journal.close"] || "Fechar"}><X size={12} /></button>
+                </div>
+              )}
+              {pendingImageImports.length > 0 && (
+                <section className="mb-5 rounded border p-3" style={{ borderColor: tConfig.uiBorderHex }}>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-semibold">{t["journal.reviewImages"] || "Revisar importação"}</h4>
+                      <p className="text-[11px]" style={{ color: tConfig.fgHex + "65" }}>
+                        {t["journal.reviewImagesDesc"] || "Ajuste os metadados antes de copiar os arquivos para a memória."}
+                      </p>
+                    </div>
+                    <button type="button" onClick={handleImportPendingImages} disabled={mediaBusy}
+                      className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                      style={{ color: "#fff", backgroundColor: tConfig.accentHex }}>
+                      {mediaBusy ? (t["journal.importing"] || "Importando…") : `${t["journal.import"] || "Importar"} (${pendingImageImports.length})`}
+                    </button>
+                  </div>
+                  <div className="grid gap-2">
+                    {pendingImageImports.map((item) => (
+                      <div key={item.id} className="grid gap-2 rounded border p-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
+                        style={{ borderColor: tConfig.uiBorderHex }}>
+                        <div className="min-w-0">
+                          <p className="truncate text-[11px] font-medium" title={item.sourcePath}>{item.sourcePath.replace(/\\/g, "/").split("/").pop()}</p>
+                          <p className="truncate text-[10px]" style={{ color: tConfig.fgHex + "55" }} title={item.sourcePath}>{item.sourcePath}</p>
+                        </div>
+                        <div className="grid gap-1 sm:grid-cols-2">
+                          <input value={item.alt} onChange={(event) => setPendingImageImports((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, alt: event.target.value } : candidate))}
+                            className="min-w-0 rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                            style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} placeholder={t["journal.imageAlt"] || "Texto alternativo"} />
+                          <input value={item.caption} onChange={(event) => setPendingImageImports((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, caption: event.target.value } : candidate))}
+                            className="min-w-0 rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                            style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} placeholder={t["journal.caption"] || "Legenda"} />
+                        </div>
+                        <button type="button" aria-pressed={item.useAsCover}
+                          onClick={() => setPendingImageImports((current) => current.map((candidate) => ({ ...candidate, useAsCover: candidate.id === item.id ? !candidate.useAsCover : false })))}
+                          className="rounded border px-2 py-1 text-[11px] font-medium"
+                          style={{ borderColor: item.useAsCover ? tConfig.accentHex : tConfig.uiBorderHex, color: item.useAsCover ? tConfig.accentHex : tConfig.fgHex + "75", backgroundColor: item.useAsCover ? tConfig.accentHex + "0D" : "transparent" }}>
+                          {item.useAsCover ? (t["journal.willBeCover"] || "Será a capa") : (t["journal.setCover"] || "Definir como capa")}
+                        </button>
+                        <button type="button" onClick={() => setPendingImageImports((current) => current.filter((candidate) => candidate.id !== item.id))}
+                          className="h-7 w-7 rounded border" style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "75" }}
+                          title={t["journal.remove"] || "Remover"}><X size={13} className="m-auto" /></button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {headerImages.length === 0 ? (
+                <div className="rounded border border-dashed px-4 py-8 text-center text-xs"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "60" }}>
+                  {t["journal.noHeaderImages"] || "Nenhuma imagem de cabeçalho adicionada."}
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {headerImages.map((image, index) => {
+                    const loaded = headerImageUrls.find((item) => item.id === image.id);
+                    return (
+                      <div key={image.id} className="grid gap-3 rounded border p-3 sm:grid-cols-[112px_minmax(0,1fr)]"
+                        style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.accentHex + "05" }}>
+                        <div className="h-24 overflow-hidden rounded border" style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.accentHex + "10" }}>
+                          {loaded ? <img src={loaded.url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Image size={20} style={{ color: tConfig.fgHex + "35" }} /></div>}
+                        </div>
+                        <div className="min-w-0 space-y-2">
+                          <div className="flex items-center gap-1">
+                            <p className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: tConfig.fgHex }}>{image.path}</p>
+                            <button type="button" onClick={() => handleMoveHeaderImage(image.id, -1)} disabled={index === 0}
+                              className="h-7 w-7 rounded border disabled:opacity-35" style={{ borderColor: tConfig.uiBorderHex }} title={t["journal.moveUp"] || "Mover para cima"}><ArrowUp size={13} className="m-auto" /></button>
+                            <button type="button" onClick={() => handleMoveHeaderImage(image.id, 1)} disabled={index === headerImages.length - 1}
+                              className="h-7 w-7 rounded border disabled:opacity-35" style={{ borderColor: tConfig.uiBorderHex }} title={t["journal.moveDown"] || "Mover para baixo"}><ArrowDown size={13} className="m-auto" /></button>
+                            <button type="button" onClick={() => handleSetCoverFromHeaderImage(image.path)}
+                              className="h-7 rounded border px-2 text-[11px] font-medium" style={{ borderColor: tConfig.uiBorderHex, color: coverRelRef.current === image.path ? tConfig.accentHex : tConfig.fgHex + "75" }}>
+                              {coverRelRef.current === image.path ? (t["journal.cover"] || "Capa") : (t["journal.setCover"] || "Definir capa")}
+                            </button>
+                            <button type="button" onClick={() => handleRemoveHeaderImage(image.id)} disabled={mediaBusy}
+                              className="h-7 w-7 rounded border disabled:opacity-40" style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "75" }} title={t["journal.delete"] || "Remover"}><Trash2 size={13} className="m-auto" /></button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <input value={image.alt ?? ""} onChange={(event) => handleUpdateHeaderImage(image.id, { alt: event.target.value })}
+                              className="rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                              style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}
+                              placeholder={t["journal.imageAlt"] || "Texto alternativo"} />
+                            <input value={image.caption ?? ""} onChange={(event) => handleUpdateHeaderImage(image.id, { caption: event.target.value })}
+                              className="rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                              style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}
+                              placeholder={t["journal.caption"] || "Legenda"} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end border-t px-5 py-3" style={{ borderColor: tConfig.uiBorderHex }}>
+              <button type="button" onClick={() => setShowImagePanel(false)} disabled={mediaBusy}
+                className="rounded px-3 py-1.5 text-xs font-semibold" style={{ color: "#fff", backgroundColor: tConfig.accentHex }}>
+                {t["journal.done"] || "Concluído"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {confirmDelete && entry && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1064,6 +1591,19 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
             </div>
           </div>
         </div>
+      )}
+
+      {journal && (
+        <JournalImageLibraryDialog
+          open={showProjectImageLibrary}
+          t={t}
+          tConfig={tConfig}
+          journalRootPath={journal.rootPath}
+          multiple
+          onClose={() => setShowProjectImageLibrary(false)}
+          onSelect={handleSelectProjectImages}
+          onEmpty={() => { void handleStageHeaderImages(); }}
+        />
       )}
 
       {lightboxIndex !== null && entryImages.length > 0 && (

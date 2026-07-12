@@ -1,11 +1,17 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { BookOpen, Calendar, Heart, Plus, FolderPlus, AlertTriangle, PenLine, ChevronDown, ChevronRight, ChevronUp, Menu, Pin, Save, Tags as TagsIcon } from "lucide-react";
+import { BookOpen, Calendar, Heart, Plus, FolderPlus, AlertTriangle, PenLine, ChevronDown, ChevronRight, ChevronUp, Menu, Pin, Save, Tags as TagsIcon, ListTodo, RefreshCw } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import { useContextMenu } from "../../../app/components/context-menu";
 import { TrackerSummaryPanel } from "./TrackerSummaryPanel";
 import { useJournalSession } from "../session/JournalSessionContext";
 import { loadImage } from "../../../services/filesystem";
+import { collectTagStats } from "../domain/tag-service";
+import { listEntries } from "../domain/entry-service";
+import { findFirstNotebookImage } from "../domain/entry-images";
+import { JOURNAL_TASK_STATUSES, type JournalTaskStatus } from "../domain/journal-entry.types";
+import { collectTaskStatusCounts } from "../domain/task-status";
+import { orderJournalsForNavigation } from "../domain/journal-order";
 
 /** Cover card: rectangular cover image (or colored monogram) + title + subtitle. */
 function JournalCard({ journal, tConfig, active }: { journal: JournalDescriptor; tConfig: ThemeConfig; active: boolean }) {
@@ -15,6 +21,15 @@ function JournalCard({ journal, tConfig, active }: { journal: JournalDescriptor;
     setUrl(null);
     if (journal.cover && !journal.unavailable) {
       loadImage(`${journal.rootPath}/${journal.cover}`).then((u) => { if (act) setUrl(u); }).catch(() => { if (act) setUrl(null); });
+    } else if (!journal.unavailable) {
+      listEntries(journal.rootPath)
+        .then((result) => {
+          if (!act) return;
+          const fallback = findFirstNotebookImage(result.entries);
+          if (!fallback) return setUrl(null);
+          return loadImage(fallback.path).then((u) => { if (act) setUrl(u); }).catch(() => { if (act) setUrl(null); });
+        })
+        .catch(() => { if (act) setUrl(null); });
     }
     return () => { act = false; };
   }, [journal.cover, journal.rootPath, journal.unavailable]);
@@ -71,8 +86,11 @@ interface JournalNavigationProps {
   loading: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  filterTag?: string;
-  onFilterTagChange?: (tag: string) => void;
+  filterTags?: string[];
+  onFilterTagsChange?: (tags: string[]) => void;
+  filterTaskStatus?: JournalTaskStatus | null;
+  onFilterTaskStatusChange?: (status: JournalTaskStatus | null) => void;
+  onReloadJournal?: () => void;
 }
 
 function AccordionSection({
@@ -111,18 +129,20 @@ export function JournalNavigation({
   t, tConfig, activeSection, onSectionChange, onViewChange,
   journals, activeJournalId, activeJournal, onSelectJournal, onCreateJournal, onAddJournal, onSaveActive, onNewEntry,
   onRelocateJournal, onRemoveJournal, onCustomizeJournal, collapsed = false, onToggleCollapse,
-  filterTag = "", onFilterTagChange,
+  filterTags = [], onFilterTagsChange,
+  filterTaskStatus = null, onFilterTaskStatusChange, onReloadJournal,
 }: JournalNavigationProps) {
   const { openContextMenu } = useContextMenu();
   const { state: sessionState } = useJournalSession();
   const [tagLines, setTagLines] = useState(2);
+  const [showAllJournals, setShowAllJournals] = useState(false);
 
   // Collapsed-rail icons request a section: expand the bar, then scroll to and
   // open the matching accordion once the expanded layout has rendered.
-  type SectionKey = "notebooks" | "navigation" | "tags" | "pins";
+  type SectionKey = "notebooks" | "navigation" | "tags" | "tasks" | "pins";
   const [focusSection, setFocusSection] = useState<SectionKey | null>(null);
   const sectionRefs = useRef<Record<SectionKey, HTMLDivElement | null>>({
-    notebooks: null, navigation: null, tags: null, pins: null,
+    notebooks: null, navigation: null, tags: null, tasks: null, pins: null,
   });
 
   const requestSection = (key: SectionKey) => {
@@ -137,14 +157,25 @@ export function JournalNavigation({
   }, [collapsed, focusSection]);
 
   const allTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const e of sessionState.entries) {
-      for (const tag of e.metadata.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([tag, count]) => ({ tag, count }));
+    return collectTagStats(sessionState.entries);
   }, [sessionState.entries, sessionState.revision]);
+  const taskCounts = useMemo(() => collectTaskStatusCounts(sessionState.entries), [sessionState.entries, sessionState.revision]);
+  const orderedJournals = useMemo(
+    () => orderJournalsForNavigation(journals, activeJournalId),
+    [activeJournalId, journals],
+  );
+  const visibleJournals = showAllJournals ? orderedJournals : orderedJournals.slice(0, 3);
+  const hiddenJournalCount = Math.max(0, orderedJournals.length - 3);
+
+  useEffect(() => {
+    if (journals.length <= 3) setShowAllJournals(false);
+  }, [journals.length]);
+  const taskStatusLabels: Record<JournalTaskStatus, string> = {
+    pending: t["journal.task.pending"] || "Pendente",
+    in_progress: t["journal.task.inProgress"] || "Em execução",
+    completed: t["journal.task.completed"] || "Finalizada",
+    cancelled: t["journal.task.cancelled"] || "Cancelada",
+  };
 
   const sectionItems = [
     { id: "entries", label: t["journal.entries"] || "Posts", icon: <BookOpen size={15} /> },
@@ -208,12 +239,20 @@ export function JournalNavigation({
         <button
           type="button" onClick={() => requestSection("tags")}
           className="p-1.5 rounded transition-colors hover:opacity-70"
-          style={{ color: filterTag ? tConfig.accentHex : tConfig.fgHex + "60", backgroundColor: filterTag ? tConfig.accentHex + "12" : "transparent" }}
+          style={{ color: filterTags.length > 0 ? tConfig.accentHex : tConfig.fgHex + "60", backgroundColor: filterTags.length > 0 ? tConfig.accentHex + "12" : "transparent" }}
           title={t["journal.tags"] || "Tags"}
         >
           <TagsIcon size={16} />
         </button>
       )}
+      <button
+        type="button" onClick={() => requestSection("tasks")}
+        className="p-1.5 rounded transition-colors hover:opacity-70"
+        style={{ color: filterTaskStatus ? tConfig.accentHex : tConfig.fgHex + "60", backgroundColor: filterTaskStatus ? tConfig.accentHex + "12" : "transparent" }}
+        title={t["journal.tasks"] || "Tarefas"}
+      >
+        <ListTodo size={16} />
+      </button>
       <button
         type="button" onClick={() => requestSection("pins")}
         className="p-1.5 rounded transition-colors hover:opacity-70"
@@ -267,7 +306,7 @@ export function JournalNavigation({
             <span className="truncate">{t["journal.newEntry"] || "Novo registro"}</span>
           </button>
         )}
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           <button type="button" onClick={onSaveActive}
             className="flex h-8 items-center justify-center rounded-md border transition-opacity hover:opacity-80 disabled:opacity-35"
             style={{ color: tConfig.fgHex + "86", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.bgHex + "80" }}
@@ -287,6 +326,12 @@ export function JournalNavigation({
             title={t["journal.addJournal"] || "Adicionar caderno"}>
             <FolderPlus size={15} />
           </button>
+          <button type="button" onClick={onReloadJournal} disabled={!activeJournal || !onReloadJournal}
+            className="flex h-8 items-center justify-center rounded-md border transition-opacity hover:opacity-80 disabled:opacity-35"
+            style={{ color: tConfig.fgHex + "86", borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.bgHex + "80" }}
+            title={t["journal.refresh"] || "Atualizar caderno"}>
+            <RefreshCw size={14} />
+          </button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -298,7 +343,7 @@ export function JournalNavigation({
             </div>
           )}
 
-          {journals.map((journal) => {
+          {visibleJournals.map((journal) => {
             const active = activeJournalId === journal.id;
             return (
               <div key={journal.id} className="px-2 py-1">
@@ -327,6 +372,17 @@ export function JournalNavigation({
               </div>
             );
           })}
+          {hiddenJournalCount > 0 && (
+            <button type="button" onClick={() => setShowAllJournals((value) => !value)}
+              className="mx-3 mt-1 flex items-center gap-1 rounded px-1 py-1 text-[11px] font-medium transition-opacity hover:opacity-70"
+              style={{ color: tConfig.fgHex + "70" }}
+              aria-expanded={showAllJournals}>
+              {showAllJournals ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              {showAllJournals
+                ? (t["journal.showFewerJournals"] || "Mostrar menos")
+                : `${t["journal.showAllJournals"] || "Mostrar todos"} (${hiddenJournalCount})`}
+            </button>
+          )}
         </AccordionSection>
 
         <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
@@ -364,11 +420,11 @@ export function JournalNavigation({
                   style={{ maxHeight: `${maxTagHeight}px` }}
                 >
                   {allTags.map(({ tag, count }) => {
-                    const active = filterTag === tag;
+                    const active = filterTags.includes(tag);
                     return (
                     <button key={tag} type="button"
                       onClick={() => {
-                        onFilterTagChange?.(active ? "" : tag);
+                        onFilterTagsChange?.(active ? filterTags.filter((item) => item !== tag) : [...filterTags, tag]);
                         onSectionChange("entries");
                         onViewChange("list");
                       }}
@@ -385,8 +441,8 @@ export function JournalNavigation({
                     </button>
                   );})}
                 </div>
-                {filterTag && (
-                  <button type="button" onClick={() => onFilterTagChange?.("")}
+                {filterTags.length > 0 && (
+                  <button type="button" onClick={() => onFilterTagsChange?.([])}
                     className="mt-1 text-[11px] font-medium transition-colors hover:opacity-70"
                     style={{ color: tConfig.fgHex + "55" }}>
                     {t["journal.clear"] || "Clear"}
@@ -406,6 +462,32 @@ export function JournalNavigation({
             </AccordionSection>
           </>
         )}
+        <div className="mx-3 my-2 border-t" style={{ borderColor: tConfig.uiBorderHex }} />
+        <AccordionSection title={t["journal.tasks"] || "Tarefas"} tConfig={tConfig}
+          containerRef={(el) => { sectionRefs.current.tasks = el; }} openWhen={focusSection === "tasks"}>
+          <div className="px-3 py-1 space-y-0.5">
+            {JOURNAL_TASK_STATUSES.map((status) => {
+              const active = filterTaskStatus === status;
+              return (
+                <button key={status} type="button" aria-pressed={active}
+                  onClick={() => {
+                    onFilterTaskStatusChange?.(active ? null : status);
+                    onSectionChange("entries");
+                    onViewChange("list");
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-opacity hover:opacity-80"
+                  style={{ color: active ? tConfig.accentHex : tConfig.fgHex + "B5", backgroundColor: active ? tConfig.accentHex + "14" : "transparent" }}>
+                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: active ? tConfig.accentHex : tConfig.uiBorderHex }} />
+                  <span className="flex-1 truncate">{taskStatusLabels[status]}</span>
+                  <span className="tabular-nums" style={{ color: tConfig.fgHex + "55" }}>{taskCounts[status]}</span>
+                </button>
+              );
+            })}
+            {Object.values(taskCounts).every((count) => count === 0) && (
+              <p className="px-2 py-1 text-[11px]" style={{ color: tConfig.fgHex + "55" }}>{t["journal.noTasks"] || "Nenhuma memória marcada como tarefa."}</p>
+            )}
+          </div>
+        </AccordionSection>
       </div>
 
       <div className="shrink-0 border-t" style={{ borderColor: tConfig.uiBorderHex }}>

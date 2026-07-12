@@ -16,6 +16,7 @@ export function serializeJournalEntry(metadata: JournalEntryMetadata, body: stri
   if (metadata.summary !== undefined) frontmatter.summary = metadata.summary;
   if (metadata.tags.length > 0) frontmatter.tags = metadata.tags;
   if (metadata.mood !== undefined) frontmatter.mood = metadata.mood;
+  if (metadata.taskStatus !== undefined) frontmatter.taskStatus = metadata.taskStatus;
   if (metadata.trackers !== undefined && Object.keys(metadata.trackers).length > 0) {
     frontmatter.trackers = metadata.trackers;
   }
@@ -30,6 +31,30 @@ export function serializeJournalEntry(metadata: JournalEntryMetadata, body: stri
     if (metadata.location.attraction) loc.attraction = metadata.location.attraction;
     frontmatter.location = loc;
   }
+  if (metadata.fields && Object.keys(metadata.fields).length > 0) {
+    const fields: Record<string, string | number | null> = {};
+    for (const [key, value] of Object.entries(metadata.fields)) {
+      if (typeof value === "string" || typeof value === "number" || value === null) {
+        fields[key] = value;
+      }
+    }
+    if (Object.keys(fields).length > 0) frontmatter.fields = fields;
+  }
+  if (metadata.images && metadata.images.length > 0) {
+    frontmatter.images = metadata.images
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map((image, order) => {
+        const item: Record<string, unknown> = {
+          id: image.id,
+          path: image.path,
+          order,
+        };
+        if (image.alt) item.alt = image.alt;
+        if (image.caption) item.caption = image.caption;
+        return item;
+      });
+  }
   if (metadata.cover !== undefined) frontmatter.cover = metadata.cover;
   if (metadata.favorite) frontmatter.favorite = true;
   if (metadata.attachments && metadata.attachments.length > 0) {
@@ -42,7 +67,7 @@ export function serializeJournalEntry(metadata: JournalEntryMetadata, body: stri
   // Merge back unknown fields preserved from the original file
   if (metadata.extraFrontmatter) {
     for (const key of Object.keys(metadata.extraFrontmatter)) {
-      frontmatter[key] = metadata.extraFrontmatter[key];
+      if (!(key in frontmatter)) frontmatter[key] = metadata.extraFrontmatter[key];
     }
   }
 
