@@ -132,6 +132,16 @@ export default function MarkdownPreview({
   const { meta, body } = React.useMemo(() => parseMarkdownFrontmatter(content), [content]);
   const processedBody = React.useMemo(() => preprocessMarkdown(body), [body]);
   const hasMeta = Object.keys(meta).length > 0;
+  const defaultPreviewStyle = React.useMemo(() => ({
+    backgroundColor: shellBackground,
+    "--ml-preview-bg": "var(--ml-editor-bg, var(--ml-bg, #ffffff))",
+    "--ml-preview-text": "var(--ml-editor-fg, var(--ml-fg, #111827))",
+    "--ml-preview-accent": "var(--ml-accent, #4f46e5)",
+    "--ml-preview-muted": "color-mix(in srgb, var(--ml-editor-fg, var(--ml-fg, #111827)) 76%, var(--ml-editor-bg, var(--ml-bg, #ffffff)) 24%)",
+    "--ml-preview-border": "color-mix(in srgb, var(--ml-editor-fg, var(--ml-fg, #111827)) 20%, transparent)",
+    "--ml-preview-frontmatter-bg": "color-mix(in srgb, var(--ml-editor-fg, var(--ml-fg, #111827)) 6%, transparent)",
+    "--ml-preview-frontmatter-border": "1px solid color-mix(in srgb, var(--ml-editor-fg, var(--ml-fg, #111827)) 18%, transparent)",
+  }) as React.CSSProperties, [shellBackground]);
 
   // Delegate clicks on body hashtags (rendered as <span class="ml-preview-tag"
   // data-tag="…">) to the host instead of wiring a handler per span.
@@ -144,7 +154,7 @@ export default function MarkdownPreview({
     : undefined;
 
   return (
-    <div className={bare ? "min-h-full" : "min-h-full p-5"} style={{ backgroundColor: shellBackground }}>
+    <div className={bare ? "min-h-full" : "min-h-full p-5"} style={defaultPreviewStyle}>
       <div className={bare ? "mx-auto" : "ml-preview-surface mx-auto"} style={surfaceStyle}>
         {hasMeta ? (
           <div className="ml-frontmatter-card mb-6 rounded-lg border px-5 py-4">

@@ -69,16 +69,16 @@ export function TemplatePickerDialog({ open, t, tConfig, journalRootPath, onClos
               </button>
 
               {templates.map((tpl) => (
-                <button key={tpl.name} type="button" onClick={() => pick(tpl.body)}
+                <button key={tpl.id} type="button" onClick={() => pick(tpl.body)}
                   className="flex flex-col gap-1.5 p-3 rounded-lg border text-left transition-all hover:-translate-y-0.5"
                   style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex, minHeight: 104 }}>
                   <span className="h-7 w-7 rounded-md flex items-center justify-center" style={{ backgroundColor: tConfig.fgHex + "0F", color: tConfig.fgHex + "70" }}>
                     <FileText size={14} />
                   </span>
                   <span className="font-medium text-sm truncate" style={{ color: tConfig.fgHex }}>{tpl.name}</span>
-                  {tpl.body.trim() && (
+                  {(tpl.description || tpl.body.trim()) && (
                     <span className="text-[11px] leading-snug line-clamp-3" style={{ color: tConfig.fgHex + "55", whiteSpace: "pre-wrap" }}>
-                      {getExcerpt(tpl.body.replace(/[#>*`-]/g, "").replace(/\n+/g, " "), 90)}
+                      {tpl.description || getExcerpt(tpl.body.replace(/[#>*`-]/g, "").replace(/\n+/g, " "), 90)}
                     </span>
                   )}
                 </button>

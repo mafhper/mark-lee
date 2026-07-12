@@ -1,14 +1,18 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { FileText, Heart, HeartOff, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { FileText, Heart, HeartOff, MapPin, Image as ImageIcon, Search, ChevronDown, ChevronRight, Copy, ExternalLink, Trash2, ListTodo } from "lucide-react";
 import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
 import { MOOD_EMOJI } from "../domain/moods";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { getExcerpt, searchEntries } from "../domain/entry-service";
+import { firstEntryImageRef, collectEntryImageRefs } from "../domain/entry-images";
+import { filterEntriesByTags } from "../domain/tag-service";
 import { entryMatchesLocation, type LocationFilter } from "../location/locationFilter";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { loadImage } from "../../../services/filesystem";
+import type { JournalTaskStatus } from "../domain/journal-entry.types";
+import { filterEntriesByTaskStatus } from "../domain/task-status";
 
 interface JournalListViewProps {
   t: Record<string, string>;
@@ -26,10 +30,12 @@ interface JournalListViewProps {
   language?: string;
   /** Controlled tag filter (lifted to the workspace so the reading view's
    *  clickable tags can drive it). */
-  filterTag?: string;
-  onFilterTagChange?: (tag: string) => void;
+  filterTags?: string[];
+  onFilterTagsChange?: (tags: string[]) => void;
   filterImages?: boolean;
   onFilterImagesChange?: (value: boolean) => void;
+  filterTaskStatus?: JournalTaskStatus | null;
+  onFilterTaskStatusChange?: (status: JournalTaskStatus | null) => void;
   /** Place filter chosen from the Lugares tree; cleared via onClearLocation. */
   filterLocation?: LocationFilter | null;
   onClearLocation?: () => void;
@@ -52,14 +58,16 @@ function monthLabel(key: string, locale: string): string {
   return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
 }
 
-function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: string; tConfig: ThemeConfig }) {
+function CoverThumb({ entryPath, imageRef, tConfig }: { entryPath: string; imageRef: string; tConfig: ThemeConfig }) {
   const [url, setUrl] = useState<string | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
+    setUrl(null);
     const dir = entryPath.substring(0, entryPath.lastIndexOf("/"));
-    loadImage(dir + "/" + cover).then(setUrl).catch(() => setUrl(null));
+    loadImage(dir + "/" + imageRef).then((next) => { if (mountedRef.current) setUrl(next); }).catch(() => { if (mountedRef.current) setUrl(null); });
     return () => { mountedRef.current = false; };
-  }, [entryPath, cover]);
+  }, [entryPath, imageRef]);
   if (!url) return null;
   return (
     <div className="w-10 h-10 rounded overflow-hidden shrink-0 mt-0.5"
@@ -69,16 +77,19 @@ function CoverThumb({ entryPath, cover, tConfig }: { entryPath: string; cover: s
   );
 }
 
-export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTag: filterTagProp, onFilterTagChange, filterImages: filterImagesProp, onFilterImagesChange, filterLocation, onClearLocation }: JournalListViewProps) {
+export function JournalListView({ t, tConfig, journal, entries, activeSection, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, searchQuery, language = "en", filterTags: filterTagsProp, onFilterTagsChange, filterImages: filterImagesProp, onFilterImagesChange, filterTaskStatus: filterTaskStatusProp, onFilterTaskStatusChange, filterLocation, onClearLocation }: JournalListViewProps) {
   const { openContextMenu } = useContextMenu();
   // Filters are controlled when the workspace passes them in (so the reading
   // view can open a tag), with a local fallback for standalone use.
-  const [filterTagLocal, setFilterTagLocal] = useState("");
+  const [filterTagsLocal, setFilterTagsLocal] = useState<string[]>([]);
   const [filterImagesLocal, setFilterImagesLocal] = useState(false);
-  const filterTag = filterTagProp ?? filterTagLocal;
+  const [filterTaskStatusLocal, setFilterTaskStatusLocal] = useState<JournalTaskStatus | null>(null);
+  const filterTags = filterTagsProp ?? filterTagsLocal;
   const filterImages = filterImagesProp ?? filterImagesLocal;
-  const setFilterTag = (tag: string) => (onFilterTagChange ?? setFilterTagLocal)(tag);
+  const filterTaskStatus = filterTaskStatusProp ?? filterTaskStatusLocal;
+  const setFilterTags = (tags: string[]) => (onFilterTagsChange ?? setFilterTagsLocal)(tags);
   const setFilterImages = (value: boolean) => (onFilterImagesChange ?? setFilterImagesLocal)(value);
+  const setFilterTaskStatus = (status: JournalTaskStatus | null) => (onFilterTaskStatusChange ?? setFilterTaskStatusLocal)(status);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -91,8 +102,7 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
   };
 
   function entryHasImages(e: EntryRecord): boolean {
-    if (e.metadata.cover) return true;
-    return /!\[.*?\]\(.*?\)/.test(e.body);
+    return collectEntryImageRefs(e).length > 0;
   }
 
   const today = new Date();
@@ -110,13 +120,21 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
 
   const filtered = useMemo(() => {
     let result = searched;
-    if (filterTag) result = result.filter((e) => e.metadata.tags.includes(filterTag));
+    result = filterEntriesByTags(result, filterTags);
+    result = filterEntriesByTaskStatus(result, filterTaskStatus);
     if (filterImages) result = result.filter((e) => entryHasImages(e));
     if (filterLocation) result = result.filter((e) => entryMatchesLocation(e.metadata.location, filterLocation));
     return result;
-  }, [searched, filterTag, filterImages, filterLocation]);
+  }, [searched, filterTags, filterTaskStatus, filterImages, filterLocation]);
 
-  const hasActiveFilters = filterTag !== "" || filterImages || !!filterLocation;
+  const hasActiveFilters = filterTags.length > 0 || !!filterTaskStatus || filterImages || !!filterLocation;
+
+  const taskStatusLabels: Record<JournalTaskStatus, string> = {
+    pending: t["journal.task.pending"] || "Pendente",
+    in_progress: t["journal.task.inProgress"] || "Em execução",
+    completed: t["journal.task.completed"] || "Finalizada",
+    cancelled: t["journal.task.cancelled"] || "Cancelada",
+  };
 
   useEffect(() => {
     if (!selectedEntryId || typeof CSS === "undefined" || !CSS.escape) return;
@@ -189,6 +207,7 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
 
   const entryButton = (entry: EntryRecord) => {
     const d = new Date(entry.metadata.date);
+    const thumbRef = firstEntryImageRef(entry);
     return (
       <button key={entry.metadata.id} type="button" onClick={() => onSelectEntry(entry)}
         onContextMenu={(e) => handleEntryContextMenu(e, entry)}
@@ -223,10 +242,16 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
             {entry.metadata.location && (
               <span className="flex items-center gap-0.5"><MapPin size={10} />{entry.metadata.location.label}</span>
             )}
+            {entry.metadata.taskStatus && (
+              <span className="inline-flex items-center gap-1 rounded border px-1 py-0.5"
+                style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex + "70" }}>
+                <ListTodo size={9} /> {taskStatusLabels[entry.metadata.taskStatus]}
+              </span>
+            )}
             {entry.wordCount > 0 && <span>{entry.wordCount}w</span>}
           </div>
         </div>
-        {entry.metadata.cover && <CoverThumb entryPath={entry.path} cover={entry.metadata.cover} tConfig={tConfig} />}
+        {thumbRef && <CoverThumb entryPath={entry.path} imageRef={thumbRef} tConfig={tConfig} />}
       </button>
     );
   };
@@ -235,8 +260,8 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
     <div ref={listRef} className="flex flex-col">
       <div className="flex items-center gap-1.5 px-3 py-2 flex-wrap sticky top-0 z-10 border-b"
         style={{ backgroundColor: tConfig.uiHex, borderColor: tConfig.uiBorderHex }}>
-        {filterTag && (
-          <button type="button" onClick={() => setFilterTag("")}
+        {filterTags.map((filterTag) => (
+          <button key={filterTag} type="button" onClick={() => setFilterTags(filterTags.filter((tag) => tag !== filterTag))}
             className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
             style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
             title={t["journal.clear"] || "Clear"}>
@@ -244,7 +269,7 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
             {filterTag}
             <span aria-hidden>×</span>
           </button>
-        )}
+        ))}
         {filterLocation && (
           <button type="button" onClick={onClearLocation}
             className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
@@ -255,8 +280,18 @@ export function JournalListView({ t, tConfig, journal, entries, activeSection, s
             <span aria-hidden>×</span>
           </button>
         )}
+        {filterTaskStatus && (
+          <button type="button" onClick={() => setFilterTaskStatus(null)}
+            className="px-1.5 py-0.5 rounded text-[11px] inline-flex items-center gap-1 transition-colors"
+            style={{ backgroundColor: tConfig.accentHex + "30", color: tConfig.accentHex }}
+            title={t["journal.clear"] || "Clear"}>
+            <ListTodo size={11} />
+            {taskStatusLabels[filterTaskStatus]}
+            <span aria-hidden>×</span>
+          </button>
+        )}
         {hasActiveFilters && (
-          <button type="button" onClick={() => { setFilterTag(""); setFilterImages(false); onClearLocation?.(); }}
+          <button type="button" onClick={() => { setFilterTags([]); setFilterImages(false); setFilterTaskStatus(null); onClearLocation?.(); }}
             className="text-[10px] ml-1 underline" style={{ color: tConfig.fgHex + "50" }}>
             {t["journal.clear"] || "Clear"}
           </button>

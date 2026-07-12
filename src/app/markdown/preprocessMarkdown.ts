@@ -1,3 +1,5 @@
+import { normalizeMarkdownImagePath } from "../../features/editor/image-markdown.ts";
+
 function protectCode(markdown: string) {
   const codeBlocks: string[] = [];
   const placeholder = (content: string) => {
@@ -59,6 +61,13 @@ function normalizeImageAttributes(markdown: string) {
     /!\[([^\]]*)\]\(([^)\n]+)\)\{([^}\n]+)\}/g,
     (_match, alt: string, target: string, attrs: string) =>
       imageToHtml(alt, target, attrs)
+  );
+}
+
+function normalizeLegacyWindowsImages(markdown: string) {
+  return markdown.replace(
+    /!\[([^\]\n]*)\]\(((?:[a-zA-Z]:[\\/]|\\\\)[^\n]*?\.(?:png|jpe?g|gif|webp|svg|bmp))\)/gi,
+    (_match, alt: string, target: string) => `![${alt}](${normalizeMarkdownImagePath(target)})`,
   );
 }
 
@@ -229,7 +238,7 @@ export function preprocessMarkdown(content: string) {
         normalizeWikilinks(
           normalizeMystDirectives(
             normalizeMkDocsAdmonitions(
-              normalizePandocFencedDivs(normalizeObsidianImages(normalizeImageAttributes(protectedMd)))
+              normalizePandocFencedDivs(normalizeObsidianImages(normalizeImageAttributes(normalizeLegacyWindowsImages(protectedMd))))
             )
           )
         )

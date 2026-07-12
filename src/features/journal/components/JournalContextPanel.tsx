@@ -11,6 +11,7 @@ import type { LocationFilter } from "../location/locationFilter";
 import { ExportRangeDialog } from "./ExportRangeDialog";
 import { ExportJournalDialog } from "./ExportJournalDialog";
 import type { JournalSessionState } from "../session/journalSession.types";
+import type { JournalTaskStatus } from "../domain/journal-entry.types";
 
 interface JournalContextPanelProps {
   t: Record<string, string>;
@@ -32,10 +33,12 @@ interface JournalContextPanelProps {
   language?: string;
   worldMapActive?: boolean;
   onToggleWorldMap?: () => void;
-  filterTag?: string;
-  onFilterTagChange?: (tag: string) => void;
+  filterTags?: string[];
+  onFilterTagsChange?: (tags: string[]) => void;
   filterImages?: boolean;
   onFilterImagesChange?: (value: boolean) => void;
+  filterTaskStatus?: JournalTaskStatus | null;
+  onFilterTaskStatusChange?: (status: JournalTaskStatus | null) => void;
   filterLocation?: LocationFilter | null;
   onFilterLocation?: (filter: LocationFilter) => void;
   onClearLocation?: () => void;
@@ -45,7 +48,8 @@ export function JournalContextPanel({
   t, tConfig, activeView, onViewChange, activeSection, onManageTemplates, onCreateEntryForDate,
   journal, selectedEntryId, onSelectEntry, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor,
   sessionState, language, worldMapActive, onToggleWorldMap,
-  filterTag, onFilterTagChange, filterImages, onFilterImagesChange,
+  filterTags, onFilterTagsChange, filterImages, onFilterImagesChange,
+  filterTaskStatus, onFilterTaskStatusChange,
   filterLocation, onFilterLocation, onClearLocation,
 }: JournalContextPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,8 +117,9 @@ export function JournalContextPanel({
             onToggleFavorite={onToggleFavorite} onDuplicateEntry={onDuplicateEntry}
             onDeleteEntry={onDeleteEntry} onOpenInEditor={onOpenInEditor}
             searchQuery={searchQuery} language={language}
-            filterTag={filterTag} onFilterTagChange={onFilterTagChange}
+            filterTags={filterTags} onFilterTagsChange={onFilterTagsChange}
             filterImages={filterImages} onFilterImagesChange={onFilterImagesChange}
+            filterTaskStatus={filterTaskStatus} onFilterTaskStatusChange={onFilterTaskStatusChange}
             filterLocation={filterLocation} onClearLocation={onClearLocation}
           />
         )}

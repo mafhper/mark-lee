@@ -1,8 +1,9 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Heart, MapPin, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { EntryRecord } from "../domain/entry-service";
-import type { BlogViewConfig } from "../domain/journal.types";
+import type { BlogViewConfig, EntryFieldDefinition } from "../domain/journal.types";
+import type { JournalEntryHeaderImage } from "../domain/journal-entry.types";
 import MarkdownPreview from "../../../app/markdown/MarkdownPreview";
 import { MOOD_EMOJI } from "../domain/moods";
 
@@ -10,6 +11,8 @@ interface JournalPublicationViewProps {
   tConfig: ThemeConfig;
   entry: EntryRecord;
   coverUrl?: string | null;
+  headerImageUrls?: Array<JournalEntryHeaderImage & { url: string }>;
+  entryFieldDefinitions?: EntryFieldDefinition[];
   blogView?: BlogViewConfig | null;
   blogLogoUrl?: string | null;
   journalName?: string;
@@ -31,7 +34,7 @@ interface JournalPublicationViewProps {
  * end let you page through entries like browsing a blog.
  */
 export function JournalPublicationView({
-  tConfig, entry, coverUrl, blogView, blogLogoUrl, journalName, t, language, prevEntry, nextEntry, onNavigate, onConfigureBlog, onOpenTag,
+  tConfig, entry, coverUrl, headerImageUrls = [], entryFieldDefinitions = [], blogView, blogLogoUrl, journalName, t, language, prevEntry, nextEntry, onNavigate, onConfigureBlog, onOpenTag,
 }: JournalPublicationViewProps) {
   const fg = tConfig.editorFgHex; // guaranteed-readable on editorBgHex
   const showMeta = blogView?.showMeta !== false;
@@ -62,7 +65,14 @@ export function JournalPublicationView({
   const moodEmoji = mood ? MOOD_EMOJI[mood] : undefined;
   const loc = entry.metadata.location?.label;
   const tags = entry.metadata.tags ?? [];
-  const hasMeta = showMeta && !!(mood || loc || entry.metadata.favorite || tags.length > 0);
+  const [activeHeaderImageIndex, setActiveHeaderImageIndex] = useState(0);
+  const activeHeaderImage = headerImageUrls[Math.min(activeHeaderImageIndex, Math.max(0, headerImageUrls.length - 1))] ?? null;
+  const publicationFields = entryFieldDefinitions
+    .filter((definition) => definition.visibleInPublication !== false)
+    .sort((a, b) => a.order - b.order)
+    .map((definition) => ({ definition, value: entry.metadata.fields?.[definition.id] }))
+    .filter((item) => item.value !== undefined && item.value !== null && String(item.value).trim() !== "");
+  const hasMeta = showMeta && !!(mood || loc || entry.metadata.favorite || tags.length > 0 || publicationFields.length > 0);
 
   // Map the app theme onto the Markdown preview's CSS variables so the prose
   // inherits readable, theme-correct colors instead of the light-mode defaults.
@@ -85,6 +95,7 @@ export function JournalPublicationView({
   // Return to the top of the article when paging to another entry.
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [entry.path]);
+  useEffect(() => { setActiveHeaderImageIndex(0); }, [entry.path, headerImageUrls.length]);
 
   // Blog-style pager: newer entries on the left (←), older on the right (→).
   const navCard = (target: EntryRecord, side: "left" | "right", label: string) => (
@@ -160,6 +171,55 @@ export function JournalPublicationView({
           </div>
         )}
 
+        {activeHeaderImage && (
+          <section className="mb-8" aria-label={t?.["journal.images"] || "Imagens"}>
+            <figure className="overflow-hidden rounded-xl border"
+              style={{ borderColor: tConfig.uiBorderHex, backgroundColor: tConfig.uiHex + "90" }}>
+              <div className="relative aspect-[16/9] w-full overflow-hidden" style={{ backgroundColor: tConfig.accentHex + "10" }}>
+                <img src={activeHeaderImage.url} alt={activeHeaderImage.alt ?? ""} className="h-full w-full object-cover" />
+                {headerImageUrls.length > 1 && (
+                  <>
+                    <button type="button"
+                      onClick={() => setActiveHeaderImageIndex((index) => (index - 1 + headerImageUrls.length) % headerImageUrls.length)}
+                      className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white/90 hover:bg-black/60"
+                      aria-label={t?.["journal.previousImage"] || "Imagem anterior"}>
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button type="button"
+                      onClick={() => setActiveHeaderImageIndex((index) => (index + 1) % headerImageUrls.length)}
+                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white/90 hover:bg-black/60"
+                      aria-label={t?.["journal.nextImage"] || "Próxima imagem"}>
+                      <ChevronRight size={16} />
+                    </button>
+                    <span className="absolute bottom-3 right-3 rounded-full bg-black/50 px-2 py-0.5 text-[11px] font-medium text-white/90">
+                      {Math.min(activeHeaderImageIndex + 1, headerImageUrls.length)} / {headerImageUrls.length}
+                    </span>
+                  </>
+                )}
+              </div>
+              {activeHeaderImage.caption && (
+                <figcaption className="px-3 py-2 text-xs" style={{ color: fg + "75" }}>{activeHeaderImage.caption}</figcaption>
+              )}
+            </figure>
+            {headerImageUrls.length > 1 && (
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {headerImageUrls.map((image, index) => {
+                  const active = index === activeHeaderImageIndex;
+                  return (
+                    <button key={image.id} type="button"
+                      onClick={() => setActiveHeaderImageIndex(index)}
+                      className="h-12 w-16 shrink-0 overflow-hidden rounded-md border"
+                      style={{ borderColor: active ? tConfig.accentHex : tConfig.uiBorderHex, boxShadow: active ? `0 0 0 2px ${tConfig.accentHex}33` : "none" }}
+                      aria-label={`${t?.["journal.image"] || "Imagem"} ${index + 1}`}>
+                      <img src={image.url} alt="" className="h-full w-full object-cover" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {showMeta && (
           <p className="text-[12px] font-medium uppercase tracking-[0.12em] mb-3" style={{ color: fg + "70" }}>
             {dateLabel}
@@ -198,6 +258,22 @@ export function JournalPublicationView({
                 </span>
               ),
             )}
+            {publicationFields.map(({ definition, value }) => {
+              const text = String(value);
+              const isUrl = definition.type === "url" && /^https?:\/\//i.test(text);
+              return isUrl ? (
+                <a key={definition.id} href={text}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-medium hover:opacity-80"
+                  style={{ backgroundColor: tConfig.uiHex, color: fg + "B0" }}>
+                  {definition.label}
+                </a>
+              ) : (
+                <span key={definition.id} className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-medium"
+                  style={{ backgroundColor: tConfig.uiHex, color: fg + "B0" }}>
+                  {definition.label}: {text}
+                </span>
+              );
+            })}
           </div>
         )}
 

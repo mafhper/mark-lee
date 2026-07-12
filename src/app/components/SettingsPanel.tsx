@@ -678,6 +678,56 @@ export default function SettingsPanel({
                 {tr("Selecionar pasta", "Select folder", "Seleccionar carpeta")}
               </button>
             </div>
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{tr("Importação de mídia", "Media import", "Importación de medios")}</p>
+                <p className="text-xs opacity-70">
+                  {tr("Cópia segura é o padrão; mover exige confirmação forte.", "Safe copy is the default; moving requires strong confirmation.", "La copia segura es el valor predeterminado; mover requiere confirmación fuerte.")}
+                </p>
+              </div>
+              <select value={settings.journalMedia.importMode}
+                onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, importMode: event.target.value as AppSettings["journalMedia"]["importMode"] } })}
+                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium"
+                style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}>
+                <option value="copy">{tr("Copiar", "Copy", "Copiar")}</option>
+                <option value="ask">{tr("Perguntar", "Ask", "Preguntar")}</option>
+                <option value="move">{tr("Mover com confirmação", "Move with confirmation", "Mover con confirmación")}</option>
+              </select>
+            </div>
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div>
+                <p className="text-sm font-medium">{tr("Preservar originais", "Preserve originals", "Preservar originales")}</p>
+                <p className="text-xs opacity-70">
+                  {tr("A otimização WebP sempre mantém o arquivo original.", "WebP optimization always keeps the original file.", "La optimización WebP siempre conserva el archivo original.")}
+                </p>
+              </div>
+              {renderSwitch(settings.journalMedia.preserveOriginals, (preserveOriginals) => onSettingsChange({ journalMedia: { ...settings.journalMedia, preserveOriginals } }))}
+            </div>
+            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+              <div>
+                <p className="text-sm font-medium">{tr("Otimizar para WebP", "Optimize to WebP", "Optimizar a WebP")}</p>
+                <p className="text-xs opacity-70">
+                  {tr("Desligado por padrão. Quando ligado, cria uma cópia WebP.", "Off by default. When enabled, creates a WebP copy.", "Desactivado por defecto. Cuando está activado, crea una copia WebP.")}
+                </p>
+              </div>
+              {renderSwitch(settings.journalMedia.optimizeWebp, (optimizeWebp) => onSettingsChange({ journalMedia: { ...settings.journalMedia, optimizeWebp } }))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="ml-settings-row rounded-lg px-3.5 py-3 text-sm">
+                <span className="mb-2 block font-medium">{tr("Dimensão máxima", "Max dimension", "Dimensión máxima")}</span>
+                <input type="number" min={512} max={4096} step={128} value={settings.journalMedia.maxDimension}
+                  onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, maxDimension: Number(event.target.value) } })}
+                  className="w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
+              </label>
+              <label className="ml-settings-row rounded-lg px-3.5 py-3 text-sm">
+                <span className="mb-2 block font-medium">{tr("Qualidade", "Quality", "Calidad")}</span>
+                <input type="number" min={0.5} max={0.95} step={0.01} value={settings.journalMedia.quality}
+                  onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, quality: Number(event.target.value) } })}
+                  className="w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
+              </label>
+            </div>
           </div>
         )}
       </div>

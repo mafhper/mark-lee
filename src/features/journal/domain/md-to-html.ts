@@ -172,6 +172,12 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
   a { color: #3b82f6; text-decoration: none; }
   a:hover { text-decoration: underline; }
   img { max-width: 100%; height: auto; border-radius: 4px; margin: 1em 0; }
+  .entry-cover { margin: 0 0 2em; }
+  .entry-cover img { width: 100%; max-height: 420px; object-fit: cover; margin: 0; border-radius: 8px; }
+  .entry-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 2em; }
+  .entry-gallery figure { margin: 0; }
+  .entry-gallery img { width: 100%; height: 180px; object-fit: cover; margin: 0; border-radius: 6px; }
+  .entry-gallery figcaption { margin-top: 6px; color: #64748b; font-size: 0.85em; }
   pre { background: #f1f5f9; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
   code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.9em; }
   pre code { background: none; padding: 0; }

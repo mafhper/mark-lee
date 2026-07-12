@@ -3,18 +3,9 @@ import type { EntryRecord } from "./entry-service";
 import { listEntries } from "./entry-service";
 import { mdToHtml, wrapHtmlPage } from "./md-to-html";
 import { safeRelativeAssetPath } from "./export-paths";
+import { collectEntryAssetRefs } from "./entry-images";
+import { entryHeaderMediaHtml } from "./export-html";
 import JSZip from "jszip";
-
-function collectImageRefs(body: string): string[] {
-  const refs: string[] = [];
-  const regex = /!\[.*?\]\((.+?)\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(body)) !== null) {
-    const path = m[1];
-    if (!/^(https?:\/|data:)/.test(path)) refs.push(path);
-  }
-  return refs;
-}
 
 async function copyImageToDir(imageRelPath: string, entryDir: string, destDir: string): Promise<void> {
   const safe = safeRelativeAssetPath(imageRelPath);
@@ -48,7 +39,7 @@ export async function exportEntryAsMarkdown(entry: EntryRecord, destDir: string)
   const destPath = `${destDir}/${filename}`;
   await writeFile(destPath, content);
   const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-  for (const img of collectImageRefs(entry.body)) {
+  for (const img of collectEntryAssetRefs(entry)) {
     try { await copyImageToDir(img, entryDir, destDir); } catch { /* skip missing */ }
   }
   return destPath;
@@ -56,7 +47,7 @@ export async function exportEntryAsMarkdown(entry: EntryRecord, destDir: string)
 
 export async function exportEntryAsHtml(entry: EntryRecord, destDir: string): Promise<string> {
   const bodyHtml = mdToHtml(entry.body);
-  const fullHtml = wrapHtmlPage(bodyHtml);
+  const fullHtml = wrapHtmlPage(`${entryHeaderMediaHtml(entry)}\n${bodyHtml}`);
   const baseName = entryFileName(entry).replace(/\.md$/i, "");
   const destPath = `${destDir}/${baseName}.html`;
   await writeFile(destPath, fullHtml);
@@ -66,11 +57,8 @@ export async function exportEntryAsHtml(entry: EntryRecord, destDir: string): Pr
 
 async function copyEntryAssets(entry: EntryRecord, destDir: string): Promise<void> {
   const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-  for (const img of collectImageRefs(entry.body)) {
+  for (const img of collectEntryAssetRefs(entry)) {
     try { await copyImageToDir(img, entryDir, destDir); } catch { /* skip missing */ }
-  }
-  if (entry.metadata.cover) {
-    try { await copyImageToDir(entry.metadata.cover, entryDir, destDir); } catch { /* skip missing cover */ }
   }
 }
 
@@ -149,7 +137,7 @@ export async function exportJournal(
 
       if (format === "html") {
         const bodyHtml = mdToHtml(entry.body);
-        const fullHtml = wrapHtmlPage(bodyHtml);
+        const fullHtml = wrapHtmlPage(`${entryHeaderMediaHtml(entry)}\n${bodyHtml}`);
         const baseName = entryFileName(entry).replace(/\.md$/i, "");
         await writeFile(`${destDir}/entries/${relDir}/${baseName}.html`, fullHtml);
         await copyEntryAssets(entry, `${destDir}/entries/${relDir}`);
@@ -157,7 +145,7 @@ export async function exportJournal(
         const content = await readFile(entry.path);
         await writeFile(`${destDir}/entries/${rel}`, content);
         const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
-        for (const img of collectImageRefs(entry.body)) {
+        for (const img of collectEntryAssetRefs(entry)) {
           try { await copyImageToDir(img, entryDir, `${destDir}/entries/${relDir}`); } catch { /* skip missing */ }
         }
       }
@@ -194,8 +182,7 @@ export async function exportJournalAsZip(
 
       const entryDir = entry.path.substring(0, entry.path.lastIndexOf("/"));
       const relDirPrefix = rel.replace(/[^/]+$/, "");
-      const assetRefs = [...collectImageRefs(entry.body)];
-      if (entry.metadata.cover) assetRefs.push(entry.metadata.cover);
+      const assetRefs = collectEntryAssetRefs(entry);
       for (const ref of assetRefs) {
         const safe = safeRelativeAssetPath(ref);
         if (!safe) continue; // skip unsafe / external references

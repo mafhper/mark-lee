@@ -28,6 +28,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check contrast
+        run: npm run contrast:check
+
+      - name: Test journal media and organization
+        run: |
+          npm run test:image-markdown
+          npm run test:preprocess-markdown
+          npm run test:journal-entry
+          npm run test:journal-images
+          npm run test:journal-tasks
+          npm run test:journal-order
+          npm run test:export-html
+
       - name: Build web
         run: npm run build
 

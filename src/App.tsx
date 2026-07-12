@@ -34,7 +34,6 @@ import {
   saveWorkspacePath,
 } from "./services/storage";
 import {
-  copyImageToDocumentDir,
   createWorkspaceDirectory,
   createWorkspaceFile,
   deleteWorkspacePath,
@@ -60,6 +59,8 @@ import {
   styleObjectToInlineCss,
 } from "./services/publication-style";
 import { isTauriRuntime } from "./services/runtime";
+import { importJournalImage } from "./services/journal-media";
+import { buildMarkdownImageSyntax } from "./features/editor/image-markdown";
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
 import {
   AppSettings,
@@ -1557,15 +1558,14 @@ function App() {
         let markdownPath = path.replace(/\\/g, "/");
         if (isTauriRuntime()) {
           try {
-            markdownPath = await copyImageToDocumentDir(path, docPath);
+            markdownPath = await importJournalImage(path, docPath, settingsRef.current.journalMedia);
           } catch (error) {
             console.error("Failed to copy image next to document:", error);
+            window.alert(t["image.importFailed"] || "The image could not be imported. The document was not changed.");
+            return;
           }
         }
-        if (!markdownPath.startsWith("./") && !markdownPath.startsWith("/") && !markdownPath.match(/^[a-zA-Z]+:/)) {
-          markdownPath = `./${markdownPath}`;
-        }
-        applyWrapSelection(`![Image](${markdownPath})`, "");
+        applyWrapSelection(buildMarkdownImageSyntax(markdownPath), "");
         break;
       }
       case "table": {
@@ -2797,6 +2797,7 @@ function App() {
       ) : (
         <JournalWorkspace t={t} tConfig={tConfig} isZenMode={isZenMode} language={settings.language}
           viewMode={effectiveViewMode} journalDataDir={settings.journalDataDir}
+          journalMedia={settings.journalMedia}
           sidebarEnabled={!isZenMode && settings.sidebarEnabled} readOnly={breakLocked}
           onOpenFile={(path) => { updateSettings({ appMode: "editor" }); handleOpenIntent({ kind: "open-file", path, source: "preview" }); }} />
       )}

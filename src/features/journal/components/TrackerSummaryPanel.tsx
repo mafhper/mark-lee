@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Droplets, Dumbbell, Flame, Inbox, Minus, Moon, PencilLine, Plus, Settings2, TrendingUp } from "lucide-react";
+import { Activity, CircleCheck, CircleDot, Droplets, Dumbbell, Flame, Inbox, ListTodo, Minus, Moon, PencilLine, Plus, Settings2, TrendingUp } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
 import type { JournalDescriptor, PinAggregation, PinConfig, PinsConfig, TrackerDefinition } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
@@ -9,6 +9,7 @@ import { createDefaultPinConfigs, normalizePinOrder } from "../domain/pins";
 import { adjustActiveEntryTracker } from "../../editor/active-target";
 import { useJournalSession } from "../session/JournalSessionContext";
 import { PinSettingsDialog } from "./PinSettingsDialog";
+import { countTaskMetric, type JournalTaskMetric } from "../domain/task-status";
 
 interface TrackerSummaryPanelProps {
   t: Record<string, string>;
@@ -119,6 +120,9 @@ function metricLabel(config: PinConfig, t: Record<string, string>) {
   if (config.metricId === "streak") return t["tracker.streak"] || config.label || "Streak";
   if (config.metricId === "words") return t["tracker.words"] || config.label || "Words";
   if (config.metricId === "entries") return t["journal.entries"] || config.label || "Entries";
+  if (config.metricId === "tasks_created") return t["tracker.tasksCreated"] || config.label || "Tasks created";
+  if (config.metricId === "tasks_in_progress") return t["tracker.tasksInProgress"] || config.label || "In progress";
+  if (config.metricId === "tasks_completed") return t["tracker.tasksCompleted"] || config.label || "Completed";
   return config.label || "Metric";
 }
 
@@ -130,7 +134,10 @@ function metricDisplayLabel(config: PinConfig, t: Record<string, string>) {
     normalized === config.metricId ||
     normalized === "streak" ||
     normalized === "words" ||
-    normalized === "entries";
+    normalized === "entries" ||
+    normalized === "tasks created" ||
+    normalized === "tasks in progress" ||
+    normalized === "tasks completed";
   return isDefault ? metricLabel(config, t) : label;
 }
 
@@ -176,6 +183,22 @@ function computePin(config: PinConfig, entries: EntryRecord[], defs: TrackerDefi
         pct: config.target ? count / config.target : null,
         color,
         icon: <Inbox size={13} />,
+      };
+    }
+    if (config.metricId === "tasks_created" || config.metricId === "tasks_in_progress" || config.metricId === "tasks_completed") {
+      const count = countTaskMetric(scoped, config.metricId as JournalTaskMetric);
+      const icon = config.metricId === "tasks_completed"
+        ? <CircleCheck size={13} />
+        : config.metricId === "tasks_in_progress"
+          ? <CircleDot size={13} />
+          : <ListTodo size={13} />;
+      return {
+        config,
+        label: metricDisplayLabel(config, t),
+        value: `${count}`,
+        pct: config.target ? count / config.target : null,
+        color,
+        icon,
       };
     }
     return null;

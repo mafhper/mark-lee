@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Archive, Check, Copy, ExternalLink, FileText, Heart, HeartOff, Image as ImageIcon, ImagePlus, Trash2, X } from "lucide-react";
 import type { ThemeConfig } from "../../../types";
+import type { JournalMediaSettings } from "../../../types";
 import type { JournalDescriptor } from "../domain/journal.types";
 import type { EntryRecord } from "../domain/entry-service";
 import { saveEntry } from "../domain/entry-service";
-import { atomicWriteText, copyImageToDocumentDir, loadImage, openFileDialog, writeBinaryFile } from "../../../services/filesystem";
-import { resolveEntryAssetPath } from "../domain/export-paths";
+import { atomicWriteText, loadImage, openFileDialog, writeBinaryFile } from "../../../services/filesystem";
+import { importJournalImage } from "../../../services/journal-media";
+import { collectEntryImageRefs, replaceInlineImageRef } from "../domain/entry-images";
 import { useContextMenu, type ContextMenuEntry } from "../../../app/components/context-menu";
 import { JournalEmptyState } from "./JournalEmptyState";
 import { JournalLightbox } from "./JournalLightbox";
@@ -25,6 +27,7 @@ interface JournalGalleryViewProps {
   onDuplicateEntry?: (entry: EntryRecord) => void;
   onDeleteEntry?: (entry: EntryRecord) => void;
   onOpenInEditor?: (path: string) => void;
+  journalMedia: JournalMediaSettings;
 }
 
 interface GalleryItem {
@@ -32,7 +35,7 @@ interface GalleryItem {
   entry: EntryRecord;
   src: string;
   ref: string;
-  kind: "cover" | "inline";
+  kind: "cover" | "header" | "inline";
   occurrenceIndex: number;
 }
 
@@ -46,15 +49,6 @@ function basename(path: string) {
 
 function stem(path: string) {
   return basename(path).replace(/\.[^.]+$/, "") || "image";
-}
-
-function replaceInlineImageRef(body: string, occurrenceIndex: number, nextRef: string) {
-  const re = /!\[.*?\]\((.+?)\)/g;
-  let index = 0;
-  return body.replace(re, (match, ref) => {
-    if (index++ !== occurrenceIndex) return match;
-    return match.replace(ref, nextRef);
-  });
 }
 
 function dataUrlToImage(dataUrl: string): Promise<HTMLImageElement> {
@@ -127,7 +121,7 @@ function GalleryThumb({
       {activeEntry && (
         <div className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
           style={{ backgroundColor: selected ? tConfig.accentHex : tConfig.bgHex + "D8", color: selected ? "#fff" : tConfig.accentHex }}>
-          {selected ? <Check size={11} className="inline" /> : null} {item.kind === "cover" ? "cover" : "post"}
+          {selected ? <Check size={11} className="inline" /> : null} {item.kind === "cover" ? "cover" : item.kind === "header" ? "header" : "post"}
         </div>
       )}
       <button type="button" onClick={onSelect} className="min-w-0 w-full px-2 pb-2 text-left hover:opacity-75">
@@ -139,7 +133,7 @@ function GalleryThumb({
 }
 
 export function JournalGalleryView({
-  t, tConfig, journal, entries, selectedEntryId, onSelectEntry, onEntryUpdated, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor,
+  t, tConfig, journal, entries, selectedEntryId, onSelectEntry, onEntryUpdated, onToggleFavorite, onDuplicateEntry, onDeleteEntry, onOpenInEditor, journalMedia,
 }: JournalGalleryViewProps) {
   const { openContextMenu } = useContextMenu();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -153,18 +147,14 @@ export function JournalGalleryView({
   const items = useMemo(() => {
     const result: GalleryItem[] = [];
     for (const entry of entries) {
-      let occurrenceIndex = 0;
-      if (entry.metadata.cover) {
-        const src = resolveEntryAssetPath(entry.path, entry.metadata.cover);
-        if (src) result.push({ id: `${entry.metadata.id}:cover`, entry, src, ref: entry.metadata.cover, kind: "cover", occurrenceIndex: -1 });
-      }
-      const re = /!\[.*?\]\((.+?)\)/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(entry.body)) !== null) {
-        const src = resolveEntryAssetPath(entry.path, m[1]);
-        if (src) result.push({ id: `${entry.metadata.id}:inline:${occurrenceIndex}`, entry, src, ref: m[1], kind: "inline", occurrenceIndex });
-        occurrenceIndex++;
-      }
+      result.push(...collectEntryImageRefs(entry).map(({ id, src, ref, kind, occurrenceIndex }) => ({
+        id,
+        entry,
+        src,
+        ref,
+        kind,
+        occurrenceIndex,
+      })));
     }
     return result.sort((a, b) => {
       if (sortBy === "title") return (a.entry.metadata.title || "").localeCompare(b.entry.metadata.title || "");
@@ -223,13 +213,21 @@ export function JournalGalleryView({
     });
     const path = Array.isArray(selected) ? selected[0] : selected;
     if (!path) return;
-    const relative = await copyImageToDocumentDir(path, item.entry.path);
-    const metadata = item.kind === "cover" ? { ...item.entry.metadata, cover: relative } : item.entry.metadata;
+    const relative = await importJournalImage(path, item.entry.path, journalMedia);
+    const metadata = item.kind === "cover"
+      ? { ...item.entry.metadata, cover: relative }
+      : item.kind === "header"
+        ? {
+            ...item.entry.metadata,
+            images: (item.entry.metadata.images ?? []).map((image, index) =>
+              index === item.occurrenceIndex ? { ...image, path: relative } : image),
+          }
+        : item.entry.metadata;
     const body = item.kind === "inline" ? replaceInlineImageRef(item.entry.body, item.occurrenceIndex, relative) : item.entry.body;
     await saveEntry(item.entry.path, metadata, body, true);
     const updated = { ...item.entry, metadata, body, wordCount: body.trim() ? body.trim().split(/\s+/).length : 0 };
     onEntryUpdated?.(updated);
-    setSelectedImageId(item.kind === "cover" ? `${updated.metadata.id}:cover` : `${updated.metadata.id}:inline:${item.occurrenceIndex}`);
+    setSelectedImageId(item.kind === "cover" ? `${updated.metadata.id}:cover` : item.kind === "header" ? `${updated.metadata.id}:header:${updated.metadata.images?.[item.occurrenceIndex]?.id ?? item.occurrenceIndex}` : `${updated.metadata.id}:inline:${item.occurrenceIndex}`);
   };
 
   const consolidateVisible = async () => {
@@ -257,7 +255,15 @@ export function JournalGalleryView({
           replacements.set(cacheKey, nextRef);
         }
         const current = updatedEntries.get(item.entry.metadata.id) ?? item.entry;
-        const metadata = item.kind === "cover" ? { ...current.metadata, cover: nextRef } : current.metadata;
+        const metadata = item.kind === "cover"
+          ? { ...current.metadata, cover: nextRef }
+          : item.kind === "header"
+            ? {
+                ...current.metadata,
+                images: (current.metadata.images ?? []).map((image, headerIndex) =>
+                  headerIndex === item.occurrenceIndex ? { ...image, path: nextRef } : image),
+              }
+            : current.metadata;
         const body = item.kind === "inline" ? replaceInlineImageRef(current.body, item.occurrenceIndex, nextRef) : current.body;
         const updated = { ...current, metadata, body, wordCount: body.trim() ? body.trim().split(/\s+/).length : 0 };
         updatedEntries.set(item.entry.metadata.id, updated);

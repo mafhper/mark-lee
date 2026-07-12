@@ -13,7 +13,15 @@ export interface TrackerDefinition {
 export type PinPeriod = "day" | "week" | "month" | "all";
 export type PinAggregation = "sum" | "avg" | "min" | "max" | "latest" | "count";
 export type PinDisplayFormat = "value" | "bar" | "sparkline";
-export type PinMetricId = "streak" | "words" | "entries";
+export const PIN_METRIC_IDS = [
+  "streak",
+  "words",
+  "entries",
+  "tasks_created",
+  "tasks_in_progress",
+  "tasks_completed",
+] as const;
+export type PinMetricId = (typeof PIN_METRIC_IDS)[number];
 
 export interface PinConfig {
   id: string;
@@ -46,6 +54,27 @@ export interface BlogViewConfig {
   showLogo: boolean;
 }
 
+export type EntryFieldType = "url" | "text" | "date" | "number";
+
+export interface EntryFieldDefinition {
+  id: string;
+  label: string;
+  type: EntryFieldType;
+  visibleInHeader: boolean;
+  visibleInPublication: boolean;
+  order: number;
+}
+
+export interface EntryFieldDefinitionsConfig {
+  version: 1;
+  items: EntryFieldDefinition[];
+}
+
+export interface TemplatePreferences {
+  version: 1;
+  hiddenBuiltInIds: string[];
+}
+
 export interface JournalManifest {
   schema: "marklee-journal";
   schemaVersion: number;
@@ -66,6 +95,8 @@ export interface JournalManifest {
   pinnedMetrics?: string[];
   pinsConfig?: PinsConfig;
   blogView?: BlogViewConfig;
+  entryFieldDefinitions?: EntryFieldDefinitionsConfig;
+  templatePreferences?: TemplatePreferences;
 }
 
 export interface JournalDescriptor {
