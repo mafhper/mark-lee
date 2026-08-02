@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ExportMockup,
@@ -32,7 +32,7 @@ const Galeria = ({ locale }: GaleriaProps) => {
   const copy = getCopy(locale).pages.gallery;
   const [activeTheme, setActiveTheme] = useState(0);
 
-  const previewMockupByVisual: Record<GalleryPreviewVisual, JSX.Element> = {
+  const previewMockupByVisual: Record<GalleryPreviewVisual, ReactNode> = {
     preview: <PreviewPresetMockup locale={locale} />,
     focus: <FocusModeMockup locale={locale} />,
     workspace: <WorkspaceContextMockup locale={locale} />,

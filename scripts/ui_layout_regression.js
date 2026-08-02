@@ -89,10 +89,68 @@ async function assertSelectionBackgroundsInsideEditor(page, label) {
   }
 }
 
+async function assertWindowControlHitAreas(page, label) {
+  const result = await page.evaluate((controlLabel) => {
+    const controls = Array.from(document.querySelectorAll('[data-window-control]'));
+    if (controls.length !== 3) {
+      return { ok: false, label: controlLabel, reason: `expected 3 controls, found ${controls.length}` };
+    }
+
+    const boxes = controls.map((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const inset = 4;
+      const cornerPoints = [
+        [rect.left + inset, rect.top + inset],
+        [rect.right - inset, rect.top + inset],
+        [rect.left + inset, rect.bottom - inset],
+        [rect.right - inset, rect.bottom - inset],
+      ];
+      const cornersHit = cornerPoints.every(([x, y]) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit === element || element.contains(hit);
+      });
+
+      return {
+        name: element.getAttribute('data-window-control'),
+        width: rect.width,
+        height: rect.height,
+        appRegion: style.webkitAppRegion,
+        cornersHit,
+      };
+    });
+
+    const first = boxes[0];
+    const uniform = boxes.every((box) => box.width === first.width && box.height === first.height);
+    const minSize = boxes.every((box) => box.width >= 48 && box.height >= 32);
+    const noDrag = boxes.every((box) => box.appRegion === 'no-drag');
+    const corners = boxes.every((box) => box.cornersHit);
+
+    return {
+      ok: uniform && minSize && noDrag && corners,
+      label: controlLabel,
+      boxes: boxes.map((box) => ({
+        ...box,
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      })),
+      uniform,
+      minSize,
+      noDrag,
+      corners,
+    };
+  }, label);
+
+  if (!result.ok) {
+    throw new Error(`Window control hit-area regression failed for ${label}: ${JSON.stringify(result, null, 2)}`);
+  }
+}
+
 async function runEditorSelectionRegression(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('http://127.0.0.1:5173');
   await page.waitForSelector('.cm-editor');
+  await assertWindowControlHitAreas(page, 'editor');
 
   const editor = page.locator('.cm-content').first();
   await editor.click();

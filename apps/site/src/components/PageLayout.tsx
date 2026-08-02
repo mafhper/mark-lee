@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { getPageMeta, Locale, pageFromPathname } from "@/i18n";

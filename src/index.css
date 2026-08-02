@@ -91,6 +91,17 @@
   outline-offset: 1px;
 }
 
+.ml-window-control {
+  -webkit-app-region: no-drag;
+  min-width: 48px;
+  min-height: 32px;
+}
+
+.ml-window-control:focus-visible {
+  outline: 2px solid var(--ml-accent, #60a5fa);
+  outline-offset: -2px;
+}
+
 .ml-btn-active {
   border-color: transparent !important;
   color: var(--ml-fg, #111827) !important;

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import logo from "@/assets/logo-light.svg";
 import {
   DEFAULT_LOCALE,
