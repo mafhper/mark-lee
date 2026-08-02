@@ -25,7 +25,10 @@ async function updateTauriConfig(newVersion) {
     const config = JSON.parse(content);
     config.version = newVersion;
     config.productName = "Mark-Lee";
-    await fs.writeFile(tauriConfigPath, JSON.stringify(config, null, 2));
+    if (Array.isArray(config.app?.windows) && config.app.windows[0]) {
+      config.app.windows[0].title = `Mark-Lee v${newVersion}`;
+    }
+    await fs.writeFile(tauriConfigPath, `${JSON.stringify(config, null, 2)}\n`);
     console.log(`${COLORS.green}✔ Updated tauri.conf.json to version ${newVersion}${COLORS.reset}`);
   } catch (err) {
     console.error(`${COLORS.red}✘ Failed to update tauri.conf.json${COLORS.reset}`, err);

@@ -1,5 +1,5 @@
 import { Folder, ArrowDownToLine, FileText, Image as ImageIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import GithubIcon from "@/components/GithubIcon";
 import PageLayout from "@/components/PageLayout";
 import ProductCarousel from "@/components/ProductCarousel";

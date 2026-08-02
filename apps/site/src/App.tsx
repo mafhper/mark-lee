@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useNavigate } from "react-router";
 import ScrollToTop from "@/components/ScrollToTop";
 import {
   DEFAULT_LOCALE,

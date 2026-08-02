@@ -2617,7 +2617,7 @@ function App() {
               labelBlog={t["journal.mode"] || "Memórias"}
             />
           </div>
-          <div className={`${hasWindowControls ? "w-[132px]" : "w-0"} shrink-0 pointer-events-none`} />
+          <div className={`${hasWindowControls ? "w-[144px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
       )}
       {!isZenMode && settings.floatingToolbarAnchor !== "bottom" && topChromeBlock}

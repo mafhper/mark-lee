@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { CtaCopy, Locale, REPO_URL, pathFor } from "@/i18n";
 
 interface SectionLabelProps {
