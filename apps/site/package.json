@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
-    "@fontsource/source-serif-4": "5.2.9",
+    "@fontsource/source-serif-4": "5.3.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "baseline-browser-mapping": "^2.10.0",
     "caniuse-lite": "^1.0.30001776",
