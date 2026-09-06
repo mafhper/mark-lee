@@ -15,6 +15,7 @@
     "dialog:default",
     "process:default",
     "cli:default",
+    "window-state:default",
     "fs:default",
     "fs:allow-write-file",
     {
