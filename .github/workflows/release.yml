@@ -135,6 +135,8 @@ jobs:
             } >> "$body_file"
           fi
 
+          echo "wrote release body file ($(wc -c < "$body_file") bytes)"
+
       - id: create-release
         name: Resolve or create the release
         shell: bash
@@ -148,17 +150,30 @@ jobs:
           else
             version="$(node -p "require('./package.json').version")"
           fi
+          body_file="$RUNNER_TEMP/release-body.md"
           for i in $(seq 1 24); do
             if id="$(gh release view "$ref" --json id --jq '.id' 2>/dev/null)"; then
-              echo "release_id=$id" >> "$GITHUB_OUTPUT"
-              echo "resolved existing release $ref"
-              exit 0
+              break
             fi
-            gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$RUNNER_TEMP/release-body.md" >/dev/null 2>&1 || true
+            if gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$body_file" >/dev/null 2>&1; then
+              echo "created release $ref"
+            else
+              echo "create attempt $i failed; retrying"
+            fi
             sleep 5
           done
-          echo "could not resolve or create release $ref" >&2
-          exit 1
+          if [ -z "${id:-}" ]; then
+            echo "could not resolve or create release $ref" >&2
+            exit 1
+          fi
+          echo "release_id=$id" >> "$GITHUB_OUTPUT"
+          echo "resolved release $ref"
+          body="$(gh release view "$ref" --json body --jq '.body')"
+          if [ -z "$body" ]; then
+            echo "release body is empty; applying generated body"
+            gh release edit "$ref" --notes-file "$body_file"
+          fi
+          echo "release body bytes: $(printf '%s' "$body" | wc -c)"
 
       - name: Build and Release
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
@@ -281,6 +296,8 @@ jobs:
             } >> "$body_file"
           fi
 
+          echo "wrote release body file ($(wc -c < "$body_file") bytes)"
+
       - id: create-release
         name: Resolve or create the release
         shell: bash
@@ -294,17 +311,30 @@ jobs:
           else
             version="$(node -p "require('./package.json').version")"
           fi
+          body_file="$RUNNER_TEMP/release-body.md"
           for i in $(seq 1 24); do
             if id="$(gh release view "$ref" --json id --jq '.id' 2>/dev/null)"; then
-              echo "release_id=$id" >> "$GITHUB_OUTPUT"
-              echo "resolved existing release $ref"
-              exit 0
+              break
             fi
-            gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$RUNNER_TEMP/release-body.md" >/dev/null 2>&1 || true
+            if gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$body_file" >/dev/null 2>&1; then
+              echo "created release $ref"
+            else
+              echo "create attempt $i failed; retrying"
+            fi
             sleep 5
           done
-          echo "could not resolve or create release $ref" >&2
-          exit 1
+          if [ -z "${id:-}" ]; then
+            echo "could not resolve or create release $ref" >&2
+            exit 1
+          fi
+          echo "release_id=$id" >> "$GITHUB_OUTPUT"
+          echo "resolved release $ref"
+          body="$(gh release view "$ref" --json body --jq '.body')"
+          if [ -z "$body" ]; then
+            echo "release body is empty; applying generated body"
+            gh release edit "$ref" --notes-file "$body_file"
+          fi
+          echo "release body bytes: $(printf '%s' "$body" | wc -c)"
 
       - name: Build and attach DMG (optional)
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
