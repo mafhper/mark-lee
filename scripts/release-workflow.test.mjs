@@ -44,6 +44,7 @@ test("publishes image-led release notes without emojis", () => {
   assert.ok(workflow.includes("id: release-body"));
   assert.ok(workflow.includes("id: create-release"));
   assert.ok(!workflow.includes("releaseBody:"));
+  assert.ok(workflow.includes("gh release edit"));
   assert.ok(workflow.includes(".github/release-notes/${minor_tag}.md"));
   assert.ok(workflow.includes("releases/generate-notes"));
   assert.ok(workflow.includes("## Destaques"));
