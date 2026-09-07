@@ -58,31 +58,118 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - id: release-body
+        name: Build release body from per-version notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ref="${{ github.ref_name }}"
+          if [[ "$ref" == v* ]]; then
+            version="${ref#v}"
+          else
+            version="$(node -p "require('./package.json').version")"
+          fi
+          minor="${version%.*}"
+          minor_tag="v${minor}"
+          notes_file=".github/release-notes/${minor_tag}.md"
+          body_file="$RUNNER_TEMP/release-body.md"
+          repo="${{ github.repository }}"
+          img=""
+          if [ -f "public/releases/release-feed-${minor}.png" ]; then
+            img="public/releases/release-feed-${minor}.png"
+          else
+            latest_img="$(ls public/releases/release-feed-*.png 2>/dev/null | sort -V | tail -n 1 || true)"
+            if [ -n "$latest_img" ]; then img="$latest_img"; fi
+          fi
+          if [ -z "$img" ]; then
+            img="apps/site/public/assets/product/og-mark-lee.png"
+          fi
+          {
+            printf '%s\n' '<p align="center">'
+            printf '%s\n' "  <img src=\"https://raw.githubusercontent.com/${repo}/${ref}/${img}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
+            printf '%s\n' '</p>'
+            printf '%s\n' ''
+            printf '%s\n' "Mark-Lee v${version} reúne um editor Markdown elegante e um espaço local-first de Memórias sobre os mesmos arquivos."
+            if [ -f "$notes_file" ]; then
+              printf '%s\n' ''
+              printf '%s\n' '## Destaques'
+              printf '%s\n' ''
+              cat "$notes_file"
+            fi
+            printf '%s\n' ''
+            printf '%s\n' '## Downloads'
+            printf '%s\n' ''
+            printf '%s\n' '| Plataforma | Download | Uso |'
+            printf '%s\n' '| --- | --- | --- |'
+            printf '%s\n' "| Windows x64 | [Instalador EXE](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_x64-setup.exe) | Instalação padrão |"
+            printf '%s\n' "| Windows x64 | [Pacote MSI](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_x64_en-US.msi) | Implantação gerenciada |"
+            printf '%s\n' "| macOS Apple Silicon | [DMG](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_aarch64.dmg) | Instalação gráfica |"
+            printf '%s\n' "| macOS Apple Silicon | [Bundle .app](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_aarch64.app.tar.gz) | Distribuição manual |"
+            printf '%s\n' "| Linux x64 | [AppImage](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_amd64.AppImage) | Aplicação portátil |"
+            printf '%s\n' "| Debian/Ubuntu x64 | [Pacote DEB](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_amd64.deb) | Pacote nativo |"
+            printf '%s\n' "| Fedora/RHEL x64 | [Pacote RPM](https://github.com/${repo}/releases/download/${ref}/Mark-Lee-${version}-1.x86_64.rpm) | Pacote nativo |"
+            printf '%s\n' ''
+            printf '%s\n' '<details>'
+            printf '%s\n' '<summary>Outros detalhes de instalação</summary>'
+            printf '%s\n' ''
+            printf '%s\n' '- O instalador EXE é a opção recomendada para a maioria das pessoas no Windows.'
+            printf '%s\n' '- O MSI serve para implantação gerenciada.'
+            printf '%s\n' '- No macOS, arraste o Mark-Lee para a pasta Aplicativos.'
+            printf '%s\n' ''
+            printf '%s\n' '</details>'
+            printf '%s\n' ''
+            printf '%s\n' '---'
+          } > "$body_file"
+          generated="$(gh api "repos/${repo}/releases/generate-notes" -f tag_name="$ref" -f target_commitish="main" --jq '.body' 2>/dev/null || true)"
+          if [ -n "$generated" ]; then
+            {
+              printf '%s\n' ''
+              printf '%s\n' '<details>'
+              printf '%s\n' '<summary>Lista de mudanças (gerada automaticamente)</summary>'
+              printf '%s\n' ''
+              printf '%s\n' "$generated"
+              printf '%s\n' ''
+              printf '%s\n' '</details>'
+            } >> "$body_file"
+          fi
+
+      - id: create-release
+        name: Resolve or create the release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ref="${{ github.ref_name }}"
+          if [[ "$ref" == v* ]]; then
+            version="${ref#v}"
+          else
+            version="$(node -p "require('./package.json').version")"
+          fi
+          for i in $(seq 1 24); do
+            if id="$(gh release view "$ref" --json id --jq '.id' 2>/dev/null)"; then
+              echo "release_id=$id" >> "$GITHUB_OUTPUT"
+              echo "resolved existing release $ref"
+              exit 0
+            fi
+            gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$RUNNER_TEMP/release-body.md" >/dev/null 2>&1 || true
+            sleep 5
+          done
+          echo "could not resolve or create release $ref" >&2
+          exit 1
+
       - name: Build and Release
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: ${{ matrix.tauriArgs }}
-          tagName: ${{ github.ref_name }}
+          tagName: v__VERSION__ # tauri-action will replace this
           releaseName: 'Mark-Lee v__VERSION__'
-          releaseBody: |
-            <p align="center">
-              <img src="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/apps/site/public/assets/product/og-mark-lee.png" alt="Mark-Lee Editor e Memórias" width="960">
-            </p>
-
-            Mark-Lee reúne um editor Markdown e um espaço local-first de Memórias sobre os mesmos arquivos.
-
-            ## Downloads
-
-            | Platform | Recommended file | Use |
-            | --- | --- | --- |
-            | Windows | `Mark-Lee_*_x64-setup.exe` | Standard installation |
-            | Windows | `Mark-Lee_*_x64_en-US.msi` | Managed deployment |
-            | macOS | `Mark-Lee_*_aarch64.dmg` | Apple Silicon |
-            | Linux | `Mark-Lee_*_amd64.AppImage` | Portable application |
-            | Debian/Ubuntu | `Mark-Lee_*_amd64.deb` | Native package |
-            | Fedora/RHEL | `Mark-Lee-*.x86_64.rpm` | Native package |
+          releaseId: ${{ steps.create-release.outputs.release_id }}
+          generateReleaseNotes: false
           releaseDraft: false
           prerelease: false
 
@@ -117,31 +204,118 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - id: release-body
+        name: Build release body from per-version notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ref="${{ github.ref_name }}"
+          if [[ "$ref" == v* ]]; then
+            version="${ref#v}"
+          else
+            version="$(node -p "require('./package.json').version")"
+          fi
+          minor="${version%.*}"
+          minor_tag="v${minor}"
+          notes_file=".github/release-notes/${minor_tag}.md"
+          body_file="$RUNNER_TEMP/release-body.md"
+          repo="${{ github.repository }}"
+          img=""
+          if [ -f "public/releases/release-feed-${minor}.png" ]; then
+            img="public/releases/release-feed-${minor}.png"
+          else
+            latest_img="$(ls public/releases/release-feed-*.png 2>/dev/null | sort -V | tail -n 1 || true)"
+            if [ -n "$latest_img" ]; then img="$latest_img"; fi
+          fi
+          if [ -z "$img" ]; then
+            img="apps/site/public/assets/product/og-mark-lee.png"
+          fi
+          {
+            printf '%s\n' '<p align="center">'
+            printf '%s\n' "  <img src=\"https://raw.githubusercontent.com/${repo}/${ref}/${img}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
+            printf '%s\n' '</p>'
+            printf '%s\n' ''
+            printf '%s\n' "Mark-Lee v${version} reúne um editor Markdown elegante e um espaço local-first de Memórias sobre os mesmos arquivos."
+            if [ -f "$notes_file" ]; then
+              printf '%s\n' ''
+              printf '%s\n' '## Destaques'
+              printf '%s\n' ''
+              cat "$notes_file"
+            fi
+            printf '%s\n' ''
+            printf '%s\n' '## Downloads'
+            printf '%s\n' ''
+            printf '%s\n' '| Plataforma | Download | Uso |'
+            printf '%s\n' '| --- | --- | --- |'
+            printf '%s\n' "| Windows x64 | [Instalador EXE](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_x64-setup.exe) | Instalação padrão |"
+            printf '%s\n' "| Windows x64 | [Pacote MSI](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_x64_en-US.msi) | Implantação gerenciada |"
+            printf '%s\n' "| macOS Apple Silicon | [DMG](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_aarch64.dmg) | Instalação gráfica |"
+            printf '%s\n' "| macOS Apple Silicon | [Bundle .app](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_aarch64.app.tar.gz) | Distribuição manual |"
+            printf '%s\n' "| Linux x64 | [AppImage](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_amd64.AppImage) | Aplicação portátil |"
+            printf '%s\n' "| Debian/Ubuntu x64 | [Pacote DEB](https://github.com/${repo}/releases/download/${ref}/Mark-Lee_${version}_amd64.deb) | Pacote nativo |"
+            printf '%s\n' "| Fedora/RHEL x64 | [Pacote RPM](https://github.com/${repo}/releases/download/${ref}/Mark-Lee-${version}-1.x86_64.rpm) | Pacote nativo |"
+            printf '%s\n' ''
+            printf '%s\n' '<details>'
+            printf '%s\n' '<summary>Outros detalhes de instalação</summary>'
+            printf '%s\n' ''
+            printf '%s\n' '- O instalador EXE é a opção recomendada para a maioria das pessoas no Windows.'
+            printf '%s\n' '- O MSI serve para implantação gerenciada.'
+            printf '%s\n' '- No macOS, arraste o Mark-Lee para a pasta Aplicativos.'
+            printf '%s\n' ''
+            printf '%s\n' '</details>'
+            printf '%s\n' ''
+            printf '%s\n' '---'
+          } > "$body_file"
+          generated="$(gh api "repos/${repo}/releases/generate-notes" -f tag_name="$ref" -f target_commitish="main" --jq '.body' 2>/dev/null || true)"
+          if [ -n "$generated" ]; then
+            {
+              printf '%s\n' ''
+              printf '%s\n' '<details>'
+              printf '%s\n' '<summary>Lista de mudanças (gerada automaticamente)</summary>'
+              printf '%s\n' ''
+              printf '%s\n' "$generated"
+              printf '%s\n' ''
+              printf '%s\n' '</details>'
+            } >> "$body_file"
+          fi
+
+      - id: create-release
+        name: Resolve or create the release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ref="${{ github.ref_name }}"
+          if [[ "$ref" == v* ]]; then
+            version="${ref#v}"
+          else
+            version="$(node -p "require('./package.json').version")"
+          fi
+          for i in $(seq 1 24); do
+            if id="$(gh release view "$ref" --json id --jq '.id' 2>/dev/null)"; then
+              echo "release_id=$id" >> "$GITHUB_OUTPUT"
+              echo "resolved existing release $ref"
+              exit 0
+            fi
+            gh release create "$ref" --target main --title "Mark-Lee v${version}" --notes-file "$RUNNER_TEMP/release-body.md" >/dev/null 2>&1 || true
+            sleep 5
+          done
+          echo "could not resolve or create release $ref" >&2
+          exit 1
+
       - name: Build and attach DMG (optional)
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --bundles dmg
-          tagName: ${{ github.ref_name }}
+          tagName: v__VERSION__ # tauri-action will replace this
           releaseName: 'Mark-Lee v__VERSION__'
-          releaseBody: |
-            <p align="center">
-              <img src="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/apps/site/public/assets/product/og-mark-lee.png" alt="Mark-Lee Editor e Memórias" width="960">
-            </p>
-
-            Mark-Lee reúne um editor Markdown e um espaço local-first de Memórias sobre os mesmos arquivos.
-
-            ## Downloads
-
-            | Platform | Recommended file | Use |
-            | --- | --- | --- |
-            | Windows | `Mark-Lee_*_x64-setup.exe` | Standard installation |
-            | Windows | `Mark-Lee_*_x64_en-US.msi` | Managed deployment |
-            | macOS | `Mark-Lee_*_aarch64.dmg` | Apple Silicon |
-            | Linux | `Mark-Lee_*_amd64.AppImage` | Portable application |
-            | Debian/Ubuntu | `Mark-Lee_*_amd64.deb` | Native package |
-            | Fedora/RHEL | `Mark-Lee-*.x86_64.rpm` | Native package |
+          releaseId: ${{ steps.create-release.outputs.release_id }}
+          generateReleaseNotes: false
           releaseDraft: false
           prerelease: false
 
