@@ -33,7 +33,7 @@ test("publishes image-led release notes without emojis", () => {
   const workflow = read(".github/workflows/release.yml");
   const releaseConfigPath = ".github/release.yml";
   const notesPath = `.github/release-notes/v${minor}.md`;
-  const imagePath = `public/releases/release-feed-${minor}.png`;
+  const imagePath = `public/releases/release-feed-${minor}.webp`;
 
   assert.ok(
     workflow.includes(

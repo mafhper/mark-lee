@@ -77,10 +77,10 @@ jobs:
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
           img=""
-          if [ -f "public/releases/release-feed-${minor}.png" ]; then
-            img="public/releases/release-feed-${minor}.png"
+          if [ -f "public/releases/release-feed-${minor}.webp" ]; then
+            img="public/releases/release-feed-${minor}.webp"
           else
-            latest_img="$(ls public/releases/release-feed-*.png 2>/dev/null | sort -V | tail -n 1 || true)"
+            latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
             if [ -n "$latest_img" ]; then img="$latest_img"; fi
           fi
           if [ -z "$img" ]; then
@@ -238,10 +238,10 @@ jobs:
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
           img=""
-          if [ -f "public/releases/release-feed-${minor}.png" ]; then
-            img="public/releases/release-feed-${minor}.png"
+          if [ -f "public/releases/release-feed-${minor}.webp" ]; then
+            img="public/releases/release-feed-${minor}.webp"
           else
-            latest_img="$(ls public/releases/release-feed-*.png 2>/dev/null | sort -V | tail -n 1 || true)"
+            latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
             if [ -n "$latest_img" ]; then img="$latest_img"; fi
           fi
           if [ -z "$img" ]; then
@@ -401,10 +401,10 @@ jobs:
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
           img=""
-          if [ -f "public/releases/release-feed-${minor}.png" ]; then
-            img="public/releases/release-feed-${minor}.png"
+          if [ -f "public/releases/release-feed-${minor}.webp" ]; then
+            img="public/releases/release-feed-${minor}.webp"
           else
-            latest_img="$(ls public/releases/release-feed-*.png 2>/dev/null | sort -V | tail -n 1 || true)"
+            latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
             if [ -n "$latest_img" ]; then img="$latest_img"; fi
           fi
           if [ -z "$img" ]; then
