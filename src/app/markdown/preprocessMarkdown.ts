@@ -91,7 +91,7 @@ function normalizeWikilinks(markdown: string) {
 }
 
 function normalizeCitations(markdown: string) {
-  return markdown.replace(/\[((?:-?@[\w:-]+(?:[,;][^\]]*)?)(?:;\s*-?@[\w:-]+(?:[,;][^\]]*)?)*)\]/g, (_match, body: string) => {
+  return markdown.replace(/\[(-?@[\w:-]+(?:[,;\s]+-?@[\w:-]+)*)\]/g, (_match, body: string) => {
     const label = body.replace(/@/g, "").replace(/\s+/g, " ").trim();
     return `<cite class="ml-preview-citation">${escapeHtmlAttribute(label)}</cite>`;
   });

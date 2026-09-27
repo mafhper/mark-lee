@@ -26,6 +26,6 @@ export function normalizeMarkdownImagePath(path: string): string {
 }
 
 export function buildMarkdownImageSyntax(path: string, alt = "Image"): string {
-  const safeAlt = alt.replace(/\]/g, "\\]");
+  const safeAlt = alt.replace(/\\/g, "\\\\").replace(/[\[\]]/g, "\\$&");
   return `![${safeAlt}](${normalizeMarkdownImagePath(path)})`;
 }
