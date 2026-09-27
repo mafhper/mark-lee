@@ -1,133 +1,202 @@
-# Mark-Lee
-
-<p align="center">
-  <img src="assets/logo.svg" alt="Mark-Lee Logo" width="120" />
-</p>
+<a href="https://mafhper.github.io/mark-lee/" >
+  <img alt="Mark-Lee" src="assets/bg-hero.webp" />
+</a>
 
 <p align="center">
   <a href="README.md">English</a> |
-  <a href="README.pt-BR.md">Portugues</a>
+  <a href="README.pt-BR.md">Português</a>
 </p>
 
-Mark-Lee es un editor Markdown de escritorio disenado para rendimiento y concentracion, uniendo tecnologias web modernas con capacidades nativas del sistema operativo a traves del framework Tauri. Ofrece un entorno de escritura sin distracciones con pestanas, navegacion por workspace, vista previa en split y gestion robusta de archivos.
+**Escribe lo que necesitas. Guarda lo que importa.**
 
-![App Screenshot](assets/screen.png)
+Mark-Lee es un editor Markdown de escritorio y un espacio de memorias construidos
+sobre **los mismos archivos locales**. Sin cuenta, sin formato cerrado, sin servidor
+obligatorio. Abre una carpeta, escribe con precision y vuelve a encontrar el mismo
+contenido por tiempo y lugar.
 
-## Caracteristicas
+![Mark-Lee](assets/bg-hero.webp)
 
-- **Modo Zen** - La interfaz desaparece cuando dejas de mover el raton
-- **Modo Enfoque** - Efecto de foco destacando solo el parrafo activo
-- **Workspace con Pestanas** - Trabaja con varios archivos Markdown usando el arbol lateral
-- **Vista Previa en Split** - Edita e inspecciona el documento renderizado lado a lado
-- **Desplazamiento Sincronizado** - Editor y vista previa se mueven juntos
-- **Exportacion PDF Profesional** - Diseno A4 con tipografia limpia para impresion
-- **9 Temas** - Claro, Oscuro, Medianoche, Sepia, Nord, Synthwave, Forest, Coffee, Terminal
-- **Herramientas de Productividad** - Guardado automatico, Tiempo de Lectura y Atajos Personalizables
-- **Ligero** - Instalador de ~3MB, bajo consumo de memoria
-- **Multiplataforma** - Windows, macOS y Linux
+![Editor de Mark-Lee](assets/screen.png)
 
-## Arquitectura Tecnica
+<p align="center">
+  <a href="https://mafhper.github.io/mark-lee/">Sitio</a> ·
+  <a href="#download">Descargar</a> ·
+  <a href="#desarrollo">Compilar desde el codigo</a>
+</p>
 
-La aplicacion esta construida sobre una arquitectura hibrida que aprovecha el ecosistema de desarrollo web manteniendo el rendimiento y acceso al sistema de una aplicacion nativa.
+---
 
-*   **Frontend Core**: Construido con **React 19** y **TypeScript**, garantizando seguridad de tipos y modularidad de componentes.
-*   **Build Tooling**: Usa **Vite 7** para HMR (Hot Module Replacement) rapido y bundling optimizado para produccion.
-*   **Motor de Estilos**: Implementa **TailwindCSS 3** para estilizacion utility-first, procesado via PostCSS.
-*   **Runtime de Escritorio**: Powered by **Tauri 2 (Rust)**. Esta capa maneja ventanas, IO de sistema de archivos y dialogos nativos, resultando en un binario significativamente mas pequeno y menor consumo de memoria comparado con alternativas basadas en Electron.
+## Un archivo, dos contextos
 
-## Estructura del Proyecto
+Los dos modos no son productos separados que se sincronizan entre si. Son dos maneras
+de mirar el mismo Markdown en tu disco — nada se convierte, se duplica ni queda
+atrapado en un formato propietario.
+
+| | **Editor** | **Memorias** |
+|---|---|---|
+| Para | Trabajar con precision | Redescubrir las cosas con contexto |
+| Abre | Una carpeta o archivo | Una carpeta local, leida como cuaderno |
+| Entrega | Espacio de trabajo, pestanas, busqueda, vista dividida | Entradas fechadas por tiempo, lugar, animo y etiquetas |
+| Termina en | Publicacion — PDF o Markdown | Una lectura calma, con el tema que elijas |
+
+---
+
+## Editor
+
+- **Espacio de trabajo** — abre una carpeta y navegala desde una barra lateral; pestanas,
+  busqueda y snippets mantienen el contexto a mano
+- **Dividido** — edita y lee el documento renderizado a la vez, con desplazamiento
+  sincronizado
+- **Modo Zen** — la interfaz desaparece dejas de mover el raton
+- **Paleta de comandos** — toda accion alcanzable con el teclado
+- **Exportacion a PDF** — disposicion A4 con tipografia limpia
+- **12 temas** — light, dark, midnight, sepia, nord, synthwave, neomatrix, forest,
+  coffee, golden, firenight, terminal
+- **Guardado automatico** — intervalo configurable, con los cambios sin guardar marcados
+  en cada pestana
+- **pt-BR · en-US · es-ES** — la interfaz viene en tres idiomas
+
+## Memorias
+
+Un modo local-first de diario sobre Markdown plano con front-matter YAML.
+
+- **Cuadernos y entradas** — una carpeta se convierte en un cuaderno; cada entrada fechada
+  es un archivo
+- **Cuatro vistas** — lista, calendario, galeria de fotos y un mapa de lugares
+- **Metadatos ricos** — imagen de portada, animo, etiquetas, ubicacion, favoritos y tus
+  propios marcadores numericos/booleanos/texto, resumidos por dia, semana o mes
+- **Vista de lectura** — disposicion de blog con navegacion anterior/siguiente, respetando
+  el tema
+- **Pomodoro** — temporizador flotante con un bloqueo opcional de descanso
+- **Resiliente** — escrituras atomicas, copias de seguridad, importacion tolerante a CRLF
+  y proteccion de la ruta de recursos
+- **Acciones rapidas** — clic derecho en cualquier entrada para abrir, marcar como
+  favorita, duplicar, editar o eliminar
+
+## Download
+
+Windows, macOS y Linux, desde la [pagina de releases](https://github.com/mafhper/mark-lee/releases).
+
+---
+
+## Con que esta hecho
+
+Una carcasa nativa con un nucleo web moderno — binario pequeno, poca memoria, acceso real
+a archivos.
+
+- **Tauri 2** (Rust) — ventana, sistema de archivos, dialogos nativos, observacion de
+  archivos
+- **React 19** + **TypeScript** — interfaz y estado
+- **Vite 8** — servidor de desarrollo y empaquetado de produccion
+- **Tailwind CSS 3** — estilos
+- **CodeMirror 6** — el editor
+- **Leaflet** — la vista de mapa en Memorias
+
+Tambien funciona en un navegador normal: las llamadas de archivo y de dialogo recurren
+a implementaciones web, asi que la interfaz se puede explorar con `npm run dev`.
+
+---
+
+## Desarrollo
+
+**Requisitos**
+
+- Node.js **22.22.0** (fijado en CI)
+- Rust (stable)
+- Windows: [MSVC Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+  con la carga "Desktop development with C++"
+
+```bash
+npm install
+npm run setup   # verifica e instala los requisitos del sistema
+```
+
+**Ejecutar**
+
+```bash
+npm run dev        # solo el navegador, Vite en :5173
+npm run tauri:dev  # la ventana de escritorio
+```
+
+**Comprobar**
+
+```bash
+npm run build            # tsc + vite build — esto es el typecheck
+npm run contrast:check   # contraste de los temas, tambien en CI
+npm run test:ui-layout   # regresion de disposicion (Playwright)
+```
+
+Las pruebas unitarias son archivos `*.test.ts` junto al codigo, ejecutados por el runner
+nativo de Node:
+
+```bash
+node --experimental-strip-types --test src/features/journal/domain/entry.test.ts
+```
+
+No hay script "ejecutar todo" — el CI lista cada suite de forma explicita.
+
+**Release**
+
+`npm run release -- patch|minor|major` sube la version en los tres archivos que la
+contienen (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`), actualiza
+el titulo de la ventana y anade la entrada al changelog.
+
+Despues: **branch → PR → merge → tag → push.** `main` esta protegido; solo una etiqueta
+`v*` dispara un release. El workflow es un simple llamador — el protocolo vive en
+[`release-core`](https://github.com/mafhper/release-core), y este repositorio solo guarda
+el contrato en `.github/release.config.json`.
+
+---
+
+## Estructura
 
 ```
 mark-lee/
-├── src/                    # Codigo fuente del frontend React
-│   ├── App.tsx            # Componente principal del editor
-│   ├── components/        # Elementos de UI reutilizables
-│   └── services/          # Operaciones del sistema de archivos
-├── src-tauri/             # Backend Rust
-│   ├── tauri.conf.json    # Configuracion de ventana nativa
-│   └── src/               # Archivos fuente Rust
-├── scripts/               # Scripts de automatizacion Node.js
-└── .github/workflows/     # Definiciones de CI/CD
+├── src/
+│   ├── App.tsx            # orquestador de editor + memorias
+│   ├── app/               # infra generica: paleta de comandos, markdown, hooks
+│   ├── features/          # modulos de funcion; journal/ se divide por papel
+│   ├── services/          # puentes de archivo y almacenamiento (Tauri + fallback web)
+│   └── translations.ts    # pt-BR (predeterminado) · en-US · es-ES
+├── src-tauri/             # Rust: archivos, carga de imagenes, observacion
+├── apps/site/             # sitio de presentacion (package.json propio, rutas por idioma)
+├── assets/                # logos y la captura del README
+└── .github/               # CI, release, pages, dependency guard
 ```
 
-## Comenzando
+`src/features/journal/` mantiene la logica de dominio en TypeScript puro — parsers,
+serializadores y tipos con sufijo de papel y libres de React, que es lo que los hace
+comprobables sin navegador.
 
-### Requisitos Previos
-
-Puedes verificar e instalar automaticamente la mayoria de los requisitos ejecutando nuestro script de setup:
-```bash
-npm run setup
-```
-
-**Requisitos Manuales:**
-*   Node.js (v18+)
-*   Rust (Version Estable mas reciente)
-*   **Usuarios de Windows**: [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) ("Desktop development with C++").
-
-### Desarrollo
-
-1.  **Instalacion**:
-    ```bash
-    npm install
-    npm run setup  # Verifica/instala requisitos del sistema
-    ```
-2.  **Desarrollo Local (Web)**:
-    ```bash
-    npm run dev
-    ```
-    Esto inicia el servidor de desarrollo Vite para la interfaz web.
-
-3.  **Desarrollo Local (Escritorio)**:
-    ```bash
-    npm run tauri:dev
-    ```
-    Esto lanza la aplicacion en la ventana nativa de Tauri.
-
-### Build y Release
-
-Para compilar la aplicacion para produccion localmente:
-
-```bash
-npm run tauri:build
-```
-
-El proceso de build compila los assets de React via Vite y los embebe en el binario de Rust. El ejecutable final se genera en `src-tauri/target/release/`.
-
-### Flujo de release automatizado
-
-El workflow `release.yml` se ejecuta en:
-- Push de tag `v*`
-- Publicacion de release en GitHub
-- Ejecucion manual (`workflow_dispatch`)
-
-Artefactos principales:
-- **Windows**: `.exe`, `.msi`
-- **macOS**: `.app`
-- **Linux**: `.deb`, `.AppImage`
-
-Nota: el `.dmg` de macOS corre en job opcional/no bloqueante. Si falla, la release principal sigue valida.
-
-## Archivos del Proyecto
-
-### Carpeta `assets/`
-| Archivo | Uso |
-|---------|-----|
-| `logo.svg` | Logo principal (README y materiales de difusion) |
-| `logo-icon.svg` | Fuente del icono para generar formatos Tauri |
-| `logo-bg_blk.svg` | Logo para temas claros (toolbar) |
-| `logo-bg_gray.svg` | Logo para temas oscuros (toolbar) |
-| `screen.png` | Captura de pantalla para documentacion |
+---
 
 ## Licencia
 
-Este proyecto es open source y esta disponible bajo la Licencia MIT.
+MIT — consulta [LICENSE](LICENSE).
 
 ---
 
 <p align="center">
 
 ```
-                          Escribe. Enfocate. Crea.
+__/\\\\____________/\\\\____________________________________________
+ _\/\\\\\\________/\\\\\\_______________________________/\\\_________
+   _\/\\\//\\\____/\\\//\\\______________________________\/\\\_________
+    _\/\\\\///\\\/\\\/_\/\\\__/\\\\\\\\\_____/\\/\\\\\\\__\/\\\\\\\\____
+     _\/\\\__\///\\\/___\/\\\_\////////\\\___\/\\\/////\\\_\/\\\////\\\__
+      _\/\\\____\///_____\/\\\___/\\\\\\\\\\__\/\\\___\///__\/\\\\\\\\/___
+       _\/\\\_____________\/\\\__/\\\/////\\\__\/\\\_________\/\\\///\\\___
+        _\/\\\_____________\/\\\_\//\\\\\\\\/\\_\/\\\_________\/\\\_\///\\\_
+         _\///______________\///___\////////\//__\///__________\///____\///__
+__/\\\___________________________________________
+ _\/\\\___________________________________________
+  _\/\\\___________________________________________
+   _\/\\\_________________/\\\\\\\\______/\\\\\\\\__
+    _\/\\\_______________/\\\/////\\\___/\\\/////\\\_
+     _\/\\\______________/\\\\\\\\\\\___/\\\\\\\\\\\__
+      _\/\\\_____________\//\\///////___\//\\///////___
+       _\/\\\\\\\\\\\\\\\__\//\\\\\\\\\\__\//\\\\\\\\\\_
+        _\///////////////____\//////////____\//////////__
 ```
 
 </p>
