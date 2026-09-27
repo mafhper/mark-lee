@@ -4,6 +4,7 @@
   "version": "1.6.2",
   "description": "An elegant, high-performance Markdown editor built with React, Tauri, and Rust.",
   "author": "mafhper",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/mafhper/mark-lee.git"

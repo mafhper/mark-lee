@@ -1,293 +1,168 @@
-# Mark-Lee
+<a href="https://mafhper.github.io/mark-lee/" >
+  <img alt="Mark-Lee" src="assets/bg-hero.webp" />
+</a>
 
 <p align="center">
-  <img src="assets/logo.svg" alt="Mark-Lee Logo" width="120" />
+  <a href="README.pt-BR.md">Português</a> |
+  <a href="README.es.md">Español</a>
 </p>
+
+**Write what you need. Keep what matters.**
+
+Mark-Lee is a desktop Markdown editor and a journaling space built over **the same
+local files**. No account, no closed format, no mandatory server. Open a folder, write
+with precision, and find the same content again by time and place.
+
+![Mark-Lee](assets/bg-hero.webp)
+
+![Mark-Lee editor](assets/screen.png)
 
 <p align="center">
-  <a href="README.pt-BR.md">Portugues</a> |
-  <a href="README.es.md">Espanol</a>
+  <a href="https://mafhper.github.io/mark-lee/">Website</a> ·
+  <a href="#download">Download</a> ·
+  <a href="#development">Build from source</a>
 </p>
 
-Mark-Lee is a desktop Markdown editor engineered for performance and focus, bridging modern web technologies with native operating system capabilities through the Tauri framework. It provides a distraction-free writing environment with tabs, workspace navigation, split preview, and robust file management — plus **Memórias**, a local-first journaling mode for keeping notebooks of dated entries.
+---
 
-![App Screenshot](assets/screen.png)
+## One file, two contexts
 
-## Features
+The two modes are not separate products that sync between themselves. They are two
+ways of looking at the same Markdown on your disk — nothing is converted, duplicated,
+or locked into a proprietary format.
 
-### Editor
+| | **Editor** | **Memórias** |
+|---|---|---|
+| For | Working with precision | Finding things again with context |
+| Opens | A folder or file | A local folder, read as a notebook |
+| Gives you | Workspace, tabs, search, side-by-side preview | Dated entries by time, place, mood, and tags |
+| Ends at | Publication — PDF or Markdown | A calm, theme-aware reading view |
 
-- **Zen Mode** - UI fades away when you stop moving the mouse
-- **Focus Mode** - Spotlight effect highlighting only the active paragraph
-- **Tabbed Workspace** - Work across multiple Markdown files with a file tree sidebar
-- **Split Preview** - Edit and inspect the rendered document side by side
-- **Synchronized Scrolling** - Editor and preview move together
-- **Professional PDF Export** - A4 layout with clean typography for printing
-- **9 Themes** - Light, Dark, Midnight, Sepia, Nord, Synthwave, Forest, Coffee, Terminal
-- **Productivity Tools** - Auto-save, Reading Time, and Custom Shortcuts
-- **Lightweight** - ~3MB installer, low memory footprint
-- **Cross-Platform** - Windows, macOS, and Linux
+---
 
-### Memórias — Journaling Mode
+## Editor
 
-- **Notebooks & Entries** - Keep multiple local notebooks (Cadernos) of dated entries (Registros), each stored as plain Markdown with YAML front-matter
-- **Multiple Views** - Browse entries by list, calendar, photo gallery, or an interactive map of places
-- **Rich Metadata** - Cover images, moods, tags, location, favorites, and custom numeric/boolean/text trackers ("Pins") summarized by day/week/month
-- **Blog-style Reading View** - A calm, theme-aware publication layout with prev/next paging between entries
-- **Pomodoro Focus Timer** - A floating timer with an optional read-only "break lock" to protect focus
-- **Local-first & Resilient** - Atomic writes with backups, CRLF-tolerant import, and a safe asset path guard keep your data portable and intact
-- **Quick Actions** - Right-click any entry for open / favorite / duplicate / open-in-editor / delete
+- **Workspace** — open a folder and navigate it from a sidebar; tabs, search, and
+  snippets keep the context in reach
+- **Side-by-side** — edit and read the rendered document at once, with synchronized scrolling
+- **Zen mode** — the interface fades out when you stop moving the mouse
+- **Command palette** — every action reachable by keyboard
+- **PDF export** — A4 layout with clean typography
+- **12 themes** — light, dark, midnight, sepia, nord, synthwave, neomatrix, forest,
+  coffee, golden, firenight, terminal
+- **Auto-save** — configurable interval, with unsaved changes marked per tab
+- **pt-BR · en-US · es-ES** — the interface ships in three languages
 
-## Technical Architecture
+## Memórias
 
-The application is built on a hybrid architecture that leverages the ecosystem of web development while maintaining the performance and system access of a native application.
+A local-first journaling mode over plain Markdown with YAML front-matter.
 
-*   **Frontend Core**: Built with **React 19** and **TypeScript**, ensuring type safety and component modularity.
-*   **Build Tooling**: Uses **Vite 7** for rapid development HMR (Hot Module Replacement) and optimized production bundling.
-*   **Styling Engine**: Implements **TailwindCSS 3** for utility-first styling, processed via PostCSS.
-*   **Desktop Runtime**: Powered by **Tauri 2 (Rust)**. This layer handles window management, file system IO, and native dialogs, resulting in a significantly smaller binary size and lower memory footprint compared to Electron-based alternatives.
+- **Notebooks and entries** — a folder becomes a notebook; each dated entry is a file
+- **Four views** — list, calendar, photo gallery, and a map of places
+- **Rich metadata** — cover image, mood, tags, location, favorites, and your own
+  numeric/boolean/text trackers, summarized by day, week, or month
+- **Reading view** — a blog-style layout with prev/next paging, respecting the theme
+- **Pomodoro** — a floating timer with an optional read-only break lock
+- **Resilient** — atomic writes, backups, CRLF-tolerant import, and an asset path guard
+- **Quick actions** — right-click any entry to open, favorite, duplicate, edit, or delete
 
-## Project Structure
+## Download
+
+Windows, macOS, and Linux, from the [releases page](https://github.com/mafhper/mark-lee/releases).
+
+---
+
+## Built on
+
+A native shell with a modern web core — small binary, low memory, real file access.
+
+- **Tauri 2** (Rust) — window, filesystem, native dialogs, file watching
+- **React 19** + **TypeScript** — UI and state
+- **Vite 8** — dev server and production bundling
+- **Tailwind CSS 3** — styling
+- **CodeMirror 6** — the editor
+- **Leaflet** — the map view in Memórias
+
+Runs in a plain browser too: filesystem and dialog calls fall back to web
+implementations, so the UI is fully explorable with `npm run dev`.
+
+---
+
+## Development
+
+**Requirements**
+
+- Node.js **22.22.0** (pinned in CI)
+- Rust (stable)
+- Windows: [MSVC Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+  with the "Desktop development with C++" workload
+
+```bash
+npm install
+npm run setup   # verifies and installs system requirements
+```
+
+**Run it**
+
+```bash
+npm run dev        # browser only, Vite on :5173
+npm run tauri:dev  # the desktop window
+```
+
+**Check it**
+
+```bash
+npm run build            # tsc + vite build — this is the typecheck
+npm run contrast:check   # theme contrast, also enforced in CI
+npm run test:ui-layout   # Playwright layout regression
+```
+
+Unit tests are colocated `*.test.ts` files run by Node's built-in runner:
+
+```bash
+node --experimental-strip-types --test src/features/journal/domain/entry.test.ts
+```
+
+There is no "run everything" script — CI lists each suite explicitly.
+
+**Release**
+
+`npm run release -- patch|minor|major` bumps the version in all three files that carry
+it (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`), updates the
+window title, and prepends the changelog.
+
+Then: **branch → PR → merge → tag → push.** `main` is protected; only a `v*` tag
+triggers a release. The workflow is a thin caller — the protocol lives in
+[`release-core`](https://github.com/mafhper/release-core), and this repository owns only
+the contract in `.github/release.config.json`.
+
+---
+
+## Layout
 
 ```
 mark-lee/
-├── src/                    # React frontend source code
-│   ├── App.tsx            # Core editor component
-│   ├── components/        # Reusable UI elements
-│   └── services/          # File system operations
-├── src-tauri/             # Rust backend
-│   ├── tauri.conf.json    # Native window configuration
-│   └── src/               # Rust source files
-├── scripts/               # Node.js automation scripts
-└── .github/workflows/     # CI/CD definitions
+├── src/
+│   ├── App.tsx            # orchestrator for editor + journal
+│   ├── app/               # generic infra: command palette, markdown, hooks
+│   ├── features/          # feature modules; journal/ is split by role
+│   ├── services/          # filesystem and storage bridges (Tauri + web fallback)
+│   └── translations.ts    # pt-BR (default) · en-US · es-ES
+├── src-tauri/             # Rust: filesystem, image loader, file watcher
+├── apps/site/             # promo site (own package.json, locale-prefixed routes)
+├── assets/                # logos and the README screenshot
+└── .github/               # CI, release, pages, dependency guard
 ```
 
-## Getting Started
-
-### Prerequisites
-
-You can automatically check and install most requirements by running our setup script:
-```bash
-npm run setup
-```
-
-**Manual Requirements:**
-*   Node.js (v18+)
-*   Rust (Latest Stable)
-*   **Windows Users**: [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) ("Desktop development with C++").
-
-### Development
-
-1.  **Installation**:
-    ```bash
-    npm install
-    npm run setup  # Verifies/installs system requirements
-    ```
-2.  **Local Development (Web)**:
-    ```bash
-    npm run dev
-    ```
-    This starts the Vite development server for the web interface.
-
-3.  **Local Development (Desktop)**:
-    ```bash
-    npm run tauri:dev
-    ```
-    This launches the application in the native Tauri window.
-
-
-### Build and Release
-
-#### Local Build
-To compile the application for production locally:
-
-```bash
-npm run tauri:build
-```
-
-The build process compiles React assets via Vite and embeds them into the Rust binary. The final executable is output to `src-tauri/target/release/`.
-
-#### Generating Icons
-
-To generate or update all application icons from SVG files:
-
-```bash
-npm run icons
-```
-
-This generates all required icon formats (`.ico`, `.icns`, PNG variants) from the source files in `assets/`.
-
-**Custom Icons:**
-
-You can provide your own SVG files as arguments:
-
-```bash
-# Using a custom icon
-npm run icons -- my-icon.svg
-
-# With theme logos (for light/dark mode in toolbar)
-npm run icons -- icon.svg light-logo.svg dark-logo.svg
-```
-
-**Default Source Files** (in `assets/`):
-| File | Purpose |
-|------|---------|
-| `logo-icon.svg` | Main app icon (should be square, simple design) |
-| `logo-bg_blk.svg` | Toolbar logo for light themes |
-| `logo-bg_gray.svg` | Toolbar logo for dark themes |
-
-**Generated Files** (in `src-tauri/icons/`):
-- `icon.ico` - Windows application icon
-- `icon.icns` - macOS application icon
-- `icon.png` - 512x512 base icon
-- `32x32.png`, `128x128.png`, etc. - Various sizes
-- `Square*.png` - Windows Store logos
-
----
-
-## Automated Versioning and Release
-
-The project uses GitHub Actions for complete build and release automation.
-
-### Release Guide
-
-#### 1. Prepare the version
-
-**Option A - Using the automatic script (recommended):**
-```bash
-npm run release -- patch   # 1.0.0 -> 1.0.1 (bug fixes)
-npm run release -- minor   # 1.0.0 -> 1.1.0 (new features)
-npm run release -- major   # 1.0.0 -> 2.0.0 (breaking changes)
-```
-
-**Option B - Manual update:**
-Edit the `version` field in these two files:
-- `package.json` (line 3)
-- `src-tauri/tauri.conf.json` (line 4)
-
-#### 2. Commit the changes
-
-<details>
-<summary><strong>Using Terminal (Git CLI)</strong></summary>
-
-```bash
-git add .
-git commit -m "chore: release v1.0.1"
-git push origin main
-```
-</details>
-
-<details>
-<summary><strong>Using GitHub Desktop</strong></summary>
-
-1. Open **GitHub Desktop**
-2. The changed files will appear in the left panel
-3. In the bottom-left, type a commit message: `chore: release v1.0.1`
-4. Click **Commit to main**
-5. Click **Push origin** (top bar)
-
-</details>
-
-#### 3. Create the Release Tag
-
-<details>
-<summary><strong>Using Terminal (Git CLI)</strong></summary>
-
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
-</details>
-
-<details>
-<summary><strong>Using GitHub Desktop + GitHub Website</strong></summary>
-
-GitHub Desktop doesn't support creating tags directly. Use one of these methods:
-
-**Method 1 - Via GitHub Website:**
-1. Go to your repository on GitHub.com
-2. Click **Releases** (right sidebar)
-3. Click **Draft a new release**
-4. In "Choose a tag", type `v1.0.1` and click **Create new tag**
-5. Fill the release title: `Mark-Lee v1.0.1`
-6. Click **Publish release**
-7. Note: This will trigger the build immediately (skip step 4)
-
-**Method 2 - Quick Terminal command:**
-Open any terminal in the project folder and run:
-```bash
-git tag v1.0.1 && git push origin v1.0.1
-```
-
-</details>
-
-#### 4. Wait for GitHub Actions
-
-After pushing the tag, GitHub Actions will automatically:
-- Build for **Windows** (.exe, .msi)
-- Build for **macOS** (.dmg, .app)
-- Build for **Linux** (.deb, .AppImage)
-- Create a **Draft Release** with all installers attached
-
-You can monitor the build progress at: `https://github.com/YOUR_USERNAME/mark-lee/actions`
-
-Build time: approximately 10-15 minutes for all platforms.
-
-#### 5. Publish the Release
-
-1. Go to **GitHub -> Releases** (`/releases` in your repo)
-2. Find the **Draft** release created by the workflow
-3. Click **Edit** (pencil icon)
-4. Add release notes describing what changed
-5. Click **Publish release**
-
-Done! Your release is now live and users can download the installers.
-
----
-
-### GitHub Actions Workflows
-
-| Workflow | Trigger | Action |
-|----------|---------|--------|
-| `release.yml` | Push tag `v*` | Build installers for all platforms |
-| `pages.yml` | Push to `main` | Deploy web version to GitHub Pages |
-
-### Required GitHub Configuration
-1. Go to **Settings -> Actions -> General**
-2. Under "Workflow permissions", select **Read and write permissions**
-3. Check **Allow GitHub Actions to create and approve pull requests**
-
----
-
-## Project Files
-
-### `assets/` folder
-| File | Purpose |
-|------|---------|
-| `logo.svg` | Main logo (README, download page) |
-| `logo-icon.svg` | Icon source for Tauri icons |
-| `logo-bg_blk.svg` | Logo for light themes (toolbar) |
-| `logo-bg_gray.svg` | Logo for dark themes (toolbar) |
-| `screen.png` | Current screenshot for documentation |
-
----
-
-## Performance Optimizations
-
-The application implements several optimizations:
-
-- **Lazy Loading**: ReactMarkdown is loaded only when needed
-- **150ms Debounce**: Preview doesn't update while typing fast
-- **Code Splitting**: Editor, Markdown, React, and parser bundles are split for faster loading
-- **Frameless Window**: Lower rendering overhead
-
-### When Minimized
-Tauri/WebView automatically reduces CPU usage when the window is not in focus.
+`src/features/journal/` keeps its domain logic in pure TypeScript — parsers,
+serializers, and types carry role suffixes and stay free of React, which is what makes
+them testable without a browser.
 
 ---
 
 ## License
-This project is open source and available under the MIT License.
+
+MIT — see [LICENSE](LICENSE).
 
 ---
 
@@ -296,13 +171,13 @@ This project is open source and available under the MIT License.
 ```
 __/\\\\____________/\\\\____________________________________________
  _\/\\\\\\________/\\\\\\_______________________________/\\\_________
-  _\/\\\//\\\____/\\\//\\\______________________________\/\\\_________
-   _\/\\\\///\\\/\\\/_\/\\\__/\\\\\\\\\_____/\\/\\\\\\\__\/\\\\\\\\____
-    _\/\\\__\///\\\/___\/\\\_\////////\\\___\/\\\/////\\\_\/\\\////\\\__
-     _\/\\\____\///_____\/\\\___/\\\\\\\\\\__\/\\\___\///__\/\\\\\\\\/___
-      _\/\\\_____________\/\\\__/\\\/////\\\__\/\\\_________\/\\\///\\\___
-       _\/\\\_____________\/\\\_\//\\\\\\\\/\\_\/\\\_________\/\\\_\///\\\_
-        _\///______________\///___\////////\//__\///__________\///____\///__
+   _\/\\\//\\\____/\\\//\\\______________________________\/\\\_________
+    _\/\\\\///\\\/\\\/_\/\\\__/\\\\\\\\\_____/\\/\\\\\\\__\/\\\\\\\\____
+     _\/\\\__\///\\\/___\/\\\_\////////\\\___\/\\\/////\\\_\/\\\////\\\__
+      _\/\\\____\///_____\/\\\___/\\\\\\\\\\__\/\\\___\///__\/\\\\\\\\/___
+       _\/\\\_____________\/\\\__/\\\/////\\\__\/\\\_________\/\\\///\\\___
+        _\/\\\_____________\/\\\_\//\\\\\\\\/\\_\/\\\_________\/\\\_\///\\\_
+         _\///______________\///___\////////\//__\///__________\///____\///__
 __/\\\___________________________________________
  _\/\\\___________________________________________
   _\/\\\___________________________________________
