@@ -53,7 +53,7 @@ test("publishes image-led release notes without emojis", () => {
   assert.ok(workflow.includes("## Destaques"));
   assert.ok(workflow.includes("## Downloads"));
   assert.ok(workflow.includes('<p align="center">'));
-  assert.ok(workflow.includes("public/releases/release-feed-${minor}.png"));
+  assert.ok(workflow.includes("public/releases/release-feed-${minor}.webp"));
   assert.ok(
     workflow.includes(
       "https://raw.githubusercontent.com/${repo}/${ref}/${img}",
