@@ -76,19 +76,34 @@ jobs:
           notes_file=".github/release-notes/${minor_tag}.md"
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
-          img=""
+          img_path=""
           if [ -f "public/releases/release-feed-${minor}.webp" ]; then
-            img="public/releases/release-feed-${minor}.webp"
+            img_path="public/releases/release-feed-${minor}.webp"
           else
             latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
-            if [ -n "$latest_img" ]; then img="$latest_img"; fi
+            if [ -n "$latest_img" ]; then img_path="$latest_img"; fi
           fi
-          if [ -z "$img" ]; then
-            img="apps/site/public/assets/product/og-mark-lee.png"
+          if [ -z "$img_path" ]; then
+            img_path="apps/site/public/assets/product/og-mark-lee.png"
           fi
+          # A tag e cortada antes da imagem ser commitada; nesse caso ${ref} da 404 e o
+          # corpo sai com imagem quebrada. Resolve por HTTP e falha alto em vez de
+          # degradar em silencio para a imagem de outra versao.
+          img_ref="${ref}"
+          img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image not available at ${img_ref}, trying main" >&2
+            img_ref="main"
+            img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          fi
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image does not resolve over HTTP: $img_url" >&2
+            exit 1
+          fi
+          echo "release image: $img_url"
           {
             printf '%s\n' '<p align="center">'
-            printf '%s\n' "  <img src=\"https://raw.githubusercontent.com/${repo}/${ref}/${img}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
+            printf '%s\n' "  <img src=\"${img_url}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
             printf '%s\n' '</p>'
             printf '%s\n' ''
             printf '%s\n' "Mark-Lee v${version} reúne um editor Markdown elegante e um espaço local-first de Memórias sobre os mesmos arquivos."
@@ -237,19 +252,34 @@ jobs:
           notes_file=".github/release-notes/${minor_tag}.md"
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
-          img=""
+          img_path=""
           if [ -f "public/releases/release-feed-${minor}.webp" ]; then
-            img="public/releases/release-feed-${minor}.webp"
+            img_path="public/releases/release-feed-${minor}.webp"
           else
             latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
-            if [ -n "$latest_img" ]; then img="$latest_img"; fi
+            if [ -n "$latest_img" ]; then img_path="$latest_img"; fi
           fi
-          if [ -z "$img" ]; then
-            img="apps/site/public/assets/product/og-mark-lee.png"
+          if [ -z "$img_path" ]; then
+            img_path="apps/site/public/assets/product/og-mark-lee.png"
           fi
+          # A tag e cortada antes da imagem ser commitada; nesse caso ${ref} da 404 e o
+          # corpo sai com imagem quebrada. Resolve por HTTP e falha alto em vez de
+          # degradar em silencio para a imagem de outra versao.
+          img_ref="${ref}"
+          img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image not available at ${img_ref}, trying main" >&2
+            img_ref="main"
+            img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          fi
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image does not resolve over HTTP: $img_url" >&2
+            exit 1
+          fi
+          echo "release image: $img_url"
           {
             printf '%s\n' '<p align="center">'
-            printf '%s\n' "  <img src=\"https://raw.githubusercontent.com/${repo}/${ref}/${img}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
+            printf '%s\n' "  <img src=\"${img_url}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
             printf '%s\n' '</p>'
             printf '%s\n' ''
             printf '%s\n' "Mark-Lee v${version} reúne um editor Markdown elegante e um espaço local-first de Memórias sobre os mesmos arquivos."
@@ -400,19 +430,34 @@ jobs:
           notes_file=".github/release-notes/${minor_tag}.md"
           body_file="$RUNNER_TEMP/release-body.md"
           repo="${{ github.repository }}"
-          img=""
+          img_path=""
           if [ -f "public/releases/release-feed-${minor}.webp" ]; then
-            img="public/releases/release-feed-${minor}.webp"
+            img_path="public/releases/release-feed-${minor}.webp"
           else
             latest_img="$(ls public/releases/release-feed-*.webp 2>/dev/null | sort -V | tail -n 1 || true)"
-            if [ -n "$latest_img" ]; then img="$latest_img"; fi
+            if [ -n "$latest_img" ]; then img_path="$latest_img"; fi
           fi
-          if [ -z "$img" ]; then
-            img="apps/site/public/assets/product/og-mark-lee.png"
+          if [ -z "$img_path" ]; then
+            img_path="apps/site/public/assets/product/og-mark-lee.png"
           fi
+          # A tag e cortada antes da imagem ser commitada; nesse caso ${ref} da 404 e o
+          # corpo sai com imagem quebrada. Resolve por HTTP e falha alto em vez de
+          # degradar em silencio para a imagem de outra versao.
+          img_ref="${ref}"
+          img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image not available at ${img_ref}, trying main" >&2
+            img_ref="main"
+            img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"
+          fi
+          if ! curl -sf -o /dev/null "$img_url"; then
+            echo "release image does not resolve over HTTP: $img_url" >&2
+            exit 1
+          fi
+          echo "release image: $img_url"
           {
             printf '%s\n' '<p align="center">'
-            printf '%s\n' "  <img src=\"https://raw.githubusercontent.com/${repo}/${ref}/${img}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
+            printf '%s\n' "  <img src=\"${img_url}\" alt=\"Mark-Lee Editor e Memórias\" width=\"960\">"
             printf '%s\n' '</p>'
             printf '%s\n' ''
             printf '%s\n' "Mark-Lee v${version} reúne um editor Markdown elegante e um espaço local-first de Memórias sobre os mesmos arquivos."

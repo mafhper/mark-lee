@@ -56,9 +56,13 @@ test("publishes image-led release notes without emojis", () => {
   assert.ok(workflow.includes("public/releases/release-feed-${minor}.webp"));
   assert.ok(
     workflow.includes(
-      "https://raw.githubusercontent.com/${repo}/${ref}/${img}",
+      'img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"',
     ),
   );
+  // The image must be proven reachable over HTTP, not assumed from the checkout.
+  assert.ok(workflow.includes("release image does not resolve over HTTP"));
+  assert.ok(workflow.includes('curl -sf -o /dev/null "$img_url"'));
+  assert.ok(workflow.includes('printf \'%s\\n\' "  <img src=\\"${img_url}\\"'));
   assert.ok(!workflow.includes("generateReleaseNotes: true"));
   assert.ok(!NO_EMOJI.test(workflow));
 
