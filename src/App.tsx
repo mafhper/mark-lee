@@ -409,7 +409,7 @@ function PreviewContextMenuWrapper({
             if (isTauriRuntime()) {
               import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(link.originalHref)).catch(() => undefined);
             } else {
-              window.location.href = link.originalHref;
+              if (/^mailto:/i.test(link.originalHref)) { window.location.href = link.originalHref; }
             }
           } else if (link.kind === "anchor") {
             const hash = link.originalHref.slice(1);
