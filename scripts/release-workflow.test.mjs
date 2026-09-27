@@ -5,6 +5,7 @@ import { parse } from "yaml";
 
 const read = (path) => readFileSync(path, "utf8");
 const NO_EMOJI = /\p{Extended_Pictographic}/u;
+const bannerScriptPath = "scripts/release-banner.sh";
 
 const pkg = JSON.parse(read("package.json"));
 const minor = pkg.version.split(".").slice(0, 2).join(".");
@@ -53,18 +54,38 @@ test("publishes image-led release notes without emojis", () => {
   assert.ok(workflow.includes("## Destaques"));
   assert.ok(workflow.includes("## Downloads"));
   assert.ok(workflow.includes('<p align="center">'));
-  assert.ok(workflow.includes("public/releases/release-feed-${minor}.webp"));
-  assert.ok(
-    workflow.includes(
-      'img_url="https://raw.githubusercontent.com/${repo}/${img_ref}/${img_path}"',
-    ),
-  );
-  // The image must be proven reachable over HTTP, not assumed from the checkout.
-  assert.ok(workflow.includes("release image does not resolve over HTTP"));
-  assert.ok(workflow.includes('curl -sf -o /dev/null "$img_url"'));
   assert.ok(workflow.includes('printf \'%s\\n\' "  <img src=\\"${img_url}\\"'));
   assert.ok(!workflow.includes("generateReleaseNotes: true"));
   assert.ok(!NO_EMOJI.test(workflow));
+
+  // Banner resolution lives in one script, not copy-pasted into the three
+  // release-body steps. These assertions are what stop the copies from drifting
+  // again: the workflow must delegate, and must not inline the logic.
+  assert.ok(existsSync(bannerScriptPath), `missing ${bannerScriptPath}`);
+  const banner = read(bannerScriptPath);
+  assert.ok(banner.includes("release-feed-${minor}.webp"));
+  assert.ok(banner.includes("release image does not resolve over HTTP"));
+  assert.ok(banner.includes('curl -sf -o /dev/null'));
+  assert.ok(banner.includes("exit 1"));
+
+  const delegations = workflow.match(/scripts\/release-banner\.sh/g) ?? [];
+  assert.equal(
+    delegations.length,
+    3,
+    `expected 3 banner delegations (release, release-macos-dmg, finalize-release), found ${delegations.length}`,
+  );
+  assert.ok(
+    !workflow.includes("img_path="),
+    "banner path resolution is inlined in the workflow again — keep it in scripts/release-banner.sh",
+  );
+  assert.ok(
+    !workflow.includes("img_ref="),
+    "banner ref fallback is inlined in the workflow again — keep it in scripts/release-banner.sh",
+  );
+  assert.ok(
+    !workflow.includes("release image does not resolve over HTTP"),
+    "the banner gate left the workflow — it belongs in scripts/release-banner.sh",
+  );
 
   assert.ok(existsSync(notesPath), `missing ${notesPath}`);
   assert.ok(!NO_EMOJI.test(read(notesPath)));
