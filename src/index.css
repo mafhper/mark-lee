@@ -401,6 +401,23 @@
   }
 }
 
+/* A strip de abas nao pode ter barra de rolagem: as setas + o fade sao a affordancia,
+   e o Explorer/Terminal tambem nao tem. A regra global de ::-webkit-scrollbar (linhas
+   acima) aplica-se a qualquer overflow-auto do app e, em scrollbar classica
+   (Edge/WebView2 no Windows), consumia 5-6px da altura da strip. Isso fazia a aba de
+   36px transbordar para cima e aparecia o botao claro da barra — o artefato branco.
+   O seletor aqui e mais especifico e usa display:none para vencer a regra global. */
+.ml-tabs-strip {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ml-tabs-strip::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .ml-scrollbar {
   scrollbar-width: thin;
   scrollbar-color:
