@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -5,100 +6,82 @@ import { parse } from "yaml";
 
 const read = (path) => readFileSync(path, "utf8");
 const NO_EMOJI = /\p{Extended_Pictographic}/u;
-const bannerScriptPath = "scripts/release-banner.sh";
 
-const pkg = JSON.parse(read("package.json"));
-const minor = pkg.version.split(".").slice(0, 2).join(".");
+const CONFIG_PATH = ".github/release.config.json";
+const config = existsSync(CONFIG_PATH) ? JSON.parse(read(CONFIG_PATH)) : null;
+const minor = JSON.parse(read("package.json")).version.split(".").slice(0, 2).join(".");
+const workflow = read(".github/workflows/release.yml");
 
-test("builds installers for Windows, Linux, and macOS release tags", () => {
-  const workflow = read(".github/workflows/release.yml");
-  const tauriConfig = JSON.parse(read("src-tauri/tauri.conf.json"));
+test("release runs through the release-core protocol", () => {
+  // The protocol is a reusable workflow. Pinned to an immutable version: @main is
+  // never a permanent dependency.
+  const uses = workflow.match(/uses:\s*mafhper\/release-core\/\.github\/workflows\/release\.yml@(\S+)/);
+  assert.ok(uses, "release.yml does not delegate to mafhper/release-core");
+  assert.match(uses[1], /^v\d+\.\d+\.\d+$/, `release-core must be pinned to a semver, got ${uses[1]}`);
 
-  assert.ok(workflow.includes("windows-latest"));
-  assert.ok(workflow.includes("ubuntu-latest"));
-  assert.ok(workflow.includes("macos-latest"));
-  assert.ok(workflow.includes("tauri-apps/tauri-action"));
-  assert.ok(workflow.includes("--bundles app"));
-  assert.ok(workflow.includes("--bundles dmg"));
-  assert.ok(workflow.includes("_x64-setup.exe"));
-  assert.ok(workflow.includes("_x64_en-US.msi"));
-  assert.ok(workflow.includes("_aarch64.dmg"));
-  assert.ok(workflow.includes(".app.tar.gz"));
-  assert.ok(workflow.includes("_amd64.AppImage"));
-  assert.ok(workflow.includes("_amd64.deb"));
-  assert.ok(workflow.includes("Mark-Lee-${version}-1.x86_64.rpm"));
-  assert.equal(tauriConfig.bundle.targets, "all");
+  // The bespoke pipeline must not creep back: it is what drifted from the protocol.
+  for (const marker of [
+    "id: release-body",
+    "id: create-release",
+    "finalize-release",
+    "tauri-apps/tauri-action",
+    "gh release create",
+  ]) {
+    assert.ok(
+      !workflow.includes(marker),
+      `release.yml re-introduces "${marker}" — the protocol owns this, the caller only describes the project`,
+    );
+  }
+
+  // CI and deploy stay in the consumer; only the release is delegated.
+  assert.ok(existsSync(".github/workflows/ci.yml"), "ci.yml must stay in the consumer");
 });
 
-test("publishes image-led release notes without emojis", () => {
-  const workflow = read(".github/workflows/release.yml");
-  const releaseConfigPath = ".github/release.yml";
-  const notesPath = `.github/release-notes/v${minor}.md`;
-  const imagePath = `public/releases/release-feed-${minor}.webp`;
+test("the contract describes the project", () => {
+  assert.ok(config, `missing ${CONFIG_PATH}`);
+  assert.ok(config.release?.title, "release.title is required");
+  assert.ok(!NO_EMOJI.test(read(CONFIG_PATH)));
 
-  assert.ok(
-    workflow.includes(
-      "releaseId: ${{ steps.create-release.outputs.release_id }}",
-    ),
-  );
-  assert.ok(workflow.includes("generateReleaseNotes: false"));
-  assert.ok(workflow.includes("id: release-body"));
-  assert.ok(workflow.includes("id: create-release"));
-  assert.ok(!workflow.includes("releaseBody:"));
-  assert.ok(workflow.includes("gh release edit"));
-  assert.ok(workflow.includes("finalize-release:"));
-  assert.ok(workflow.includes("Apply release body"));
-  assert.ok(workflow.includes("final release body bytes"));
-  assert.ok(workflow.includes(".github/release-notes/${minor_tag}.md"));
-  assert.ok(workflow.includes("releases/generate-notes"));
-  assert.ok(workflow.includes("## Destaques"));
-  assert.ok(workflow.includes("## Downloads"));
-  assert.ok(workflow.includes('<p align="center">'));
-  assert.ok(workflow.includes('printf \'%s\\n\' "  <img src=\\"${img_url}\\"'));
-  assert.ok(!workflow.includes("generateReleaseNotes: true"));
-  assert.ok(!NO_EMOJI.test(workflow));
+  // desktop + npm at the repo root
+  assert.equal(config.desktop?.enabled, true);
+  assert.equal(config.desktop?.project_path, ".");
+  assert.equal(config.build?.package_manager, "npm");
+  assert.ok(existsSync("package-lock.json"), "package_manager is npm but there is no lockfile");
 
-  // Banner resolution lives in one script, not copy-pasted into the three
-  // release-body steps. These assertions are what stop the copies from drifting
-  // again: the workflow must delegate, and must not inline the logic.
-  assert.ok(existsSync(bannerScriptPath), `missing ${bannerScriptPath}`);
-  const banner = read(bannerScriptPath);
-  assert.ok(banner.includes("release-feed-${minor}.webp"));
-  assert.ok(banner.includes("release image does not resolve over HTTP"));
-  assert.ok(banner.includes('curl -sf -o /dev/null'));
-  assert.ok(banner.includes("exit 1"));
+  // The tag gate is the invariant `npm run release` maintains: all three manifests
+  // stay in sync. versions.files has no default — what is not declared is not checked.
+  const declared = (config.versions?.files ?? []).map((f) => f.path);
+  for (const path of ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml"]) {
+    assert.ok(declared.includes(path), `versions.files must cover ${path}`);
+  }
+});
 
-  const delegations = workflow.match(/scripts\/release-banner\.sh/g) ?? [];
-  assert.equal(
-    delegations.length,
-    3,
-    `expected 3 banner delegations (release, release-macos-dmg, finalize-release), found ${delegations.length}`,
-  );
-  assert.ok(
-    !workflow.includes("img_path="),
-    "banner path resolution is inlined in the workflow again — keep it in scripts/release-banner.sh",
-  );
-  assert.ok(
-    !workflow.includes("img_ref="),
-    "banner ref fallback is inlined in the workflow again — keep it in scripts/release-banner.sh",
-  );
-  assert.ok(
-    !workflow.includes("release image does not resolve over HTTP"),
-    "the banner gate left the workflow — it belongs in scripts/release-banner.sh",
-  );
+test("the release artwork is versioned and matches the current line", () => {
+  const art = config.release.image;
+  const dir = art?.path ?? "docs/images/releases";
+  const ext = art?.ext ?? ".webp";
+  const line = `${dir}/${art?.prefix ?? "release"}-v${minor}${ext}`;
 
-  assert.ok(existsSync(notesPath), `missing ${notesPath}`);
-  assert.ok(!NO_EMOJI.test(read(notesPath)));
+  assert.ok(existsSync(line), `missing artwork for the v${minor} line: ${line}`);
 
-  assert.ok(existsSync(imagePath), `missing ${imagePath}`);
+  // Release Core reads the artwork from the checked-out tag, so an ignored file is
+  // an image gate failure waiting to happen. This is the check that would have
+  // caught /docs/ swallowing docs/images/releases/.
+  const tracked = execFileSync("git", ["ls-files", line], { encoding: "utf8" }).trim();
+  assert.ok(tracked, `${line} is not tracked by git — the image gate cannot see it`);
 
-  assert.ok(existsSync(releaseConfigPath), "missing .github/release.yml");
-  const releaseConfig = read(releaseConfigPath);
-  const releaseConfigYaml = parse(releaseConfig);
-  assert.deepEqual(
-    releaseConfigYaml.changelog.categories.map((c) => c.title),
-    ["Novidades e melhorias", "Correções", "Outras mudanças"],
-  );
-  assert.ok(releaseConfig.includes("- dependencies"));
-  assert.ok(!NO_EMOJI.test(releaseConfig));
+  // Regression probe: `git check-ignore` exits 0 when a path IS ignored, 1 when it is
+  // not. `--no-index` is required — without it git skips paths already tracked, so a
+  // freshly added ignore rule would go unnoticed and a fresh clone would lose the art.
+  const probe = spawnSync("git", ["check-ignore", "-q", "--no-index", line]);
+  assert.equal(probe.status, 1, `${line} is ignored by .gitignore — the image gate cannot see it`);
+});
+
+test("per-version notes follow the declared granularity", () => {
+  const granularity = config?.release?.notes?.granularity ?? "tag";
+  const expected =
+    granularity === "minor" ? `.github/release-notes/v${minor}.md` : null;
+  assert.ok(expected, `unexpected notes granularity: ${granularity}`);
+  assert.ok(existsSync(expected), `missing ${expected}`);
+  assert.ok(!NO_EMOJI.test(read(expected)), `${expected} contains emoji`);
 });

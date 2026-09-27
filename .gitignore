@@ -39,8 +39,17 @@ src-tauri/gen/
 .dev/
 _dev/
 /_development/
-/docs/
-!docs/plan/change.log
+/docs/*
+# Negations only work if git descends into docs/, so ignore its children rather
+# than the directory itself — `/docs/` would make every exception below a no-op.
+!/docs/plan/
+!/docs/plan/change.log
+!/docs/images/
+/docs/images/*
+# The release artwork is product, not development notes: Release Core reads it from
+# the checked-out tag, so it has to be versioned or the image gate fails.
+!/docs/images/releases/
+!/docs/images/releases/*.webp
 
 # Agent-private directories
 .codex/
