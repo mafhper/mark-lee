@@ -2,7 +2,6 @@ name: Release
 
 # The release protocol lives in release-core; this file only describes the project.
 # Project-specific logic belongs in .github/release.config.json, not here.
-# See .dev/projects/release-core.md for the adoption notes.
 
 on:
   push:
