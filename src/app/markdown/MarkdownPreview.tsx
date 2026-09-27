@@ -2,11 +2,15 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+import rehypeSlug from "rehype-slug";
+import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import remarkGfm from "remark-gfm";
 import MarkdownImage from "./MarkdownImage";
 import { frontmatterValueToText, parseMarkdownFrontmatter } from "./frontmatter";
 import { preprocessMarkdown } from "./preprocessMarkdown";
 import { markdownSanitizeSchema } from "./sanitizeSchema";
+import { ProseHeading, ProseCodeBlock } from "./prose-components";
+import "./prose-components.css";
 
 type MarkdownPreviewProps = {
   activePath?: string | null;
@@ -19,6 +23,8 @@ type MarkdownPreviewProps = {
   /** When set, clicking a hashtag in the body (`#tag`) invokes this — lets the
    *  reading view filter the entry list by a tag mentioned in the prose. */
   onTagClick?: (tag: string) => void;
+  /** When set, highlight matching text in the preview (selection sync). */
+  highlightedText?: string;
 };
 
 function isExternalHref(href?: string) {
@@ -121,6 +127,12 @@ function stripCalloutMarker(children: React.ReactNode) {
   });
 }
 
+function highlightText(text: string, highlight: string): string {
+  if (!highlight || !text) return text;
+  const escaped = highlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="ml-selection-highlight">$1</mark>');
+}
+
 export default function MarkdownPreview({
   activePath,
   content,
@@ -128,9 +140,13 @@ export default function MarkdownPreview({
   surfaceStyle,
   bare = false,
   onTagClick,
+  highlightedText,
 }: MarkdownPreviewProps) {
   const { meta, body } = React.useMemo(() => parseMarkdownFrontmatter(content), [content]);
-  const processedBody = React.useMemo(() => preprocessMarkdown(body), [body]);
+  const processedBody = React.useMemo(() => {
+    const processed = preprocessMarkdown(body);
+    return highlightedText ? highlightText(processed, highlightedText) : processed;
+  }, [body, highlightedText]);
   const hasMeta = Object.keys(meta).length > 0;
   const defaultPreviewStyle = React.useMemo(() => ({
     backgroundColor: shellBackground,
@@ -173,8 +189,35 @@ export default function MarkdownPreview({
         <article className={onTagClick ? "ml-preview-prose ml-preview-tags-clickable" : "ml-preview-prose"} onClick={handleTagClick}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
+            rehypePlugins={[
+              rehypeRaw,
+              [rehypeSanitize, markdownSanitizeSchema],
+              rehypeSlug,
+              [rehypeAutolinkHeadings, { behavior: "wrap" }],
+            ]}
             components={{
+              h1: ({ node: _node, ...props }) => <ProseHeading level={1} {...props} />,
+              h2: ({ node: _node, ...props }) => <ProseHeading level={2} {...props} />,
+              h3: ({ node: _node, ...props }) => <ProseHeading level={3} {...props} />,
+              h4: ({ node: _node, ...props }) => <ProseHeading level={4} {...props} />,
+              h5: ({ node: _node, ...props }) => <ProseHeading level={5} {...props} />,
+              h6: ({ node: _node, ...props }) => <ProseHeading level={6} {...props} />,
+              pre: ({ node: _node, children, ...props }) => {
+                const codeChild = React.Children.toArray(children).find(
+                  (child) => React.isValidElement(child) && child.type === "code"
+                );
+                if (codeChild && React.isValidElement(codeChild)) {
+                  const codeProps = codeChild.props as { className?: string; children?: React.ReactNode };
+                  const langMatch = codeProps.className?.match(/language-(\w+)/);
+                  const language = langMatch?.[1];
+                  return (
+                    <ProseCodeBlock language={language}>
+                      {codeProps.children}
+                    </ProseCodeBlock>
+                  );
+                }
+                return <pre {...props}>{children}</pre>;
+              },
               a: ({ node: _node, href, ...props }) => (
                 <a
                   {...props}
@@ -231,3 +274,4 @@ export default function MarkdownPreview({
     </div>
   );
 }
+

@@ -171,6 +171,7 @@ export interface AppSettings {
   themeLibrary: ThemeDefinition[];
   theme: ThemeId;
   viewMode: ViewMode; // Last used view mode (edit/split/preview)
+  splitRatio: number; // Editor width ratio in split mode (0.2–0.8)
   selectionToolbarEnabled: boolean;
   appMode: AppMode;
   measurementSystem: "metric" | "imperial";

@@ -119,7 +119,7 @@ export default function MarkdownImage({
     return null;
   });
 
-  const caption = title || (alt && alt !== originalSrc ? alt : "");
+  const caption = title || (alt && alt !== originalSrc && alt !== "Image" ? alt : "");
   const transparent = useMemo(() => mayHaveTransparency(originalSrc), [originalSrc]);
 
   useEffect(() => {

@@ -86,6 +86,7 @@ import { useSidebarResize } from "./app/hooks/useSidebarResize";
 import { useEditorSelectionToolbar } from "./app/hooks/useEditorSelectionToolbar";
 import SelectionToolbar from "./app/components/SelectionToolbar";
 import MarkdownPreview from "./app/markdown/MarkdownPreview";
+import "./app/markdown/split-view.css";
 import CodePreview from "./components/CodePreview";
 import { ContextMenuProvider, useContextMenuTrigger, type ContextMenuAnchor, type ContextMenuEntry } from "./app/components/context-menu";
 import { AppModeSwitcher } from "./app/components/AppModeSwitcher";
@@ -95,7 +96,7 @@ import { addJournal } from "./features/journal/domain/library-service";
 import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { DoorOpen, Link2, Unlink2, Lock } from "lucide-react";
+import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
@@ -547,8 +548,11 @@ function App() {
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
   const [previewCanScrollTop, setPreviewCanScrollTop] = useState(false);
   const [splitScrollSyncEnabled, setSplitScrollSyncEnabled] = useState(false);
+  const [syncSelectionEnabled, setSyncSelectionEnabled] = useState(false);
+  const [highlightedText, setHighlightedText] = useState("");
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [viewMode, setViewMode] = useState(settings.viewMode);
+  const [splitRatio, setSplitRatio] = useState(settings.splitRatio);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -557,6 +561,22 @@ function App() {
   const lastPreviewUserScrollAtRef = useRef(0);
   const activeTabIdRef = useRef(activeTabId);
   const tabScrollPositionsRef = useRef<Record<string, { editor: number; preview: number }>>({});
+
+  // Selection sync: track selected text from either view
+  const syncSelectionFromEditor = useCallback(() => {
+    if (!syncSelectionEnabled || !editorView) return;
+    const selection = editorView.state.sliceDoc(
+      editorView.state.selection.main.from,
+      editorView.state.selection.main.to
+    );
+    setHighlightedText(selection.length > 0 ? selection : "");
+  }, [syncSelectionEnabled, editorView]);
+
+  const syncSelectionFromPreview = useCallback(() => {
+    if (!syncSelectionEnabled) return;
+    const selection = window.getSelection()?.toString() ?? "";
+    setHighlightedText(selection.length > 0 ? selection : "");
+  }, [syncSelectionEnabled]);
 
   const markUserScrollIntent = useCallback((source: "editor" | "preview") => {
     const now = performance.now();
@@ -2692,8 +2712,11 @@ function App() {
             >
               <div
                 className={`${effectiveViewMode === "preview" ? "hidden" : "block"
-                  } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
-                style={{ display: effectiveViewMode === "preview" ? "none" : undefined }}
+                  } ${effectiveViewMode !== "split" ? "w-full" : ""} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} min-h-0 h-full`}
+                style={{
+                  display: effectiveViewMode === "preview" ? "none" : undefined,
+                  width: effectiveViewMode === "split" ? `${splitRatio * 100}%` : undefined,
+                }}
               >
                 <CodeMirror
                   value={activeContent}
@@ -2719,10 +2742,40 @@ function App() {
                       activeEditorRef.current = view;
                       setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
                     });
+                    view.dom.addEventListener("select", () => {
+                      syncSelectionFromEditor();
+                    });
                   }}
                 />
               </div>
             </EditorContextMenuWrapper>
+
+            {effectiveViewMode === "split" ? (
+              <div
+                className="ml-split-resize-handle"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize editor and preview"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const container = e.currentTarget.parentElement;
+                  if (!container) return;
+                  const rect = container.getBoundingClientRect();
+                  const onMove = (moveEvent: MouseEvent) => {
+                    const x = moveEvent.clientX - rect.left;
+                    const ratio = Math.min(0.8, Math.max(0.2, x / rect.width));
+                    setSplitRatio(ratio);
+                    updateSettings({ splitRatio: ratio });
+                  };
+                  const onUp = () => {
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+              />
+            ) : null}
 
             <PreviewContextMenuWrapper
               previewRef={previewRef}
@@ -2737,7 +2790,7 @@ function App() {
             <div
               ref={previewRef}
               className={`${effectiveViewMode === "edit" ? "hidden" : "block"
-                } ${effectiveViewMode === "split" ? "w-1/2" : "w-full"} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} ${previewControlsVisible ? "ml-preview-pane--active" : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
+                } ${effectiveViewMode !== "split" ? "w-full" : ""} ${effectiveViewMode !== "split" ? tConfig.uiBorder : ""} ${previewControlsVisible ? "ml-preview-pane--active" : ""} overflow-y-auto overflow-x-hidden min-h-0 h-full ml-preview-pane`}
               onMouseMove={revealPreviewControls}
               onScroll={(event) => {
                 rememberScrollPosition("preview");
@@ -2748,26 +2801,47 @@ function App() {
               style={{
                 backgroundColor: tConfig.bgHex,
                 display: effectiveViewMode === "edit" ? "none" : undefined,
+                width: effectiveViewMode === "split" ? `${(1 - splitRatio) * 100}%` : undefined,
               }}
+              onSelect={syncSelectionFromPreview}
             >
               {!isCodeDocument && effectiveViewMode === "split" ? (
-                <button
-                  aria-label={
-                    splitScrollSyncEnabled
-                      ? "Desativar rolagem sincronizada"
-                      : "Ativar rolagem sincronizada"
-                  }
-                  className={`ml-preview-sync-scroll ${splitScrollSyncEnabled ? "ml-preview-sync-scroll--active" : ""}`}
-                  onClick={toggleSplitScrollSync}
-                  title={
-                    splitScrollSyncEnabled
-                      ? "Desativar rolagem sincronizada"
-                      : "Ativar rolagem sincronizada"
-                  }
-                  type="button"
-                >
-                  {splitScrollSyncEnabled ? <Link2 size={16} /> : <Unlink2 size={16} />}
-                </button>
+                <>
+                  <button
+                    aria-label={
+                      splitScrollSyncEnabled
+                        ? "Desativar rolagem sincronizada"
+                        : "Ativar rolagem sincronizada"
+                    }
+                    className={`ml-preview-sync-scroll ${splitScrollSyncEnabled ? "ml-preview-sync-scroll--active" : ""}`}
+                    onClick={toggleSplitScrollSync}
+                    title={
+                      splitScrollSyncEnabled
+                        ? "Desativar rolagem sincronizada"
+                        : "Ativar rolagem sincronizada"
+                    }
+                    type="button"
+                  >
+                    {splitScrollSyncEnabled ? <Link2 size={16} /> : <Unlink2 size={16} />}
+                  </button>
+                  <button
+                    aria-label={
+                      syncSelectionEnabled
+                        ? "Desativar sincronização de seleção"
+                        : "Ativar sincronização de seleção"
+                    }
+                    className={`ml-preview-sync-selection ${syncSelectionEnabled ? "ml-preview-sync-selection--active" : ""}`}
+                    onClick={() => setSyncSelectionEnabled((v) => !v)}
+                    title={
+                      syncSelectionEnabled
+                        ? "Desativar sincronização de seleção"
+                        : "Ativar sincronização de seleção"
+                    }
+                    type="button"
+                  >
+                    <TextCursorInput size={16} />
+                  </button>
+                </>
               ) : null}
               {isCodeDocument ? (
                 <CodePreview content={activeContent} fileName={activeTab?.name ?? "Untitled.ts"} tConfig={tConfig} />
@@ -2777,6 +2851,7 @@ function App() {
                   content={activeContent}
                   shellBackground={tConfig.bgHex}
                   surfaceStyle={previewSurfaceStyle}
+                  highlightedText={syncSelectionEnabled ? highlightedText : undefined}
                 />
               )}
               {!isCodeDocument && effectiveViewMode !== "edit" ? (

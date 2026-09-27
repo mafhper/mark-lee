@@ -135,6 +135,10 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
     merged.viewMode = DEFAULT_SETTINGS.viewMode;
   }
 
+  if (typeof merged.splitRatio !== "number" || merged.splitRatio < 0.2 || merged.splitRatio > 0.8) {
+    merged.splitRatio = DEFAULT_SETTINGS.splitRatio;
+  }
+
   const validFontFamilies = [
     "theme_default",
     "mono",

@@ -1,0 +1,72 @@
+/* Prose components — anchor links */
+.ml-prose-anchor {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  color: var(--ml-preview-muted, currentColor);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+[data-prose-heading]:hover .ml-prose-anchor,
+.ml-prose-anchor:focus-visible {
+  opacity: 1;
+}
+
+/* Prose components — copy button */
+.ml-prose-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.ml-prose-copy-btn:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.ml-prose-copy-btn[data-copied] {
+  color: #22c55e;
+}
+
+/* Prose components — code block */
+[data-prose-code-block] {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ml-prose-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.ml-prose-code-header-no-lang {
+  justify-content: flex-end;
+}
+
+.ml-prose-code-lang {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.ml-prose-code-pre {
+  margin: 0;
+  padding: 1rem;
+  overflow-x: auto;
+}
