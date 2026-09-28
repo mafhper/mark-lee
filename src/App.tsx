@@ -396,7 +396,9 @@ function PreviewContextMenuWrapper({
       const originalHref = anchorEl.getAttribute("data-ml-original-href") || "";
       const resolvedHref = anchorEl.href;
       const text = anchorEl.textContent?.trim() || "";
-      const link = resolvePreviewLink(originalHref, resolvedHref);
+      // activePath dá a pasta do documento: sem ela, um link relativo não tem base
+      // e não há destino correto (documento Untitled, colado).
+      const link = resolvePreviewLink(originalHref, resolvedHref, activePath);
 
       items.push(
         { type: "item", id: "open-link", label: t["ctx.openLink"] || "Open link", disabled: link.kind === "unsupported", onSelect: () => {
@@ -422,12 +424,17 @@ function PreviewContextMenuWrapper({
             } catch {
               // ignore
             }
-          } else if (link.kind === "local-file") {
-            onOpenFile(link.originalHref);
+          } else if (link.kind === "local-file" && link.localPath) {
+            // Caminho já resolvido contra a pasta do documento. Passar o href cru
+            // fazia o processo resolver contra o CWD e o arquivo irmão não abria.
+            onOpenFile(link.localPath);
           }
         }},
         { type: "item", id: "copy-address", label: t["ctx.copyAddress"] || "Copy address", onSelect: async () => {
-          const result = await writeText(link.resolvedHref);
+          // Para link relativo, o endereço útil é o caminho resolvido, não a origem
+          // do app (que antes produzia http://127.0.0.1:5173/CHANGELOG.md).
+          const address = link.localPath ?? link.resolvedHref;
+          const result = await writeText(address);
           if (!result.ok) onClipboardError(result.reason);
         }},
         { type: "item", id: "copy-original-link", label: t["ctx.copyOriginalLink"] || "Copy original link", onSelect: async () => {

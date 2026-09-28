@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "../../services/runtime";
+import { decodeImagePath, isRemoteImagePath, resolveLocalImagePath } from "./imagePath";
 
 type CachedImage =
   | { status: "ready"; src: string; width: number; height: number }
@@ -18,35 +19,7 @@ type MarkdownImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 function isRemoteImage(src: string) {
-  return /^(https?:)?\/\//i.test(src) || src.startsWith("data:");
-}
-
-function decodeImagePath(src: string) {
-  const stripped = src.trim().replace(/^</, "").replace(/>$/, "");
-  try {
-    return decodeURIComponent(stripped);
-  } catch {
-    return stripped;
-  }
-}
-
-function normalizeWindowsExtendedPath(path: string) {
-  if (path.startsWith("\\\\?\\UNC\\")) {
-    return `\\\\${path.slice("\\\\?\\UNC\\".length)}`;
-  }
-  if (path.startsWith("\\\\?\\")) {
-    return path.slice("\\\\?\\".length);
-  }
-  return path;
-}
-
-function resolveLocalImagePath(src: string, basePath?: string | null) {
-  let cleanPath = decodeImagePath(src);
-  if (!/^[a-zA-Z]:[\\/]/i.test(cleanPath) && !cleanPath.startsWith("/") && basePath) {
-    const baseDir = basePath.replace(/[/\\][^/\\]*$/, "");
-    cleanPath = `${baseDir}/${cleanPath.replace(/^\.\//, "")}`;
-  }
-  return normalizeWindowsExtendedPath(cleanPath);
+  return isRemoteImagePath(src);
 }
 
 function mayHaveTransparency(src: string) {
@@ -62,6 +35,7 @@ function imageCopy() {
       empty: "Origem da imagem vazia",
       failed: "Falha ao carregar imagem",
       unsupported: "Tipo de imagem sem suporte",
+      noLocalBase: "Caminho local sem pasta de origem",
     };
   }
   if (lang.startsWith("es")) {
@@ -70,6 +44,7 @@ function imageCopy() {
       empty: "Origen de imagen vacio",
       failed: "No se pudo cargar la imagen",
       unsupported: "Tipo de imagen no compatible",
+      noLocalBase: "Ruta local sin carpeta de origen",
     };
   }
   return {
@@ -77,6 +52,7 @@ function imageCopy() {
     empty: "Image source is empty",
     failed: "Image failed to load",
     unsupported: "Unsupported image type",
+    noLocalBase: "Local path with no source folder",
   };
 }
 
@@ -100,18 +76,28 @@ export default function MarkdownImage({
   ...props
 }: MarkdownImageProps) {
   const originalSrc = typeof src === "string" ? src : "";
+  // Caminho absoluto em disco, ou null quando não há destino correto. Calculado
+  // sempre (inclusive no navegador), porque é ele que decide se o src pode ser
+  // usado: no browser antes o src cru ia direto para o <img> e a origem da
+  // aplicação resolvia o caminho relativo sozinha.
+  const localPath = useMemo(
+    () => resolveLocalImagePath(originalSrc, basePath),
+    [originalSrc, basePath],
+  );
   const cacheKey = useMemo(() => {
-    if (isRemoteImage(originalSrc) || !isTauriRuntime()) return originalSrc;
-    return resolveLocalImagePath(originalSrc, basePath);
-  }, [originalSrc, basePath]);
+    if (isRemoteImage(originalSrc)) return originalSrc;
+    return localPath;
+  }, [originalSrc, localPath]);
 
   const [state, setState] = useState<ImageState>(() => {
+    if (cacheKey === null) return { status: "error", message: imageCopy().noLocalBase };
     const cached = localImageCache.get(cacheKey);
     if (cached) return cached;
     return { status: "loading" };
   });
 
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(() => {
+    if (cacheKey === null) return null;
     const cached = localImageCache.get(cacheKey);
     if (cached && cached.status === "ready") {
       return { width: cached.width, height: cached.height };
@@ -128,12 +114,26 @@ export default function MarkdownImage({
       return;
     }
 
-    if (isRemoteImage(originalSrc) || !isTauriRuntime()) {
+    if (isRemoteImage(originalSrc)) {
       setState({ status: "ready", src: originalSrc });
       return;
     }
 
-    const cached = localImageCache.get(cacheKey);
+    // Local: sem destino correto (relativo sem pasta do documento, ou `..`).
+    // Antes caía no src cru e o navegador resolvia contra a origem do app.
+    if (localPath === null) {
+      setState({ status: "error", message: imageCopy().noLocalBase });
+      return;
+    }
+
+    // Navegador não tem disco: um caminho local não pode ser resolvido. Passar o
+    // src aqui fazia a origem da página servir o arquivo por coincidência de nome.
+    if (!isTauriRuntime()) {
+      setState({ status: "error", message: imageCopy().noLocalBase });
+      return;
+    }
+
+    const cached = localImageCache.get(localPath);
     if (cached) {
       setState(cached);
       if (cached.status === "ready") {
@@ -147,7 +147,7 @@ export default function MarkdownImage({
 
     const loadImage = async () => {
       try {
-        const dataUrl = await invoke<string>("load_image", { path: cacheKey });
+        const dataUrl = await invoke<string>("load_image", { path: localPath });
         
         // Pre-load to get dimensions and avoid flicker
         const img = new Image();
@@ -165,7 +165,7 @@ export default function MarkdownImage({
           width: img.naturalWidth,
           height: img.naturalHeight,
         };
-        localImageCache.set(cacheKey, result);
+        localImageCache.set(localPath, result);
         setDimensions({ width: img.naturalWidth, height: img.naturalHeight });
         setState(result);
       } catch (error) {
@@ -174,7 +174,7 @@ export default function MarkdownImage({
           status: "error",
           message: error instanceof Error ? error.message : String(error),
         };
-        localImageCache.set(cacheKey, errorResult);
+        localImageCache.set(localPath, errorResult);
         setState(errorResult);
       }
     };
@@ -183,7 +183,7 @@ export default function MarkdownImage({
     return () => {
       mounted = false;
     };
-  }, [cacheKey, originalSrc]);
+  }, [localPath, originalSrc]);
 
   const figureStyle = useMemo(() => {
     const style: React.CSSProperties = {};
