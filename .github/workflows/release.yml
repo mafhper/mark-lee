@@ -16,11 +16,31 @@ concurrency:
 
 jobs:
   release:
-    uses: mafhper/release-core/.github/workflows/release.yml@v1.2.5
+    uses: mafhper/release-core/.github/workflows/release.yml@v1.3.0
     with:
+      # `expect` diz o que cada celula promete entregar. Os caminhos sao os
+      # reais, conferidos no log da v1.7.0 - e o Core normaliza o separador,
+      # entao o padrao POSIX casa tambem na celula do Windows.
+      #
+      # `optional` na celula do macOS: e a celula instavel, e sem isto uma
+      # falha de assinatura impede a release inteira, mesmo com Linux e
+      # Windows prontos. O que a celula entregou continua conferido.
       matrix: |-
         [
-          { "os": "ubuntu-latest",  "args": "" },
-          { "os": "windows-latest", "args": "" },
-          { "os": "macos-latest",   "args": "--bundles app" }
+          {
+            "os": "ubuntu-latest",
+            "args": "",
+            "expect": "[\"src-tauri/target/release/bundle/deb/*.deb\",\"src-tauri/target/release/bundle/rpm/*.rpm\",\"src-tauri/target/release/bundle/appimage/*.AppImage\"]"
+          },
+          {
+            "os": "windows-latest",
+            "args": "",
+            "expect": "[\"src-tauri/target/release/bundle/msi/*.msi\",\"src-tauri/target/release/bundle/nsis/*.exe\"]"
+          },
+          {
+            "os": "macos-latest",
+            "args": "--bundles app",
+            "optional": true,
+            "expect": "[\"src-tauri/target/release/bundle/macos/*.app.tar.gz\"]"
+          }
         ]
