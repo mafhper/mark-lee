@@ -110,9 +110,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onTransformMarkdown,
 }) => {
   const canControlWindow = isTauriRuntime();
-  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor` na MKL12C, mas
+  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`, mas
   // `isVertical` sobrevive: ele governa o layout interno (gap, badge, medição de
-  // overflow, seção escondida) e tem 37 usos. Removê-lo é a MKL12F, que trata da
+  // overflow, seção escondida) e tem 37 usos. Removê-lo é a próxima etapa de limpeza,
   // âncora — aqui a barra é **sempre** horizontal, então ele é sempre `false`.
   const isVertical = false;
   const showIcon = toolbarAlwaysShowIcons || toolbarDisplayMode !== "text_only";
@@ -284,7 +284,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
       };
     }
 
-    // MKL12C: o ramo de cima abre **abaixo** da barra (`rect.bottom + gap`).
+    // O ramo de cima abre **abaixo** da barra (`rect.bottom + gap`).
     // `clampedTop` (o `rect.top - 8` que sobra do ramo vertical) abria por
     // cima e, com a barra integrada na linha do header, o popover cobria os
     // próprios botões que o abriram — e o `hover` seguinte do `test:ui-layout`
@@ -909,7 +909,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     </div>
   );
 
-  // MKL12C / ADR-003: `left`/`right` saíram do enumérico de `floatingToolbarAnchor`
+  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`
   // — eram barras verticais fixas, e nenhuma das quatro regiões da spec descreve
   // essa área. `integrated` usa o mesmo layout horizontal de antes, agora dentro
   // da linha do header.
@@ -941,14 +941,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
     !sectionsAreCollapsed &&
     repulsionGapPx !== null;
 
-  // MKL12C: a barra **inteira** virou o ramo horizontal. O vertical saiu com as
+  // A barra **inteira** virou o ramo horizontal. O vertical saiu com as
   // âncoras `left`/`right`, e `isVertical` é `false` desde então — este ternário
-  // sobrou como resto da migração e sai na MKL12F.
+  // sobrou como resto da migração e sai na limpeza.
   //
   // E `flex-1 min-w-0` no wrapper horizontal dá à barra a largura que o header
   // lhe oferece: sem ele o filho encolhe para o conteúdo (`flex: 0 1 auto`) e os
   // 27 botões ficam espremidos em 158px — medido no DOM, não suposto.
-  // MKL12C: a altura dos wrappers internos acompanha a âncora. Integrada na
+  // A altura dos wrappers internos acompanha a âncora. Integrada na
   // linha do header (32px), a barra precisa de 32px — os `h-9` (36px) de antes
   // centralizavam o botão de overflow em `y: -1`, e o Playwright nunca o
   // considerava visível. Na âncora `bottom` a barra tem 44px (`h-11`).
@@ -957,7 +957,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   return (
     <div
       className={`${positionClass} ${tConfig.fg}`}
-      // MKL12C: a barra vertical deixou de existir, então a raiz é sempre
+      // A barra vertical deixou de existir, então a raiz é sempre
       // transparente — o fundo é o do header, que já está atrás dela.
       style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: "transparent" } as React.CSSProperties}
     >
@@ -971,13 +971,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         </div>
       ) : (
-        // MKL12C: `h-8`, e não `h-11`. A linha do header tem 32px; uma barra de 44px
+        // `h-8`, e não `h-11`. A linha do header tem 32px; uma barra de 44px
     // centralizada nela dá `top: -7`, e o botão de overflow vira `y: -1` — que
     // o Playwright nunca considera visível, então `hover` estourava 30s. Medido
     // nas 4 viewports do `test:ui-layout`. A barra de baixo não é afetada: ela
     // não divide altura com o header.
     <div className={`flex items-center px-2 flex-1 min-w-0 ${floatingToolbarAnchor === "bottom" ? "h-11" : "h-8"}`} style={{ WebkitAppRegion: "drag", backgroundColor: tConfig.uiHex } as React.CSSProperties}>
-          {/* MKL12C: com `integrated` a barra tem **32px**, a altura da linha do header.
+          {/* Com `integrated` a barra tem **32px**, a altura da linha do header.
             Os dois wrappers internos mediam 36px (`h-9`) e, centrados dentro de
             32px, punham o botão de overflow em `y: -1`. Por isso a altura aqui
             acompanha a âncora em vez de ser fixa. */}

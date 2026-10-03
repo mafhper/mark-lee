@@ -100,10 +100,10 @@ export interface AppSettings {
   tabsEnabled: boolean;
   sidebarEnabled: boolean;
   sidebarWidth: number;
-  // MKL12C / ADR-003: `left` e `right` saíram do enumérico. Eles não eram
-  // posições — eram `pl-[72px]`/`pr-[72px]` de padding com a barra flutuando
-  // por cima, e nenhuma das quatro regiões da spec descreve isso. Quem tinha
-  // os dois salvos recebe `integrated` (ver `withMigrations`).
+  // `left` e `right` saíram do enumérico. Eles não eram posições — eram
+  // `pl-[72px]`/`pr-[72px]` de padding com a barra flutuando por cima, e
+  // nenhuma das quatro regiões da spec descreve isso. Quem tinha os dois salvos
+  // recebe `integrated` (ver `withMigrations`).
   floatingToolbarAnchor: 'integrated' | 'bottom';
   showToolbarSectionLabels: boolean;
   toolbarAlwaysShowIcons: boolean;

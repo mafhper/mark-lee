@@ -5,11 +5,11 @@ import path from 'path';
 const outDir = path.join(process.cwd(), '.dev', 'img', 'validation', 'regression');
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-// MKL12C / ADR-003: `floatingToolbarAnchor` ficou `'integrated' | 'bottom'`.
-// `top`, `left` e `right` saíram do enumérico, e a migração em
-// `withMigrations` converte qualquer um deles para `integrated` — então
-// continuar listando aqui media a mesma configuração quatro vezes, e o quarto
-// caminho (420px) travava o `hover` num botão que nunca ficava estável.
+// `floatingToolbarAnchor` ficou `'integrated' | 'bottom'`. `top`, `left` e
+// `right` saíram do enumérico, e a migração em `withMigrations` converte
+// qualquer um deles para `integrated` — então continuar listando aqui media a
+// mesma configuração quatro vezes, e o quarto caminho (420px) travava o
+// `hover` num botão que nunca ficava estável.
 const positions = ['integrated', 'bottom'];
 const sizes = [
   { name: 'normal', width: 700, height: 600 },

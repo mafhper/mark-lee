@@ -1,72 +1,100 @@
-# Dependencies and build outputs
+# Workspace privado
+.dev/
+_dev/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+QWEN.md
+KIMI.md
+.codex/
+.agents/
+.claude/
+.claude-code/
+.cursor/
+.gemini/
+.gemini-clipboard/
+.kimi/
+.qwen/
+.roo/
+.windsurf/
+
+# Sistema operacional
+desktop.ini
+Thumbs.db
+ehthumbs.db
+.DS_Store
+*.lnk
+
+# Dependencias
 node_modules/
+
+# Build
 dist/
 dist-ssr/
-.turbo/
-.cache/
+build/
 coverage/
+.nyc_output/
+*.tsbuildinfo
 *.local
 
-# Logs and diagnostics
+# Temporarios
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Logs
 logs/
 *.log
+*.out
+*.err
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-/performance-reports/
-/output/
 
-# Rust / Tauri
+# Ambiente
+.env
+.env.*
+!*.example
+
+# Editores
+# Só a pasta da raiz, e só uma extensão recomendada versionada. A sequência
+# antiga (`.vscode/`, depois `!/.vscode/`, depois `/.vscode/*`) se anulava em
+# três passos; estas duas linhas dizem a mesma coisa sem o caminho de volta.
+/.vscode/*
+!/.vscode/extensions.json
+.idea/
+.cache/
+*.sw?
+*.sublime-project
+*.sublime-workspace
+.turbo/
 src-tauri/target/
 src-tauri/gen/
-
-# Editor and OS files
-.vscode/*
-!.vscode/extensions.json
-.idea/
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Project-local private workspaces
 .worktrees/
 @development/
-.dev/
-_dev/
-/_development/
+/_dev/
+/output/
+/performance-reports/
 /docs/*
-# Negations only work if git descends into docs/, so ignore its children rather
-# than the directory itself — `/docs/` would make every exception below a no-op.
 !/docs/plan/
 !/docs/plan/change.log
 !/docs/images/
 /docs/images/*
-# The release artwork is product, not development notes: Release Core reads it from
-# the checked-out tag, so it has to be versioned or the image gate fails.
 !/docs/images/releases/
 !/docs/images/releases/*.webp
 
-# Agent-private directories
-.codex/
-.agents/
-.gemini/
-.gemini-clipboard/
-.claude/
-.claude-code/
-.qwen/
-.kimi/
-.roo/
-.cursor/
-.windsurf/
-
-# Agent-private files
-AGENTS.md
-GEMINI.md
-CLAUDE.md
-QWEN.md
-KIMI.md
+# Saida de ferramenta
+# `.playwright-cli/` guarda dumps de acessibilidade do Playwright CLI. Os
+# `*.log` caem em `*.log` acima, mas os `*.yml` nao — e sete deles chegaram a
+# ser versionados (144 KB de "Loading..."). A pasta e o padrao, nao o sufixo.
+.playwright-cli/
+# Sondas de porta: regra por formato, sem barra inicial, para valer em
+# qualquer profundidade (raiz e `apps/site/scripts`). Com `/scripts/` na
+# frente, a cópia do site aparecia como untracked — que é o erro que a regra
+# por nome exato já tinha escondido.
+sonda-*.ts
+ports.ts
+ports.mjs
