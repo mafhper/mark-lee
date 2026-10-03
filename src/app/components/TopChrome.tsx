@@ -20,7 +20,6 @@ import {
   Palette,
   PanelLeft,
   Save,
-  Search,
   Settings2,
   PenLine,
   Table,
@@ -428,15 +427,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
         title: t["toolbar.system"] || "System",
         icon: toolIcon(Settings2, 11),
         actions: [
-          toolbarItems.sysFind
-            ? {
-              id: "sys-find",
-              label: t["edit.find"] || "Find",
-              icon: toolIcon(Search),
-              onClick: onFindReplace,
-              shortcutId: "edit-find",
-            }
-            : null,
+          // A busca saiu daqui: ela é um item próprio no canto direito da
+          // linha de topo, ao lado do switcher. Dentro da seção ela virava um
+          // dos "+10" ocultos, e busca é a ação mais usada depois de salvar.
           toolbarItems.sysSnippets
             ? {
               id: "sys-snippets",
