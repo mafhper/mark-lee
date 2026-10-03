@@ -527,7 +527,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   customShortcuts: DEFAULT_SHORTCUTS,
   presetId: "minimalist",
   publicationPresetId: "modern",
-  toolbarPosition: "bottom",
   themeLibrary: createDefaultThemeLibrary(),
   theme: Theme.Golden,
   viewMode: "edit",
