@@ -207,9 +207,14 @@ const MenuBar: React.FC<MenuBarProps> = ({
   };
 
   return (
+    // MKL12C: `min-w-0 shrink` e `shrink-0` nos itens. O menu divide a linha do
+    // header com a barra, e numa janela estreita quem tem de ceder é ele — o
+    // logo e cada rótulo de menu são insubstituíveis, a barra tem `min-w`.
+    // Sem `shrink`, o menu ficava nos 341px do conteúdo, logo(128) + menu(341)
+    // estouravam a viewport e a barra recebia 0px.
     <div
       ref={menuRef}
-      className={`flex items-center select-none ${tConfig.fg}`}
+      className={`flex items-center select-none min-w-0 shrink ${tConfig.fg}`}
       role="menubar"
       aria-label={t['file']}
     >

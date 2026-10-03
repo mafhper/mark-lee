@@ -5,7 +5,12 @@ import path from 'path';
 const outDir = path.join(process.cwd(), '.dev', 'img', 'validation', 'regression');
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-const positions = ['top', 'bottom', 'left', 'right'];
+// MKL12C / ADR-003: `floatingToolbarAnchor` ficou `'integrated' | 'bottom'`.
+// `top`, `left` e `right` saíram do enumérico, e a migração em
+// `withMigrations` converte qualquer um deles para `integrated` — então
+// continuar listando aqui media a mesma configuração quatro vezes, e o quarto
+// caminho (420px) travava o `hover` num botão que nunca ficava estável.
+const positions = ['integrated', 'bottom'];
 const sizes = [
   { name: 'normal', width: 700, height: 600 },
   { name: 'maximized', width: 1280, height: 800 },
@@ -148,7 +153,7 @@ async function assertWindowControlHitAreas(page, label) {
 
 async function runEditorSelectionRegression(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('http://127.0.0.1:5173');
+  await page.goto('http://127.0.0.1:' + (process.env.MARK_LEE_UI_LAYOUT_PORT || 5280) + '/');
   await page.waitForSelector('.cm-editor');
   await assertWindowControlHitAreas(page, 'editor');
 
@@ -273,7 +278,7 @@ async function assertOpenPopoverFits(page, label) {
   for (const pos of positions) {
     for (const size of sizes) {
       await page.setViewportSize({ width: size.width, height: size.height });
-      await page.goto('http://127.0.0.1:5173');
+      await page.goto('http://127.0.0.1:' + (process.env.MARK_LEE_UI_LAYOUT_PORT || 5280) + '/');
       await page.evaluate((anchor) => {
         const raw = localStorage.getItem('mark-lee-settings');
         let settings = {};
