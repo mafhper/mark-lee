@@ -97,7 +97,7 @@ import { addJournal } from "./features/journal/domain/library-service";
 import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
+import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput, Search } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
@@ -2797,6 +2797,32 @@ function App() {
             >
               {topChromeComponent}
             </div>
+          )}
+          {/* A busca é item próprio do canto direito, e não da seção
+              "Sistema". Motivo: dentro da seção ela virava um dos "+10"
+              ocultos, e é a ação mais usada depois de salvar. O atalho vai
+              como dica (`showShortcutHints` respeita quem desligou), e
+              `settings.toolbarItems.sysFind` continua mandando — quem
+              desligou a busca na barra não a ganha no topo. */}
+          {!isZenMode && settings.appMode === "editor" && settings.toolbarItems.sysFind && (
+            <button
+              type="button"
+              className="ml-btn h-7 shrink-0 gap-1.5 px-2 text-xs"
+              onClick={findInActiveDocument}
+              title={
+                showShortcutHints && shortcutLabels["edit-find"]
+                  ? `${t["edit.find"] || "Buscar"} (${shortcutLabels["edit-find"]})`
+                  : t["edit.find"] || "Buscar"
+              }
+              aria-label={t["edit.find"] || "Buscar"}
+            >
+              <Search size={13} className="shrink-0" />
+              {showShortcutHints && shortcutLabels["edit-find"] && (
+                <span className="hidden text-[10px] opacity-50 tabular-nums lg:inline">
+                  {shortcutLabels["edit-find"]}
+                </span>
+              )}
+            </button>
           )}
           <div
             className="flex items-center gap-2"
