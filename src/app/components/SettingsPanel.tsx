@@ -1024,8 +1024,9 @@ export default function SettingsPanel({
                 value={settings.floatingToolbarAnchor}
                 onChange={(event) =>
                   onSettingsChange({
+                    // Só `floatingToolbarAnchor`: o seletor gravava os dois campos
+                    // com o mesmo valor, e o segundo nunca foi lido.
                     floatingToolbarAnchor: event.target.value as AppSettings["floatingToolbarAnchor"],
-                    toolbarPosition: event.target.value as AppSettings["toolbarPosition"],
                   })
                 }
               >

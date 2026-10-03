@@ -60,7 +60,6 @@ interface TopChromeProps {
   toolbarSectionBehavior: AppSettings["toolbarSectionBehavior"];
   shortcutLabels: Record<string, string>;
   showShortcutHints: boolean;
-  onToolbarSectionChange: (section: ToolbarSectionKey, enabled: boolean) => void;
   onNewFile: () => void;
   onOpenFile: () => void;
   onOpenFolder: () => void;
@@ -92,7 +91,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
   toolbarSectionBehavior,
   shortcutLabels,
   showShortcutHints,
-  onToolbarSectionChange,
   onNewFile,
   onOpenFile,
   onOpenFolder,
@@ -109,11 +107,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onTransformMarkdown,
 }) => {
   const canControlWindow = isTauriRuntime();
-  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`, mas
-  // `isVertical` sobrevive: ele governa o layout interno (gap, badge, medição de
-  // overflow, seção escondida) e tem 37 usos. Removê-lo é a próxima etapa de limpeza,
-  // âncora — aqui a barra é **sempre** horizontal, então ele é sempre `false`.
-  const isVertical = false;
+  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`, e o `isVertical`
+  // que governava o layout vertical foi removido junto. Não sobrou ramo
+  // vertical: a barra é horizontal em todas as âncoras.
   const showIcon = toolbarAlwaysShowIcons || toolbarDisplayMode !== "text_only";
   const showLabel = toolbarDisplayMode !== "icon_only";
 
@@ -132,7 +128,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const [, setOverflowLayoutTick] = useState(0);
   const openSection = pinnedSection ?? hoveredSection;
 
-  const effectiveShowSectionLabels = showToolbarSectionLabels && !( !isVertical && compactHorizontal );
+  const effectiveShowSectionLabels = showToolbarSectionLabels && !( true && compactHorizontal );
   const toolIcon = (Icon: typeof FolderOpen, size = 13, className = "") => (
     <DualToneIcon icon={Icon} size={size} className={className} />
   );
@@ -203,7 +199,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
   };
 
   const getHorizontalOverflowMetrics = (sectionKey: ToolbarSectionKey) => {
-    if (isVertical || typeof window === "undefined") {
+if (typeof window === "undefined") {
       return { panelWidth: undefined };
     }
 
@@ -243,15 +239,15 @@ const TopChrome: React.FC<TopChromeProps> = ({
     if ((!frame && !trigger) || typeof window === "undefined") return {};
     const anchorRect = (trigger ?? frame)!.getBoundingClientRect();
     const frameRect = (frame ?? trigger)!.getBoundingClientRect();
-    const rect = !isVertical ? frameRect : anchorRect;
+    const rect = true ? frameRect : anchorRect;
     const gap = 6;
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
     const panelEl = overflowPanelRefs.current[sectionKey];
     const horizontalOverflow = getHorizontalOverflowMetrics(sectionKey);
     const estimatedPanelWidth = Math.min(
       Math.max(
-        isVertical ? (panelEl?.offsetWidth ?? 108) : (horizontalOverflow.panelWidth ?? panelEl?.offsetWidth ?? 420),
-        isVertical ? 108 : 240
+        horizontalOverflow.panelWidth ?? panelEl?.offsetWidth ?? 420,
+        240
       ),
       Math.floor(window.innerWidth - 24)
     );
@@ -454,6 +450,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
               label: t["view.sidebar"] || "Sidebar",
               icon: toolIcon(PanelLeft),
               onClick: onToggleSidebar,
+              // Três estados: o botão fica "ativo" nas duas posições visíveis —
+              // colapsado continua sendo o sidebar mostrado. Sem isto o item
+              // apagava ao colapsar, que é o oposto do que aconteceu.
               active: sidebarEnabled,
               shortcutId: "view-sidebar",
             }
@@ -549,10 +548,9 @@ const TopChrome: React.FC<TopChromeProps> = ({
     () => sections.filter((section) => toolbarSections[section.key]),
     [sections, toolbarSections]
   );
-  const hiddenSections = useMemo(
-    () => sections.filter((section) => !toolbarSections[section.key]),
-    [sections, toolbarSections]
-  );
+
+  // `hiddenSections` saiu com o item "restaurar seção" do layout vertical: ele
+  // não tinha consumidor desde que as âncoras `left`/`right` saíram.
   const setMeasureButtonRef = (sectionKey: ToolbarSectionKey, index: number, el: HTMLButtonElement | null) => {
     if (!measureButtonRefs.current[sectionKey]) {
       measureButtonRefs.current[sectionKey] = [];
@@ -563,33 +561,31 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const recomputeVisibleCounts = useCallback(() => {
     if (!centerRef.current) return;
 
-    const sectionGap = isVertical ? 8 : 14;
+    const sectionGap = 14;
     const itemGap = 4;
     // Vertical overflow badge uses the same h-8 button as regular actions.
-    const badgeSize = isVertical ? 32 : 28;
+    const badgeSize = 28;
     const currentWidth = centerRef.current.clientWidth;
-    const nextCompactHorizontal = !isVertical && currentWidth < toolbarCompactBreakpoint;
+    const nextCompactHorizontal = true && currentWidth < toolbarCompactBreakpoint;
     setCompactHorizontal((previous) => (previous === nextCompactHorizontal ? previous : nextCompactHorizontal));
     const available = Math.max(
       0,
-      (isVertical ? centerRef.current.clientHeight : centerRef.current.clientWidth) -
+      (centerRef.current.clientWidth) -
       Math.max(0, enabledSections.length - 1) * sectionGap -
       8
     );
 
     const sectionMeta = enabledSections.map((section) => {
       const titleNode = sectionTitleRefs.current[section.key];
-      const titleSize = isVertical
-        ? 0
-        : Math.ceil(titleNode?.getBoundingClientRect().width ?? 0);
-      const baseSize = isVertical ? 12 : (effectiveShowSectionLabels ? titleSize + 32 : 16);
+      const titleSize = Math.ceil(titleNode?.getBoundingClientRect().width ?? 0);
+      const baseSize = (effectiveShowSectionLabels ? titleSize + 32 : 16);
       const actionSizes = section.actions.map((_, index) => {
         const node = measureButtonRefs.current[section.key]?.[index];
         if (node) {
           const rect = node.getBoundingClientRect();
-          return Math.ceil(isVertical ? rect.height : rect.width);
+          return Math.ceil(rect.width);
         }
-        return isVertical ? 32 : (showLabel ? 86 : 32);
+        return (showLabel ? 86 : 32);
       });
       return {
         key: section.key,
@@ -613,20 +609,11 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const next: Partial<Record<ToolbarSectionKey, number>> = {};
     let nextRepulsionGap: number | null = null;
 
-    if (isVertical) {
-      const maxActions = Math.max(0, ...sectionMeta.map((s) => s.total));
-      let uniformCount = maxActions;
-      const totalForCount = (count: number) =>
-        sectionMeta.reduce((sum, meta) => sum + sizeFor(meta, count), 0);
-
-      while (uniformCount > 0 && totalForCount(uniformCount) > available) {
-        uniformCount -= 1;
-      }
-
-      for (const meta of sectionMeta) {
-        next[meta.key] = meta.total > 0 ? Math.max(1, Math.min(meta.total, uniformCount)) : 0;
-      }
-    } else {
+    // Só existe o caminho horizontal: o ramo vertical foi removido junto com as
+    // âncoras `left`/`right`. A distribuição de espaço entre seções por
+    // "repulsion" (encolher o que mais devolve, crescer o que tem mais
+    // pendente) é a lógica que sobrou.
+    {
       const counts = sectionMeta.map((meta) => (meta.total > 0 ? 1 : 0));
       let used = sectionMeta.reduce((sum, meta, index) => sum + sizeFor(meta, counts[index]), 0);
 
@@ -677,7 +664,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
     }
 
     if (
-      !isVertical &&
+      true &&
       typeof window !== "undefined" &&
       toolbarSectionBehavior === "repulsion" &&
       !nextCompactHorizontal &&
@@ -705,7 +692,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
       return changed ? next : previous;
     });
     setRepulsionGapPx((previous) => (previous === nextRepulsionGap ? previous : nextRepulsionGap));
-  }, [effectiveShowSectionLabels, enabledSections, isVertical, showLabel, toolbarCompactBreakpoint, toolbarSectionBehavior]);
+  }, [effectiveShowSectionLabels, enabledSections, showLabel, toolbarCompactBreakpoint, toolbarSectionBehavior]);
 
   useEffect(() => {
     const raf = requestAnimationFrame(recomputeVisibleCounts);
@@ -736,8 +723,8 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const buttonClass =
       variant === "popover"
-        ? `${isVertical ? "h-9 w-full px-0 justify-center" : "h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
-        : `${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
+        ? `${"h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
+        : `${"h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
     return (
       <button
         key={action.id}
@@ -782,14 +769,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
         }}
         data-toolbar-open={openSection === section.key}
       >
-        {!isVertical && (
+        {true && (
           <div className="absolute left-0 top-0 -z-10 opacity-0 pointer-events-none whitespace-nowrap">
             {section.actions.map((action, index) => (
               <button
                 key={`${action.id}-measure`}
                 ref={(el) => setMeasureButtonRef(section.key, index, el)}
                 type="button"
-                className={`${isVertical ? "h-8 w-8 px-0 justify-center" : "h-8 px-2.5"} inline-flex items-center gap-1.5 rounded-md text-xs font-medium`}
+                className={`${"h-8 px-2.5"} inline-flex items-center gap-1.5 rounded-md text-xs font-medium`}
               >
                 {showIcon && action.icon}
                 {showLabel && <span>{action.label}</span>}
@@ -798,8 +785,8 @@ const TopChrome: React.FC<TopChromeProps> = ({
           </div>
         )}
 
-        <div className={`${isVertical ? "flex flex-col items-center gap-1 p-1.5" : `flex ${innerHeightClass} min-w-0 items-center gap-2 px-1.5 relative`}`}>
-          {!isVertical && effectiveShowSectionLabels && (
+        <div className={`${`flex ${innerHeightClass} min-w-0 items-center gap-2 px-1.5 relative`}`}>
+          {true && effectiveShowSectionLabels && (
             <>
               <div
                 ref={(el) => {
@@ -812,12 +799,12 @@ const TopChrome: React.FC<TopChromeProps> = ({
             </>
           )}
 
-          <div className={`${isVertical ? "flex flex-col items-center gap-1" : "flex items-center gap-1"}`}>
+          <div className={`${"flex items-center gap-1"}`}>
             {visibleActions.map((action) => renderActionButton(action))}
             {collapsed && (
               <button
                 type="button"
-                className={`${isVertical ? "inline-flex h-8 w-8 items-center justify-center rounded-md px-0" : "inline-flex h-8 items-center rounded-md px-1.5"} text-[10px] font-medium ml-btn`}
+                className={`${"inline-flex h-8 items-center rounded-md px-1.5"} text-[10px] font-medium ml-btn`}
                 ref={(el) => {
                   overflowTriggerRefs.current[section.key] = el;
                 }}
@@ -843,7 +830,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         {collapsed && openSection === section.key && (
           <div
-            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[14px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${isVertical ? "w-[118px]" : "w-fit"} ${tConfig.uiBorder}`}
+            className={`ml-toolbar-popover fixed z-[260] max-h-[70vh] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[14px] border p-2 shadow-[0_14px_34px_rgba(2,6,23,0.14)] ${"w-fit"} ${tConfig.uiBorder}`}
             ref={(el) => {
               overflowPanelRefs.current[section.key] = el;
               if (el) {
@@ -856,14 +843,14 @@ const TopChrome: React.FC<TopChromeProps> = ({
             onMouseEnter={() => openOverflow(section.key)}
             onMouseLeave={() => closeOverflowSoon(section.key)}
             data-overflow-panel={section.key}
-            data-anchor-edge={!isVertical ? (floatingToolbarAnchor === "bottom" ? "bottom" : "top") : undefined}
+            data-anchor-edge={true ? (floatingToolbarAnchor === "bottom" ? "bottom" : "top") : undefined}
           >
-            {!isVertical && <div className="ml-toolbar-popover__anchor" aria-hidden="true" />}
-            <div className={`mb-2 flex items-center justify-between gap-3 px-1 ${isVertical ? "pt-0.5" : "pt-0.5"}`}>
-              <div className={`ml-toolbar-section-title inline-flex items-center ${isVertical ? "w-full justify-center" : ""}`}>
+            {true && <div className="ml-toolbar-popover__anchor" aria-hidden="true" />}
+            <div className={`mb-2 flex items-center justify-between gap-3 px-1 ${"pt-0.5"}`}>
+              <div className={`ml-toolbar-section-title inline-flex items-center ${""}`}>
                 {section.title}
               </div>
-              {!isVertical && (
+              {true && (
                 <span className="rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-55">
                   {overflowActions.length} acoes
                 </span>
@@ -871,9 +858,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
             </div>
             <div
               className={
-                isVertical
-                  ? "grid w-full grid-cols-1 gap-1.5"
-                  : "flex max-w-full flex-wrap items-center gap-1.5"
+    "flex max-w-full flex-wrap items-center gap-1.5"
               }
             >
               {overflowActions.map((action) => renderActionButton(action, "popover"))}
@@ -886,21 +871,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
 
 
-  const hiddenSectionButtons = hiddenSections.length > 0 && isVertical && (
-    <div className="flex flex-col gap-1" style={noDragStyle}>
-      {hiddenSections.map((section) => (
-        <button
-          key={`restore-${section.key}`}
-          type="button"
-          title={`${section.title} (${t["settings.presets.use"] || "Use"})`}
-          onClick={() => onToolbarSectionChange(section.key, true)}
-          className="rounded-[8px] border inline-flex items-center justify-center ml-btn h-8 w-8"
-        >
-          {section.icon}
-        </button>
-      ))}
-    </div>
-  );
 
   // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`
   // — eram barras verticais fixas, e nenhuma das quatro regiões da spec descreve
@@ -921,22 +891,20 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
   const rootStyle: React.CSSProperties = {
     fontFamily: tConfig.uiFont,
-    ...(isVertical ? { width: "72px" } : {}),
   };
   const sectionsAreCollapsed = enabledSections.some(
     (section) => (visibleCounts[section.key] ?? section.actions.length) < section.actions.length
   );
   const useRepulsionLayout =
-    !isVertical &&
+    true &&
     toolbarSectionBehavior === "repulsion" &&
     !compactHorizontal &&
     enabledSections.length > 1 &&
     !sectionsAreCollapsed &&
     repulsionGapPx !== null;
 
-  // A barra **inteira** virou o ramo horizontal. O vertical saiu com as
-  // âncoras `left`/`right`, e `isVertical` é `false` desde então — este ternário
-  // sobrou como resto da migração e sai na limpeza.
+  // A barra **inteira** é horizontal. O vertical saiu com as âncoras
+  // `left`/`right`, e o ternário que restou dessa migração saiu junto.
   //
   // E `flex-1 min-w-0` no wrapper horizontal dá à barra a largura que o header
   // lhe oferece: sem ele o filho encolhe para o conteúdo (`flex: 0 1 auto`) e os
@@ -954,16 +922,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
       // transparente — o fundo é o do header, que já está atrás dela.
       style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: "transparent" } as React.CSSProperties}
     >
-      {isVertical ? (
-        <div className="h-full px-1 py-2 flex flex-col items-center gap-2">
-          <div ref={centerRef} className="w-full space-y-2" style={noDragStyle}>
-            {enabledSections.map((section) => renderSection(section))}
-            {hiddenSectionButtons}
-          </div>
-
-
-        </div>
-      ) : (
+      {(
         // `h-8`, e não `h-11`. A linha do header tem 32px; uma barra de 44px
     // centralizada nela dá `top: -7`, e o botão de overflow vira `y: -1` — que
     // o Playwright nunca considera visível, então `hover` estourava 30s. Medido

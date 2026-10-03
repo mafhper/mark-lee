@@ -95,7 +95,9 @@ export interface AppSettings {
   customShortcuts?: Record<string, string>; // Action ID -> Shortcut string (e.g. "Ctrl+S")
   presetId: string; // ID of the active text styling preset
   publicationPresetId: string; // ID of the active publication preset
-  toolbarPosition: 'top' | 'bottom' | 'left' | 'right';
+  // `toolbarPosition` saiu do tipo: zero leituras em todo o repositório, e dois
+  // dos seus quatro valores (`left`/`right`) já tinham saído de
+  // `floatingToolbarAnchor`, que é quem posiciona a barra de verdade.
   chromeMode: 'unified';
   tabsEnabled: boolean;
   sidebarEnabled: boolean;

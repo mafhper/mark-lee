@@ -2701,15 +2701,7 @@ label: t["view.sidebar"] || "Sidebar",
       toolbarDisplayMode={settings.toolbarDisplayMode}
       toolbarSectionBehavior={settings.toolbarSectionBehavior}
       shortcutLabels={shortcutLabels}
-      showShortcutHints={showShortcutHints}
-      onToolbarSectionChange={(section, enabled) =>
-        updateSettings({
-          toolbarSections: {
-            ...settings.toolbarSections,
-            [section]: section === "system" ? true : enabled,
-          },
-        })
-      }
+showShortcutHints={showShortcutHints}
       onNewFile={handleNewFile}
       onOpenFile={handleOpenFile}
       onOpenFolder={handleOpenFolder}
