@@ -553,6 +553,10 @@ function App() {
   const [breakLocked, setBreakLocked] = useState(false);
   const [showZenExit, setShowZenExit] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
+// A faixa colapsada do sidebar. 36px e o numero do precedente medido
+  // (donvito/markdown-editor, styles.css:507-510) e cabe na faixa de 36-44px
+  // que a spec pede para um tool rail — a escolha difere no objeto, nao no numero.
+  const SIDEBAR_COLLAPSED_WIDTH = 36;
   const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
   const [previewCanScrollTop, setPreviewCanScrollTop] = useState(false);
   const [splitScrollSyncEnabled, setSplitScrollSyncEnabled] = useState(false);
@@ -1718,7 +1722,39 @@ function App() {
     [settings.customShortcuts]
   );
 
-  const deps = useMemo<AppCommandDependencies>(
+/**
+   * O sidebar tem **três** posições e o botão
+   * percorre as três num ciclo só — expandido → 36px → oculto → expandido.
+   *
+   * O estado são dois campos que já existiam mais um: `sidebarEnabled` false é
+   * "oculto", e `sidebarCollapsed` distingue as duas posições visíveis. Não
+   * guardamos "36px" dentro de `sidebarWidth` de propósito — isso perderia a
+   * largura que a pessoa escolheu e o "expandir" devolveria um padrão em vez do
+   * que era dela.
+   *
+   * Os atalhos e o item da paleta chama este mesmo ciclo, então sair da
+   * posição por teclado e por clique levam ao mesmo estado.
+   */
+  const cycleSidebar = useCallback(() => {
+    if (!settings.sidebarEnabled) {
+      updateSettings({ sidebarEnabled: true, sidebarCollapsed: false });
+      return;
+    }
+    if (!settings.sidebarCollapsed) {
+      updateSettings({ sidebarCollapsed: true });
+      return;
+    }
+    updateSettings({ sidebarEnabled: false, sidebarCollapsed: false });
+  }, [settings.sidebarEnabled, settings.sidebarCollapsed]);
+
+  // Rótulo do estado seguinte, para o `title` do botão dizer para onde ele vai
+  // em vez de repetir o que ele é.
+  const sidebarNextLabel = !settings.sidebarEnabled
+    ? t["sidebar.show"] || "Show sidebar"
+    : settings.sidebarCollapsed
+      ? t["sidebar.expand"] || "Expand sidebar"
+      : t["sidebar.collapse"] || "Collapse to icons";
+    const deps = useMemo<AppCommandDependencies>(
     () => ({
       newFile: handleNewFile,
       openFile: handleOpenFile,
@@ -1802,13 +1838,14 @@ function App() {
           onSelect: cycleTheme,
         },
         {
-          id: "palette-sidebar",
+id: "palette-sidebar",
           label: t["view.sidebar"] || "Sidebar",
+          subtitle: sidebarNextLabel,
           section: actionSection,
           kind: "action",
           hint: shortcutLabels["view-sidebar"],
-          keywords: "sidebar toggle",
-          onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+          keywords: "sidebar toggle colapsar expandir ocultar",
+          onSelect: () => cycleSidebar(),
         },
         {
           id: "palette-view-editor",
@@ -1914,12 +1951,19 @@ function App() {
         },
         {
           id: "settings-toggle-sidebar",
-          label: t["view.sidebar"] || "Sidebar",
-          subtitle: settings.sidebarEnabled ? (t["settings.state.on"] || "On") : (t["settings.state.off"] || "Off"),
+label: t["view.sidebar"] || "Sidebar",
+            // Três estados, então "Ligado/Desligado" mente: colapsado está
+            // ligado. O subtítulo diz a posição atual e para onde o próximo
+            // clique leva.
+            subtitle: !settings.sidebarEnabled
+              ? t["sidebar.state.hidden"] || "Oculto"
+              : settings.sidebarCollapsed
+                ? `${t["sidebar.state.collapsed"] || "Colapsado"} · ${t["sidebar.expand"] || "expandir"}`
+                : `${t["sidebar.state.expanded"] || "Expandido"} · ${t["sidebar.collapse"] || "colapsar"}`,
           section: settingsSection,
           kind: "action",
           keywords: "preferences general sidebar toggle",
-          onSelect: () => updateSettings({ sidebarEnabled: !settings.sidebarEnabled }),
+          onSelect: () => cycleSidebar(),
         }
       );
 
@@ -2408,7 +2452,7 @@ function App() {
         openDialog("snippets");
       } else if (testShortcut(event, getShortcut("view-sidebar", "CTRL+B"))) {
         event.preventDefault();
-        updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
+        cycleSidebar();
       } else if (testShortcut(event, getShortcut("help-shortcuts", "F1"))) {
         event.preventDefault();
         setShowShortcutHints((previous) => !previous);
@@ -2580,7 +2624,7 @@ function App() {
         await handleFormatAction(action.slice(4) as "bold" | "italic" | "link" | "ul" | "ol" | "task");
         return;
       case "view-sidebar":
-        updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
+        cycleSidebar();
         return;
       case "view-zen":
         setIsZenMode((previous) => !previous);
@@ -2675,7 +2719,7 @@ function App() {
       onOpenSettings={() => openDialog("settings")}
       onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
-      onToggleSidebar={() => updateSettings({ sidebarEnabled: !settings.sidebarEnabled })}
+      onToggleSidebar={cycleSidebar}
       onToggleZen={() => setIsZenMode((previous) => !previous)}
       onViewModeChange={(mode) => {
         setViewMode(mode);
@@ -2847,13 +2891,21 @@ function App() {
       {settings.appMode === "editor" ? (
         <>{!isZenMode && settings.sidebarEnabled && (
           <div
-            style={{ width: `${clampedSidebarWidth}px`, minWidth: "180px", maxWidth: `${dynamicSidebarMax}px` }}
+            // O `minWidth: 180px` fixo era o que impedia o estado colapsado de
+            // existir: 36px é menor que 180px, e o mínimo vencia. Agora o piso é
+            // o da faixa colapsada, e o máximo só importa quando expande.
+            style={{
+              width: `${settings.sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : clampedSidebarWidth}px`,
+              minWidth: `${SIDEBAR_COLLAPSED_WIDTH}px`,
+              maxWidth: `${dynamicSidebarMax}px`,
+            }}
             className={`relative h-full border-r ${tConfig.uiBorder}`}
           >
             <div className="h-full">
               <Sidebar
                 t={t}
                 tConfig={tConfig}
+                compacto={settings.sidebarCollapsed}
                 workspacePath={workspacePath}
                 workspaceTree={workspaceTree}
                 onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "sidebar" })}

@@ -93,6 +93,14 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   // própria configuração ao mudar de âncora — voltaria ao padrão sem ele pedir.
   // A âncora velha e `integrated` não existiam juntas, então a preferência
   // escrita primeiro não é sobrescrita.
+  // Terceiro estado do sidebar: quem ja tem `sidebarEnabled` salvo continua
+  // expandido ou oculto, exatamente como estava. O estado colapsado e novo, e
+  // nasce desligado — e o default em `DEFAULT_SETTINGS` faz o mesmo por quem
+  // nunca teve settings gravados. Guardar "36px" dentro de `sidebarWidth`
+  // pareceria mais simples e perderia a largura que a pessoa escolheu.
+  if (typeof merged.sidebarCollapsed !== "boolean") {
+    merged.sidebarCollapsed = false;
+  }
   const byAnchor = settings.toolbarByAnchor as
     | Record<string, Partial<AppSettings> | undefined>
     | undefined;

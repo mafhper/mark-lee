@@ -19,6 +19,8 @@ interface SidebarProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
   workspacePath: string | null;
+  /** Faixa colapsada: acoes e arvore em icones/uma inicial por linha. */
+  compacto?: boolean;
   workspaceTree: WorkspaceNode | null;
   onOpenFile: (path: string) => void;
   onOpenFolder: () => void;
@@ -45,6 +47,8 @@ const SidebarTreeNode: React.FC<{
   resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
   selectedPath: string | null;
   query: string;
+  /** Colapsado: uma inicial por linha, sem recursão e sem texto. */
+  compacto?: boolean;
 }> = ({
   node,
   level,
@@ -55,6 +59,7 @@ const SidebarTreeNode: React.FC<{
   resolveItems,
   selectedPath,
   query,
+  compacto = false,
 }) => {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const isExpanded = expandedPaths.has(node.path);
@@ -74,6 +79,47 @@ const SidebarTreeNode: React.FC<{
       : false;
 
     if (normalized && !matchesSelf && !matchesChildren) return null;
+
+    // Modo compacto: cabe uma letra por linha numa faixa de 36px. Sem recursão
+    // — a árvore inteira vira uma coluna — e sem texto, com o nome inteiro no
+    // `title` para o hover. Profundidade vira **tom**: um arquivo e uma pasta
+    // com filhos não podem ter a mesma cor.
+    if (compacto) {
+      const tom = node.is_dir
+        ? hasChildren
+          ? "text-[color:var(--ml-accent)]"
+          : "opacity-80"
+        : "opacity-55";
+      return (
+        <button
+          ref={buttonRef}
+          type="button"
+          className={`mx-auto flex h-7 w-7 items-center justify-center rounded text-[11px] font-semibold uppercase ${tom} ${
+            isSelected ? "ml-btn-active" : "hover:bg-black/5 dark:hover:bg-white/10"
+          }`}
+          title={node.name}
+          aria-label={node.name}
+          onClick={() => {
+            if (isVirtual) return;
+            onSelect(node);
+            if (node.is_dir) onToggleExpand(node.path);
+            else onOpenFile(node.path);
+          }}
+          onContextMenu={
+            isVirtual
+              ? undefined
+              : (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect(node);
+                  onContextMenu(e);
+                }
+          }
+        >
+          {node.name.replace(/^[^A-Za-zÀ-ÿ0-9]+/, "").charAt(0) || "·"}
+        </button>
+      );
+    }
 
     return (
       <div>
@@ -135,6 +181,7 @@ const SidebarTreeNode: React.FC<{
 const Sidebar: React.FC<SidebarProps> = ({
   t,
   tConfig,
+  compacto = false,
   workspacePath,
   workspaceTree,
   onOpenFile,
@@ -224,8 +271,35 @@ const Sidebar: React.FC<SidebarProps> = ({
     [t, onRename, onCreateFile, onCreateFolder, onReveal, onDelete]
   );
 
-  return (
+return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
+      {/* Colapsado: as ações viram uma coluna de ícones. Horizontais elas ficariam
+          com 16px de largura dentro dos 36px — medido, e inutilizáveis. */}
+      {compacto ? (
+        <div className={`h-10 border-b ${tConfig.uiBorder} px-0.5`}>
+          <div className="flex flex-col items-center gap-0.5 py-0.5">
+            {[
+              { rot: FilePlus2, on: () => onCreateFile(selectedBasePath), rot2: t["sidebar.newFile"] || "New file", ok: !!workspacePath },
+              { rot: FolderPlus, on: () => onCreateFolder(selectedBasePath), rot2: t["sidebar.newFolder"] || "New folder", ok: !!workspacePath },
+              { rot: Pencil, on: () => selectedNode && onRename(selectedNode.path), rot2: t["sidebar.rename"] || "Rename", ok: !!selectedNode && !isVirtualNode(selectedNode.path) },
+              { rot: Trash2, on: () => selectedNode && onDelete(selectedNode.path), rot2: t["sidebar.delete"] || "Delete", ok: !!selectedNode && !isVirtualNode(selectedNode.path), perigo: true },
+              { rot: ExternalLink, on: () => onReveal(selectedNode?.path ?? workspacePath ?? ""), rot2: t["sidebar.reveal"] || "Reveal", ok: !!workspacePath },
+            ].map(({ rot: Icone, on, rot2, ok, perigo }) => (
+              <button
+                key={rot2}
+                type="button"
+                className={`h-7 w-7 rounded-md inline-flex items-center justify-center disabled:opacity-40 ${perigo ? "ml-btn-danger" : "ml-btn"}`}
+                onClick={on}
+                title={rot2}
+                aria-label={rot2}
+                disabled={!ok}
+              >
+                <Icone size={14} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
         <div className="flex items-center gap-1">
           <button
@@ -276,11 +350,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             aria-label={t["sidebar.reveal"] || "Reveal"}
             disabled={!workspacePath}
           >
-            <ExternalLink size={14} />
+<ExternalLink size={14} />
           </button>
         </div>
       </div>
+      )}
 
+      {/* Colapsado não há busca nem cabeçalho de seção: numa faixa de 36px os dois
+          viriam espremidos e ilegíveis. A busca continua no atalho, que é o
+          caminho de verdade para ela. */}
+      {!compacto && (
       <div className="p-2 space-y-2">
         {workspacePath && (
           <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-black/5 dark:bg-white/5">
@@ -298,10 +377,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] opacity-55">
               {t["sidebar.title"] || "Workspace"}
             </div>
-          </div>
+</div>
         )}
       </div>
-      <div className="flex-1 overflow-auto p-2">
+      )}
+      <div className={`flex-1 overflow-auto ${compacto ? "p-0.5 pt-1" : "p-2"}`}>
         {!workspaceTree && (
           <div className="space-y-3 px-2 py-3 text-xs opacity-90">
             <div>{t["sidebar.empty"] || "No folder open"}</div>
@@ -313,9 +393,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         {workspaceTree && (
           <div className="rounded-md p-1">
             <SidebarTreeNode
-              node={workspaceTree}
-              level={0}
-              expandedPaths={expandedPaths}
+node={workspaceTree}
+                  level={0}
+                  compacto={compacto}
+                  expandedPaths={expandedPaths}
               onToggleExpand={toggleExpand}
               onOpenFile={onOpenFile}
               onSelect={(node) => {

@@ -536,6 +536,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chromeMode: "unified",
   tabsEnabled: true,
   sidebarEnabled: true,
+  sidebarCollapsed: false,
   sidebarWidth: 260,
   // `integrated` substitui a barra de baixo como padrão. A barra de baixo é
   // agora a alternativa da preferência, não o fallback.
