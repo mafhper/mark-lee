@@ -91,10 +91,8 @@ src-tauri/gen/
 # `*.log` caem em `*.log` acima, mas os `*.yml` nao — e sete deles chegaram a
 # ser versionados (144 KB de "Loading..."). A pasta e o padrao, nao o sufixo.
 .playwright-cli/
-# Sondas de porta: regra por formato, sem barra inicial, para valer em
-# qualquer profundidade (raiz e `apps/site/scripts`). Com `/scripts/` na
-# frente, a cópia do site aparecia como untracked — que é o erro que a regra
-# por nome exato já tinha escondido.
-sonda-*.ts
-ports.ts
-ports.mjs
+# ~~sonda-*.ts~~ deixa de ser ignorado, de proposito: `sonda-porta.ts` e
+# IMPORTADO por `apps/site/vite.config.ts`. Ignorar um arquivo que o build
+# carrega quebra o repo para qualquer clone limpo -- medido: sem a sonda o
+# `apps/site` falha o build. Regra de ignore nao e o lugar de "isto e rascunho";
+# e o lugar de "isto nao deve ir para o repo".
