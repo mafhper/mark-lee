@@ -100,6 +100,12 @@ export interface AppSettings {
   tabsEnabled: boolean;
   sidebarEnabled: boolean;
   sidebarWidth: number;
+  // Terceiro estado do sidebar: expandido (false) |
+  // colapsado em 36px (true) | oculto (`sidebarEnabled: false`). Fica separado
+  // de `sidebarWidth` de propósito — usar `sidebarWidth: 36` como estado
+  // perderia a largura que a pessoa escolheu, e o "expandir" voltaria para um
+  // padrão em vez de devolver o que era dela.
+  sidebarCollapsed: boolean;
   // `left` e `right` saíram do enumérico. Eles não eram posições — eram
   // `pl-[72px]`/`pr-[72px]` de padding com a barra flutuando por cima, e
   // nenhuma das quatro regiões da spec descreve isso. Quem tinha os dois salvos
