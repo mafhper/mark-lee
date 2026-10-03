@@ -110,7 +110,7 @@ npm run setup   # verifica e instala os requisitos de sistema
 **Rodar**
 
 ```bash
-npm run dev        # só o navegador, Vite na :5173
+npm run dev        # só o navegador, Vite na :5280
 npm run tauri:dev  # a janela desktop
 ```
 

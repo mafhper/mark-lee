@@ -114,7 +114,7 @@ npm run setup   # verifica e instala los requisitos del sistema
 **Ejecutar**
 
 ```bash
-npm run dev        # solo el navegador, Vite en :5173
+npm run dev        # solo el navegador, Vite en :5280
 npm run tauri:dev  # la ventana de escritorio
 ```
 

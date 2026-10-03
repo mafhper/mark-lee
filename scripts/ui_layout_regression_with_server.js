@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import http from 'node:http';
 
 const host = '127.0.0.1';
-const port = process.env.MARK_LEE_UI_LAYOUT_PORT || '5173';
+const port = process.env.MARK_LEE_UI_LAYOUT_PORT || '5280';
 const serverUrl = `http://${host}:${port}`;
 
 function waitForServer(url, timeoutMs = 45000) {
@@ -70,11 +70,21 @@ function stopProcessTree(child) {
 }
 
 async function run() {
-  const dev = spawn(`npm run dev -- --host ${host} --port ${port}`, {
-    shell: true,
-    stdio: 'inherit',
-    windowsHide: true,
-  });
+//A porta vai pelo AMBIENTE, e nao por `--port` na linha de comando.
+//`--port` prevalece sobre o `vite.config.ts`, e isso e exatamente a armadilha
+//que o `icon-core` nao fechou: o script do `package.json` contorna a propria
+//correcao do config. Passando `TAURI_DEV_PORT`, o config continua sendo o dono
+//da porta — e o `hmrPort`, que ele deriva de `devPort + 1`, continua coerente.
+//
+//`MARK_LEE_UI_LAYOUT_PORT` continua valendo, porque e o nome que este harness
+//usa; ele e repassado como `TAURI_DEV_PORT` para que o config veja o mesmo
+//numero.
+const dev = spawn(`npm run dev -- --host ${host}`, {
+  shell: true,
+  stdio: 'inherit',
+  windowsHide: true,
+  env: { ...process.env, TAURI_DEV_PORT: String(port) },
+});
 
   let stopping = false;
   const stopDev = async () => {

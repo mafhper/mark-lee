@@ -11,7 +11,12 @@ const tauriConfig = JSON.parse(readFileSync(new URL("./src-tauri/tauri.conf.json
 const appVersion = tauriConfig.version ?? packageJson.version ?? "0.0.0";
 
 const tauriHost = process.env.TAURI_DEV_HOST || "127.0.0.1";
-const devPort = Number(process.env.TAURI_DEV_PORT || "5173");
+// Porta nomeada: 5280, fora das faixas de incremento do Vite (5173-5175 e
+// 4173-4175). Antes era 5173 — o default do Vite, disputado por 12 projetos da
+// frota. O HMR acompanha em +1 (5281), que tambem fica fora da faixa.
+// Contrato em tres lugares: este default, `src-tauri/tauri.conf.json` (`devUrl`)
+// e `scripts/ui_layout_regression*.js`. Mover um sem os outros quebra o outro.
+const devPort = Number(process.env.TAURI_DEV_PORT || "5280");
 const hmrPort = Number(process.env.TAURI_HMR_PORT || String(devPort + 1));
 const isTauriRuntime = Boolean(process.env.TAURI_DEV_HOST);
 

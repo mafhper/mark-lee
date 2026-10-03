@@ -105,7 +105,7 @@ npm run setup   # verifies and installs system requirements
 **Run it**
 
 ```bash
-npm run dev        # browser only, Vite on :5173
+npm run dev        # browser only, Vite on :5280
 npm run tauri:dev  # the desktop window
 ```
 
