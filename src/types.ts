@@ -100,7 +100,11 @@ export interface AppSettings {
   tabsEnabled: boolean;
   sidebarEnabled: boolean;
   sidebarWidth: number;
-  floatingToolbarAnchor: 'top' | 'bottom' | 'left' | 'right';
+  // MKL12C / ADR-003: `left` e `right` saíram do enumérico. Eles não eram
+  // posições — eram `pl-[72px]`/`pr-[72px]` de padding com a barra flutuando
+  // por cima, e nenhuma das quatro regiões da spec descreve isso. Quem tinha
+  // os dois salvos recebe `integrated` (ver `withMigrations`).
+  floatingToolbarAnchor: 'integrated' | 'bottom';
   showToolbarSectionLabels: boolean;
   toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
@@ -138,9 +142,12 @@ export interface AppSettings {
     editOL: boolean;
     editTask: boolean;
   };
+// A chave acompanha `floatingToolbarAnchor`. `integrated` absorve `top`,
+  // `left` e `right` na migração: quem tinha Toolbar salva em qualquer uma
+  // delas continua com ela, em vez de voltar ao padrão.
   toolbarByAnchor?: Partial<
     Record<
-      "top" | "bottom" | "left" | "right",
+    "integrated" | "bottom",
       {
         showToolbarSectionLabels: boolean;
         toolbarCompactBreakpoint: number;

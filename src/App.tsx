@@ -2685,7 +2685,10 @@ function App() {
       onTransformMarkdown={transformActiveDocument}
     />
   );
-  const topChromeBlock = topChromeComponent;
+  // MKL12C: `topChromeBlock` saiu. Era `topChromeComponent` com outro nome, e
+  // os dois eram montados — a barra aparecia duplicada quando a âncora era
+  // `bottom`. Agora há um ponto de montagem por âncora: o header para
+  // `integrated`, o rodapé para `bottom`.
   const statusBar =
     !isZenMode ? (
       <div className={`h-8 border-t ${tConfig.uiBorder} ${tConfig.ui} px-3 text-xs flex items-center justify-between`}>
@@ -2753,13 +2756,17 @@ function App() {
           className={`h-8 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} px-2 flex items-center justify-between`}
           style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
         >
+          {/* MKL12C: a marca cede espaço antes da barra. O logo e o nome sao
+              decorativos — o titulo do produto ja esta no arquivo e a versao
+              no About — e numa janela estreita eles empurravam a barra para
+              0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport. */}
           <div
-            className="flex items-center gap-2 min-w-0"
+            className="flex items-center gap-2 min-w-0 shrink"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
-            <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded border ${tConfig.uiBorder}`} />
-            <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
-            <span className="text-[11px] font-semibold opacity-60">v{APP_VERSION}</span>
+            <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded shrink-0 border ${tConfig.uiBorder}`} />
+            <span className="text-sm font-semibold tracking-wide whitespace-nowrap hidden lg:inline">Mark-Lee</span>
+            <span className="text-[11px] font-semibold opacity-60 whitespace-nowrap hidden xl:inline">v{APP_VERSION}</span>
           </div>
           {/* MKL12B: o menu entra na linha de topo existente, à esquerda do
               switcher — não numa linha nova. Isso é o que a ADR-003 fixou: a
@@ -2779,6 +2786,18 @@ function App() {
               viewMode={viewMode}
             />
           )}
+          {/* MKL12C: a barra tem **piso** (`min-w-[120px]`) e o menu cede primeiro.
+              Medido a 420px: sem o piso, a barra recebia 0px porque o menu
+              (264px) e o switcher (122px) somavam mais que a viewport, e o
+              `flex-1` — que encolhe primeiro — era justamente a barra. */}
+          {!isZenMode && settings.floatingToolbarAnchor === "integrated" && (
+            <div
+              className="flex-1 min-w-[120px] flex items-center overflow-hidden"
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+            >
+              {topChromeComponent}
+            </div>
+          )}
           <div
             className="flex items-center gap-2"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
@@ -2793,13 +2812,12 @@ function App() {
           <div className={`${hasWindowControls ? "w-[144px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
       )}
-      {!isZenMode && settings.floatingToolbarAnchor !== "bottom" && topChromeBlock}
-
-      <div
-        className={`flex-1 min-h-0 flex ${!isZenMode && settings.floatingToolbarAnchor === "left" ? "pl-[72px]" : ""
-          } ${!isZenMode && settings.floatingToolbarAnchor === "right" ? "pr-[72px]" : ""
-          }`}
-      >
+      {/* MKL12C / ADR-003: com `integrated`, a barra é montada dentro da linha
+          do header (ver `headerToolbarBlock`) e **não** aqui. Este é o único
+          ponto de montagem da alternativa `bottom` — havia um segundo, igual a
+          este, e a barra aparecia duas vezes quando a âncora era `bottom`
+          (medido: 6 seções `.ml-toolbar-section` no DOM em vez de 3). */}
+      <div className="flex-1 min-h-0 flex">
       {settings.appMode === "editor" ? (
         <>{!isZenMode && settings.sidebarEnabled && (
           <div

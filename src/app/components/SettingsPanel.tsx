@@ -1029,7 +1029,7 @@ export default function SettingsPanel({
                   })
                 }
               >
-                <option value="top">{tr("Topo", "Top", "Superior")}</option>
+                <option value="integrated">{tr("Integrada ao topo", "Integrated", "Integrada")}</option>
                 <option value="bottom">{tr("Base", "Bottom", "Inferior")}</option>
                 <option value="left">{tr("Esquerda", "Left", "Izquierda")}</option>
                 <option value="right">{tr("Direita", "Right", "Derecha")}</option>

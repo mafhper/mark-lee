@@ -110,9 +110,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onTransformMarkdown,
 }) => {
   const canControlWindow = isTauriRuntime();
-  const isVertical = floatingToolbarAnchor === "left" || floatingToolbarAnchor === "right";
-  const showIcon = isVertical || toolbarAlwaysShowIcons || toolbarDisplayMode !== "text_only";
-  const showLabel = !isVertical && toolbarDisplayMode !== "icon_only";
+  // `left`/`right` saíram do enumérico de `floatingToolbarAnchor` na MKL12C, mas
+  // `isVertical` sobrevive: ele governa o layout interno (gap, badge, medição de
+  // overflow, seção escondida) e tem 37 usos. Removê-lo é a MKL12F, que trata da
+  // âncora — aqui a barra é **sempre** horizontal, então ele é sempre `false`.
+  const isVertical = false;
+  const showIcon = toolbarAlwaysShowIcons || toolbarDisplayMode !== "text_only";
+  const showLabel = toolbarDisplayMode !== "icon_only";
 
   const centerRef = useRef<HTMLDivElement | null>(null);
   const sectionFrameRefs = useRef<Partial<Record<ToolbarSectionKey, HTMLDivElement | null>>>({});
@@ -245,10 +249,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
     const panelEl = overflowPanelRefs.current[sectionKey];
     const horizontalOverflow = getHorizontalOverflowMetrics(sectionKey);
-    const estimatedPanelHeight = Math.min(
-      Math.max(panelEl?.offsetHeight ?? 320, 180),
-      Math.floor(window.innerHeight * 0.7)
-    );
     const estimatedPanelWidth = Math.min(
       Math.max(
         isVertical ? (panelEl?.offsetWidth ?? 108) : (horizontalOverflow.panelWidth ?? panelEl?.offsetWidth ?? 420),
@@ -256,26 +256,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
       ),
       Math.floor(window.innerWidth - 24)
     );
-    const clampedTop = clamp(
-      rect.top - 8,
-      8,
-      Math.max(8, window.innerHeight - estimatedPanelHeight - 8)
+    // `clampedTop` saiu: era o `rect.top - 8` do ramo vertical, e o ramo de cima
+    // precisa abrir **abaixo** da barra. `estimatedPanelHeight` continua, agora
+    // como teto do popover.
+    const estimatedPanelHeight = Math.min(
+      Math.max(panelEl?.offsetHeight ?? 320, 180),
+      Math.floor(window.innerHeight * 0.7)
     );
-    if (isVertical) {
-      if (floatingToolbarAnchor === "right") {
-        return {
-          position: "fixed",
-          top: clampedTop,
-          right: Math.max(8, window.innerWidth - rect.left + gap),
-        };
-      }
-      return {
-        position: "fixed",
-        top: clampedTop,
-        left: Math.max(8, rect.right + gap),
-      };
-    }
-
     const centeredLeft = clamp(
       Math.round(frameRect.left + frameRect.width / 2 - estimatedPanelWidth / 2),
       8,
@@ -297,9 +284,23 @@ const TopChrome: React.FC<TopChromeProps> = ({
       };
     }
 
+    // MKL12C: o ramo de cima abre **abaixo** da barra (`rect.bottom + gap`).
+    // `clampedTop` (o `rect.top - 8` que sobra do ramo vertical) abria por
+    // cima e, com a barra integrada na linha do header, o popover cobria os
+    // próprios botões que o abriram — e o `hover` seguinte do `test:ui-layout`
+    // batia num elemento bloqueado. Medido: painel `t=8..93` cobrindo botões
+    // em `y=0`.
+    //
+    // O piso de 8px e o teto de `estimatedPanelHeight` mantêm o painel inteiro
+    // dentro da janela.
+    const top = clamp(
+      rect.bottom + gap,
+      8,
+      Math.max(8, window.innerHeight - estimatedPanelHeight - 8)
+    );
     return {
       position: "fixed",
-      top: rect.bottom + gap,
+      top,
       left: centeredLeft,
       width: estimatedPanelWidth,
       ["--ml-popover-anchor-x" as string]: `${anchorX}px`,
@@ -804,7 +805,7 @@ const TopChrome: React.FC<TopChromeProps> = ({
           </div>
         )}
 
-        <div className={`${isVertical ? "flex flex-col items-center gap-1 p-1.5" : "flex h-9 min-w-0 items-center gap-2 px-1.5 relative"}`}>
+        <div className={`${isVertical ? "flex flex-col items-center gap-1 p-1.5" : `flex ${innerHeightClass} min-w-0 items-center gap-2 px-1.5 relative`}`}>
           {!isVertical && effectiveShowSectionLabels && (
             <>
               <div
@@ -908,14 +909,22 @@ const TopChrome: React.FC<TopChromeProps> = ({
     </div>
   );
 
+  // MKL12C / ADR-003: `left`/`right` saíram do enumérico de `floatingToolbarAnchor`
+  // — eram barras verticais fixas, e nenhuma das quatro regiões da spec descreve
+  // essa área. `integrated` usa o mesmo layout horizontal de antes, agora dentro
+  // da linha do header.
+  //
+  // `w-full min-w-0` é o que **medido** exigiu: sem ele a raiz fica com
+  // `flex: 0 1 auto`, encolhe para 158px e espreme os 27 botões, mesmo com o
+  // pai (`flex-1`) oferecendo 674px.
+  // `border-b` só na âncora `bottom`. Integrada na linha do header, a barra
+  // somava a própria borda aos 32px do header e ficava com 33px — que o
+  // `align-items: center` centralizava em `top: -1`, tirando o botão de
+  // overflow da área visível. O header já tem a sua própria borda.
   const positionClass =
     floatingToolbarAnchor === "bottom"
-      ? `relative z-[120] border-t shadow-[0_-1px_3px_rgba(0,0,0,0.05)] overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`
-      : floatingToolbarAnchor === "left"
-        ? `fixed left-0 top-[32px] h-[calc(100vh-32px)] z-[120] border-r overflow-y-auto overflow-x-visible ${tConfig.uiBorder} ${tConfig.ui}`
-        : floatingToolbarAnchor === "right"
-          ? `fixed right-0 top-[32px] h-[calc(100vh-32px)] z-[120] border-l overflow-y-auto overflow-x-visible ${tConfig.uiBorder} ${tConfig.ui}`
-          : `relative z-[120] border-b overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`;
+      ? `relative z-[120] w-full min-w-0 border-t shadow-[0_-1px_3px_rgba(0,0,0,0.05)] overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`
+      : `relative z-[120] w-full min-w-0 overflow-visible ${tConfig.uiBorder} ${tConfig.ui}`;
 
   const rootStyle: React.CSSProperties = {
     fontFamily: tConfig.uiFont,
@@ -932,10 +941,25 @@ const TopChrome: React.FC<TopChromeProps> = ({
     !sectionsAreCollapsed &&
     repulsionGapPx !== null;
 
+  // MKL12C: a barra **inteira** virou o ramo horizontal. O vertical saiu com as
+  // âncoras `left`/`right`, e `isVertical` é `false` desde então — este ternário
+  // sobrou como resto da migração e sai na MKL12F.
+  //
+  // E `flex-1 min-w-0` no wrapper horizontal dá à barra a largura que o header
+  // lhe oferece: sem ele o filho encolhe para o conteúdo (`flex: 0 1 auto`) e os
+  // 27 botões ficam espremidos em 158px — medido no DOM, não suposto.
+  // MKL12C: a altura dos wrappers internos acompanha a âncora. Integrada na
+  // linha do header (32px), a barra precisa de 32px — os `h-9` (36px) de antes
+  // centralizavam o botão de overflow em `y: -1`, e o Playwright nunca o
+  // considerava visível. Na âncora `bottom` a barra tem 44px (`h-11`).
+  const innerHeightClass = floatingToolbarAnchor === "bottom" ? "h-9" : "h-8";
+
   return (
     <div
       className={`${positionClass} ${tConfig.fg}`}
-      style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: floatingToolbarAnchor === "left" || floatingToolbarAnchor === "right" ? tConfig.uiHex : "transparent" } as React.CSSProperties}
+      // MKL12C: a barra vertical deixou de existir, então a raiz é sempre
+      // transparente — o fundo é o do header, que já está atrás dela.
+      style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: "transparent" } as React.CSSProperties}
     >
       {isVertical ? (
         <div className="h-full px-1 py-2 flex flex-col items-center gap-2">
@@ -947,10 +971,19 @@ const TopChrome: React.FC<TopChromeProps> = ({
 
         </div>
       ) : (
-        <div className="flex h-11 items-center px-2" style={{ WebkitAppRegion: "drag", backgroundColor: tConfig.uiHex } as React.CSSProperties}>
-          <div className="min-w-0 h-9 flex-1" ref={centerRef} style={{ WebkitAppRegion: "no-drag", ...noDragStyle } as React.CSSProperties}>
+        // MKL12C: `h-8`, e não `h-11`. A linha do header tem 32px; uma barra de 44px
+    // centralizada nela dá `top: -7`, e o botão de overflow vira `y: -1` — que
+    // o Playwright nunca considera visível, então `hover` estourava 30s. Medido
+    // nas 4 viewports do `test:ui-layout`. A barra de baixo não é afetada: ela
+    // não divide altura com o header.
+    <div className={`flex items-center px-2 flex-1 min-w-0 ${floatingToolbarAnchor === "bottom" ? "h-11" : "h-8"}`} style={{ WebkitAppRegion: "drag", backgroundColor: tConfig.uiHex } as React.CSSProperties}>
+          {/* MKL12C: com `integrated` a barra tem **32px**, a altura da linha do header.
+            Os dois wrappers internos mediam 36px (`h-9`) e, centrados dentro de
+            32px, punham o botão de overflow em `y: -1`. Por isso a altura aqui
+            acompanha a âncora em vez de ser fixa. */}
+          <div className={`min-w-0 flex-1 ${innerHeightClass}`} ref={centerRef} style={{ WebkitAppRegion: "no-drag", ...noDragStyle } as React.CSSProperties}>
             <div
-              className="flex h-9 items-center flex-nowrap w-full overflow-hidden justify-start"
+              className={`flex items-center flex-nowrap w-full overflow-hidden justify-start ${innerHeightClass}`}
               style={{
                 gap: useRepulsionLayout ? `${repulsionGapPx}px` : "clamp(0.3rem, 0.7vw, 0.8rem)",
                 pointerEvents: "auto",

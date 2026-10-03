@@ -79,6 +79,36 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
     merged.theme = Theme.Firenight;
   }
 
+  // MKL12C / ADR-003: `top`, `left` e `right` saíram do enumérico de
+  // `floatingToolbarAnchor`. Quem tinha qualquer um deles salvo recebe
+  // `integrated` — que é a posição que a ADR escolheu, não um piso de
+  // compatibilidade. O valor antigo deixa de ser lido, mas continua no disco:
+  // é o que permite desfazer a migração sem perder a preferência de ninguém.
+  if (settings.floatingToolbarAnchor !== "integrated" && settings.floatingToolbarAnchor !== "bottom") {
+    merged.floatingToolbarAnchor = "integrated";
+  }
+
+  // A preferência da barra é guardada por âncora (`toolbarByAnchor`). Sem esta
+  // migração, quem tinha a Toolbar salva em `top`/`left`/`right` perderia a
+  // própria configuração ao mudar de âncora — voltaria ao padrão sem ele pedir.
+  // A âncora velha e `integrated` não existiam juntas, então a preferência
+  // escrita primeiro não é sobrescrita.
+  const byAnchor = settings.toolbarByAnchor as
+    | Record<string, Partial<AppSettings> | undefined>
+    | undefined;
+  if (byAnchor && typeof byAnchor === "object") {
+    const migrated = { ...byAnchor };
+    let changed = false;
+    for (const legacy of ["top", "left", "right"]) {
+      const saved = migrated[legacy];
+      if (!saved) continue;
+      if (!migrated.integrated) migrated.integrated = saved;
+      delete migrated[legacy];
+      changed = true;
+    }
+    if (changed) merged.toolbarByAnchor = migrated as AppSettings["toolbarByAnchor"];
+  }
+
   const defaultThemeLibrary = createDefaultThemeLibrary();
   const storedThemes = Array.isArray(settings.themeLibrary) ? settings.themeLibrary : [];
   const customThemes = storedThemes.filter((theme) => !theme?.builtIn);
@@ -187,7 +217,10 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   };
   merged.toolbarItems.sysSettings = true;
 
-  const anchors: Array<"top" | "bottom" | "left" | "right"> = ["top", "bottom", "left", "right"];
+  // MKL12C / ADR-003: só `integrated` e `bottom` continuam. `top`, `left` e
+  // `right` foram absorvidas por `integrated` na migração acima, então
+  // preenchê-las aqui recriaria chaves que o enumérico não aceita.
+  const anchors: Array<"integrated" | "bottom"> = ["integrated", "bottom"];
   const toolbarByAnchor = merged.toolbarByAnchor || {};
   merged.toolbarByAnchor = {};
   for (const anchor of anchors) {
