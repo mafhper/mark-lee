@@ -241,14 +241,21 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
   // Sempre no fluxo + sempre montadas: a largura da strip nunca muda E nada é
   // coberto. Os espaçadores dentro da strip garantem 24px de folga nas duas
   // pontas, então a aba nunca fica debaixo da seta em nenhum ponto do scroll.
-  const arrowClass = (enabled: boolean) =>
-    `ml-btn h-9 w-6 shrink-0 inline-flex items-center justify-center transition-opacity duration-75 ${
+// Sem overflow, a seta some **e larga o espaço**. Antes era `opacity-0`, que
+    // mantinha os 24px reservados — e eram eles que somavam a faixa morta antes
+    // da primeira aba. `hidden` tira do fluxo: sem largura, sem borda.
+    //
+    // O deslocamento — as abas andam 24px quando a segunda abre e o overflow
+    // passa a existir — é aceito de propósito: as setas saíram de `absolute`
+    // para o fluxo justamente porque, em `absolute`, elas cobriam o texto das
+    // abas. O custo é uma vez; o benefício é 48px devolvidos em todo o resto do
+    // tempo em que o usuário não rola abas.
+    const arrowClass = (enabled: boolean) =>
+      `ml-btn h-9 shrink-0 inline-flex items-center justify-center transition-opacity duration-75 ${
       !overflow.any
-        ? "opacity-0 pointer-events-none"
-        : enabled
-          ? "opacity-70 hover:opacity-100"
-          : "opacity-20 pointer-events-none"
-    }`;
+      ? "hidden"
+      : `w-6 ${enabled ? "opacity-70 hover:opacity-100" : "opacity-20 pointer-events-none"}`
+      }`;
 
   return (
     <div
@@ -288,7 +295,7 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
           {/* Espaçadores fixos: garantem que a primeira e a última aba fiquem
               24px longe das setas. São elementos, não padding — o Chromium às
               vezes ignora padding-right ao calcular scrollWidth. */}
-          <div aria-hidden className="w-6 shrink-0" />
+          <div aria-hidden className={overflow.any ? "w-6 shrink-0" : "w-0 shrink-0 overflow-hidden"} />
           {tabs.map((tab) => (
             <EditorTab
               key={tab.id}
@@ -303,7 +310,7 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
               onCloseAll={onCloseAll}
             />
           ))}
-          <div aria-hidden className="w-6 shrink-0" />
+          <div aria-hidden className={overflow.any ? "w-6 shrink-0" : "w-0 shrink-0 overflow-hidden"} />
         </div>
 
         {overflow.left && (
