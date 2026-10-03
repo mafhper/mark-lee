@@ -31,6 +31,9 @@ jobs:
       - name: Check contrast
         run: npm run contrast:check
 
+      - name: Check public surface
+        run: npm run surface:check
+
       - name: Test journal media and organization
         run: |
           npm run test:image-markdown

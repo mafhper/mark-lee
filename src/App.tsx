@@ -2516,7 +2516,7 @@ function App() {
   };
 
   /**
-   * MKL12B — despachante do menu do topo.
+   * Despachante do menu do topo.
    *
    * Cada item do menu aponta para uma ação que **já existia** no `onKeyDown`
    * (mesmos ids de atalho, mesma execução). O menu não inventa comportamento:
@@ -2685,7 +2685,7 @@ function App() {
       onTransformMarkdown={transformActiveDocument}
     />
   );
-  // MKL12C: `topChromeBlock` saiu. Era `topChromeComponent` com outro nome, e
+  // `topChromeBlock` saiu. Era `topChromeComponent` com outro nome, e
   // os dois eram montados — a barra aparecia duplicada quando a âncora era
   // `bottom`. Agora há um ponto de montagem por âncora: o header para
   // `integrated`, o rodapé para `bottom`.
@@ -2756,7 +2756,7 @@ function App() {
           className={`h-8 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} px-2 flex items-center justify-between`}
           style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
         >
-          {/* MKL12C: a marca cede espaço antes da barra. O logo e o nome sao
+          {/* A marca cede espaço antes da barra. O logo e o nome sao
               decorativos — o titulo do produto ja esta no arquivo e a versao
               no About — e numa janela estreita eles empurravam a barra para
               0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport. */}
@@ -2768,8 +2768,8 @@ function App() {
             <span className="text-sm font-semibold tracking-wide whitespace-nowrap hidden lg:inline">Mark-Lee</span>
             <span className="text-[11px] font-semibold opacity-60 whitespace-nowrap hidden xl:inline">v{APP_VERSION}</span>
           </div>
-          {/* MKL12B: o menu entra na linha de topo existente, à esquerda do
-              switcher — não numa linha nova. Isso é o que a ADR-003 fixou: a
+          {/* O menu entra na linha de topo existente, à esquerda do
+              switcher — não numa linha nova. Isso é o que a decisão de layout fixou: a
               barra é *integrada* ao topo, e um menu em linha própria seria
               exatamente a "barra tradicional" que a decisão rejeitou.
               Só aparece no Editor: em Memórias este menu não temitem, e um menu
@@ -2786,7 +2786,7 @@ function App() {
               viewMode={viewMode}
             />
           )}
-          {/* MKL12C: a barra tem **piso** (`min-w-[120px]`) e o menu cede primeiro.
+          {/* A barra tem **piso** (`min-w-[120px]`) e o menu cede primeiro.
               Medido a 420px: sem o piso, a barra recebia 0px porque o menu
               (264px) e o switcher (122px) somavam mais que a viewport, e o
               `flex-1` — que encolhe primeiro — era justamente a barra. */}
@@ -2812,7 +2812,7 @@ function App() {
           <div className={`${hasWindowControls ? "w-[144px]" : "w-0"} shrink-0 pointer-events-none`} />
         </div>
       )}
-      {/* MKL12C / ADR-003: com `integrated`, a barra é montada dentro da linha
+      {/* Com `integrated`, a barra é montada dentro da linha
           do header (ver `headerToolbarBlock`) e **não** aqui. Este é o único
           ponto de montagem da alternativa `bottom` — havia um segundo, igual a
           este, e a barra aparecia duas vezes quando a âncora era `bottom`

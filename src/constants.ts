@@ -537,8 +537,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tabsEnabled: true,
   sidebarEnabled: true,
   sidebarWidth: 260,
-  // MKL12C / ADR-003: `integrated` substitui a barra de baixo como padrão. A
-  // barra de baixo é agora a alternativa da preferência, não o fallback.
+  // `integrated` substitui a barra de baixo como padrão. A barra de baixo é
+  // agora a alternativa da preferência, não o fallback.
   floatingToolbarAnchor: "integrated",
   showToolbarSectionLabels: true,
   toolbarAlwaysShowIcons: true,

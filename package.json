@@ -48,6 +48,7 @@
     "site:test": "npm --prefix apps/site run test",
     "site:test:smoke": "npm run site:build && node scripts/smoke-site.mjs",
     "contrast:check": "node scripts/contrast-check.mjs",
+    "surface:check": "node scripts/superficie-check.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

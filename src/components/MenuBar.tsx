@@ -5,17 +5,17 @@ import { TRANSLATIONS } from '../translations';
 import { RecentFile } from '../services/storage';
 
 /**
- * MKL12B — menu resumido do topo.
+ * Menu resumido do topo.
  *
  * Este componente antes era uma **titlebar inteira**: trazia os controles de
  * janela (`getCurrentWindow().minimize()` etc.), o título do arquivo no centro e
  * o próprio `data-tauri-drag-region`. Montá-lo criaria uma **segunda titlebar**
- * em cima da `WindowTitleBar` existente — o defeito de drag-region que a MKL12
- * registra como ameaça nº 1.
+ * em cima da `WindowTitleBar` existente — o defeito de drag-region mais conhecido
+ * deste cabeçalho.
  *
  * Aqui ficou **só o menu**. Nenhum efeito mora neste arquivo: ele despacha um
- * `MenuActionId` e quem executa é o App. É a regra que a ADR-003 fixa — a barra
- * pertence ao workspace, e o workspace executa.
+ * `MenuActionId` e quem executa é o App. A barra pertence ao workspace, e quem
+ * executa é o workspace.
  *
  * Os ids são os mesmos que o `onKeyDown` do App usa para os atalhos
  * (`file-save`, `view-split`, `fmt-bold`...). Menu e teclado falam uma língua
@@ -158,8 +158,8 @@ const MenuBar: React.FC<MenuBarProps> = ({
       },
     ],
     // "Formatar" é o terceiro menu pedido pelo dono. Sai daqui, e não da barra
-    // de ferramentas: a MKL12C decide o que sobe para o topo, e um item de menu
-    // que já faz a mesma coisa não pode depender dessa decisão para existir.
+// de ferramentas: a decisão de layout é o que decide o que sobe, e um item de
+  // menu que já faz a mesma coisa não pode depender dela para existir.
     // Rótulos vêm de `tool.*`, as mesmas chaves que a barra de ferramentas já
     // usa. Um item de menu que repete o da barra tem de repetir o rótulo dele —
     // senão a tradução ganha duas palavras para a mesma ação e uma delas erra.
@@ -207,8 +207,8 @@ const MenuBar: React.FC<MenuBarProps> = ({
   };
 
   return (
-    // MKL12C: `min-w-0 shrink` e `shrink-0` nos itens. O menu divide a linha do
-    // header com a barra, e numa janela estreita quem tem de ceder é ele — o
+    // `min-w-0 shrink` e `shrink-0` nos itens: o menu divide a linha do header
+    // com a barra, e numa janela estreita quem tem de ceder é ele — o
     // logo e cada rótulo de menu são insubstituíveis, a barra tem `min-w`.
     // Sem `shrink`, o menu ficava nos 341px do conteúdo, logo(128) + menu(341)
     // estouravam a viewport e a barra recebia 0px.
