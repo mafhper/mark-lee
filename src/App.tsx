@@ -4,7 +4,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, undoDepth, redoDepth } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
 import { formatMarkdown, minifyMarkdown } from "./services/markdown-processor";
 import { readText, writeText } from "./services/clipboard";
 import {
@@ -77,6 +77,7 @@ import Sidebar from "./app/components/Sidebar";
 import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
+import MenuBar, { type MenuActionId } from "./components/MenuBar";
 import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
@@ -2514,6 +2515,133 @@ function App() {
     transformActiveMarkdown(mode);
   };
 
+  /**
+   * MKL12B — despachante do menu do topo.
+   *
+   * Cada item do menu aponta para uma ação que **já existia** no `onKeyDown`
+   * (mesmos ids de atalho, mesma execução). O menu não inventa comportamento:
+   * ele torna as ações descobvíveis por mouse. Por isso o `onKeyDown` continua
+   * intacto e este é o caminho novo, não uma reescrita do antigo.
+   *
+   * Um item cujo atalho está bloqueado em Memórias fica bloqueado no menu
+   * também. Um menu que oferece o que o teclado esconde teach o usuário a
+   * procurar no lugar errado.
+   */
+  const runMenuAction = async (action: MenuActionId, payload?: string) => {
+    const blockedInJournal =
+      settings.appMode === "journal" &&
+      (action.startsWith("fmt-") ||
+        action.startsWith("edit-undo") ||
+        action.startsWith("edit-redo") ||
+        action === "view-edit" ||
+        action === "view-split" ||
+        action === "view-preview");
+
+    switch (action) {
+      case "file-new":
+        await handleNewFile();
+        return;
+      case "file-open":
+        await handleOpenFile();
+        return;
+      case "file-open-folder":
+        await handleOpenFolder();
+        return;
+      case "file-open-recent":
+        if (payload) await openPathInTab(payload);
+        return;
+      case "file-save":
+        // `executeCommand` só existe dentro do efeito do teclado, então o menu
+        // chama o mesmo comando pela lista — é a mesma implementação.
+        await commands.find((command) => command.id === "file.save")?.execute();
+        return;
+      case "file-save-as":
+        if (activeTab) await saveTab(activeTab, true);
+        return;
+      case "file-export":
+        openDialog("export");
+        return;
+      case "edit-find":
+        await commands.find((command) => command.id === "edit.find")?.execute();
+        return;
+      case "edit-replace":
+        openDialog("find");
+        return;
+      case "edit-snippets":
+        openDialog("snippets");
+        return;
+      case "fmt-bold":
+      case "fmt-italic":
+      case "fmt-link":
+      case "fmt-ul":
+      case "fmt-ol":
+      case "fmt-task":
+        if (blockedInJournal) return;
+        await handleFormatAction(action.slice(4) as "bold" | "italic" | "link" | "ul" | "ol" | "task");
+        return;
+      case "view-sidebar":
+        updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
+        return;
+      case "view-zen":
+        setIsZenMode((previous) => !previous);
+        return;
+      case "view-edit":
+      case "view-split":
+      case "view-preview": {
+        if (blockedInJournal) return;
+        const next = action.slice(5) as "edit" | "split" | "preview";
+        setViewMode(next);
+        updateSettings({ viewMode: next });
+        return;
+      }
+      case "view-theme-cycle":
+        cycleTheme();
+        return;
+      case "app-settings":
+        openDialog("settings");
+        return;
+      // Import dinâmico como o resto do App: fora do Tauri não há `window`, e
+      // um import estático quebraria o fallback web inteiro por causa de três
+      // itens de menu.
+      case "window-minimize":
+        if (isTauriRuntime()) {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          await getCurrentWindow().minimize();
+        }
+        return;
+      case "window-maximize": {
+        if (!isTauriRuntime()) return;
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        if (await appWindow.isMaximized()) await appWindow.unmaximize();
+        else await appWindow.maximize();
+        return;
+      }
+      case "window-close":
+        if (isTauriRuntime()) {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          await getCurrentWindow().close();
+        }
+        return;
+      // Desfazer/Refazer vão direto ao CodeMirror: `historyKeymap` trata a tecla,
+      // e um atalho global que desfaz quando o foco está fora do editor mente.
+      case "edit-undo": {
+        if (blockedInJournal) return;
+        const view = activeEditorRef.current;
+        if (view) undo(view);
+        return;
+      }
+      case "edit-redo": {
+        if (blockedInJournal) return;
+        const view = activeEditorRef.current;
+        if (view) redo(view);
+        return;
+      }
+      default:
+        return;
+    }
+  };
+
   const topChromeComponent = (
     <TopChrome
       t={t}
@@ -2633,6 +2761,24 @@ function App() {
             <span className="text-sm font-semibold tracking-wide whitespace-nowrap">Mark-Lee</span>
             <span className="text-[11px] font-semibold opacity-60">v{APP_VERSION}</span>
           </div>
+          {/* MKL12B: o menu entra na linha de topo existente, à esquerda do
+              switcher — não numa linha nova. Isso é o que a ADR-003 fixou: a
+              barra é *integrada* ao topo, e um menu em linha própria seria
+              exatamente a "barra tradicional" que a decisão rejeitou.
+              Só aparece no Editor: em Memórias este menu não temitem, e um menu
+              quase vazio é pior do que nenhum. */}
+          {settings.appMode === "editor" && (
+            <MenuBar
+              tConfig={tConfig}
+              language={settings.language}
+              onAction={runMenuAction}
+              recentFiles={recentFiles}
+              shortcuts={shortcutLabels}
+              isZenMode={isZenMode}
+              sidebarEnabled={settings.sidebarEnabled}
+              viewMode={viewMode}
+            />
+          )}
           <div
             className="flex items-center gap-2"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
