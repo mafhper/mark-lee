@@ -1711,3 +1711,26 @@
   padding: 0 4px;
   user-select: none;
 }
+/* ── A borda dupla entre a faixa e o canvas ─────────────────────────────────
+   Medido: com a barra integrada, a seção media **34px** (32 de conteúdo + 1px de
+   borda em cima e embaixo) dentro de uma caixa de conteúdo de **31px** — o header
+   tem 32px com `border-box` e `border-b` de 1px. Centralizada, ela transbordava
+   1,5px para cada lado: subia para `y: -1` e a borda de baixo dela caía em y=32-33,
+   enquanto a `border-b` do header ocupa y=31-32. Duas linhas de 1px encostadas, e
+   a de baixo 1px mais funda que a barra — é a emenda desalinhada.
+
+   Não dá para encolher o chip: os botões dentro dele têm `h-8`, ou seja, 32px, e
+   uma caixa de conteúdo de 30px os cortaria. Também não dá para tirar a
+   `border-b` do header, que é o que separa a faixa do conteúdo.
+
+   A saída é o chip **não ter borda vertical** quando a barra é integrada: o
+   desenho passa a ser fundo + cantos + bordas laterais, e a linha que separa a
+   faixa do canvas é uma só — a do header. Na ancora `bottom` a barra tem 36px, o
+   chip cabe inteiro, e a borda completa continua certa. */
+[data-anchor="integrated"] .ml-toolbar-section {
+  border-top: none;
+  border-bottom: none;
+  /* O `inset 0 1px 0` é um brilho interno no topo do chip. Com a borda de cima
+     fora, ele vira a segunda linha, exatamente onde não há nada para separar. */
+  box-shadow: none;
+}
