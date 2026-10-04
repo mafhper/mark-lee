@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Columns2, ChevronLeft, ChevronRight, PanelLeft, Plus, Square, X } from "lucide-react";
 import { DocumentTab, ThemeConfig } from "../../types";
 import {
   useContextMenuTrigger,
@@ -18,6 +18,15 @@ interface EditorTabsProps {
   onCloseSaved: () => void;
   onCloseAll: () => void;
   onNewTab: () => void;
+  /** Recolher/expandir a lateral. Botão da ponta esquerda desta barra. */
+  onToggleSidebar: () => void;
+  sidebarOpen: boolean;
+  /** Nomeia o **próximo** estado, para o `title` dizer para onde o botão vai. */
+  sidebarNextLabel: string;
+  /** Alternar o modo de visão. Botão da ponta direita, depois do `+`. */
+  onCycleView: () => void;
+  /** Editor | Dividido | Visualização. Define o ícone e o `title`. */
+  viewMode: "edit" | "split" | "preview";
 }
 
 const EditorTab: React.FC<{
@@ -138,6 +147,11 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
   onCloseSaved,
   onCloseAll,
   onNewTab,
+  onToggleSidebar,
+  sidebarOpen,
+  sidebarNextLabel,
+  onCycleView,
+  viewMode,
 }) => {
   // O botão "+" precisa sobreviver ao overflow. A barra deixa de ser um fluxo
   // flex único e vira três regiões — setas · strip rolável · grupo fixo do "+".
@@ -257,6 +271,17 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
       : `w-6 ${enabled ? "opacity-70 hover:opacity-100" : "opacity-20 pointer-events-none"}`
       }`;
 
+  // O `title` nomeia a **próxima** visão, não a atual: o botão alterna, e quem
+  // lê antes de clicar quer saber para onde vai.
+  const viewModeLabel =
+    viewMode === "edit"
+      ? t["view.split"] || "Split"
+      : viewMode === "split"
+        ? t["view.preview"] || "Preview"
+        : t["view.editor"] || "Editor";
+  const viewModeIcon =
+    viewMode === "edit" ? <Columns2 size={15} /> : viewMode === "split" ? <Square size={15} /> : <PanelLeft size={15} />;
+
   return (
     <div
       data-tauri-drag-region
@@ -266,6 +291,25 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
         event.stopPropagation();
       }}
     >
+      {/* Extremidade esquerda: recolher a lateral. O botão vive **aqui**, na
+          barra de abas, e não no cabeçalho da lateral — cabeçalho de painel que
+          some junto com o painel é um alvo que desaparece com o clique que o
+          procurava. Aqui a barra é sempre visível, então o alvo também.
+          A seta do overflow de abas continua à direita dele. */}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleSidebar();
+        }}
+        title={sidebarNextLabel}
+        aria-label={sidebarNextLabel}
+        aria-pressed={sidebarOpen}
+        className="ml-btn h-9 w-9 shrink-0 inline-flex items-center justify-center transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)]"
+      >
+        <PanelLeft size={15} />
+      </button>
+
       <button
         type="button"
         onClick={(event) => {
@@ -355,6 +399,23 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
         className="ml-btn h-9 w-9 shrink-0 inline-flex items-center justify-center transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)]"
       >
         <Plus size={15} />
+      </button>
+
+      {/* Extremidade direita: alternar o modo de visão. O ícone **acompanha o
+          estado** em vez de mostrar um "olho" fixo, porque o desenho do dono é
+          "clicar alterna": um ícone que não muda é uma pergunta que a interface
+          não responde. O `title` nomeia o que o clique faz, não o que já está. */}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onCycleView();
+        }}
+        title={viewModeLabel}
+        aria-label={viewModeLabel}
+        className="ml-btn h-9 w-9 shrink-0 ml-1 inline-flex items-center justify-center transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)]"
+      >
+        {viewModeIcon}
       </button>
     </div>
   );
