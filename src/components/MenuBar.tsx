@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { ThemeConfig, Language } from '../types';
 import { TRANSLATIONS } from '../translations';
 import { RecentFile } from '../services/storage';
+import { iconeDeAcao } from '../app/actions/action-icons';
 
 /**
  * Menu resumido do topo.
@@ -31,10 +32,18 @@ export type MenuActionId =
   | 'file-save'
   | 'file-save-as'
   | 'file-export'
+  // ile-rename e novo: renomear so existia na interface da barra lateral.
+  | 'file-rename'
   | 'edit-undo'
   | 'edit-redo'
   | 'edit-find'
   | 'edit-replace'
+  // edit-find-advanced e a busca avancada (o modal); edit-find became o
+  // painel simples do editor.
+  | 'edit-find-advanced'
+  // As duas transformacoes de Markdown, que viviam so na faixa.
+  | 'tool-format'
+  | 'tool-minify'
   | 'edit-snippets'
   | 'fmt-bold'
   | 'fmt-italic'
@@ -48,6 +57,8 @@ export type MenuActionId =
   | 'view-split'
   | 'view-preview'
   | 'view-theme-cycle'
+  // iew-journal substitui o AppModeSwitcher: Memorias vira item de menu.
+  | 'view-journal'
   | 'help-shortcuts'
   | 'app-settings'
   | 'window-minimize'
@@ -123,6 +134,13 @@ const MenuBar: React.FC<MenuBarProps> = ({
     : [{ label: t['file.noRecent'], disabled: true }];
 
   const menus: Record<string, MenuItem[]> = {
+// Três menus, na ordem do desenho do dono.
+    //
+    // "Formatar" e "Janela" saíram. **Formatar** porque as seis ações dele são a
+    // faixa de formatação da barra, e um item de menu que repete o da barra
+    // duplica o rótulo — a tradução passa a ter duas palavras para a mesma ação e
+    // uma delas erra. **Janela** porque não guardava os controles: quem os desenha
+    // é a `WindowTitleBar` nativa, e o menu apenas repetia as mesmas ações.
     [t['file']]: [
       { label: t['file.new'], action: 'file-new', shortcut: shortcut('file-new', 'Ctrl+N') },
       { label: t['file.open'], action: 'file-open', shortcut: shortcut('file-open', 'Ctrl+O') },
@@ -131,7 +149,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
         action: 'file-open-folder',
         shortcut: shortcut('file-open-folder', 'Ctrl+Shift+O'),
       },
-      { label: t['file.openRecent'], submenu: recentItems },
+      { label: t['file.openRecent'], action: 'file-open-recent', submenu: recentItems },
       { separator: true, label: '' },
       { label: t['file.save'], action: 'file-save', shortcut: shortcut('file-save', 'Ctrl+S') },
       {
@@ -140,12 +158,24 @@ const MenuBar: React.FC<MenuBarProps> = ({
         shortcut: shortcut('file-save-as', 'Ctrl+Shift+S'),
       },
       { label: t['file.export'], action: 'file-export', shortcut: shortcut('file-export', 'Ctrl+E') },
+      { label: t['file.rename'], action: 'file-rename' },
     ],
-    [t['edit']]: [
+    // "Ações" é o antigo "Editar", renomeado pelo dono: o menu deixou de ser só
+    // edição de texto e passou a reunir as ações de manipulação — desfazer, buscar,
+    // substituir, trechos, e as duas transformações de Markdown.
+    [t['actions']]: [
       { label: t['edit.undo'], action: 'edit-undo', shortcut: shortcut('edit-undo', 'Ctrl+Z') },
       { label: t['edit.redo'], action: 'edit-redo', shortcut: shortcut('edit-redo', 'Ctrl+Y') },
       { separator: true, label: '' },
+      // Buscar abre o painel do editor, que é a busca simples. Busca avançada abre
+      // o modal, que é a única peça com "substituir todos" e as três opções
+      // (maiúscula, palavra inteira, regex). Substituir vai ao painel: é uma ação
+      // direta, e o painel já tem a linha de substituição.
       { label: t['edit.find'], action: 'edit-find', shortcut: shortcut('edit-find', 'Ctrl+F') },
+      {
+        label: t['edit.findAdvanced'],
+        action: 'edit-find-advanced',
+      },
       {
         label: t['edit.replace'],
         action: 'edit-replace',
@@ -156,29 +186,24 @@ const MenuBar: React.FC<MenuBarProps> = ({
         action: 'edit-snippets',
         shortcut: shortcut('edit-snippets', 'Ctrl+J'),
       },
-    ],
-    // "Formatar" é o terceiro menu pedido pelo dono. Sai daqui, e não da barra
-// de ferramentas: a decisão de layout é o que decide o que sobe, e um item de
-  // menu que já faz a mesma coisa não pode depender dela para existir.
-    // Rótulos vêm de `tool.*`, as mesmas chaves que a barra de ferramentas já
-    // usa. Um item de menu que repete o da barra tem de repetir o rótulo dele —
-    // senão a tradução ganha duas palavras para a mesma ação e uma delas erra.
-    [t['format']]: [
-      { label: t['tool.bold'], action: 'fmt-bold', shortcut: shortcut('fmt-bold', 'Ctrl+Shift+B') },
-      { label: t['tool.italic'], action: 'fmt-italic', shortcut: shortcut('fmt-italic', 'Ctrl+I') },
-      { label: t['tool.link'], action: 'fmt-link', shortcut: shortcut('fmt-link', 'Ctrl+K') },
       { separator: true, label: '' },
-      { label: t['tool.ul'], action: 'fmt-ul', shortcut: shortcut('fmt-ul', 'Ctrl+Shift+8') },
-      { label: t['tool.ol'], action: 'fmt-ol', shortcut: shortcut('fmt-ol', 'Ctrl+Shift+7') },
-      { label: t['tool.task'], action: 'fmt-task', shortcut: shortcut('fmt-task', 'Ctrl+Shift+9') },
+      // As duas transformações saíram da faixa de formatação e passaram a morar
+      // aqui: `tool.formatMarkdown`/`tool.minifyMarkdown` eram as duas únicas ações
+      // de Edição que não tinham item de menu.
+      { label: t['tool.format'], action: 'tool-format' },
+      { label: t['tool.minify'], action: 'tool-minify' },
     ],
     [t['view']]: [
       { label: t['view.sidebar'], action: 'view-sidebar', checked: sidebarEnabled, shortcut: shortcut('view-sidebar', 'Ctrl+B') },
-      { label: t['view.zen'], action: 'view-zen', checked: isZenMode, shortcut: shortcut('view-zen', 'F10') },
       { separator: true, label: '' },
       { label: t['view.editor'], action: 'view-edit', checked: viewMode === 'edit', shortcut: shortcut('view-edit', 'Ctrl+1') },
       { label: t['view.split'], action: 'view-split', checked: viewMode === 'split', shortcut: shortcut('view-split', 'Ctrl+2') },
       { label: t['view.preview'], action: 'view-preview', checked: viewMode === 'preview', shortcut: shortcut('view-preview', 'Ctrl+3') },
+      { label: t['view.zen'], action: 'view-zen', checked: isZenMode, shortcut: shortcut('view-zen', 'F10') },
+      { separator: true, label: '' },
+      // Memórias entra no menu: era o `AppModeSwitcher`, um controle fora de
+      // qualquer menu, e o desenho do dono a colocava aqui.
+      { label: t['view.journal'], action: 'view-journal' },
       { separator: true, label: '' },
       {
         label: t['toolbar.theme'],
@@ -186,15 +211,6 @@ const MenuBar: React.FC<MenuBarProps> = ({
         shortcut: shortcut('view-theme-cycle', 'Ctrl+Shift+T'),
       },
       { label: t['settings'], action: 'app-settings', shortcut: shortcut('app-settings', 'Ctrl+,') },
-    ],
-    // "Janela" é o quinto menu pedido pelo dono. Ele não guarda os controles de
-    // janela: quem os desenha é a `WindowTitleBar`. O menu apenas dispara as
-    // mesmas ações, pelo mesmo caminho do App.
-    [t['window']]: [
-      { label: t['window.minimize'], action: 'window-minimize' },
-      { label: t['window.maximize'], action: 'window-maximize' },
-      { separator: true, label: '' },
-      { label: t['window.close'], action: 'window-close' },
     ],
   };
 
@@ -249,6 +265,9 @@ const MenuBar: React.FC<MenuBarProps> = ({
                       className="w-full text-left px-4 py-1.5 flex justify-between items-center hover:bg-black/5 dark:hover:bg-white/10"
                     >
                       <span className="flex items-center gap-2">
+                        <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
+                          {iconeDeAcao(item.action)}
+                        </span>
                         <span>{item.label}</span>
                         <span className="text-[10px] opacity-50">&#9656;</span>
                       </span>
@@ -269,7 +288,17 @@ const MenuBar: React.FC<MenuBarProps> = ({
                           title={sub.payload || sub.label}
                           onClick={() => run(sub)}
                         >
-                          {sub.label}
+                          <span className="flex items-center gap-2 min-w-0">
+                              {/* Recentes usam a ação `file-open-recent` para
+                                  carregar o caminho, mas o desenho é o de
+                                  *abrir arquivo*: um relógio em cada linha
+                                  repetiria a mesma imagem cinco vezes e não
+                                  diria nada. */}
+                              <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
+                                {iconeDeAcao(sub.action === 'file-open-recent' ? 'file-open' : sub.action)}
+                              </span>
+                              <span className="truncate">{sub.label}</span>
+                            </span>
                         </button>
                       ))}
                     </div>
@@ -283,8 +312,18 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     className="w-full text-left px-4 py-1.5 flex justify-between items-center gap-6 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-default"
                     onClick={() => run(item)}
                   >
-                    <span className="flex items-center gap-2 min-w-0">
-                      {item.checked && <Check size={12} className="shrink-0" />}
+<span className="flex items-center gap-2 min-w-0">
+                      {/* Duas calhas de largura fixa: o ícone à esquerda e o check
+                          ao lado. Se o check dividisse a calha do ícone, **marcar o
+                          item empurraria o rótulo** — e um menu que dança ao passar
+                          o mouse por cima não é um menu, é um efeito. O critério
+                          de aceite é a posição do rótulo com e sem `checked`. */}
+                      <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
+                        {iconeDeAcao(item.action)}
+                      </span>
+                      <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center">
+                        {item.checked && <Check size={12} className="shrink-0" />}
+                      </span>
                       <span className="truncate">{item.label}</span>
                     </span>
                     {item.shortcut && (

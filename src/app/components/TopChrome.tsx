@@ -1046,7 +1046,10 @@ if (typeof window === "undefined") {
       className={`${positionClass} ${tConfig.fg}`}
       // A barra vertical deixou de existir, então a raiz é sempre
       // transparente — o fundo é o do header, que já está atrás dela.
-      style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: "transparent" } as React.CSSProperties}
+      // `data-anchor`: a ancora decide se o chip da secao pode ter borda em cima e
+    // embaixo. Ver a regra em `index.css` — e o comentario la explica a aritmetica.
+    data-anchor={floatingToolbarAnchor}
+    style={{ ...rootStyle, WebkitAppRegion: "drag", backgroundColor: "transparent" } as React.CSSProperties}
     >
       {(
         // `h-8`, e não `h-11`. A linha do header tem 32px; uma barra de 44px
