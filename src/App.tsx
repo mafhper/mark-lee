@@ -2624,14 +2624,42 @@ label: t["view.sidebar"] || "Sidebar",
       case "file-export":
         openDialog("export");
         return;
+case "file-rename": {
+        // A mesma função que a barra lateral usa, com o caminho do arquivo aberto:
+        // `renameWorkspacePath` é o prefixo de uma só implementação, e duplicá-la
+        // faria os dois lugares divergirem na primeira correção. Sem `path` ainda
+        // não há arquivo em disco para renomear.
+        if (activeTab?.path) await handleWorkspaceRename(activeTab.path);
+        return;
+      }
       case "edit-find":
         await commands.find((command) => command.id === "edit.find")?.execute();
         return;
+      case "edit-find-advanced":
       case "edit-replace":
         openDialog("find");
         return;
       case "edit-snippets":
         openDialog("snippets");
+        return;
+      case "tool-format":
+        if (blockedInJournal) return;
+        await transformActiveDocument("format");
+        return;
+      case "tool-minify":
+        if (blockedInJournal) return;
+        await transformActiveDocument("minify");
+        return;
+      case "view-journal":
+        // Memórias pelo menu é a **mesma** troca que o switcher fazia, pelo mesmo
+        // caminho: um `appMode` novo reinicia as abas, e duplicar isso aqui
+        // deixaria dois lugares com regras diferentes de "o que acontece ao
+        // trocar de workspace".
+        setSettings((prev) => {
+          const next = { ...prev, appMode: prev.appMode === "journal" ? ("editor" as const) : ("journal" as const) };
+          saveSettings(next);
+          return next;
+        });
         return;
       case "fmt-bold":
       case "fmt-italic":
