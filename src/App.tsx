@@ -2696,7 +2696,6 @@ label: t["view.sidebar"] || "Sidebar",
       toolbarSections={settings.toolbarSections}
       toolbarItems={settings.toolbarItems}
       showToolbarSectionLabels={settings.showToolbarSectionLabels}
-      toolbarAlwaysShowIcons={settings.toolbarAlwaysShowIcons}
       toolbarCompactBreakpoint={settings.toolbarCompactBreakpoint}
       toolbarDisplayMode={settings.toolbarDisplayMode}
       toolbarSectionBehavior={settings.toolbarSectionBehavior}
@@ -2788,9 +2787,23 @@ showShortcutHints={showShortcutHints}
     >
       <WindowTitleBar tConfig={tConfig} />
       {!isZenMode && (
-        <div
-          className={`h-8 border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} px-2 flex items-center justify-between`}
-          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+<div
+          className={`border-b ${tConfig.uiBorder} ${tConfig.ui} ${tConfig.fg} px-2 flex items-center justify-between`}
+          // A fonte e o tamanho do cromo vivem aqui, no header, e não em cada
+          // peça: antes o menu herdava 16px do navegador, o título pedia 14px e
+          // os itens da barra 11px — três tipos na mesma faixa de 32px. Quem
+          // precisa de outro tamanho declara, e é o título.
+          style={{
+            WebkitAppRegion: "drag",
+            fontFamily: "var(--ml-ui-font)",
+            fontSize: "var(--ml-chrome-font-size)",
+            // Acompanha a barra: com rótulo embaixo dos ícones são 44px. O token
+            // é o mesmo que a barra usa, para os dois não divergirem.
+            height:
+              settings.toolbarDisplayMode === "stacked"
+                ? "var(--ml-chrome-h-rotulo)"
+                : "var(--ml-chrome-h)",
+          } as React.CSSProperties}
         >
           {/* A marca cede espaço antes da barra. O logo e o nome sao
               decorativos — o titulo do produto ja esta no arquivo e a versao
@@ -2800,9 +2813,14 @@ showShortcutHints={showShortcutHints}
             className="flex items-center gap-2 min-w-0 shrink"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
-            <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded shrink-0 border ${tConfig.uiBorder}`} />
-            <span className="text-sm font-semibold tracking-wide whitespace-nowrap hidden lg:inline">Mark-Lee</span>
-            <span className="text-[11px] font-semibold opacity-60 whitespace-nowrap hidden xl:inline">v{APP_VERSION}</span>
+<img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded shrink-0 border ${tConfig.uiBorder}`} />
+            <span
+              className="font-semibold tracking-wide whitespace-nowrap hidden lg:inline"
+              style={{ fontSize: "var(--ml-chrome-title-size)" }}
+            >
+              Mark-Lee
+            </span>
+            <span className="font-semibold opacity-60 whitespace-nowrap hidden xl:inline">v{APP_VERSION}</span>
           </div>
           {/* O menu entra na linha de topo existente, à esquerda do
               switcher — não numa linha nova. Isso é o que a decisão de layout fixou: a

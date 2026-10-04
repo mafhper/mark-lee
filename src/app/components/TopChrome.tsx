@@ -54,7 +54,6 @@ interface TopChromeProps {
   toolbarSections: AppSettings["toolbarSections"];
   toolbarItems: AppSettings["toolbarItems"];
   showToolbarSectionLabels: boolean;
-  toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
   toolbarDisplayMode: AppSettings["toolbarDisplayMode"];
   toolbarSectionBehavior: AppSettings["toolbarSectionBehavior"];
@@ -85,7 +84,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
   toolbarSections,
   toolbarItems,
   showToolbarSectionLabels,
-  toolbarAlwaysShowIcons,
   toolbarCompactBreakpoint,
   toolbarDisplayMode,
   toolbarSectionBehavior,
@@ -110,8 +108,13 @@ const TopChrome: React.FC<TopChromeProps> = ({
   // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`, e o `isVertical`
   // que governava o layout vertical foi removido junto. Não sobrou ramo
   // vertical: a barra é horizontal em todas as âncoras.
-  const showIcon = toolbarAlwaysShowIcons || toolbarDisplayMode !== "text_only";
-  const showLabel = toolbarDisplayMode !== "icon_only";
+  // Dois desenhos. `icon_only` é o padrão e vale um quadrado: o nome vive no
+  // `title` e no menu. `stacked` põe o rótulo **abaixo** do ícone — mais estreito
+  // que o texto ao lado (118px medidos contra ~30px do ícone) e sem abrir mão do
+  // nome. O ícone aparece sempre; `text_only` não existe mais.
+  const empilhado = toolbarDisplayMode === "stacked";
+  const showIcon = true;
+  const showLabel = empilhado;
 
   const centerRef = useRef<HTMLDivElement | null>(null);
   const sectionFrameRefs = useRef<Partial<Record<ToolbarSectionKey, HTMLDivElement | null>>>({});
@@ -121,6 +124,20 @@ const TopChrome: React.FC<TopChromeProps> = ({
   const measureButtonRefs = useRef<Partial<Record<ToolbarSectionKey, Array<HTMLButtonElement | null>>>>({});
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visibleCounts, setVisibleCounts] = useState<Partial<Record<ToolbarSectionKey, number>>>({});
+  // A largura de cada seção, publicada pelo próprio cálculo de overflow.
+  //
+  // Antes a seção ficava com `width: auto` e o navegador resolvia a largura
+  // intrínseca — e ele **não** fecha o ciclo quando a seção tem um único filho em
+  // bloco de largura automática (a etiqueta de grupo está desligada por padrão).
+  // Medido: `max-content` resolvia 1337px e `fit-content` 771px, sempre os mesmos
+  // valores, e **remover qualquer um dos 73 descendentes não mudava nada** — a
+  // largura não vinha do conteúdo. Com `flex-shrink: 0` as quatro seções estouravam
+  // e as três últimas saíam da tela: 2 ícones visíveis em vez de 12.
+  //
+  // `sizeFor` já calcula a largura que a seção precisa; publicá-la aqui tira a
+  // adivinhação do navegador e deixa o desenho e a contauguados pela mesma
+  // fórmula.
+  const [sectionBoxWidths, setSectionBoxWidths] = useState<Partial<Record<ToolbarSectionKey, number>>>({});
   const [hoveredSection, setHoveredSection] = useState<ToolbarSectionKey | null>(null);
   const [pinnedSection, setPinnedSection] = useState<ToolbarSectionKey | null>(null);
   const [compactHorizontal, setCompactHorizontal] = useState(false);
@@ -416,16 +433,9 @@ if (typeof window === "undefined") {
               shortcutId: "fmt-task",
             }
             : null,
-        ].filter(Boolean) as ToolbarAction[],
-      },
-      {
-        key: "system",
-        title: t["toolbar.system"] || "System",
-        icon: toolIcon(Settings2, 11),
-        actions: [
-          // A busca saiu daqui: ela é um item próprio no canto direito da
-          // linha de topo, ao lado do switcher. Dentro da seção ela virava um
-          // dos "+10" ocultos, e busca é a ação mais usada depois de salvar.
+          // Inserção e transformação de texto moram em Edição, não em Sistema:
+          // `snippets` insere conteúdo, `format`/`minify` transformam o
+          // documento. Em Sistema elas eram as três ações menos usadas da seção.
           toolbarItems.sysSnippets
             ? {
               id: "sys-snippets",
@@ -435,15 +445,35 @@ if (typeof window === "undefined") {
               shortcutId: "edit-snippets",
             }
             : null,
-          toolbarItems.sysTheme
+          toolbarItems.sysFormatMarkdown
             ? {
-              id: "sys-theme",
-              label: t["toolbar.theme"] || "Theme",
-              icon: toolIcon(Palette),
-              onClick: onCycleTheme,
-              shortcutId: "view-theme-cycle",
+              id: "sys-format-markdown",
+              label: t["tool.formatMarkdown"] || "Format Markdown",
+              icon: toolIcon(FileText),
+              onClick: () => onTransformMarkdown("format"),
             }
             : null,
+          toolbarItems.sysMinifyMarkdown
+            ? {
+              id: "sys-minify-markdown",
+              label: t["tool.minifyMarkdown"] || "Minify Markdown",
+              icon: toolIcon(Code),
+              onClick: () => onTransformMarkdown("minify"),
+            }
+            : null,
+        ].filter(Boolean) as ToolbarAction[],
+      },
+      // A seção "Sistema" reunia quatro naturezas diferentes — inserção
+      // (`snippets`, `format-markdown`, `minify-markdown`), aparência (`theme`),
+      // layout (`sidebar`, `edit`, `split`, `preview`, `zen`) e app (`settings`) —
+      // e nenhuma seção tem propósito quando não é uma coisa só. Agora:
+// Visualização leva o layout, Edição leva as ferramentas de Markdown, e Sistema
+      // fica com o que é do sistema: tema e configurações.
+      {
+        key: "view",
+        title: t["toolbar.view"] || "View",
+        icon: toolIcon(PanelLeft, 11),
+        actions: [
           toolbarItems.sysSidebar
             ? {
               id: "sys-sidebar",
@@ -496,6 +526,22 @@ if (typeof window === "undefined") {
               shortcutId: "view-zen",
             }
             : null,
+        ].filter(Boolean) as ToolbarAction[],
+      },
+      {
+        key: "system",
+        title: t["toolbar.system"] || "System",
+        icon: toolIcon(Settings2, 11),
+        actions: [
+          toolbarItems.sysTheme
+            ? {
+              id: "sys-theme",
+              label: t["toolbar.theme"] || "Theme",
+              icon: toolIcon(Palette),
+              onClick: onCycleTheme,
+              shortcutId: "view-theme-cycle",
+            }
+            : null,
           {
             id: "sys-settings",
             label: t["settings"] || "Settings",
@@ -503,22 +549,6 @@ if (typeof window === "undefined") {
             onClick: onOpenSettings,
             shortcutId: "app-settings",
           },
-          toolbarItems.sysFormatMarkdown
-            ? {
-              id: "sys-format-markdown",
-              label: t["tool.formatMarkdown"] || "Format Markdown",
-              icon: toolIcon(FileText),
-              onClick: () => onTransformMarkdown("format"),
-            }
-            : null,
-          toolbarItems.sysMinifyMarkdown
-            ? {
-              id: "sys-minify-markdown",
-              label: t["tool.minifyMarkdown"] || "Minify Markdown",
-              icon: toolIcon(Code),
-              onClick: () => onTransformMarkdown("minify"),
-            }
-            : null,
         ].filter(Boolean) as ToolbarAction[],
       },
     ],
@@ -687,6 +717,19 @@ if (typeof window === "undefined") {
       }
     }
 
+    // A largura que a seção precisa, pela mesma fórmula que decidiu o overflow.
+    // `sizeFor` já soma base, tamanhos medidos, gaps e o badge; faltam o
+    // `px-1.5` do wrapper e a borda de 1px de cada lado.
+    const nextBoxWidths: Partial<Record<ToolbarSectionKey, number>> = {};
+    for (const meta of sectionMeta) {
+      const count = next[meta.key] ?? 0;
+      nextBoxWidths[meta.key] = Math.ceil(sizeFor(meta, count)) + 12 + 2;
+    }
+    setSectionBoxWidths((previous) => {
+      const changed = sectionMeta.some((meta) => previous[meta.key] !== nextBoxWidths[meta.key]);
+      return changed ? nextBoxWidths : previous;
+    });
+
     setVisibleCounts((previous) => {
       const changed = enabledSections.some((section) => previous[section.key] !== next[section.key]);
       return changed ? next : previous;
@@ -713,18 +756,51 @@ if (typeof window === "undefined") {
       }
     }
 
+    // **Carregar a fonte não dispara `resize`.** A primeira medição roda com a
+    // fonte de fallback, mede larguras que não são as do desenho final e nunca
+    // corrige: as seções ficam mais largas que o container e são cortadas pelo
+    // `overflow-hidden` do pai. Medido — as seções ocupavam 1337px dentro de
+    // 771px, e só 2 ícones apareciam. `fonts.ready` é o evento desse caso.
+    let cancelled = false;
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) recomputeVisibleCounts();
+      }).catch(() => {
+        /* `fonts.ready` não rejeita em navegadores atuais; se rejeitar, a
+           medição inicial continua valendo e o `resize` corrige depois. */
+      });
+    }
+
     return () => {
+      cancelled = true;
       window.removeEventListener("resize", onResize);
       observer?.disconnect();
     };
   }, [enabledSections, recomputeVisibleCounts]);
+
+  /**
+   * A classe do botão na barra. **Uma função só**, porque o container de medição
+   * precisa exatamente desta: ele media `h-8 px-2.5 … gap-1.5` (o layout antigo,
+   * ícone ao lado do texto) enquanto o botão real é `w-8 p-0`. Medir um desenho e
+   * desenhar outro faz a barra esconder ações que cabem — medido: 617px
+   * disponíveis, 32px por ação, e mesmo assim só 10 das 23 apareciam.
+   */
+  const toolbarButtonClass = (action: ToolbarAction) =>
+    empilhado
+      // Rótulo abaixo: a largura passa a depender do **nome**, não do par
+      // ícone+texto, e a altura da barra sobe para 44px (token). O `w-14`
+      // trava o nome em uma linha para a medição não oscilar por conteúdo.
+      ? `h-11 w-14 shrink-0 px-1 relative inline-flex flex-col items-center justify-center gap-0.5 rounded-md font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
+      // Só o ícone: um quadrado. De 118px medidos para 32px, e é o que
+      // finalmente deixa as ações caberem sem transbordo.
+      : `h-8 w-8 shrink-0 p-0 relative inline-flex items-center justify-center rounded-md font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
 
   const renderActionButton = (action: ToolbarAction, variant: "toolbar" | "popover" = "toolbar") => {
     const shortcutText = action.shortcutId ? shortcutLabels[action.shortcutId] : undefined;
     const buttonClass =
       variant === "popover"
         ? `${"h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
-        : `${"h-8 shrink-0 px-2.5"} relative min-w-0 inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ml-btn ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`;
+        : toolbarButtonClass(action);
     return (
       <button
         key={action.id}
@@ -735,11 +811,24 @@ if (typeof window === "undefined") {
         }}
         title={shortcutText ? `${action.label} (${shortcutText})` : action.label}
         type="button"
+        // Em `icon_only` o botão não tem texto visível, então o `title` (que é o
+        // tooltip) é a única pista no mouse — e nada para um leitor de tela. O
+        // `aria-label` é o que mantém o nome acessível; o `title` fica por causa
+        // do tooltip e do atalho.
+        aria-label={shortcutText ? `${action.label} (${shortcutText})` : action.label}
         style={noDragStyle}
       >
         {showIcon && action.icon}
         {showLabel && (
-          <span className={variant === "popover" ? "min-w-0 truncate whitespace-nowrap" : "max-w-[142px] truncate whitespace-nowrap"}>
+          <span
+            className={
+              variant === "popover"
+                ? "min-w-0 truncate whitespace-nowrap"
+                : empilhado
+                  ? "max-w-full truncate text-[10px] leading-none font-medium"
+                  : "max-w-[142px] truncate whitespace-nowrap"
+            }
+          >
             {action.label}
           </span>
         )}
@@ -760,6 +849,20 @@ if (typeof window === "undefined") {
     const visibleActions = collapsed ? section.actions.slice(0, clampedVisibleCount) : section.actions;
     const overflowActions = collapsed ? section.actions.slice(clampedVisibleCount) : [];
 
+// Comentário de uma seção, sobre o que o desenho abaixo faz e por quê.
+    //
+    // A largura da seção vem do cálculo de overflow (`sectionBoxWidths`), e isso
+    // não é acaso. Sem largura explícita o navegador tenta resolver a largura
+    // intrínseca e **não fecha o ciclo** quando a seção tem um único filho em bloco
+    // de largura automática — que é o caso desde que a etiqueta de grupo está
+    // desligada por padrão. Medido: `max-content` resolvia 1337px e `fit-content`
+    // 771px, sempre idênticos, e remover qualquer um dos 73 descendentes não mudava
+    // nada: a largura não vinha do conteúdo. Com `flex-shrink: 0` as quatro seções
+    // estouravam e as três últimas saíam da tela — 2 ícones visíveis em vez de 12.
+    //
+    // O mesmo vale para o container de medição: ele usa `toolbarButtonClass`, a
+    // mesma função do botão real. Medir um desenho e desenhar outro já custou 23
+    // ações — o botão real mede 32px e o de medição media ~36px.
     return (
       <div
         key={section.key}
@@ -768,6 +871,11 @@ if (typeof window === "undefined") {
           sectionFrameRefs.current[section.key] = el;
         }}
         data-toolbar-open={openSection === section.key}
+        style={
+          sectionBoxWidths[section.key]
+            ? { width: `${sectionBoxWidths[section.key]}px` }
+            : undefined
+        }
       >
         {true && (
           <div className="absolute left-0 top-0 -z-10 opacity-0 pointer-events-none whitespace-nowrap">
@@ -776,28 +884,40 @@ if (typeof window === "undefined") {
                 key={`${action.id}-measure`}
                 ref={(el) => setMeasureButtonRef(section.key, index, el)}
                 type="button"
-                className={`${"h-8 px-2.5"} inline-flex items-center gap-1.5 rounded-md text-xs font-medium`}
+                className={toolbarButtonClass(action)}
               >
                 {showIcon && action.icon}
-                {showLabel && <span>{action.label}</span>}
+                {showLabel && (
+                  <span className={empilhado ? "max-w-full truncate text-[10px] leading-none font-medium" : "max-w-[142px] truncate whitespace-nowrap"}>
+                    {action.label}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         )}
 
         <div className={`${`flex ${innerHeightClass} min-w-0 items-center gap-2 px-1.5 relative`}`}>
-          {true && effectiveShowSectionLabels && (
-            <>
-              <div
-                ref={(el) => {
-                  sectionTitleRefs.current[section.key] = el;
-                }}
-                className="ml-toolbar-section-title h-8 shrink-0 inline-flex items-center px-2"
-              >
-                {section.title}
-              </div>
-            </>
-          )}
+          {/* A etiqueta de grupo fica **sempre** no DOM, mesmo desligada — só
+              com largura zero. Não é preciosismo: este div interno precisa de
+              **dois** filhos em flex para que o `max-content` da seção seja
+              determinado. Com um filho único de largura automática, a largura do
+              filho depende da do pai e o navegador não fecha o ciclo: medido, a
+              seção virava 1337px dentro de um centro de 771px e as seções 2–4
+              saíam da tela, deixando 2 ícones visíveis. O `title` segue no
+              elemento, então o nome da seção continua disponível para o reader. */}
+          <div
+            ref={(el) => {
+              sectionTitleRefs.current[section.key] = el;
+            }}
+            title={effectiveShowSectionLabels ? undefined : section.title}
+            aria-hidden={effectiveShowSectionLabels ? undefined : true}
+            className={`ml-toolbar-section-title h-8 shrink-0 inline-flex items-center overflow-hidden ${
+              effectiveShowSectionLabels ? "px-2" : "w-0 px-0"
+            }`}
+          >
+            {section.title}
+          </div>
 
           <div className={`${"flex items-center gap-1"}`}>
             {visibleActions.map((action) => renderActionButton(action))}
@@ -910,10 +1030,16 @@ if (typeof window === "undefined") {
   // lhe oferece: sem ele o filho encolhe para o conteúdo (`flex: 0 1 auto`) e os
   // 27 botões ficam espremidos em 158px — medido no DOM, não suposto.
   // A altura dos wrappers internos acompanha a âncora. Integrada na
-  // linha do header (32px), a barra precisa de 32px — os `h-9` (36px) de antes
-  // centralizavam o botão de overflow em `y: -1`, e o Playwright nunca o
-  // considerava visível. Na âncora `bottom` a barra tem 44px (`h-11`).
-  const innerHeightClass = floatingToolbarAnchor === "bottom" ? "h-9" : "h-8";
+  // Na âncora `bottom` a barra tem 36px. Integrada na linha do header (32px), a
+  // barra precisa de 32px — os `h-9` (36px) de antes centralizavam o botão de
+  // overflow em `y: -1`, e o Playwright nunca o considerava visível.
+  // Com rótulo embaixo (`stacked`) são 44px em qualquer âncora, e o header do
+  // App cresce junto pelo mesmo token — um `h-8` fixo lá cortaria o rótulo.
+  const innerHeightClass = empilhado
+    ? "!h-11"
+    : floatingToolbarAnchor === "bottom"
+      ? "h-9"
+      : "h-8";
 
   return (
     <div

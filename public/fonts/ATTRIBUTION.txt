@@ -1,0 +1,14 @@
+Cal Sans Text UI
+Copyright (c) 2026 Mark Davis (mark@wordmark.nyc), with typefaces "Cal Sans,"
+"Cal Sans UI," "Cal Sans A11y," and "Cal Sans Geo."
+Commissioned by Peer Richelsen for Cal.com. Drawn, engineered, and shipped by
+WORDMARK (https://wordmark.nyc).
+
+Source:  https://github.com/calcom/sans
+Cut:      fonts/calsans-gf-api-textui  (Text UI instance, wght axis)
+Files:    CalSansTextUI[wght].woff2, CalSansTextUI-Italic[wght].woff2
+License:  SIL Open Font License 1.1 — see OFL.txt in this folder.
+
+The Text UI instance is the 10 pt optical drawing with GEOM at 25. The typefaces
+README measures it against Segoe UI at 71.5% x-height against 69.4%, with cap
+heights within 3%, so UI built for a system stack keeps its dimensions.

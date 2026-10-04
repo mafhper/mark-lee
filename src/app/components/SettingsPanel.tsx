@@ -229,10 +229,11 @@ export default function SettingsPanel({
     "fmt-italic": tr("Itálico", "Italic", "Cursiva"),
     "fmt-link": tr("Link", "Link", "Enlace"),
   };
-  const toolbarSectionLabels: Record<"files" | "system" | "editing", string> = {
+  const toolbarSectionLabels: Record<"files" | "system" | "editing" | "view", string> = {
     files: t["toolbar.files"] ?? tr("Arquivos", "Files", "Archivos"),
-    system: t["toolbar.system"] ?? tr("Sistema", "System", "Sistema"),
     editing: t["toolbar.editing"] ?? tr("Edição", "Editing", "Edición"),
+    view: t["toolbar.view"] ?? tr("Visualização", "View", "Visualización"),
+    system: t["toolbar.system"] ?? tr("Sistema", "System", "Sistema"),
   };
   const toolbarItemLabels: Record<string, string> = {
     new: tr("Novo", "New", "Nuevo"),
@@ -1045,9 +1046,8 @@ export default function SettingsPanel({
                   onSettingsChange({ toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"] })
                 }
               >
-                <option value="icon_text">{t["settings.toolbar.display.iconText"] ?? tr("Ícone + texto", "Icon + text", "Icono + texto")}</option>
                 <option value="icon_only">{t["settings.toolbar.display.iconOnly"] ?? tr("Apenas ícone", "Icon only", "Solo icono")}</option>
-                <option value="text_only">{t["settings.toolbar.display.textOnly"] ?? tr("Apenas texto", "Text only", "Solo texto")}</option>
+                <option value="stacked">{t["settings.toolbar.display.stacked"] ?? tr("Ícone com rótulo abaixo", "Icon with label below", "Icono con etiqueta debajo")}</option>
               </select>
             </label>
             <label className="space-y-2">
@@ -1117,7 +1117,7 @@ export default function SettingsPanel({
             <div className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
               <p className="mb-3 text-sm font-semibold">{tr("Categorias", "Categories", "Categorías")}</p>
               <div className="grid gap-2">
-                {(["files", "editing", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
+                {(["files", "editing", "view", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
                   <div key={sectionKey} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
                     <span className="text-sm">{toolbarSectionLabels[sectionKey]}</span>
                     {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>

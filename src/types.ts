@@ -116,12 +116,18 @@ export interface AppSettings {
   showToolbarSectionLabels: boolean;
   toolbarAlwaysShowIcons: boolean;
   toolbarCompactBreakpoint: number;
-  toolbarDisplayMode: 'icon_text' | 'icon_only' | 'text_only';
+  // icon_text e 	ext_only sairam: o texto ao lado media 118px por botao e
+  // forca o transbordo da barra. stacked poe o rotulo **abaixo** do icone, o que
+  // estreita sem perder o nome. icon_only e o padrao.
+  toolbarDisplayMode: 'icon_only' | 'stacked';
   toolbarSectionBehavior: "default" | "repulsion";
-  toolbarSections: {
+toolbarSections: {
     files: boolean;
-    system: boolean;
     editing: boolean;
+    // `view` nasceu com a reagrupação da barra: Visualização leva o layout
+    // (sidebar, modo de visão, zen) que antes vivia dentro de `system`.
+    view: boolean;
+    system: boolean;
   };
   toolbarItems: {
     fileNew: boolean;
@@ -159,7 +165,7 @@ export interface AppSettings {
       {
         showToolbarSectionLabels: boolean;
         toolbarCompactBreakpoint: number;
-        toolbarDisplayMode: "icon_text" | "icon_only" | "text_only";
+        toolbarDisplayMode: "icon_only" | "stacked";
         toolbarSectionBehavior: "default" | "repulsion";
         toolbarSections: AppSettings["toolbarSections"];
         toolbarItems: AppSettings["toolbarItems"];

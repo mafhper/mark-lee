@@ -101,7 +101,7 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   if (typeof merged.sidebarCollapsed !== "boolean") {
     merged.sidebarCollapsed = false;
   }
-  const byAnchor = settings.toolbarByAnchor as
+const byAnchor = settings.toolbarByAnchor as
     | Record<string, Partial<AppSettings> | undefined>
     | undefined;
   if (byAnchor && typeof byAnchor === "object") {
@@ -113,6 +113,26 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
       if (!migrated.integrated) migrated.integrated = saved;
       delete migrated[legacy];
       changed = true;
+    }
+    // `toolbarDisplayMode` também é guardado **por âncora**, e esse registro
+    // sobrescreve o valor global no mount (o efeito de sincronização por âncora
+    // roda depois). Sanitizar só o global não adianta: quem já usou o app tem
+    // `icon_text` gravado por âncora, ele voltava na sobrescrita, e a opção nova
+    // ficava impossível de escolher — num perfil novo o defeito não aparece.
+    for (const key of Object.keys(migrated)) {
+      const saved = migrated[key];
+      if (!saved) continue;
+      if (!["icon_only", "stacked"].includes(saved.toolbarDisplayMode as string)) {
+        saved.toolbarDisplayMode = DEFAULT_SETTINGS.toolbarDisplayMode;
+        changed = true;
+      }
+      if (saved.toolbarSections && !("view" in (saved.toolbarSections as object))) {
+        saved.toolbarSections = {
+          ...DEFAULT_SETTINGS.toolbarSections,
+          ...(saved.toolbarSections as Partial<typeof DEFAULT_SETTINGS.toolbarSections>),
+        } as typeof DEFAULT_SETTINGS.toolbarSections;
+        changed = true;
+      }
     }
     if (changed) merged.toolbarByAnchor = migrated as AppSettings["toolbarByAnchor"];
   }
@@ -258,7 +278,10 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
     merged.toolbarByAnchor[anchor]!.toolbarItems.sysSettings = true;
   }
 
-  if (!["icon_text", "icon_only", "text_only"].includes(merged.toolbarDisplayMode)) {
+  if (!["icon_only", "stacked"].includes(merged.toolbarDisplayMode)) {
+    // icon_text e 	ext_only viram icon_only: o rotulo passa a ser opcional e
+    // vive **abaixo** do icone, nao ao lado. Quem nao gravou nada ja entra no
+    // padrao novo pelo default.
     merged.toolbarDisplayMode = DEFAULT_SETTINGS.toolbarDisplayMode;
   }
   if (!["default", "repulsion"].includes(merged.toolbarSectionBehavior)) {
