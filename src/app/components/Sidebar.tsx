@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronDown,
-  ChevronRight,
-  FilePlus2,
-  FolderPlus,
-  Pencil,
-  Search,
-  Trash2,
-  ExternalLink,
-} from "lucide-react";
+    ChevronDown,
+    ChevronRight,
+    FilePlus2,
+    FolderOpen,
+    FolderPlus,
+    Save,
+    Pencil,
+    Search,
+    Trash2,
+    ExternalLink,
+  } from "lucide-react";
 import { ThemeConfig, WorkspaceNode } from "../../types";
 import {
   useContextMenuTrigger,
@@ -24,6 +26,8 @@ interface SidebarProps {
   workspaceTree: WorkspaceNode | null;
   onOpenFile: (path: string) => void;
   onOpenFolder: () => void;
+  /** Salvar o documento ativo, pelo mesmo caminho do menu e da barra. */
+  onSave?: () => void;
   onCreateFile: (basePath: string) => void;
   onCreateFolder: (basePath: string) => void;
   onRename: (path: string) => void;
@@ -44,7 +48,13 @@ const SidebarTreeNode: React.FC<{
   onToggleExpand: (path: string) => void;
   onOpenFile: (path: string) => void;
   onSelect: (node: WorkspaceNode) => void;
-  resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
+resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
+  /** Ações da própria linha, mostradas no hover. Quem as executa é o App: a
+   *  árvore não deve conhecer o sistema de arquivos. */
+  onRename: (path: string) => void;
+  onDelete: (path: string) => void;
+  onReveal: (path: string) => void;
+  t: Record<string, string>;
   selectedPath: string | null;
   query: string;
   /** Colapsado: uma inicial por linha, sem recursão e sem texto. */
@@ -53,10 +63,14 @@ const SidebarTreeNode: React.FC<{
   node,
   level,
   expandedPaths,
-  onToggleExpand,
+onToggleExpand,
   onOpenFile,
   onSelect,
   resolveItems,
+  onRename,
+  onDelete,
+  onReveal,
+  t,
   selectedPath,
   query,
   compacto = false,
@@ -121,8 +135,12 @@ const SidebarTreeNode: React.FC<{
       );
     }
 
-    return (
-      <div>
+return (
+      // `group` + `group-hover` + `absolute`: as ações do item aparecem no hover
+      // **sem reservar espaço**. Se estivessem no fluxo, cada linha da árvore
+      // ganharia ~24px de largura para controles que quase nunca estão à vista —
+      // e o nome do arquivo, que é o que se lê, seria espremido para sempre.
+      <div className="group relative">
         <button
           ref={buttonRef}
           className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${isSelected ? "ml-btn-active" : "hover:bg-black/5 dark:hover:bg-white/10"
@@ -154,8 +172,55 @@ const SidebarTreeNode: React.FC<{
           ) : (
             <span className="w-[14px]" />
           )}
-          <span className="truncate">{node.name}</span>
+<span className="truncate">{node.name}</span>
         </button>
+        {/* Renomear, apagar e revelar, na linha do próprio item. Não aparecem no
+            nó virtual: "recent files" não é um arquivo do workspace, e oferecer
+            renomear algo que não tem lugar no disco seria um botão que não
+            pode funcionar. */}
+        {!isVirtual && (
+          <span
+            className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 pl-1"
+            style={{ backgroundColor: "var(--ml-ui, transparent)" }}
+          >
+            <button
+              type="button"
+              className="h-6 w-6 rounded ml-btn inline-flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRename(node.path);
+              }}
+              title={t["sidebar.rename"] || "Rename"}
+              aria-label={t["sidebar.rename"] || "Rename"}
+            >
+              <Pencil size={12} />
+            </button>
+            <button
+              type="button"
+              className="h-6 w-6 rounded ml-btn-danger inline-flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(node.path);
+              }}
+              title={t["sidebar.delete"] || "Delete"}
+              aria-label={t["sidebar.delete"] || "Delete"}
+            >
+              <Trash2 size={12} />
+            </button>
+            <button
+              type="button"
+              className="h-6 w-6 rounded ml-btn inline-flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReveal(node.path);
+              }}
+              title={t["sidebar.reveal"] || "Reveal"}
+              aria-label={t["sidebar.reveal"] || "Reveal"}
+            >
+              <ExternalLink size={12} />
+            </button>
+          </span>
+        )}
         {node.is_dir && isExpanded && hasChildren && (
           <div>
             {node.children!.map((child) => (
@@ -165,9 +230,13 @@ const SidebarTreeNode: React.FC<{
                 level={level + 1}
                 expandedPaths={expandedPaths}
                 onToggleExpand={onToggleExpand}
-                onOpenFile={onOpenFile}
+onOpenFile={onOpenFile}
                 onSelect={onSelect}
                 resolveItems={resolveItems}
+                onRename={onRename}
+                onDelete={onDelete}
+                onReveal={onReveal}
+                t={t}
                 selectedPath={selectedPath}
                 query={query}
               />
@@ -185,7 +254,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   workspacePath,
   workspaceTree,
   onOpenFile,
-  onOpenFolder,
+onOpenFolder,
+  onSave,
   onCreateFile,
   onCreateFolder,
   onRename,
@@ -300,8 +370,26 @@ return (
           </div>
         </div>
       ) : (
-      <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
+<div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
+        {/* As quatro ações de **documento e workspace**, nesta ordem: salvar,
+            criar arquivo, criar pasta, abrir pasta.
+
+            As três que agem sobre o **item selecionado** — renomear, apagar e
+            revelar — saíram daqui e foram para a **linha do arquivo**, no hover.
+            A regra é do dono e é a certa: uma ação sobre o que está selecionado
+            pertence a onde a seleção está, e a barra do topo da lateral ficava
+            meio passo atrás do cursor. */}
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
+            onClick={() => onSave?.()}
+            title={t["file.save"] || "Save"}
+            aria-label={t["file.save"] || "Save"}
+            disabled={!workspacePath}
+          >
+            <Save size={14} />
+          </button>
           <button
             type="button"
             className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
@@ -324,33 +412,13 @@ return (
           </button>
           <button
             type="button"
-            className="h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
-            onClick={() => selectedNode && onRename(selectedNode.path)}
-            title={t["sidebar.rename"] || "Rename"}
-            aria-label={t["sidebar.rename"] || "Rename"}
-            disabled={!selectedNode || isVirtualNode(selectedNode.path)}
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            type="button"
-            className="h-10 w-8 rounded-md ml-btn-danger inline-flex items-center justify-center disabled:opacity-40"
-            onClick={() => selectedNode && onDelete(selectedNode.path)}
-            title={t["sidebar.delete"] || "Delete"}
-            aria-label={t["sidebar.delete"] || "Delete"}
-            disabled={!selectedNode || isVirtualNode(selectedNode.path)}
-          >
-            <Trash2 size={14} />
-          </button>
-          <button
-            type="button"
             className="ml-auto h-10 w-8 rounded-md ml-btn inline-flex items-center justify-center disabled:opacity-40"
-            onClick={() => onReveal(selectedNode?.path ?? workspacePath ?? "")}
-            title={t["sidebar.reveal"] || "Reveal"}
-            aria-label={t["sidebar.reveal"] || "Reveal"}
+            onClick={onOpenFolder}
+            title={t["file.openFolder"] || "Open folder"}
+            aria-label={t["file.openFolder"] || "Open folder"}
             disabled={!workspacePath}
           >
-<ExternalLink size={14} />
+            <FolderOpen size={14} />
           </button>
         </div>
       </div>
@@ -402,7 +470,11 @@ node={workspaceTree}
               onSelect={(node) => {
                 setSelectedNode(node);
               }}
-              resolveItems={resolveItems}
+resolveItems={resolveItems}
+              onRename={onRename}
+              onDelete={onDelete}
+              onReveal={onReveal}
+              t={t}
               selectedPath={selectedNode?.path ?? null}
               query={query}
             />

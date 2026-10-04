@@ -1755,6 +1755,17 @@ const core = [
     updateSettings({ sidebarEnabled: false, sidebarCollapsed: false });
   }, [settings.sidebarEnabled, settings.sidebarCollapsed]);
 
+  /** Mesmo par que `cycleSidebar`, para o modo de visão: editor → dividido →
+   *  visualização → editor. Fica aqui, e não como três `setViewMode` espalhados
+   *  nos itens de menu, para que o botão da barra e o menu não possam divergir:
+   *  um ciclo definido em dois lugares é um ciclo que um dia cicla diferente. */
+  const cycleViewMode = useCallback(() => {
+    const next: "edit" | "split" | "preview" =
+      viewMode === "edit" ? "split" : viewMode === "split" ? "preview" : "edit";
+    setViewMode(next);
+    updateSettings({ viewMode: next });
+  }, [viewMode]);
+
   // Rótulo do estado seguinte, para o `title` do botão dizer para onde ele vai
   // em vez de repetir o que ele é.
   const sidebarNextLabel = !settings.sidebarEnabled
@@ -2966,7 +2977,8 @@ showShortcutHints={showShortcutHints}
                 workspacePath={workspacePath}
                 workspaceTree={workspaceTree}
                 onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "sidebar" })}
-                onOpenFolder={handleOpenFolder}
+onOpenFolder={handleOpenFolder}
+                onSave={() => void commands.find((command) => command.id === "file.save")?.execute()}
                 onCreateFile={handleWorkspaceCreateFile}
                 onCreateFolder={handleWorkspaceCreateFolder}
                 onRename={handleWorkspaceRename}
@@ -3006,7 +3018,12 @@ showShortcutHints={showShortcutHints}
               onCloseRight={closeRightTabs}
               onCloseSaved={closeSavedTabs}
               onCloseAll={closeAllTabs}
-              onNewTab={createNewTabInCurrentWindow}
+onNewTab={createNewTabInCurrentWindow}
+              onToggleSidebar={cycleSidebar}
+              sidebarOpen={settings.sidebarEnabled}
+              sidebarNextLabel={sidebarNextLabel}
+              onCycleView={cycleViewMode}
+              viewMode={effectiveViewMode}
             />
           )}
 
