@@ -22,6 +22,8 @@ import {
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
 import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
+import { searchCount } from "./features/editor/search-count";
+import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
 import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
 import {
   addRecentFile,
@@ -792,11 +794,17 @@ function App() {
       ])
     );
 
-    const core = [
+const core = [
       history(),
       snippetCommandExtension,
       editorAnnouncementCleanup,
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      // `search` e `searchKeymap` explícitos: o realce vinha só do `basicSetup`
+      // padrão do `@uiw/react-codemirror`, e a busca não era um recurso do
+      // editor — era efeito colateral de uma biblioteca. Declarar torna a busca do
+      // editor principal um recurso dele, e é o que deixa o contador entrar junto.
+      search({ top: true }),
+      searchCount(),
+      keymap.of([...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       lineNumbers(),
       EditorState.allowMultipleSelections.of(false),
       EditorView.lineWrapping,
@@ -1769,6 +1777,12 @@ function App() {
         const target = getActiveTarget();
         if (target?.kind === "journal-entry") { target.find?.(); return; }
         if (settingsRef.current.appMode === "journal") return;
+        // `openSearchPanel` e o widget de busca do CodeMirror, que ja estava
+        // instalado no editor: conta as ocorrencias, realca todas e destaca a
+        // atual. `Ctrl+F` caia no modal completo, e o painel nunca aparecia.
+        const view = activeEditorRef.current;
+        if (view) { openSearchPanel(view); return; }
+        // Sem editor montado nao ha o que pesquisar; o modal ainda é a saida.
         openDialog("find");
       },
     }),
@@ -2540,6 +2554,11 @@ label: t["view.sidebar"] || "Sidebar",
     const target = getActiveTarget();
     if (target?.kind === "journal-entry") { target.find?.(); return; }
     if (settings.appMode === "journal") return;
+    // Mesmo caminho do `Ctrl+F`: a lupa e o atalho precisam abrir a **mesma**
+    // busca. Dois caminhos para "buscar" foi uma das três listas de acoes que a
+    // MKL-N13 reclama — e aqui era o caso mais barato de resolver.
+    const view = activeEditorRef.current;
+    if (view) { openSearchPanel(view); return; }
     openDialog("find");
   };
   const exportActiveDocument = () => {
