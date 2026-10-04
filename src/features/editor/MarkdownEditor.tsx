@@ -7,6 +7,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { lineNumbers } from "@codemirror/view";
 import { search, searchKeymap } from "@codemirror/search";
 import { setActiveEditor } from "./active-editor";
+import { searchCount } from "./search-count";
 import type { ThemeConfig } from "../../types";
 
 interface MarkdownEditorProps {
@@ -34,6 +35,8 @@ export function MarkdownEditor({ value, onChange, tConfig, onCreateEditor, place
   const extensions = useMemo(() => [
     history(),
     search({ top: true }),
+    // Contador de ocorrencias: a biblioteca nao tem, e a busca precisa.
+    searchCount(),
     keymap.of([...searchKeymap, ...defaultKeymap, ...historyKeymap]),
     lineNumbers(),
     EditorState.allowMultipleSelections.of(false),

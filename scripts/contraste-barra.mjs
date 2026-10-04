@@ -11,7 +11,7 @@
 // Alvos: WCAG 1.4.11 (graficos significativos, 3:1) para os icones e
 // WCAG 1.4.3 (texto normal, 4.5:1) para o rotulo de 10px do modo `stacked`.
 import { chromium } from "playwright";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PORTA = 5280;
@@ -31,6 +31,44 @@ async function servidorPronto() {
   return false;
 }
 
+/**
+ * Derriba o servidor em árvore.
+ *
+ * `shell: true` põe um `cmd` entre o Node e o vite, e `kill()` no Node derruba
+ * só o `cmd`: o `node` do vite continua escutando na porta. Foi o que aconteceu
+ * — o portão terminava com exit 0 e deixava um servidor órfão, e a próxima
+ * medição pegava o servidor velho em vez do código novo, que é a forma mais
+ * silenciosa de medir a coisa errada. `taskkill /T` derruba a árvore inteira.
+ */
+function derrubarVite() {
+  if (!proprio || !vite || vite.derrubado) return;
+  vite.derrubado = true;
+  try {
+    if (process.platform === "win32") {
+      // **Sincrono.** Lancado de dentro de `process.on("exit")`, um `spawn` async
+      // nao completa antes do processo sair — e o `node` do vite sobrevive, escutando
+      // na porta. Foi assim que este portao passou a enxertar o servidor orfao na
+      // medicao seguinte. `spawnSync` bloqueia ate a arvore cair.
+      spawnSync("taskkill", ["/pid", String(vite.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      vite.kill("SIGTERM");
+    }
+  } catch {
+    // Se nao conseguir derrubar, o servidor orfao fica com a porta e o proximo
+    // portao cai em `servidorPronto()` — visivel, nao silencioso.
+  }
+}
+
+// Encerrar em qualquer situacao, inclusive Ctrl+C ou excecao: um portao que
+// deixa servidor no ar envenena a medicao seguinte.
+process.on("exit", derrubarVite);
+for (const sinal of ["SIGINT", "SIGTERM"]) {
+  process.on(sinal, () => {
+    derrubarVite();
+    process.exit(1);
+  });
+}
+
 const proprio = !(await servidorPronto());
 const vite = proprio
   ? spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(PORTA)], {
@@ -40,7 +78,7 @@ const vite = proprio
   : null;
 if (proprio && !(await servidorPronto())) {
   console.error("portao: o dev server nao subiu em " + PORTA);
-  if (vite) vite.kill();
+  derrubarVite();
   process.exit(1);
 }
 
@@ -175,7 +213,7 @@ for (const modo of ["icon_only", "stacked"]) {
 }
 
 await navegador.close();
-if (vite) vite.kill();
+derrubarVite();
 
 console.log("Contraste da barra, medido por pixel");
 linhas.forEach((l) => console.log(l));

@@ -1596,3 +1596,118 @@
 .ml-pomodoro-shake {
   animation: ml-pomodoro-shake 0.5s ease-in-out 0s 2;
 }
+
+/* ── Painel de busca do CodeMirror ───────────────────────────────────────────
+   `@codemirror/search` já está instalado no editor (`search({ top: true })`) e
+   entrega o que a busca simples precisa: **realce de todas as ocorrências**,
+   destaque da atual e navegação com Enter/Shift+Enter — com a linha de
+   substituição no mesmo painel, que é a "caixa só" que a busca adotou. Não
+   havia motivo para escrever um widget de busca: o que havia era um
+   `FindWidget` de 76 linhas, sem consumidor, reimplementando pior.
+
+   O que faltava era o **tema**: o painel nascia com a folha padrão da
+   biblioteca. Numa barra escura ou dourada isso é um retângulo claro no meio do
+   editor — o oposto de "pouca intrusão". As cores vêm dos tokens `--ml-*` que o
+   App já injeta no root, então o painel segue o tema sem JavaScript.
+
+   **Os seletores foram lidos do DOM real**, não da memória: `.cm-search` fica no
+   div **interno** (o externo é `.cm-panels`), a classe do campo é
+   `cm-textfield` em minúsculas, e os botões são `next`, `prev`, `select`
+   ("all"), `replace`, `replaceAll` e `close`. A primeira versão deste bloco
+   usou `.cm-panels.cm-search` e `.cm-textField`, e não casou com nada.
+
+   O `<br>` que a biblioteca coloca entre a linha de busca e a de substituição
+   some aqui: com o painel em flex-wrap, quem quebra a linha é o próprio campo de
+   substituição, o que dá controle da ordem. */
+/* **Classe repetida de propósito.** O tema base da biblioteca é um style module
+   que gera seletores do tipo `.ͼ1 .cm-panels` — especificidade (0,2,0), e injetado
+   em runtime, depois da folha do app. Com `.cm-editor .cm-panels` os dois empatam
+   em (0,2,0) e quem vence é a ordem de injeção, que não controlo. Repetir a
+   classe resolve sem `!important`. */
+.cm-editor .cm-panels.cm-panels {
+  background-color: var(--ml-ui);
+  color: var(--ml-fg);
+  border-bottom: 1px solid var(--ml-border);
+  font-family: var(--ml-ui-font);
+}
+.cm-editor .cm-panels .cm-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.cm-editor .cm-panels .cm-search .cm-textfield {
+  background-color: transparent;
+  border: 1px solid var(--ml-border);
+  border-radius: 6px;
+  color: var(--ml-fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  min-width: 0;
+}
+.cm-editor .cm-panels .cm-search input[name="search"] {
+  flex: 0 1 220px;
+}
+
+.cm-panels .cm-search .cm-textfield:focus-visible {
+  outline: 1px solid var(--ml-accent);
+  outline-offset: -1px;
+}
+.cm-editor .cm-panels .cm-search .cm-button {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: inherit;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cm-panels .cm-search .cm-button:hover {
+  background-color: color-mix(in srgb, var(--ml-fg) 8%, transparent);
+}
+.cm-editor .cm-panels .cm-search button[name="close"] {
+  margin-left: auto;
+}
+.cm-panels .cm-search > br {
+  display: none;
+}
+/* As três opções (maiúscula, palavra inteira, regex) são rótulos com caixa. */
+.cm-editor .cm-panels .cm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.85;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cm-editor .cm-panels .cm-search label:hover {
+  opacity: 1;
+}
+
+/* Todas as ocorrências do termo. O realce é do texto, não de uma borda, para não
+   competir com a seleção e não empurrar a linha. */
+/* A biblioteca pinta a ocorrência com um amarelo fixo (`rgba(255,255,0,.33)`) que
+   não muda com o tema — num tema escuro é um defeito, e no dourado é uma cor que
+   não existe na paleta. O mesmo `.cm-editor` resolve a disputa de
+   especificidade. */
+.cm-editor .cm-searchMatch {
+  background-color: color-mix(in srgb, var(--ml-accent) 26%, transparent);
+  border-radius: 2px;
+}
+/* A ocorrência em que o cursor está: precisa ser distinguível de relance. */
+.cm-editor .cm-searchMatch.cm-searchMatch-selected {
+  background-color: color-mix(in srgb, var(--ml-accent) 70%, transparent);
+}.cm-editor .cm-search-count {
+  /* Numeral tabular: o contador muda a cada tecla e nao pode dancejar. */
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  white-space: nowrap;
+  padding: 0 4px;
+  user-select: none;
+}
