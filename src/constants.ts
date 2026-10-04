@@ -37,7 +37,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#f4c68f",
     prose: "prose-invert prose-stone",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Light]: {
@@ -56,7 +60,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#4f46e5",
     prose: "prose-slate",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'Fira Code', 'JetBrains Mono', monospace",
   },
   [Theme.Dark]: {
@@ -75,7 +83,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#7dd3fc",
     prose: "prose-invert",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Forest]: {
@@ -94,7 +106,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#90f0a8",
     prose: "prose-invert prose-green",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'Cascadia Code', 'JetBrains Mono', monospace",
   },
   [Theme.Golden]: {
@@ -113,7 +129,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#2a1808",
     prose: "prose-amber",
-    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   [Theme.Midnight]: {
@@ -132,7 +148,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#8fb5ff",
     prose: "prose-invert prose-indigo",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Neomatrix]: {
@@ -151,7 +171,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#57ff9e",
     prose: "prose-invert prose-green",
-    uiFont: "'Chakra Petch', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'Share Tech Mono', 'Cascadia Code', monospace",
   },
   [Theme.Nord]: {
@@ -170,7 +190,11 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#88C0D0",
     prose: "prose-invert prose-blue",
-    uiFont: "'Source Sans 3', 'Segoe UI', sans-serif",
+    // A fonte da interface vive num token só. Antes cada tema declarava a sua
+  // ("Source Sans 3", "Merriweather Sans", "Chakra Petch", "Exo 2") sem que
+  // nenhum arquivo fosse carregado: `document.fonts` era vazio e todas caíam no
+  // fallback do sistema. Ver `src/index.css` para a fonte empacotada.
+  uiFont: "var(--ml-ui-font)",
     editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Sepia]: {
@@ -189,7 +213,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#8d5f12",
     prose: "prose-stone",
-    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   [Theme.Synthwave]: {
@@ -208,7 +232,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#ff89cf",
     prose: "prose-invert prose-pink",
-    uiFont: "'Exo 2', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'JetBrains Mono', 'Fira Code', monospace",
   },
   [Theme.Terminal]: {
@@ -227,7 +251,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#5bffa0",
     prose: "prose-invert prose-green",
-    uiFont: "'Chakra Petch', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'Share Tech Mono', 'Cascadia Code', monospace",
   },
   [Theme.Firenight]: {
@@ -246,7 +270,7 @@ export const THEMES: Record<Theme, ThemeConfig> = {
     accent: THEME_ACCENT_CLASS,
     accentHex: "#ffb86c",
     prose: "prose-invert prose-amber",
-    uiFont: "'Merriweather Sans', 'Segoe UI', sans-serif",
+    uiFont: "var(--ml-ui-font)",
     editorFont: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
 };
@@ -540,15 +564,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // `integrated` substitui a barra de baixo como padrão. A barra de baixo é
   // agora a alternativa da preferência, não o fallback.
   floatingToolbarAnchor: "integrated",
-  showToolbarSectionLabels: true,
+  showToolbarSectionLabels: false,
   toolbarAlwaysShowIcons: true,
   toolbarCompactBreakpoint: 560,
-  toolbarDisplayMode: "icon_text",
+  toolbarDisplayMode: "icon_only",
   toolbarSectionBehavior: "default",
   toolbarSections: {
     files: true,
-    system: true,
     editing: true,
+    view: true,
+    system: true,
   },
   toolbarItems: {
     fileNew: false,
@@ -579,14 +604,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   toolbarByAnchor: {
     integrated: {
-      showToolbarSectionLabels: true,
+      showToolbarSectionLabels: false,
       toolbarCompactBreakpoint: 560,
-      toolbarDisplayMode: "icon_text",
+      toolbarDisplayMode: "icon_only",
       toolbarSectionBehavior: "default",
       toolbarSections: {
         files: true,
-        system: true,
         editing: true,
+        view: true,
+        system: true,
       },
       toolbarItems: {
         fileNew: false,
@@ -617,14 +643,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
       },
     },
     bottom: {
-      showToolbarSectionLabels: true,
+      showToolbarSectionLabels: false,
       toolbarCompactBreakpoint: 560,
-      toolbarDisplayMode: "icon_text",
+      toolbarDisplayMode: "icon_only",
       toolbarSectionBehavior: "default",
       toolbarSections: {
         files: true,
-        system: true,
         editing: true,
+        view: true,
+        system: true,
       },
       toolbarItems: {
         fileNew: false,

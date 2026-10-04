@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Cal Sans Text UI ───────────────────────────────────────────────────────
+   A fonte da interface, empacotada. Até aqui o projeto *declarava* quatro
+   `uiFont` de tema (Merriweather Sans, Source Sans 3, Chakra Petch, Exo 2) sem
+   carregar nenhum arquivo: `document.fonts` era vazio e tudo caía no fallback do
+   sistema. Os nomes existiam só na configuração.
+
+   Cal Sans Text UI é a instância de 10pt com o eixo `opsz` no desenho de UI, e o
+   projeto da fonte a mede contra Segoe UI em 71,5% de x-height contra 69,4%, com
+   alturas de maiúscula dentro de 3% — ou seja, uma interface construída para a
+   pilha do sistema mantém as dimensões. É por isso que o layout medido não
+   precisou ser re-tunado ao trocar a fonte.
+
+   O arquivo é variable com o eixo `wght` (400–700), então peso não custa bytes
+   extras. `font-optical-sizing` fica desligado de propósito: o `opsz` já está
+   fixado no desenho de Text UI, e deixar o navegador variar por tamanho
+   reintroduziria a instabilidade de métrica que o corte elimina.
+
+   Licença SIL OFL 1.1 em `public/fonts/OFL.txt`; procedência em
+   `public/fonts/ATTRIBUTION.txt`. */
+@font-face {
+  font-family: "Cal Sans Text UI";
+  src: url("/fonts/CalSansTextUI%5Bwght%5D.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cal Sans Text UI";
+  src: url("/fonts/CalSansTextUI-Italic%5Bwght%5D.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* A fonte da interface. Uma só, para título, menu e barra: a barra já tinha
+     três tamanhos diferentes (14/16/11px) na mesma faixa de 32px. */
+  --ml-ui-font: "Cal Sans Text UI", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* A escala do cromo da janela. O menu e os itens usam o mesmo tamanho; o
+     título é o único que sobe, porque é a única coisa que nomeia o produto. */
+  --ml-chrome-font-size: 12px;
+  --ml-chrome-title-size: 13px;
+  /* A altura da faixa do topo. Uma variável só, porque o header do App e a barra
+     precisam concordar: um h-8 fixo num dos dois cortaria o rótulo do outro. */
+  --ml-chrome-h: 32px;
+  --ml-chrome-h-rotulo: 44px;
+}
+
 @layer base {
   html, body {
     background-color: #0f172a;
