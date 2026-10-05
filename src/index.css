@@ -296,30 +296,16 @@
   }
 }
 
-.ml-settings-section {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ml-ui, #ffffff) 82%, var(--ml-editor-bg, #ffffff) 18%),
-      color-mix(in srgb, var(--ml-bg, #f8fafc) 54%, var(--ml-ui, #ffffff) 46%)
-    );
-  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
-  box-shadow:
-    0 14px 32px rgba(2, 6, 23, 0.08),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 28%, transparent);
-}
+/* `.ml-settings-section`, `.ml-settings-group-toggle`, `.ml-settings-panel` e
+   `.ml-settings-shell` saíram com a virada para tela inteira.
 
-/* Cabeçalho do grupo com chevron: o alvo do clique é o cabeçalho inteiro, e ele
-   precisa dizer isso. O `focus-visible` acompanha o do item de navegação — sem
-   ele, um grupo que abre e fecha é algo que só o mouse descobre. */
-.ml-settings-group-toggle:hover {
-  background: color-mix(in srgb, var(--ml-fg, #111827) 4%, transparent);
-}
+   Elas desenhavam o cartão da seção e a casca do modal — e o dono apontou que a
+   tela estava "carregada, muitas bordas sobre bordas". Nenhuma delas é usada
+   agora, e regra de CSS morta é pior que regra ausente: a próxima pessoa que
+   abrir esta folha lê um desenho que não existe na tela.
 
-.ml-settings-group-toggle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ml-accent, #60a5fa) 46%, transparent);
-  outline-offset: -2px;
-}
+   O `hover` e o `focus-visible` do cabeçalho da seção foram para o JSX, porque
+   um `outline` de foco precisa estar no elemento que o recebe. Ver MKL16. */
 
 .ml-settings-group {
   background:
@@ -332,26 +318,28 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
 }
 
+/* A linha de opção perdeu **borda e sombra**, e ficou só com o fundo.
+
+   O dono apontou "muitas bordas sobre bordas" na tela, e a pilha era de três
+   níveis: a caixa da seção, a caixa desta linha, e a borda do controle dentro
+   dela. Com a seção sem cartão, sobraram dois — e os dois juntos diziam a mesma
+   coisa numa tela onde já existe o contorno dos próprios controles (switch,
+   select, campo de texto).
+
+   O que separa uma opção da outra agora é **espaço**, e é o que a referência do
+   Windows 11 faz: uma lista de opções numa superfície só, com respiro entre elas.
+   A linha continua legível como unidade porque o `hover` pinta um fundo.
+
+   O `--selectable` continua com borda de propósito: aquele cartão é **clicável**
+   e precisa parecer clicável. Uma linha que é opção não precisa disso — o
+   switch dentro dela já é o alvo. */
 .ml-settings-row {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ml-ui, #ffffff) 72%, var(--ml-editor-bg, #ffffff) 28%),
-      color-mix(in srgb, var(--ml-ui, #ffffff) 62%, var(--ml-bg, #f8fafc) 38%)
-    );
-  border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
-  box-shadow:
-    0 7px 18px rgba(2, 6, 23, 0.045),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 16%, transparent);
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    transform 140ms ease;
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 58%, var(--ml-bg, #f8fafc) 42%);
+  transition: background-color 140ms ease;
 }
 
 .ml-settings-row + .ml-settings-row {
-  margin-top: 0.55rem;
+  margin-top: 0.35rem;
 }
 
 .ml-settings-row--selectable {
@@ -450,11 +438,8 @@
   border-radius: 10px;
 }
 
-@media (max-width: 720px), (max-height: 640px) {
-  .ml-settings-shell {
-    --ml-settings-viewport-gap: clamp(10px, 3vmin, 18px);
-  }
-}
+/* A `@media` que encolhia o `--ml-settings-viewport-gap` saiu com a casca do
+   modal: a tela ocupa tudo, e não há gap para encolher em janela baixa. */
 
 /* A strip de abas nao pode ter barra de rolagem: as setas + o fade sao a affordancia,
    e o Explorer/Terminal tambem nao tem. A regra global de ::-webkit-scrollbar (linhas
