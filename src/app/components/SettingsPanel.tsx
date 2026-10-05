@@ -463,7 +463,7 @@ export default function SettingsPanel({
     const nextTheme: ThemeDefinition = {
       ...source,
       id: `custom-${crypto.randomUUID()}`,
-      name: `${getThemeName(source, t)} ${tr("custom", "custom", "personalizado")}`,
+      name: `${getThemeName(source, t)} ${tr("personalizado", "custom", "personalizado")}`,
       builtIn: false,
       baseThemeId: (source.baseThemeId ?? source.id) as Theme,
       config: { ...source.config },
@@ -944,7 +944,7 @@ const renderTabNav = () => (
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold">{getThemeName(theme, t)}</div>
                         <div className="mt-1 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] opacity-65">
-                          <span>{theme.builtIn ? tr("padrão", "built-in", "predeterminado") : tr("custom", "custom", "personalizado")}</span>
+                          <span>{theme.builtIn ? tr("padrão", "built-in", "predeterminado") : tr("personalizado", "custom", "personalizado")}</span>
                           {active ? <span>{tr("ativo", "active", "activo")}</span> : null}
                         </div>
                       </div>
@@ -1066,7 +1066,7 @@ const renderTabNav = () => (
     );
 
   conteudoPorCategoria["editor"] = (
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5">
         {renderSectionCard(
           tr("Tipografia do editor", "Editor typography", "Tipografía del editor"),
           tr(
@@ -1249,39 +1249,34 @@ const renderTabNav = () => (
           </div>
         )}
         {renderSectionCard(
-          tr("Leitura e rótulos", "Readability and labels", "Lectura y etiquetas"),
+          tr("Leitura da barra", "Reading the bar", "Lectura de la franja"),
           tr(
-            "Controle o quanto a barra de ferramentas prioriza apoio visual e nomes explícitos.",
-            "Control how much the toolbar prioritizes visual support and explicit naming.",
-            "Controla cuánto prioriza la barra de herramientas el apoyo visual y los nombres explícitos."
+            "O texto sozinho é mais silencioso; com os ícones, a barra se lê sem esforço.",
+            "Text alone is quieter; with the icons, the bar reads without effort.",
+            "El texto solo es más silencioso; con los iconos, la franja se lee sin esfuerzo."
           ),
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="ml-settings-row rounded-lg px-3.5 py-3">
-              <p className="text-sm font-medium">{tr("Mostrar ícones junto do texto", "Show icons alongside text", "Mostrar iconos junto al texto")}</p>
-              <p className="mb-3 text-xs opacity-70">
-                {tr(
-            "Mantém o apoio visual dos ícones quando a barra estiver em modo textual.",
-                  "Keeps icons visible as visual support when the toolbar is in text mode.",
-                  "Mantiene los iconos visibles como apoyo visual cuando la toolbar está en modo texto."
-                )}
-              </p>
-              {renderSwitch(settings.toolbarAlwaysShowIcons, (toolbarAlwaysShowIcons) =>
-                onSettingsChange({ toolbarAlwaysShowIcons })
-              )}
-            </div>
-            {/* O interruptor de "Rótulos de categoria" saiu junto com o rótulo.
+          /* Um interruptor, e não um cartão.
 
-                A decisão foi do dono: os controles de edição não precisam de
-                título visível. Negrito, itálico, código e link se reconhecem pelo
-                desenho; o nome da categoria acima deles só ocupava ~34px de uma
-                faixa de 32px e competia com o nome do produto pela largura.
+             Esta seção tinha dois itens. O segundo — o interruptor de "Rótulos de
+             categoria" — saiu junto com o rótulo que ele controlava (a decisão do
+             dono: os controles de edição não precisam de título visível).
 
-                Deixar o interruptor aqui seria pior que o rótulo: seria um
-                interruptor que liga e desliga **nada**. A chave continua em
-                `AppSettings` — quem tem o perfil salvo ainda manda o dado, e
-                descartar dado guardado é um apagão que ninguém pediu. O que
-                decide o que desenha é o código, e ele não desenha. */}
-          </div>
+             O que restou é um interruptor com o nome já escrito no rótulo. Com um
+             item só, a seção inteira lia como se houvesse mais alguma coisa: um
+             cartão com fundo próprio, uma linha de título dentro dele e uma
+             segunda linha de descrição dizendo quase a mesma frase. Três níveis
+             para dizer "ligue os ícones".
+
+             Aqui o item vira a mesma linha que as outras seções usam — nome à
+             esquerda, interruptor à direita — e a descrição da seção é quem
+             carrega o "por quê". Um interruptor que se explica no título não
+             precisa de uma segunda frase dizendo o mesmo. */
+          <label className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
+            <span className="text-sm">{tr("Ícones junto do texto", "Icons alongside text", "Iconos junto al texto")}</span>
+            {renderSwitch(settings.toolbarAlwaysShowIcons, (toolbarAlwaysShowIcons) =>
+              onSettingsChange({ toolbarAlwaysShowIcons })
+            )}
+          </label>
         )}
         {renderSectionCard(
           tr("Conteúdo da barra", "Toolbar content", "Contenido de la barra"),
@@ -1331,7 +1326,7 @@ const renderTabNav = () => (
     );
 
   conteudoPorCategoria["palette"] = (
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5">
         {renderSectionCard(
           tr("Fontes de busca", "Search sources", "Fuentes de búsqueda"),
           tr(
