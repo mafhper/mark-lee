@@ -309,6 +309,18 @@
     inset 0 1px 0 color-mix(in srgb, #ffffff 28%, transparent);
 }
 
+/* Cabeçalho do grupo com chevron: o alvo do clique é o cabeçalho inteiro, e ele
+   precisa dizer isso. O `focus-visible` acompanha o do item de navegação — sem
+   ele, um grupo que abre e fecha é algo que só o mouse descobre. */
+.ml-settings-group-toggle:hover {
+  background: color-mix(in srgb, var(--ml-fg, #111827) 4%, transparent);
+}
+
+.ml-settings-group-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ml-accent, #60a5fa) 46%, transparent);
+  outline-offset: -2px;
+}
+
 .ml-settings-group {
   background:
     linear-gradient(

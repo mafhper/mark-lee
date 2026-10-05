@@ -101,6 +101,9 @@ const ptBR: Record<string, string> = {
   "settings.accordion.typography": "Tipografia",
   "settings.accordion.shortcuts": "Atalhos",
   "settings.accordion.presets": "Presets",
+  // Placeholder da busca de configurações. A frase é do Windows 11 que o dono
+  // mandou de referência: a busca é o que torna aceitável ter muita categoria.
+  "settings.search": "Localizar uma configuração",
   "theme.light": "Claro",
   "theme.dark": "Escuro",
   "theme.midnight": "Meia-noite",
@@ -607,6 +610,7 @@ const enUS: Record<string, string> = {
   "settings.accordion.typography": "Typography",
   "settings.accordion.shortcuts": "Shortcuts",
   "settings.accordion.presets": "Presets",
+  "settings.search": "Find a setting",
   "theme.light": "Light",
   "theme.dark": "Dark",
   "theme.coffee": "Coffee",
@@ -1111,6 +1115,7 @@ const esES: Record<string, string> = {
   "settings.accordion.typography": "Tipografía",
   "settings.accordion.shortcuts": "Atajos",
   "settings.accordion.presets": "Presets",
+  "settings.search": "Buscar una configuración",
   "theme.light": "Claro",
   "theme.dark": "Oscuro",
   "theme.coffee": "Coffee",

@@ -11,6 +11,7 @@ import {
   Palette,
   RotateCcw,
   Settings2,
+  Search,
   Trash2,
   Type,
   X,
@@ -196,6 +197,11 @@ export default function SettingsPanel({
   onJournalFolderSelected,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
+  // Seções fechadas, por sessão. Ver `renderSectionCard`: o estado vai na
+  // memória porque fechar uma seção é uma preferência de leitura, não uma
+  // configuração do programa.
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [busca, setBusca] = useState("");
   const [expandedPresetIds, setExpandedPresetIds] = useState<string[]>([]);
   const [selectedThemeId, setSelectedThemeId] = useState(settings.theme);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
@@ -450,15 +456,64 @@ export default function SettingsPanel({
     </button>
   );
 
-  const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => (
-    <section className={`ml-settings-section rounded-xl p-4 ${panelClass}`}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold opacity-85">{title}</h3>
-        <p className="mt-1 text-sm opacity-70">{description}</p>
-      </div>
-      {contentNode}
-    </section>
-  );
+  /* Todas as **15 seções** passam por esta função, e é por isso que o grupo com
+     chevron custou uma edição em vez de quinze: o cartão deixou de ser um
+     `<section>` fixo e virou um grupo que sabe fechar.
+
+     O botão do cabeçalho é o alvo do clique inteiro, e não só o chevron: um
+     alvo de 14px é um alvo pequeno, e o cabeçalho inteiro é a área que o dedo
+     procura. O chevron fica à **direita**, como no Windows 11, porque é onde o
+     olho vai buscar "isto abre e fecha".
+
+     O estado é por seção e por sessão — não vai para o disco. Guardar em
+     `AppSettings` faria dapreferência visual uma configuração, e ninguém
+     pediu para configurar se a seção "Sistema de Medidas" começa fechada. */
+  /* A busca compara **sem acento e sem caixa**. Sem isso, "configuracao" não
+     acha "configuração" e o usuário que digita sem acento — que é o jeito normal
+     de digitar num teclado sem cedilha — conclude que a busca está quebrada.
+     Custa uma linha e é a diferença entre a busca funcionar e não. */
+  const semAcento = (v: string) =>
+    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => {
+    const id = `sec-${title}`;
+    const buscaAtiva = busca.trim().length > 0;
+    //while there's a search, a section can only be open: what matched has to be visible
+    const fechada = !buscaAtiva && !!collapsedSections[id];
+    // Section hides itself entirely instead of showing an empty shell. Filtering at
+    // `renderSectionCard` — and not at the 15 call sites — is what makes one edit
+    // cover the whole screen.
+    if (buscaAtiva && !semAcento(`${title} ${description}`).includes(semAcento(busca.trim()))) {
+      return null;
+    }
+    matches++;
+    return (
+      <section className={`ml-settings-section rounded-xl ${panelClass}`}>
+        <button
+          type="button"
+          aria-expanded={!fechada}
+          aria-controls={`${id}-corpo`}
+          onClick={() => setCollapsedSections((atual) => ({ ...atual, [id]: !fechada }))}
+          className="ml-settings-group-toggle flex w-full items-start gap-3 rounded-xl p-4 text-left"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold opacity-85">{title}</span>
+            <span className="mt-1 block text-sm opacity-70">{description}</span>
+          </span>
+          <ChevronDown
+            size={16}
+            aria-hidden
+            className={`mt-0.5 shrink-0 opacity-55 transition-transform duration-150 ${fechada ? "" : "rotate-180"}`}
+          />
+        </button>
+        {!fechada && (
+          <div id={`${id}-corpo`} className="px-4 pb-4">
+            {contentNode}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   const renderRangeField = (
     label: string,
@@ -578,6 +633,14 @@ export default function SettingsPanel({
     </nav>
   );
 
+  /* Quantas seções **casaram** com a busca. Precisa existir porque as seções se
+     escondem dentro de `renderSectionCard`, e o esvaziamento da tela é decidido
+     depois de `content` já estar montado — não há como ler o DOM aqui, e ler o
+     DOM no meio da composição de JSX seria pior.
+     
+     Contador e não booleano porque o `StrictMode` renderiza duas vezes: `> 0`
+     continua certo depois de somar o mesmo número duas vezes. */
+  let matches = 0;
   let content: React.ReactNode = (
     <div className="text-sm opacity-70">{tr("Carregando painel...", "Loading panel...", "Cargando panel...")}</div>
   );
@@ -1620,6 +1683,12 @@ export default function SettingsPanel({
    diálogo sobre outra tela isso é verdade. Numa página inteira é mentira, e o
    `Escape` que fecha tudo continua sendo do handler global em `App.tsx`, que já
    existia antes desta tela e não mudou. */
+
+  // `content` já foi montado acima, e cada `renderSectionCard` que casou com a
+  // busca contou. É aqui que a resposta fica disponível — antes do `return`, e
+  // não antes de `content`, porque `content` é justamente o que conta.
+  const temResultado = busca.trim().length === 0 || matches > 0;
+
   return (
     <div className="fixed inset-0 z-[320] flex min-h-0 w-full">
       <div className={`ml-settings-page flex min-h-0 w-full ${panelClass}`}>
@@ -1638,13 +1707,43 @@ export default function SettingsPanel({
               é o que dá ao usuário a noção de *onde* ele está dentro de uma tela
               que não tem título de categoria no topo — e o título da categoria
               entra como cabeçalho do conteúdo, uma linha abaixo. */}
-          <header className="ml-settings-subheader flex shrink-0 items-center gap-2 px-6 py-3 text-sm">
-            <span className="opacity-55">{t["settings"] ?? "Configurações"}</span>
-            <ChevronRight size={13} className="opacity-40" />
-            <span className="font-medium" aria-current="page">
-              {tabLabels[activeTab]}
-            </span>
-          </header>
+          {/* O `flex-1` na coluna do meio e o `min-w-0` no input: sem o `min-w-0`
+              o campo declara uma largura intrínseca e a breadcrumb é espremida em
+              vez do campo ceder. É o mesmo motivo do `min-w-0` nos outros dois
+              lugares do componente.
+
+              Este precisa ser um comentario **de JSX** (chaves em volta) e não um
+              de bloco solto: dentro do JSX, um comentario de bloco vira **texto
+              renderizado**, e ele apareceu na tela. O compilador aceita — `tsc` e
+              `build` passam verdes — porque texto é um nó válido, então só a
+              captura pega. E o texto não pode citar a forma do próprio
+              comentário, porque isso o fecha mais cedo. */}
+          {/* O `pr-16` não é decoração: o botão de fechar é `absolute` no canto da
+              página, e sem esta reserva a busca passa **por baixo** dele. Duas
+              camadas posicionadas não conversam — uma delas tem de ceder, e a
+              que está no fluxo é a que cede. */}
+          <header className="ml-settings-subheader flex shrink-0 items-center gap-4 py-3 pl-6 pr-16 text-sm">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="opacity-55">{t["settings"] ?? "Configurações"}</span>
+        <ChevronRight size={13} className="shrink-0 opacity-40" />
+        <span className="truncate font-medium" aria-current="page">
+          {tabLabels[activeTab]}
+        </span>
+      </span>
+      <div className="ml-auto flex min-w-0 flex-1 justify-end">
+        <label className="ml-settings-search relative flex min-w-0 max-w-[320px] flex-1 items-center">
+          <Search size={14} aria-hidden className="pointer-events-none absolute left-2.5 opacity-45" />
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder={t["settings.search"] ?? "Localizar uma configuração"}
+            aria-label={t["settings.search"] ?? "Localizar uma configuração"}
+            className={`${inputClass} h-8 py-0 pl-8 text-sm`}
+          />
+        </label>
+      </div>
+    </header>
           <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-6 pb-10 pt-2">
             <div
               className={`min-h-full w-full max-w-[880px] outline-none ${tConfig.fg}`}
@@ -1653,6 +1752,29 @@ export default function SettingsPanel({
               tabIndex={-1}
             >
               {content}
+              {/* Estado vazio da busca. Sem ele, uma busca que não acha nada e uma
+                  busca que ainda não carregou são **a mesma tela**: um retângulo
+                  vazio. E o pior: o usuário não sabe se digitou errado, se a
+                  configuração não existe, ou se a tela quebrou. Duas linhas
+                  dizendo o que houve resolvem as três leituras. */}
+              {busca.trim().length > 0 && !temResultado && (
+                <div className="flex flex-col items-start gap-1 py-10 text-sm">
+                  <p className="font-medium opacity-80">
+                    {tr(
+                      `Nada encontrado para “${busca.trim()}”`,
+                      `Nothing found for “${busca.trim()}”`,
+                      `No se encontró nada para “${busca.trim()}”`
+                    )}
+                  </p>
+                  <p className="opacity-65">
+                    {tr(
+                      `A busca cobre o nome e a descrição das seções de ${tabLabels[activeTab]}.`,
+                      `Search covers the name and description of the sections in ${tabLabels[activeTab]}.`,
+                      `La búsqueda cubre el nombre y la descripción de las secciones de ${tabLabels[activeTab]}.`
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </section>
