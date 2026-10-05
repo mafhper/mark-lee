@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ToolbarDropdown, { type ToolbarDropdownItem } from "./ToolbarDropdown";
 import {
   Bold,
-  Braces,
   CheckSquare,
   Code,
   Columns2,
   Download,
   Eye,
-  FileText,
   FileInput,
   FilePlus2,
   FolderOpen,
@@ -37,6 +36,11 @@ type ToolbarAction = {
   active?: boolean;
   disabled?: boolean;
   shortcutId?: string;
+  /** Quando presente, a ação é um **gatilho de dropdown** e `onClick` fica sem
+   *  uso: quem responde é `ToolbarDropdown`, um item por entrada. Convive com
+   *  `onClick` porque o modelo é constru��do por expressões condicionais e
+   *  exigir um ou outro muda todas elas. */
+  dropdownItems?: ToolbarDropdownItem[];
 };
 type ToolbarSectionModel = {
   key: ToolbarSectionKey;
@@ -406,61 +410,40 @@ if (typeof window === "undefined") {
               onClick: () => onFormatAction("table"),
             }
             : null,
-          toolbarItems.editUL
+          // Numerada, com pontos e de tarefa saíram de três botões e viraram
+          // **um**: `ToolbarDropdown`, marcado como `id: "edit-lists"`. Três
+          // botões de 32px para três variações do mesmo verbo é a definição de
+          // botão repetido — e numa janela estreita eles eram os primeiros a
+          // cair no `+N`, justamente os três que se usam mais.
+          //
+          // `shortcutId` continua em cada item interno: quem sabe `Ctrl+Shift+7`
+          // não deveria passar pelo dropdown para chegar lá.
+          toolbarItems.editUL || toolbarItems.editOL || toolbarItems.editTask
             ? {
-              id: "edit-ul",
-              label: t["tool.ul"] || "UL",
+              id: "edit-lists",
+              label: t["tool.lists"] || "Lists",
               icon: toolIcon(List),
-              onClick: () => onFormatAction("ul"),
-              shortcutId: "fmt-ul",
+              dropdownItems: [
+                ...(toolbarItems.editOL
+                  ? [{ id: "list-ol", label: t["tool.ol"] || "Numbered", icon: toolIcon(ListOrdered, 13, "ml-toolbar-icon"), onSelect: () => onFormatAction("ol"), shortcut: shortcutLabels["fmt-ol"] }]
+                  : []),
+                ...(toolbarItems.editUL
+                  ? [{ id: "list-ul", label: t["tool.ul"] || "Bulleted", icon: toolIcon(List, 13, "ml-toolbar-icon"), onSelect: () => onFormatAction("ul"), shortcut: shortcutLabels["fmt-ul"] }]
+                  : []),
+                ...(toolbarItems.editTask
+                  ? [{ id: "list-task", label: t["tool.task"] || "Task", icon: toolIcon(CheckSquare, 13, "ml-toolbar-icon"), onSelect: () => onFormatAction("task"), shortcut: shortcutLabels["fmt-task"] }]
+                  : []),
+              ],
             }
             : null,
-          toolbarItems.editOL
-            ? {
-              id: "edit-ol",
-              label: t["tool.ol"] || "OL",
-              icon: toolIcon(ListOrdered),
-              onClick: () => onFormatAction("ol"),
-              shortcutId: "fmt-ol",
-            }
-            : null,
-          toolbarItems.editTask
-            ? {
-              id: "edit-task",
-              label: t["tool.task"] || "Task",
-              icon: toolIcon(CheckSquare),
-              onClick: () => onFormatAction("task"),
-              shortcutId: "fmt-task",
-            }
-            : null,
-          // Inserção e transformação de texto moram em Edição, não em Sistema:
-          // `snippets` insere conteúdo, `format`/`minify` transformam o
-          // documento. Em Sistema elas eram as três ações menos usadas da seção.
-          toolbarItems.sysSnippets
-            ? {
-              id: "sys-snippets",
-              label: t["edit.snippets"] || "Snippets",
-              icon: toolIcon(Braces),
-              onClick: onOpenSnippets,
-              shortcutId: "edit-snippets",
-            }
-            : null,
-          toolbarItems.sysFormatMarkdown
-            ? {
-              id: "sys-format-markdown",
-              label: t["tool.formatMarkdown"] || "Format Markdown",
-              icon: toolIcon(FileText),
-              onClick: () => onTransformMarkdown("format"),
-            }
-            : null,
-          toolbarItems.sysMinifyMarkdown
-            ? {
-              id: "sys-minify-markdown",
-              label: t["tool.minifyMarkdown"] || "Minify Markdown",
-              icon: toolIcon(Code),
-              onClick: () => onTransformMarkdown("minify"),
-            }
-            : null,
+          // `snippets`, `format` e `minify` saíram da faixa: os três têm item
+          // no menu Ações agora (PR #187), e um controle que existe na faixa e
+          // no menu com o mesmo nome é o mesmo rótulo duas vezes na mesma tela —
+          // e uma das duas traduções erra por definição.
+          // As chaves `sysSnippets`/`sysFormatMarkdown`/`sysMinifyMarkdown`
+          // continuam em `AppSettings`: quem tem a faixa salva num perfil antigo
+          // ainda manda o dado, e descartar dado guardado é um apagão que ninguém
+          // pediu.
         ].filter(Boolean) as ToolbarAction[],
       },
       // A seção "Sistema" reunia quatro naturezas diferentes — inserção
@@ -574,8 +557,22 @@ if (typeof window === "undefined") {
     ]
   );
 
+  // Só a seção **editing** desenha. As outras três saíram com o desenho do
+  // dono para o topo, e cada uma tem onde estar melhor:
+  //
+  // - `files` (novo, abrir, salvar, exportar) — na linha 2, no cabeçalho da
+  //   lateral, e no menu Arquivo. Na faixa de formatação um botão "Salvar"
+  //   entre "Negrito" e "Itálico" mente sobre a própria vizinhança.
+  // - `view` (layout, tema, configurações) — no menu Exibir. São estados da
+  //   janela inteira, não do cursor no texto.
+  // - `system` — idem, e sem substance própria desde que os itens migraram.
+  //
+  // A seção continua respeitando o próprio interruptor, para quem chegar de um
+  // perfil salvo com a faixa desligada não ver a faixa que pediu para não ver.
+  // As chaves seguem em `AppSettings.toolbarSections`: apagar dado guardado é
+  // um apagão que ninguém pediu.
   const enabledSections = useMemo(
-    () => sections.filter((section) => toolbarSections[section.key]),
+    () => sections.filter((section) => section.key === "editing" && toolbarSections[section.key]),
     [sections, toolbarSections]
   );
 
@@ -801,6 +798,22 @@ if (typeof window === "undefined") {
       variant === "popover"
         ? `${"h-9 min-w-[72px] max-w-full flex-none px-3 justify-start"} inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--ml-fg,#111827)_6%,transparent)] text-[12px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_10%,transparent)] ${action.active ? "ml-btn-active" : ""} ${action.disabled ? "opacity-40 pointer-events-none" : ""}`
         : toolbarButtonClass(action);
+    // Ação com `dropdownItems` **não** é um botão: é o gatilho de um menu. A
+    // distinção fica aqui, num lugar só, para que toda ação da faixa continue
+    // passando por `renderActionButton` — inclusive a medição de largura, que
+    // depende do elemento renderizado e não de um caso especial.
+    if (action.dropdownItems) {
+      return (
+        <ToolbarDropdown
+          key={action.id}
+          label={action.label}
+          icon={action.icon}
+          items={action.dropdownItems}
+          showLabel={showLabel && variant === "popover"}
+          className={empilhado ? "h-auto w-auto px-2" : ""}
+        />
+      );
+    }
     return (
       <button
         key={action.id}
