@@ -1109,15 +1109,19 @@ export default function SettingsPanel({
         {renderSectionCard(
           tr("Conteúdo da barra", "Toolbar content", "Contenido de la barra"),
           tr(
-            "Ligue ou desligue categorias inteiras e refine as ações visíveis em cada uma.",
-            "Enable or disable full categories and refine the visible actions inside each one.",
-            "Activa o desactiva categorías completas y ajusta las acciones visibles dentro de cada una."
+            "A faixa de formatação é a única categoria da barra. Ligue, desligue e refine as ações visíveis nela.",
+            "The formatting strip is the bar's only category. Turn it off and refine the visible actions inside it.",
+            "La franja de formato es la única categoría de la barra. Actívala, desactívala y ajusta las acciones visibles dentro de ella."
           ),
           <div className="grid gap-4 md:grid-cols-2">
             <div className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
-              <p className="mb-3 text-sm font-semibold">{tr("Categorias", "Categories", "Categorías")}</p>
+              <p className="mb-3 text-sm font-semibold">{tr("Categoria", "Category", "Categoría")}</p>
               <div className="grid gap-2">
-                {(["files", "editing", "view", "system"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
+                {/* Só `editing`. As outras três categorias saíram da barra com o
+                    desenho novo do topo, e um interruptor que liga uma seção que
+                    não desenha é um interruptor que promete e não cumpre — a
+                    mesma classe de defeito do rótulo duplicado. */}
+                {(["editing"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
                   <div key={sectionKey} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
                     <span className="text-sm">{toolbarSectionLabels[sectionKey]}</span>
                     {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>
@@ -1127,7 +1131,9 @@ export default function SettingsPanel({
                 ))}
               </div>
             </div>
-            {toolbarItemsBySection.map((group) => (
+            {toolbarItemsBySection
+              .filter((group) => group.titleKey === "editing")
+              .map((group) => (
               <div key={group.titleKey} className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
                 <p className="mb-3 text-sm font-semibold">{toolbarSectionLabels[group.titleKey]}</p>
                 <div className="grid gap-2">
