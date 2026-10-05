@@ -3,6 +3,7 @@ import {
   BetweenHorizontalStart,
   Check,
   ChevronDown,
+  ChevronRight,
   Command,
   CopyPlus,
   Keyboard,
@@ -320,9 +321,19 @@ export default function SettingsPanel({
   useEffect(() => {
     if (!open || !focusTarget) return;
     const timer = window.setTimeout(() => {
-      const target = contentScrollRef.current?.querySelector<HTMLElement>(`[data-settings-focus="${focusTarget}"]`);
-      target?.scrollIntoView({ block: "center", behavior: "smooth" });
-      target?.focus({ preventScroll: true });
+      const alvo = contentScrollRef.current?.querySelector<HTMLElement>(`[data-settings-focus="${focusTarget}"]`);
+      if (!alvo) return;
+      // `tab-<id>` marca a **raiz da categoria**, e abrir a tela com esse alvo é
+      // o caso comum (o atalho e o ícone passam `"tab-general"`). Rolar até a raiz
+      // com `block: "center"` centraliza o contêiner inteiro e **corta o primeiro
+      // cartão** — que é o que aparecia na tela ao abrir. Rolagem só faz sentido
+      // para um controle de verdade dentro do conteúdo.
+      if (alvo.dataset.settingsTabRoot === "true") {
+        alvo.focus({ preventScroll: true });
+        return;
+      }
+      alvo.scrollIntoView({ block: "center", behavior: "smooth" });
+      alvo.focus({ preventScroll: true });
     }, 80);
     return () => window.clearTimeout(timer);
   }, [activeTab, focusTarget, open]);
@@ -523,30 +534,48 @@ export default function SettingsPanel({
     </div>
   );
 
-  const renderTabNav = (compact: boolean) => (
-    <div
-      className={
-        compact
-          ? "ml-settings-tab-scroll ml-scrollbar -mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 pb-2"
-          : "grid gap-1.5"
-      }
-    >
+  const renderTabNav = () => (
+    /* Coluna vertical, no padrão do Windows 11.
+
+       O ramo `compact` (a strip horizontal rolável do cabeçalho) saiu, e com ele
+       saiu a parametrização: passou a haver **um** formato de navegação, que é o
+       motivo de a função não ter mais argumento. A coluna estava pronta no código
+       desde antes — existia um ramo de grid vertical que nunca era chamado, porque
+       o componente só recebia `true`. Código morto que é exatamente o que a tela
+       nova pediu é sorte, não projeto: aproveitei o que já era o certo em vez de
+       desenhar de novo.
+
+       A coluna tem uma diferença em relação ao ramo antigo que existia: o item
+       ativo recebe uma **barra lateral** de 3px, e não só um fundo. É o que
+       separa "você está aqui" de "você está aqui e passou o mouse" quando os
+       dois fundo se confundem. */
+    <nav aria-label={t["settings.title"] ?? "Preferências"} className="flex flex-col gap-1">
       {tabs.map((tab) => {
         const active = activeTab === tab.id;
         return (
           <button
             key={tab.id}
             type="button"
+            aria-current={active ? "page" : undefined}
             onClick={() => setActiveTab(tab.id)}
             style={active ? activeTabStyle : undefined}
-            className={`ml-settings-nav-item flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${compact ? "shrink-0 whitespace-nowrap" : ""}`}
+            className={`ml-settings-nav-item relative flex min-w-0 items-center gap-2.5 rounded-lg py-2 pl-3 pr-3 text-left text-sm transition ${
+              active ? "font-medium" : ""
+            }`}
           >
-            <span className={active ? "opacity-100" : "opacity-80"}>{tab.icon}</span>
-            <span className={`min-w-0 truncate ${active ? "font-medium" : ""}`}>{tabLabels[tab.id]}</span>
+            {active && (
+              <span
+                aria-hidden
+                className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r"
+                style={{ backgroundColor: tConfig.accentHex }}
+              />
+            )}
+            <span className={active ? "opacity-100" : "opacity-75"}>{tab.icon}</span>
+            <span className="min-w-0 truncate">{tabLabels[tab.id]}</span>
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 
   let content: React.ReactNode = (
@@ -1571,44 +1600,70 @@ export default function SettingsPanel({
     );
   }
 
+  /* Página inteira, e não mais um diálogo sobre a aplicação.
+
+   O que saiu, e por quê:
+   - o **backdrop** `bg-black/40 backdrop-blur-[2px]`: escurecer o editor para
+    ATRÁS de uma tela que ocupa tudo não escurece nada — só Mama o resto do app
+     com um véu que não tem sobre o que ser.
+   - o **`inset: --ml-settings-viewport-gap`**: a moldura que deixava a tela do
+     editor aparecendo em volta. O dono chamou de "desperdiçar espaço"; a conta é
+     `clamp(16px, 4vmin, 56px)` de cada lado.
+   - o **`rounded-2xl`** e a borda: cantos arredondados são linguagem de cartão
+     flutuante. Em página inteira eles só denunciam que a casca nasceu num modal.
+
+   O que fica: a **coluna de navegação à esquerda** e o conteúdo rolável à
+   direita, que é o padrão do Windows 11 que o dono mandou de referência.
+
+   **Deixa de ser `dialog` de propósito.** `role="dialog"` + `aria-modal`
+   prometem que nada fora está disponível ao teclado e ao leitor de tela — e num
+   diálogo sobre outra tela isso é verdade. Numa página inteira é mentira, e o
+   `Escape` que fecha tudo continua sendo do handler global em `App.tsx`, que já
+   existia antes desta tela e não mudou. */
   return (
-    <div className="fixed inset-0 z-[320]">
-      <button
-        type="button"
-        aria-label={tr("Fechar configurações", "Close settings", "Cerrar configuración")}
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div className="ml-settings-shell absolute flex items-stretch justify-center">
-        <div className={`ml-settings-panel flex h-full w-full min-h-0 flex-col overflow-hidden rounded-2xl border ${panelClass}`}>
-          <div className="ml-settings-header shrink-0 px-5 py-4 md:px-6">
-            <div className={`mx-auto grid w-full max-w-[1080px] gap-4 ${tConfig.fg}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
-                    Mark-Lee v{__APP_VERSION__}
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold">{t["settings.title"] ?? "Preferências"}</h2>
-                </div>
-                <button type="button" onClick={onClose} className="ml-settings-field rounded-xl border p-2">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <nav>{renderTabNav(true)}</nav>
+    <div className="fixed inset-0 z-[320] flex min-h-0 w-full">
+      <div className={`ml-settings-page flex min-h-0 w-full ${panelClass}`}>
+        <aside className="ml-settings-sidebar flex min-h-0 shrink-0 flex-col overflow-y-auto border-r px-3 py-5">
+          <div className="mb-4 px-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-50">
+              Mark-Lee v{__APP_VERSION__}
+            </p>
+            <h1 className="mt-1 text-base font-semibold">{t["settings.title"] ?? "Preferências"}</h1>
+          </div>
+          {renderTabNav()}
+        </aside>
+        <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col ${panelClass}`}>
+          {/* Breadcrumb. `Início` é a única peça que não é navegação de verdade
+              ainda: não há página inicial de configurações. Ela está aqui porque
+              é o que dá ao usuário a noção de *onde* ele está dentro de uma tela
+              que não tem título de categoria no topo — e o título da categoria
+              entra como cabeçalho do conteúdo, uma linha abaixo. */}
+          <header className="ml-settings-subheader flex shrink-0 items-center gap-2 px-6 py-3 text-sm">
+            <span className="opacity-55">{t["settings"] ?? "Configurações"}</span>
+            <ChevronRight size={13} className="opacity-40" />
+            <span className="font-medium" aria-current="page">
+              {tabLabels[activeTab]}
+            </span>
+          </header>
+          <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-6 pb-10 pt-2">
+            <div
+              className={`min-h-full w-full max-w-[880px] outline-none ${tConfig.fg}`}
+              data-settings-focus={`tab-${activeTab}`}
+              data-settings-tab-root="true"
+              tabIndex={-1}
+            >
+              {content}
             </div>
           </div>
-          <section className={`ml-settings-canvas flex min-h-0 min-w-0 flex-1 flex-col border-t ml-settings-soft-divider ${panelClass}`}>
-            <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
-              <div
-                className={`mx-auto min-h-full w-full max-w-[1080px] outline-none ${tConfig.fg}`}
-                data-settings-focus={`tab-${activeTab}`}
-                tabIndex={-1}
-              >
-                {content}
-              </div>
-            </div>
-          </section>
-        </div>
+        </section>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={tr("Fechar configurações", "Close settings", "Cerrar configuración")}
+          className="ml-settings-field absolute right-5 top-5 rounded-xl border p-2"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
