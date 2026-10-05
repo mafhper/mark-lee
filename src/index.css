@@ -342,6 +342,20 @@
   margin-top: 0.35rem;
 }
 
+/* O realce da busca, sobre a linha do campo que casou.
+
+   Um anel, e não uma cor de fundo: a linha já tem fundo próprio, e trocar o
+   fundo apagaria a diferença entre "esta linha está aqui" e "esta linha casou".
+   O anel marca por fora e não interfere no que a linha diz.
+
+   Ele é temporário por decisão — some quando o termo muda, e não fica depois
+   que a busca esvazia. Um campo marcado para sempre vira decoração, e decoração
+   em Configurações ensina a pessoa a ignorar o realce. */
+.ml-settings-field-row--hit {
+  outline: 2px solid color-mix(in srgb, var(--ml-accent, #60a5fa) 55%, transparent);
+  outline-offset: -1px;
+}
+
 .ml-settings-row--selectable {
   border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 9%, transparent);
   background:
