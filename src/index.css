@@ -1797,3 +1797,65 @@
   background: none;
   border-radius: 0;
 }
+/* ── O trilho de ícones ─────────────────────────────────────────────────────────
+
+   Abaixo de 1000px o sumário vira um trilho de 56px. A conta que justifica o
+   limite, medida: com o sumário em `clamp(200px, 18vw, 248px)`, o documento a
+   620px de janela fica com **420px** — e a janela *pode* ficar com 620px, porque
+   `minWidth` no `tauri.conf.json` é 600. Com 56px de trilho o mesmo documento
+   fica com 564px: **+34%** de linha de leitura numa janela que continua aberta.
+
+   O texto do rótulo **não é removido do DOM**. A técnica é a de `sr-only`
+   — `position: absolute`, 1px, `clip-path: inset(50%)`, `overflow: hidden` — e
+   não `display: none`. A diferença não é preciosismo: com `display: none` o
+   leitor de tela pula o item, e o trilho inteiro — sete categorias, a navegação
+   principal da tela — deixaria de existir para quem não enxerga. Some para a
+   visão, não para o auxiliar.
+
+   E o `title` do botão cobre o mouse, porque `title` é o que existe sem
+   JavaScript e sem biblioteca.
+
+   **O breadcrumb do topo é a rede de segurança.** Em 56px, se alguém não
+   decifrar o ícone, "Configurações › Ferramentas" continua dizendo onde se
+   está — e o sumário continua sendo apenas um índice, não a única forma de
+   chegar. */
+@media (max-width: 1000px) {
+  .ml-settings-sidebar {
+    width: 56px;
+    padding-inline: 0.5rem;
+    align-items: center;
+  }
+
+  .ml-settings-sidebar-head {
+    display: none;
+  }
+
+  .ml-settings-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+    /* O alvo cresce um pouco no trilho: com o rótulo fora, o item vira um botão
+       quadrado de 32px, e 32px é o mínimo confortável para o cursor acertar
+       sete alvos empilhados. */
+    min-height: 32px;
+  }
+
+  .ml-settings-nav-item--achou::after {
+    right: 0.25rem;
+    width: 4px;
+    height: 4px;
+  }
+
+  /* `sr-only`, e nao `display: none`. Ver a nota acima. */
+  .ml-settings-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
