@@ -879,7 +879,7 @@ if (typeof window === "undefined") {
     return (
       <div
         key={section.key}
-        className="ml-toolbar-section relative rounded-[10px] flex-shrink-0 transition-colors"
+        className="ml-toolbar-section relative rounded-[10px] flex-shrink-0 transition-colors mx-auto"
         ref={(el) => {
           sectionFrameRefs.current[section.key] = el;
         }}
@@ -1077,6 +1077,21 @@ if (typeof window === "undefined") {
             acompanha a âncora em vez de ser fixa. */}
           <div className={`min-w-0 flex-1 ${innerHeightClass}`} ref={centerRef} style={{ WebkitAppRegion: "no-drag", ...noDragStyle } as React.CSSProperties}>
             <div
+              // A centralização da faixa é feita pela **margem automática** dela
+              // (`mx-auto`, no `renderSection`), e não por `justify-content` aqui.
+              //
+              // A primeira versão usou `justify-content: safe center`, que é a
+              // resposta aparentemente óbvia — e não funciona neste projeto: o
+              // Chrome 153 aceita o valor (computado = `safe center`), mas o
+              // Tailwind **não gera regra nenhuma** para `justify-[safe_center]`,
+              // então a classe ia para o DOM sem CSS e a barra continuava
+              // alinhada à esquerda sem nenhum erro. Medido, não suposto.
+              //
+              // Margem automática resolve o mesmo problema pela via especificada:
+              // em flexbox, `margin: auto` **nunca** gera transbordo — quando o
+              // conteúdo não cabe, ela resolve para zero e a faixa encosta na
+              // esquerda, com o `+N` à vista. É o `safe center` sem depender do
+              // JIT.
               className={`flex items-center flex-nowrap w-full overflow-hidden justify-start ${innerHeightClass}`}
               style={{
                 gap: useRepulsionLayout ? `${repulsionGapPx}px` : "clamp(0.3rem, 0.7vw, 0.8rem)",

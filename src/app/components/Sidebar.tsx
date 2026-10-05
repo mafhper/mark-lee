@@ -345,20 +345,29 @@ return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
       {/* Colapsado: as ações viram uma coluna de ícones. Horizontais elas ficariam
           com 16px de largura dentro dos 36px — medido, e inutilizáveis. */}
-      {compacto ? (
+{compacto ? (
+        /* Recolhida, a coluna espelha as **mesmas quatro ações** do cabeçalho
+           expandido — salvar, criar arquivo, criar pasta, abrir pasta. Ela ainda
+           trazia as cinco antigas, o que significava duas coisas ruins ao mesmo
+           tempo: as ações que o desenho do dono mandou para o hover da linha
+           continuavam aqui, e a coluna tinha um botão a mais numa faixa de 35px,
+           que é a faixa onde cada pixel conta.
+
+           Renomear, apagar e revelar **não foram perdidos** recolhida: continuam
+           no botão direito da linha, que é o caminho que não depende de largura
+           nem de hover — e por isso é o que funciona também em 35px. */
         <div className={`h-10 border-b ${tConfig.uiBorder} px-0.5`}>
           <div className="flex flex-col items-center gap-0.5 py-0.5">
             {[
+              { rot: Save, on: () => onSave?.(), rot2: t["file.save"] || "Save", ok: !!workspacePath },
               { rot: FilePlus2, on: () => onCreateFile(selectedBasePath), rot2: t["sidebar.newFile"] || "New file", ok: !!workspacePath },
               { rot: FolderPlus, on: () => onCreateFolder(selectedBasePath), rot2: t["sidebar.newFolder"] || "New folder", ok: !!workspacePath },
-              { rot: Pencil, on: () => selectedNode && onRename(selectedNode.path), rot2: t["sidebar.rename"] || "Rename", ok: !!selectedNode && !isVirtualNode(selectedNode.path) },
-              { rot: Trash2, on: () => selectedNode && onDelete(selectedNode.path), rot2: t["sidebar.delete"] || "Delete", ok: !!selectedNode && !isVirtualNode(selectedNode.path), perigo: true },
-              { rot: ExternalLink, on: () => onReveal(selectedNode?.path ?? workspacePath ?? ""), rot2: t["sidebar.reveal"] || "Reveal", ok: !!workspacePath },
-            ].map(({ rot: Icone, on, rot2, ok, perigo }) => (
+              { rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder", ok: !!workspacePath },
+            ].map(({ rot: Icone, on, rot2, ok }) => (
               <button
                 key={rot2}
                 type="button"
-                className={`h-7 w-7 rounded-md inline-flex items-center justify-center disabled:opacity-40 ${perigo ? "ml-btn-danger" : "ml-btn"}`}
+                className="h-7 w-7 rounded-md inline-flex items-center justify-center disabled:opacity-40 ml-btn"
                 onClick={on}
                 title={rot2}
                 aria-label={rot2}
@@ -370,7 +379,7 @@ return (
           </div>
         </div>
       ) : (
-<div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
+        <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
         {/* As quatro ações de **documento e workspace**, nesta ordem: salvar,
             criar arquivo, criar pasta, abrir pasta.
 
@@ -450,7 +459,7 @@ return (
       </div>
       )}
       <div className={`flex-1 overflow-auto ${compacto ? "p-0.5 pt-1" : "p-2"}`}>
-        {!workspaceTree && (
+{!workspaceTree && !compacto && (
           <div className="space-y-3 px-2 py-3 text-xs opacity-90">
             <div>{t["sidebar.empty"] || "No folder open"}</div>
             <button type="button" className="rounded-md border px-3 py-1.5 ml-btn" onClick={onOpenFolder}>
@@ -458,11 +467,30 @@ return (
             </button>
           </div>
         )}
+        {/* Recolhida, o estado vazio vira **um botão só**, com o mesmo rótulo do
+            cabeçalho. Antes ele renderizava o bloco de texto inteiro numa faixa
+            de 35px, e "Nenhuma pasta aberta" quebrava uma letra por linha — não
+            estourava a barra, e por isso nenhuma medição de largura pegava: o
+            defeito era o texto espremido dentro dela. Medido por captura, não
+            por número. */}
+        {!workspaceTree && compacto && (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              className="h-7 w-7 rounded-md ml-btn inline-flex items-center justify-center"
+              onClick={onOpenFolder}
+              title={t["file.openFolder"] || "Open folder"}
+              aria-label={t["file.openFolder"] || "Open folder"}
+            >
+              <FolderOpen size={14} />
+            </button>
+          </div>
+        )}
         {workspaceTree && (
           <div className="rounded-md p-1">
             <SidebarTreeNode
 node={workspaceTree}
-                  level={0}
+              level={0}
                   compacto={compacto}
                   expandedPaths={expandedPaths}
               onToggleExpand={toggleExpand}

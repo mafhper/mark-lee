@@ -1728,9 +1728,18 @@
    faixa do canvas é uma só — a do header. Na ancora `bottom` a barra tem 36px, o
    chip cabe inteiro, e a borda completa continua certa. */
 [data-anchor="integrated"] .ml-toolbar-section {
-  border-top: none;
-  border-bottom: none;
+  border: none;
   /* O `inset 0 1px 0` é um brilho interno no topo do chip. Com a borda de cima
      fora, ele vira a segunda linha, exatamente onde não há nada para separar. */
   box-shadow: none;
+  /* O chip **sai inteiro** na barra integrada, e não só as bordas.
+
+     O desenho de caixa agrupada fazia sentido com quatro seções: cada grupo
+     precisava se defender das outras. Sobrou uma seção, e uma caixa de fundo com
+     `border-radius` flutuando no meio da barra vira uma ilha — com o canto
+     arredondado e a borda lateral de 1px redesenhando um fim que não existe.
+     Os botões já têm o seu próprio fundo (`ml-btn`); a seção não precisa de um
+     segundo fundo por cima deles. */
+  background: none;
+  border-radius: 0;
 }
