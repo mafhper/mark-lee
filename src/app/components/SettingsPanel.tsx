@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BetweenHorizontalStart,
   Check,
   ChevronDown,
   ChevronRight,
@@ -10,8 +9,9 @@ import {
   Layers3,
   Palette,
   RotateCcw,
-  Settings2,
+  Rows3,
   Search,
+  Settings2,
   Trash2,
   Type,
   X,
@@ -99,11 +99,23 @@ type SettingsPanelProps = {
   onJournalFolderSelected?: (path: string) => void;
 };
 
+/* `Rows3` e nao `BetweenHorizontalStart` para Ferramentas.
+
+   O `BetweenHorizontalStart` e um glifo de **alinhamento** — uma barra com uma
+   seta apontando para o inicio. Quem olha sem ler o nome ao lado nao tem como
+   saber que ele significa "ferramentas", e o plano da quinta leva ja apontava
+   isso como pre-requisito do trilho de icones: **um trilho so e aceitavel se
+   cada icone nomeia sua categoria.**
+
+   `Rows3` sao tres faixas horizontais: e a barra de formatacao, que e o que a
+   categoria e. E os outros seis aguentam sem troca — `Command` para a paleta
+   porque o glifo e literalmente o atalho dela, `Type`, `Keyboard`, `Palette`,
+   `Layers3` e `Settings2` dizem o que dizem. */
 const tabs: Array<{ id: SettingsTabId; icon: React.ReactNode }> = [
   { id: "general", icon: <Settings2 className="h-4 w-4" /> },
   { id: "appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "editor", icon: <Type className="h-4 w-4" /> },
-  { id: "toolbar", icon: <BetweenHorizontalStart className="h-4 w-4" /> },
+  { id: "toolbar", icon: <Rows3 className="h-4 w-4" /> },
   { id: "palette", icon: <Command className="h-4 w-4" /> },
   { id: "presets", icon: <Layers3 className="h-4 w-4" /> },
   { id: "shortcuts", icon: <Keyboard className="h-4 w-4" /> },
@@ -1092,6 +1104,12 @@ export default function SettingsPanel({
             type="button"
             data-nav-cat={tab.id}
             aria-current={active ? "location" : undefined}
+            /* O `title` cobre a janela estreita, onde o trilho mostra so o
+               icone. E o `title` **e** o tooltip do trilho — mas ele nao e a
+               unica forma de saber o nome: o rotulo continua no DOM e o leitor
+               de tela continua anunciando "Ferramentas", porque o CSS do trilho
+               usa a tecnica de `sr-only` e nao `display: none`. */
+            title={tabLabels[tab.id]}
             onClick={() => rolarParaCategoria(tab.id)}
             style={active ? activeTabStyle : undefined}
             className={`ml-settings-nav-item relative flex min-w-0 items-center gap-2.5 rounded-lg py-1.5 pl-3 pr-3 text-left text-[13px] transition ${
@@ -1106,7 +1124,7 @@ export default function SettingsPanel({
               />
             )}
             <span className={active ? "opacity-100" : "opacity-60"}>{tab.icon}</span>
-            <span className="min-w-0 truncate">{tabLabels[tab.id]}</span>
+            <span className="ml-settings-nav-label min-w-0 truncate">{tabLabels[tab.id]}</span>
           </button>
         );
       })}
@@ -2155,7 +2173,11 @@ export default function SettingsPanel({
     <div className="fixed inset-0 z-[320] flex min-h-0 w-full">
       <div className={`ml-settings-page flex min-h-0 w-full ${panelClass}`}>
         <aside className="ml-settings-sidebar flex min-h-0 shrink-0 flex-col overflow-y-auto border-r px-3 py-5">
-          <div className="mb-4 px-3">
+          {/* O cabeçalho some no trilho: "Preferências" e a versão não cabem em
+              56px, e um texto cortado ao meio é pior do que nenhum. O nome da
+              tela continua no `aria-label` do `<nav>` e no breadcrumb do topo,
+              então ninguém perde a informação — ela só sai do olho. */}
+          <div className="ml-settings-sidebar-head mb-4 px-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-50">
               Mark-Lee v{__APP_VERSION__}
             </p>
