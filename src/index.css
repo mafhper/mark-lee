@@ -356,6 +356,28 @@
   outline-offset: -1px;
 }
 
+/* O sumário marca os capítulos que a busca encontrou.
+
+   Um ponto, e não uma cor de fundo: o item do sumário já tem três estados
+   possíveis — normal, ativo (fundo + barra à esquerda) e achado — e um quarto
+   estado via cor de fundo seria ambíguo com o ativo. O ponto é aditivo, cabe ao
+   lado do ícone sem deslocar nada, e some quando a busca esvazia.
+
+   E ele é pequeno de propósito: é um índice, não um destaque. Quem está lendo o
+   resultado não precisa que o sumário grite; precisa saber em que capítulo
+   procurar. */
+.ml-settings-nav-item--achou::after {
+  content: "";
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background: var(--ml-accent, #60a5fa);
+}
+
 .ml-settings-row--selectable {
   border: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 9%, transparent);
   background:
@@ -373,6 +395,32 @@
   transition:
     background-color 140ms ease,
     border-color 140ms ease;
+}
+
+/* A linha do slider é a **mesma superfície** das outras linhas.
+
+   Ela usava `.ml-settings-field-block`, e essa classe difere em três coisas da
+   `.ml-settings-row`: fundo em 70/30 (a linha usa 58/42), borda de 1px e sombra
+   embutida. Duas consequências, e as duas medidas:
+
+   - a linha do slider ficava **2px mais estreita** e 1px deslocada, porque a
+     borda conta para a largura. Medido: 812px contra 814px, e as bordas em 453 e
+     1235 contra 452 e 1236 em todas as outras. Um slider é o controle mais largo
+     da tela, e é justamente ele que não alinhava com o resto.
+   - a borda é um contorno a mais numa tela que já foi limpa de contornos: as
+     três últimas leves Tiraram a caixa da seção e a caixa da opção, e o slider
+     era o último que ainda tinha.
+
+   A `.ml-settings-field-block` fica como está, porque ela serve os **painéis**
+   (biblioteca de temas, editor de preset, atalhos), que são outra coisa: são
+   blocos de conteúdo com estrutura própria, não linhas de uma lista. Um painel
+   pode ter borda; uma lista de opções não.
+
+   E o `+` que punha borda entre blocos vizinhos também saiu daqui: a
+   separação entre linhas é **espaço**, e já era em todo o resto. */
+.ml-settings-range {
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 58%, var(--ml-bg, #f8fafc) 42%);
+  transition: background-color 140ms ease;
 }
 
 .ml-settings-inline-row + .ml-settings-inline-row,
