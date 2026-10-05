@@ -72,7 +72,10 @@ type FieldOption = { value: string; label: string };
 type Field =
   | { kind: "switch"; id: string; label: string; hint?: string; checked: boolean; onChange: (next: boolean) => void }
   | { kind: "select"; id: string; label: string; hint?: string; options: FieldOption[]; value: string; onChange: (next: string) => void }
+  | { kind: "range"; id: string; label: string; hint?: string; min: number; max: number; step: number; value: number; unit?: string; onChange: (next: number) => void }
   | { kind: "number"; id: string; label: string; hint?: string; min: number; max: number; step: number; value: number; onChange: (next: number) => void }
+  | { kind: "color"; id: string; label: string; value: string; onChange: (next: string) => void }
+  | { kind: "shortcut"; id: string; label: string; value: string; placeholder: string; onCapture: (event: React.KeyboardEvent<HTMLInputElement>) => void }
   | { kind: "path"; id: string; label: string; value: string; action: string; onAction: () => void }
   | { kind: "custom"; id: string; label: string; node: React.ReactNode };
 
@@ -330,7 +333,14 @@ export default function SettingsPanel({
         const noFimDoDocumento = raiz.scrollTop + raiz.clientHeight >= raiz.scrollHeight - 4;
         let atual: SettingsTabId = ordemDeLeitura[0] ?? "general";
         if (noFimDoDocumento) {
-          atual = ordemDeLeitura[ordemDeLeitura.length - 1] ?? atual;
+          /* No fim, a última categoria **visível** — não a última da lista. Com
+             uma busca ativa, capítulos sem acerto ficam em `display: none` e a
+             última da lista pode nem estar na tela. */
+          const ultima = [...ordemDeLeitura].reverse().find((tab) => {
+            const bloco = raiz.querySelector<HTMLElement>(`#cat-${tab}`);
+            return !!bloco && bloco.offsetParent !== null;
+          });
+          atual = ultima ?? atual;
         } else {
           // A **última** categoria que passou do limite. Percorrer todas as sete
           // custa sete `getBoundingClientRect` por quadro — e sem `break` não há
@@ -338,6 +348,16 @@ export default function SettingsPanel({
           for (const tab of ordemDeLeitura) {
             const bloco = raiz.querySelector<HTMLElement>(`#cat-${tab}`);
             if (!bloco) continue;
+            /* Um capítulo **escondido** tem `top === 0`, que passa o critério
+               como se estivesse no topo da tela — e como o laço guarda o último
+               que passou, o sumário acabava marcando o último capítulo da lista
+               sempre que a busca escondia qualquer um. Medido: buscando
+               "Negrito", o breadcrumb dizia "Atalhos" com "Ferramentas" na tela.
+
+               `offsetParent === null` é o teste de "não está no fluxo", e ele
+               distingue exatamente este caso de um capítulo legitimamente no
+               topo. */
+            if (bloco.offsetParent === null) continue;
             if (bloco.getBoundingClientRect().top <= limite) atual = tab;
           }
         }
@@ -383,12 +403,16 @@ export default function SettingsPanel({
     "fmt-italic": tr("Itálico", "Italic", "Cursiva"),
     "fmt-link": tr("Link", "Link", "Enlace"),
   };
-  const toolbarSectionLabels: Record<"files" | "system" | "editing" | "view", string> = {
-    files: t["toolbar.files"] ?? tr("Arquivos", "Files", "Archivos"),
-    editing: t["toolbar.editing"] ?? tr("Edição", "Editing", "Edición"),
-    view: t["toolbar.view"] ?? tr("Visualização", "View", "Visualización"),
-    system: t["toolbar.system"] ?? tr("Sistema", "System", "Sistema"),
-  };
+  /* `toolbarSectionLabels` saiu. Ele mapeava `files`, `system`, `editing` e
+     `view`, e só `editing` sobreviveu à redução da barra — as outras três
+     categorias pararam de desenhar no PR #189. O único uso que restava era o
+     título do cartão "Categoria", que virou o campo "Ativar a faixa", e um mapa
+     com três chaves mortas é pior que nenhum: a próxima pessoa lê e conclui que
+     a barra ainda tem quatro categorias.
+
+     Os **itens** dessas categorias (`toolbarItems.fileNew`, `sysFind`, …)
+     continuam em `AppSettings` e continuam sem efeito. É dívida do #189, não
+     desta leva, e não mexi aqui — mexer no tipo e nas chaves é outra história. */
   const toolbarItemLabels: Record<string, string> = {
     new: tr("Novo", "New", "Nuevo"),
     open: tr("Abrir", "Open", "Abrir"),
@@ -502,13 +526,41 @@ export default function SettingsPanel({
      E é a mesma armadilha que o efeito do scroll-spy já tropeçou, quatro linhas
      acima, e que está documentada no comentário dele: a tela só existe depois do
      `return null`. O componente já sabia; quem chegou depois não leu. */
+  /* O sumário marca **quais capítulos têm acerto**, e a busca diz **quantos**.
+
+     O plano desta fatia previa trocar o documento por uma lista de resultados com
+     o caminho "Ferramentas › Conteúdo da barra › Negrito". Não é isso que a
+     referência faz, e é melhor não fazer: no Windows 11 a busca **filtra a
+     página** e marca na coluna quais páginas casaram. Uma lista de resultados
+     tira o contexto — ela joga fora a seção que você está olhando e a posição em
+     que você estava, para mostrar um texto parecido com o que já estava na tela.
+
+     O que faltava era o **onde**: com 7 capítulos empilhados num documento só,
+     "algo casou aqui em algum lugar" não ajuda ninguém. Marcando o sumário, a
+     coluna vira o índice do que a busca encontrou — e ela já é o sumário do
+     documento, então cumpre as duas funções com a mesma peça.
+
+     E a contagem responde "quanto", que é a outra metade. Um contador de
+     resultados é barato e é a diferença entre "a busca achou alguma coisa" e
+     "a busca achou 12 coisas".
+
+     `aria-live` no contador: quem não enxerga o número precisa ouvi-lo, senão o
+     filtro some e o leitor de tela não_avisa nada. */
   useEffect(() => {
     const raiz = contentScrollRef.current;
     if (!raiz) return;
     const buscando = busca.trim().length > 0;
+    const capitulosComAcerto = new Set<string>();
+
     for (const capitulo of raiz.querySelectorAll<HTMLElement>("[data-settings-category]")) {
       const temSecao = !!capitulo.querySelector("[data-settings-section]");
       capitulo.style.display = buscando && !temSecao ? "none" : "";
+      if (temSecao) capitulosComAcerto.add(capitulo.getAttribute("data-settings-category") ?? "");
+    }
+
+    for (const item of document.querySelectorAll<HTMLElement>(".ml-settings-nav-item")) {
+      const cat = item.getAttribute("data-nav-cat");
+      item.classList.toggle("ml-settings-nav-item--achou", buscando && !!cat && capitulosComAcerto.has(cat));
     }
   }, [busca, open]);
 
@@ -778,7 +830,6 @@ export default function SettingsPanel({
     if (campo.kind === "select") return `${base} ${campo.options.map((o) => o.label).join(" ")}`;
     return base;
   };
-
   /* Uma linha, e a mesma linha para os cinco tipos.
 
      O que há de comum: nome à esquerda, controle à direita, e **a mesma margem
@@ -790,21 +841,24 @@ export default function SettingsPanel({
      O `select` encolhe para 180px porque era o que faltava para a coluna existir:
      "Idioma" era um campo empilhado de largura total e "Unidades" era um pill à
      direita — dois desenhos para o mesmo controle. */
+/* Toda linha tem **três** colunas: rótulo à esquerda, valor, controle.
+
+     A coluna do valor é o que faltava, e é a diferença que a referência do
+     Windows 11 deixa obvia: lá, uma linha de interruptor mostra "Desativado" ao
+     lado do interruptor. Aqui o select mostra "Métrico" e o interruptor não
+     mostrava nada — a mesma tela com dois jeitos de ler o mesmo fato, e quem
+     lê precisa deduzir o estado da posição do botão.
+
+     O texto não é decoração: ele também é o **alvo**. O interruptor tem 44x24,
+     que é um alvo pequeno para o dedo e curto para o cursor; rótulo + valor são
+     ~200px de alvo, e clicar neles liga e desliga.
+
+     A coluna do valor tem largura fixa, para os valores alinharem entre si —
+     é o que permite varrer a coluna e ler os estados de relance. */
   const renderField = (campo: Field): React.ReactNode => {
     const casou = termoBusca.length > 0 && semAcento(textoDoCampo(campo)).includes(termoBusca);
     if (casou) camposCasaram++;
 
-    /* A segunda linha é `hint` — ou, no `path`, o **`value`**.
-
-     O `path` é o caso que quase passou: ele tem `value` e não `hint`, e a
-     primeira versão desta linha desenhava só `hint`. A contagem de controles
-     batia, o alinhamento batia, e a pasta configurada **sumiu da tela** —
-     dava para trocar de pasta sem ver qual estava ativa.
-
-     Nenhum número pega isso. "Pasta de dados" tem um botão e um valor, e uma
-     lista de `data-field-id` não distingue "campo desenhado" de "campo
-     desenhado com o conteúdo dentro". Só a captura pega, e é por isso que a
-     fatia 1 termina em foto, não em asserção. */
     const segundaLinha = campo.kind === "path" ? campo.value : "hint" in campo ? campo.hint ?? "" : "";
 
     const rotulo = (
@@ -814,30 +868,58 @@ export default function SettingsPanel({
       </span>
     );
 
+    /* O valor. Para o switch é o próprio estado em palavras; para o select é
+       omitido, porque o select já mostra o valor escolhido dentro dele — duas
+       vezes o mesmo texto seria redundância, e a coluna vazia mantém o
+       alinhamento porque o `grid` reserva o espaço. */
+    const valor =
+      campo.kind === "switch" ? (
+        <span className="text-xs opacity-70 tabular-nums">{campo.checked ? tr("Ligado", "On", "Activado") : tr("Desligado", "Off", "Desactivado")}</span>
+      ) : null;
+
     /* O realce marca **o campo que casou**, e não o grupo inteiro: com 65
        controles em 7 capítulos, quase nenhum está visível ao mesmo tempo, e a
        busca é o único caminho para a maioria deles. Marcar o capítulo inteiro
        seria dizer "achamos alguma coisa aqui" — marcar o campo diz o quê. */
-    const linha = (conteudo: React.ReactNode) => (
+    const linha = (conteudo: React.ReactNode, comColunaValor = false) => (
       <div
         key={campo.id}
         data-field-id={campo.id}
-        className={`ml-settings-row ml-settings-field-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3.5 py-3 ${
-          casou ? "ml-settings-field-row--hit" : ""
-        }`}
+        className={`ml-settings-row ml-settings-field-row grid items-center gap-4 rounded-lg px-3.5 py-3 ${
+          comColunaValor ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
+        } ${casou ? "ml-settings-field-row--hit" : ""}`}
       >
         {rotulo}
+        {comColunaValor && valor}
         {conteudo}
       </div>
     );
 
     if (campo.kind === "custom") return <div key={campo.id}>{campo.node}</div>;
-    if (campo.kind === "switch") return linha(renderSwitch(campo.checked, campo.onChange));
+
+    /* O interruptor é o alvo menor, e o rótulo e o valor são o alvo grande. O
+       `<label>` faz os três clicarem, e o `cursor-pointer` diz que isso é
+       clicável — sem ele a linha parece texto e só o botão de 44px responde. */
+    if (campo.kind === "switch") {
+      return linha(
+        <span className="cursor-pointer">
+          {renderSwitch(campo.checked, campo.onChange)}
+        </span>,
+        true
+      );
+    }
 
     if (campo.kind === "select") {
+      /* A largura segue o **conteúdo**, entre 180 e 300px, como na referência.
+         Largura fixa obrigaria a truncar "Padrão: nome, subtítulo e palavras-
+         chave" e "Profundo: inclui conteúdo de snippets…", e quem lê o valor
+         truncado não sabe o que escolheu. O `auto` deixa o `<select>` nativo
+         medir a opção mais longa; o piso e o teto impedem que ele fique
+         minúsculo ou domine a linha. E continua sendo uma regra, não uma
+         exceção por campo. */
       return linha(
         <select
-          className="ml-settings-btn w-[180px] shrink-0 rounded px-3 py-1.5 text-xs font-medium"
+          className="ml-settings-btn min-w-[180px] max-w-[300px] shrink-0 rounded px-3 py-1.5 text-xs font-medium"
           style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}
           value={campo.value}
           onChange={(event) => campo.onChange(event.target.value)}
@@ -848,6 +930,39 @@ export default function SettingsPanel({
             </option>
           ))}
         </select>
+      );
+    }
+
+    /* O range **não** vai para a coluna do controle. Um slider com 240px ao lado
+       de um rótulo tem curso curto demais para ajuste fino, e ajuste fino é
+       exatamente para que serve "Tamanho base" e "Altura de linha". Ele fica na
+       largura toda da linha: rótulo e valor numa linha, cursor na de baixo.
+
+       A coluna do valor existe para o mesmo motivo do switch — quem lê precisa
+       ver o número, não adivinhar pela posição do cursor. */
+    if (campo.kind === "range") {
+      return (
+        <div key={campo.id} data-field-id={campo.id} className={`ml-settings-row ml-settings-range rounded-lg px-3.5 py-3 ${casou ? "ml-settings-field-row--hit" : ""}`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{campo.label}</span>
+              {segundaLinha ? <span className="mt-0.5 block truncate text-xs opacity-70">{segundaLinha}</span> : null}
+            </span>
+            <span className="shrink-0 text-xs opacity-80 tabular-nums">
+              {campo.value}
+              {campo.unit ? <span className="opacity-60">{campo.unit}</span> : null}
+            </span>
+          </div>
+          <input
+            type="range"
+            className="mt-2 w-full"
+            min={campo.min}
+            max={campo.max}
+            step={campo.step}
+            value={campo.value}
+            onChange={(event) => campo.onChange(Number(event.target.value))}
+          />
+        </div>
       );
     }
 
@@ -862,6 +977,32 @@ export default function SettingsPanel({
           step={campo.step}
           value={campo.value}
           onChange={(event) => campo.onChange(Number(event.target.value))}
+        />
+      );
+    }
+
+    if (campo.kind === "color") {
+      return linha(
+        <input
+          type="color"
+          className="ml-settings-field h-8 w-16 shrink-0 cursor-pointer rounded-lg border px-1 py-0.5"
+          value={normalizeHex(campo.value, "#000000")}
+          onChange={(event) => campo.onChange(event.target.value)}
+        />
+      );
+    }
+
+    /* O atalho é um campo de leitura que captura a tecla. `readOnly` impede que
+       o texto digitado apareça e seja salvo como se fosse uma combinação — o que
+       salvava, até o `onKeyDown` tratar cada tecla. */
+    if (campo.kind === "shortcut") {
+      return linha(
+        <input
+          readOnly
+          className={`${inputClass} h-8 w-[180px] shrink-0 py-0 text-center text-xs`}
+          value={campo.value}
+          placeholder={campo.placeholder}
+          onKeyDown={campo.onCapture}
         />
       );
     }
@@ -949,6 +1090,7 @@ export default function SettingsPanel({
           <button
             key={tab.id}
             type="button"
+            data-nav-cat={tab.id}
             aria-current={active ? "location" : undefined}
             onClick={() => rolarParaCategoria(tab.id)}
             style={active ? activeTabStyle : undefined}
@@ -1320,373 +1462,347 @@ export default function SettingsPanel({
       </div>
     );
 
+  /* Editor no esquema. Três grupos que passam a ser heterogêneos de propósito:
+     "Tipografia" é quase toda escolha de valor, "Cursor e caret" é escolha de
+     valor mais duas medidas, e "Escrita" é uma lista de interruptores com um
+     intervalo no fim. Antes os três eram listas de controles iguais, e o título
+     não acrescentava nada ao que embaixo já dizia. */
+  const gruposEditor: FieldGroup[] = [
+    {
+      id: "tipografia",
+      title: tr("Tipografia do editor", "Editor typography", "Tipografía del editor"),
+      fields: [
+        {
+          kind: "select",
+          id: "editor-familia",
+          label: tr("Família", "Family", "Familia"),
+          hint: tr("A fonte do editor. A preview publicada usa a mesma.", "The editor font. The published preview uses the same one.", "La fuente del editor. La vista publicada usa la misma."),
+          value: settings.fontFamily,
+          options: [
+            { value: "mono", label: "Mono" },
+            { value: "sans", label: "Sans" },
+            { value: "serif", label: "Serif" },
+          ],
+          onChange: (fontFamily) => onSettingsChange({ fontFamily }),
+        },
+        {
+          kind: "range",
+          id: "editor-tamanho",
+          label: tr("Tamanho base", "Base size", "Tamaño base"),
+          min: 12,
+          max: 24,
+          step: 1,
+          value: settings.fontSize,
+          unit: "px",
+          onChange: (fontSize) => onSettingsChange({ fontSize }),
+        },
+        {
+          kind: "range",
+          id: "editor-altura-linha",
+          label: tr("Altura de linha", "Line height", "Altura de línea"),
+          min: 1.2,
+          max: 2.1,
+          step: 0.05,
+          value: settings.lineHeight,
+          onChange: (lineHeight) => onSettingsChange({ lineHeight }),
+        },
+      ],
+    },
+    {
+      id: "caret",
+      title: tr("Cursor e caret", "Pointer and caret", "Cursor y caret"),
+      fields: [
+        {
+          kind: "select",
+          id: "editor-cursor-mouse",
+          label: tr("Cursor do mouse", "Mouse pointer", "Cursor del mouse"),
+          value: settings.editorCursor.pointer,
+          options: [
+            { value: "outlined", label: tr("I-beam com contorno", "Outlined I-beam", "I-beam con contorno") },
+            { value: "system", label: tr("Sistema", "System", "Sistema") },
+          ],
+          onChange: (pointer) =>
+            onSettingsChange({
+              editorCursor: { ...settings.editorCursor, pointer: pointer as AppSettings["editorCursor"]["pointer"] },
+            }),
+        },
+        {
+          kind: "range",
+          id: "editor-caret-espessura",
+          label: tr("Espessura da caret", "Caret width", "Grosor de caret"),
+          min: 1,
+          max: 6,
+          step: 1,
+          value: settings.editorCursor.caretWidth,
+          unit: "px",
+          onChange: (caretWidth) => onSettingsChange({ editorCursor: { ...settings.editorCursor, caretWidth } }),
+        },
+        {
+          kind: "range",
+          id: "editor-caret-pulso",
+          label: tr("Pulso da caret", "Caret blink", "Pulso de caret"),
+          hint: tr("Quanto tempo o cursor fica visível antes de piscar.", "How long the caret stays visible before blinking.", "Cuánto tiempo el cursor queda visible antes de parpadear."),
+          min: 240,
+          max: 1400,
+          step: 40,
+          value: settings.editorCursor.caretBlinkIntervalMs,
+          unit: "ms",
+          onChange: (caretBlinkIntervalMs) =>
+            onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlinkIntervalMs } }),
+        },
+        {
+          kind: "switch",
+          id: "editor-caret-piscar",
+          label: tr("Piscar caret", "Blink caret", "Parpadear caret"),
+          hint: tr("Desligado, a caret fica sólida.", "Off, the caret stays solid.", "Desactivado, el cursor queda sólido."),
+          checked: settings.editorCursor.caretBlink,
+          onChange: (caretBlink) => onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlink } }),
+        },
+        {
+          kind: "select",
+          id: "editor-caret-cor",
+          label: tr("Cor da caret", "Caret color", "Color de caret"),
+          value: settings.editorCursor.caretColorMode,
+          options: [
+            { value: "accent", label: tr("Acento do tema", "Theme accent", "Acento del tema") },
+            { value: "text", label: tr("Texto do editor", "Editor text", "Texto del editor") },
+            { value: "custom", label: tr("Personalizada", "Custom", "Personalizada") },
+          ],
+          onChange: (caretColorMode) =>
+            onSettingsChange({
+              editorCursor: { ...settings.editorCursor, caretColorMode: caretColorMode as AppSettings["editorCursor"]["caretColorMode"] },
+            }),
+        },
+        {
+          kind: "color",
+          id: "editor-caret-cor-custom",
+          label: tr("Cor personalizada", "Custom color", "Color personalizada"),
+          value: settings.editorCursor.caretCustomColor,
+          onChange: (caretCustomColor) =>
+            onSettingsChange({ editorCursor: { ...settings.editorCursor, caretCustomColor } }),
+        },
+      ],
+    },
+    {
+      id: "escrita",
+      title: tr("Escrita e persistência", "Writing and persistence", "Escritura y persistencia"),
+      fields: [
+        { kind: "switch", id: "editor-quebra", label: tr("Quebra de linha", "Word wrap", "Ajuste de línea"), checked: settings.wordWrap, onChange: (wordWrap) => onSettingsChange({ wordWrap }) },
+        { kind: "switch", id: "editor-maquina", label: tr("Modo máquina de escrever", "Typewriter mode", "Modo máquina de escribir"), checked: settings.typewriterMode, onChange: (typewriterMode) => onSettingsChange({ typewriterMode }) },
+        { kind: "switch", id: "editor-foco", label: tr("Modo foco", "Focus mode", "Modo foco"), checked: settings.focusMode, onChange: (focusMode) => onSettingsChange({ focusMode }) },
+        { kind: "switch", id: "editor-ortografia", label: tr("Corretor ortográfico", "Spell check", "Corrector ortográfico"), checked: settings.spellCheck, onChange: (spellCheck) => onSettingsChange({ spellCheck }) },
+        {
+          kind: "switch",
+          id: "editor-autosave",
+          label: tr("Salvamento automático", "Auto save", "Guardado automático"),
+          hint: tr("Grava sozinho depois de um tempo parado.", "Writes on its own after a pause.", "Guarda solo tras una pausa."),
+          checked: settings.autoSave,
+          onChange: (autoSave) => onSettingsChange({ autoSave }),
+        },
+        {
+          kind: "range",
+          id: "editor-autosave-intervalo",
+          label: tr("Intervalo do auto save", "Auto-save interval", "Intervalo del guardado automático"),
+          min: 15,
+          max: 300,
+          step: 15,
+          value: settings.autoSaveInterval,
+          unit: "s",
+          onChange: (autoSaveInterval) => onSettingsChange({ autoSaveInterval }),
+        },
+        { kind: "switch", id: "editor-barra-selecao", label: tr("Toolbar de seleção", "Selection toolbar", "Barra de selección"), checked: settings.selectionToolbarEnabled, onChange: (selectionToolbarEnabled) => onSettingsChange({ selectionToolbarEnabled }) },
+      ],
+    },
+  ];
+
   conteudoPorCategoria["editor"] = (
-      <div className="grid gap-5">
-        {renderSectionCard(
-          tr("Tipografia do editor", "Editor typography", "Tipografía del editor"),
-          tr(
-            "Ajusta leitura e ritmo do editor sem interferir na preview publicada.",
-            "Adjusts reading rhythm without affecting the published preview.",
-            "Ajusta la lectura y el ritmo sin afectar la vista publicada."
-          ),
-          <div className="grid gap-4">
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{t["settings.fontFamily"] ?? "Família"}</span>
-              <select
-                className={inputClass}
-                value={settings.fontFamily}
-                onChange={(event) => onSettingsChange({ fontFamily: event.target.value })}
-              >
-                <option value="mono">Mono</option>
-                <option value="sans">Sans</option>
-                <option value="serif">Serif</option>
-              </select>
-            </label>
-            {renderRangeField(tr("Tamanho base", "Base size", "Tamaño base"), settings.fontSize, 12, 24, 1, "px", (fontSize) => onSettingsChange({ fontSize }))}
-            {renderRangeField(tr("Altura de linha", "Line height", "Altura de línea"), settings.lineHeight, 1.2, 2.1, 0.05, "", (lineHeight) =>
-              onSettingsChange({ lineHeight })
-            )}
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Cursor e caret", "Pointer and caret", "Cursor y caret"),
-          tr(
-            "Ajusta a visibilidade do ponto de edição sem alterar o conteúdo.",
-            "Adjusts the editing point visibility without changing content.",
-            "Ajusta la visibilidad del punto de edición sin cambiar el contenido."
-          ),
-          <div className="grid gap-4">
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Cursor do mouse", "Mouse pointer", "Cursor del mouse")}</span>
-              <select
-                className={inputClass}
-                value={settings.editorCursor.pointer}
-                onChange={(event) =>
-                  onSettingsChange({
-                    editorCursor: { ...settings.editorCursor, pointer: event.target.value as AppSettings["editorCursor"]["pointer"] },
-                  })
-                }
-              >
-                <option value="outlined">{tr("I-beam com contorno", "Outlined I-beam", "I-beam con contorno")}</option>
-                <option value="system">{tr("Sistema", "System", "Sistema")}</option>
-              </select>
-            </label>
-            <div className="grid gap-3 md:grid-cols-2">
-              {renderRangeField(tr("Espessura da caret", "Caret width", "Grosor de caret"), settings.editorCursor.caretWidth, 1, 6, 1, "px", (caretWidth) =>
-                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretWidth } })
-              )}
-              {renderRangeField(tr("Pulso da caret", "Caret blink", "Pulso de caret"), settings.editorCursor.caretBlinkIntervalMs, 240, 1400, 40, "ms", (caretBlinkIntervalMs) =>
-                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlinkIntervalMs } })
-              )}
-            </div>
-            <label className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <span className="text-sm">{tr("Piscar caret", "Blink caret", "Parpadear caret")}</span>
-              {renderSwitch(settings.editorCursor.caretBlink, (caretBlink) =>
-                onSettingsChange({ editorCursor: { ...settings.editorCursor, caretBlink } })
-              )}
-            </label>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
-              <label className="space-y-2">
-                <span className="text-sm opacity-80">{tr("Cor da caret", "Caret color", "Color de caret")}</span>
-                <select
-                  className={inputClass}
-                  value={settings.editorCursor.caretColorMode}
-                  onChange={(event) =>
-                    onSettingsChange({
-                      editorCursor: { ...settings.editorCursor, caretColorMode: event.target.value as AppSettings["editorCursor"]["caretColorMode"] },
-                    })
-                  }
-                >
-                  <option value="accent">{tr("Acento do tema", "Theme accent", "Acento del tema")}</option>
-                  <option value="text">{tr("Texto do editor", "Editor text", "Texto del editor")}</option>
-                  <option value="custom">{tr("Personalizada", "Custom", "Personalizada")}</option>
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm opacity-80">{tr("Cor custom", "Custom color", "Color personalizada")}</span>
-                <input
-                  type="color"
-                  className="ml-settings-field h-10 w-full rounded-lg border px-2 py-1"
-                  value={settings.editorCursor.caretCustomColor}
-                  onChange={(event) =>
-                    onSettingsChange({ editorCursor: { ...settings.editorCursor, caretCustomColor: event.target.value } })
-                  }
-                />
-              </label>
-            </div>
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Escrita e persistência", "Writing and persistence", "Escritura y persistencia"),
-          tr("Leitura, foco e salvamento do texto.", "Reading, focus, and text persistence.", "Lectura, foco y guardado del texto."),
-          <div className="grid gap-3">
-            {[
-              [tr("Quebra de linha", "Word wrap", "Ajuste de línea"), settings.wordWrap, (wordWrap: boolean) => onSettingsChange({ wordWrap })],
-              [tr("Modo máquina de escrever", "Typewriter mode", "Modo máquina de escribir"), settings.typewriterMode, (typewriterMode: boolean) => onSettingsChange({ typewriterMode })],
-              [tr("Modo foco", "Focus mode", "Modo foco"), settings.focusMode, (focusMode: boolean) => onSettingsChange({ focusMode })],
-              [tr("Corretor ortográfico", "Spell check", "Corrector ortográfico"), settings.spellCheck, (spellCheck: boolean) => onSettingsChange({ spellCheck })],
-              [tr("Salvamento automático", "Auto save", "Guardado automático"), settings.autoSave, (autoSave: boolean) => onSettingsChange({ autoSave })],
-              [tr("Toolbar de seleção", "Selection toolbar", "Barra de selección"), settings.selectionToolbarEnabled, (selectionToolbarEnabled: boolean) => onSettingsChange({ selectionToolbarEnabled })],
-            ].map(([label, checked, onToggle]) => (
-              <div key={String(label)} className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-                <span className="text-sm">{label as string}</span>
-                {renderSwitch(checked as boolean, onToggle as (next: boolean) => void)}
-              </div>
-            ))}
-            {renderRangeField(tr("Intervalo do auto save", "Auto-save interval", "Intervalo del guardado automático"), settings.autoSaveInterval, 15, 300, 15, "s", (autoSaveInterval) =>
-              onSettingsChange({ autoSaveInterval })
-            )}
-          </div>
-        )}
-      </div>
+      <div className="grid gap-5">{gruposEditor.map(renderFieldGroup)}</div>
     );
+  /* Ferramentas no esquema.
+
+     Três grupos viram **dois**. "Leitura da barra" tinha um interruptor só
+     (que já tinha sobrevivido a leva anterior), e ele entra em "Posição e
+     densidade": é o mesmo assunto — como a barra se apresenta.
+
+     "Conteúdo da barra" era dois cartões aninhados, cada um com um título e uma
+     lista de interruptores dentro. Achatar isso é o que torna as oito ações de
+     formatação alcançáveis pela busca: estavam dentro de um cartão, dentro de
+     uma seção, dentro de uma coluna de JSX — e a busca não percorria nenhuma
+     dessas camadas. */
+  const acoesEdicao = toolbarItemsBySection.filter((grupo) => grupo.titleKey === "editing");
+
+  const gruposToolbar: FieldGroup[] = [
+    {
+      id: "posicao",
+      title: tr("Posição e densidade", "Position and density", "Posición y densidad"),
+      fields: [
+        {
+          kind: "select",
+          id: "barra-posicao",
+          label: tr("Posição da barra", "Toolbar anchor", "Ancla de la barra"),
+          hint: tr("Onde a faixa vive na janela.", "Where the strip lives in the window.", "Dónde vive la franja en la ventana."),
+          value: settings.floatingToolbarAnchor,
+          options: [
+            { value: "integrated", label: tr("Integrada ao topo", "Integrated", "Integrada") },
+            { value: "bottom", label: tr("Base", "Bottom", "Inferior") },
+            { value: "left", label: tr("Esquerda", "Left", "Izquierda") },
+            { value: "right", label: tr("Direita", "Right", "Derecha") },
+          ],
+          /* Só `floatingToolbarAnchor`: o seletor gravava os dois campos com o
+             mesmo valor, e o segundo nunca foi lido. */
+          onChange: (floatingToolbarAnchor) => onSettingsChange({ floatingToolbarAnchor: floatingToolbarAnchor as AppSettings["floatingToolbarAnchor"] }),
+        },
+        {
+          kind: "select",
+          id: "barra-exibicao",
+          label: t["settings.toolbar.display"] ?? tr("Exibição dos botões", "Button display", "Botones"),
+          value: settings.toolbarDisplayMode,
+          options: [
+            { value: "icon_only", label: t["settings.toolbar.display.iconOnly"] ?? tr("Apenas ícone", "Icon only", "Solo icono") },
+            { value: "stacked", label: t["settings.toolbar.display.stacked"] ?? tr("Ícone com rótulo abaixo", "Icon with label below", "Icono con etiqueta debajo") },
+          ],
+          onChange: (toolbarDisplayMode) => onSettingsChange({ toolbarDisplayMode: toolbarDisplayMode as AppSettings["toolbarDisplayMode"] }),
+        },
+        {
+          kind: "select",
+          id: "barra-comportamento",
+          label: tr("Comportamento das categorias", "Category behavior", "Comportamiento de las categorías"),
+          value: settings.toolbarSectionBehavior,
+          options: [
+            { value: "default", label: tr("Padrão", "Default", "Predeterminado") },
+            { value: "repulsion", label: tr("Repulsão inteligente", "Smart repulsion", "Repulsión inteligente") },
+          ],
+          onChange: (toolbarSectionBehavior) => onSettingsChange({ toolbarSectionBehavior: toolbarSectionBehavior as AppSettings["toolbarSectionBehavior"] }),
+        },
+        {
+          kind: "range",
+          id: "barra-breakpoint",
+          label: tr("Breakpoint compacto", "Compact breakpoint", "Breakpoint compacto"),
+          hint: tr("Abaixo desta largura a barra encolhe para ícones.", "Below this width the bar shrinks to icons.", "Por debajo de este ancho la franja se reduce a iconos."),
+          min: 320,
+          max: 1100,
+          step: 20,
+          value: settings.toolbarCompactBreakpoint,
+          unit: "px",
+          onChange: (toolbarCompactBreakpoint) => onSettingsChange({ toolbarCompactBreakpoint }),
+        },
+        {
+          kind: "switch",
+          id: "barra-icones-texto",
+          label: tr("Ícones junto do texto", "Icons alongside text", "Iconos junto al texto"),
+          hint: tr("Com os ícones, a barra se lê sem esforço.", "With the icons, the bar reads without effort.", "Con los iconos, la franja se lee sin esfuerzo."),
+          checked: settings.toolbarAlwaysShowIcons,
+          onChange: (toolbarAlwaysShowIcons) => onSettingsChange({ toolbarAlwaysShowIcons }),
+        },
+      ],
+    },
+    {
+      id: "conteudo",
+      title: tr("Conteúdo da barra", "Toolbar content", "Contenido de la barra"),
+      fields: [
+        {
+          /* Só `editing`. As outras três categorias saíram da barra com o
+             desenho novo do topo, e um interruptor que liga uma seção que não
+             desenha é um interruptor que promete e não cumpre. */
+          kind: "switch",
+          id: "barra-categoria",
+          label: tr("Ativar a faixa", "Enable the strip", "Activar la franja"),
+          hint: tr("A única categoria que a barra tem.", "The only category the bar has.", "La única categoría que tiene la franja."),
+          checked: settings.toolbarSections.editing,
+          onChange: (enabled) => onSettingsChange({ toolbarSections: { ...settings.toolbarSections, editing: enabled } }),
+        },
+        ...acoesEdicao.flatMap((grupo) =>
+          grupo.items.map((item) => ({
+            kind: "switch" as const,
+            id: `barra-item-${item.key}`,
+            label: toolbarItemLabels[item.labelKey] ?? item.labelKey,
+            checked: settings.toolbarItems[item.key],
+            onChange: (enabled: boolean) => onSettingsChange({ toolbarItems: { ...settings.toolbarItems, [item.key]: enabled } }),
+          }))
+        ),
+      ],
+    },
+  ];
 
   conteudoPorCategoria["toolbar"] = (
-      <div className="grid gap-5">
-        {renderSectionCard(
-          tr("Posição e densidade", "Position and density", "Posición y densidad"),
-          tr(
-            "Defina onde a barra vive e como ela distribui espaço entre as categorias.",
-            "Define where the bar lives and how it distributes space between categories.",
-            "Define dónde vive la barra y cómo distribuye el espacio entre categorías."
-          ),
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Posição da barra de ferramentas", "Toolbar anchor", "Ancla de la barra de herramientas")}</span>
-              <select
-                className={inputClass}
-                value={settings.floatingToolbarAnchor}
-                onChange={(event) =>
-                  onSettingsChange({
-                    // Só `floatingToolbarAnchor`: o seletor gravava os dois campos
-                    // com o mesmo valor, e o segundo nunca foi lido.
-                    floatingToolbarAnchor: event.target.value as AppSettings["floatingToolbarAnchor"],
-                  })
-                }
-              >
-                <option value="integrated">{tr("Integrada ao topo", "Integrated", "Integrada")}</option>
-                <option value="bottom">{tr("Base", "Bottom", "Inferior")}</option>
-                <option value="left">{tr("Esquerda", "Left", "Izquierda")}</option>
-                <option value="right">{tr("Direita", "Right", "Derecha")}</option>
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{t["settings.toolbar.display"] ?? "Exibição"}</span>
-              <select
-                className={inputClass}
-                value={settings.toolbarDisplayMode}
-                onChange={(event) =>
-                  onSettingsChange({ toolbarDisplayMode: event.target.value as AppSettings["toolbarDisplayMode"] })
-                }
-              >
-                <option value="icon_only">{t["settings.toolbar.display.iconOnly"] ?? tr("Apenas ícone", "Icon only", "Solo icono")}</option>
-                <option value="stacked">{t["settings.toolbar.display.stacked"] ?? tr("Ícone com rótulo abaixo", "Icon with label below", "Icono con etiqueta debajo")}</option>
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Comportamento das categorias", "Category behavior", "Comportamiento de las categorías")}</span>
-              <select
-                className={inputClass}
-                value={settings.toolbarSectionBehavior}
-                onChange={(event) =>
-                  onSettingsChange({
-                    toolbarSectionBehavior: event.target.value as AppSettings["toolbarSectionBehavior"],
-                  })
-                }
-              >
-                <option value="default">{tr("Padrão", "Default", "Predeterminado")}</option>
-                <option value="repulsion">{tr("Repulsão inteligente", "Smart repulsion", "Repulsión inteligente")}</option>
-              </select>
-            </label>
-            {renderRangeField(tr("Breakpoint compacto", "Compact breakpoint", "Breakpoint compacto"), settings.toolbarCompactBreakpoint, 320, 1100, 20, "px", (toolbarCompactBreakpoint) =>
-              onSettingsChange({ toolbarCompactBreakpoint })
-            )}
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Leitura da barra", "Reading the bar", "Lectura de la franja"),
-          tr(
-            "O texto sozinho é mais silencioso; com os ícones, a barra se lê sem esforço.",
-            "Text alone is quieter; with the icons, the bar reads without effort.",
-            "El texto solo es más silencioso; con los iconos, la franja se lee sin esfuerzo."
-          ),
-          /* Um interruptor, e não um cartão.
-
-             Esta seção tinha dois itens. O segundo — o interruptor de "Rótulos de
-             categoria" — saiu junto com o rótulo que ele controlava (a decisão do
-             dono: os controles de edição não precisam de título visível).
-
-             O que restou é um interruptor com o nome já escrito no rótulo. Com um
-             item só, a seção inteira lia como se houvesse mais alguma coisa: um
-             cartão com fundo próprio, uma linha de título dentro dele e uma
-             segunda linha de descrição dizendo quase a mesma frase. Três níveis
-             para dizer "ligue os ícones".
-
-             Aqui o item vira a mesma linha que as outras seções usam — nome à
-             esquerda, interruptor à direita — e a descrição da seção é quem
-             carrega o "por quê". Um interruptor que se explica no título não
-             precisa de uma segunda frase dizendo o mesmo. */
-          <label className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-            <span className="text-sm">{tr("Ícones junto do texto", "Icons alongside text", "Iconos junto al texto")}</span>
-            {renderSwitch(settings.toolbarAlwaysShowIcons, (toolbarAlwaysShowIcons) =>
-              onSettingsChange({ toolbarAlwaysShowIcons })
-            )}
-          </label>
-        )}
-        {renderSectionCard(
-          tr("Conteúdo da barra", "Toolbar content", "Contenido de la barra"),
-          tr(
-            "A faixa de formatação é a única categoria da barra. Ligue, desligue e refine as ações visíveis nela.",
-            "The formatting strip is the bar's only category. Turn it off and refine the visible actions inside it.",
-            "La franja de formato es la única categoría de la barra. Actívala, desactívala y ajusta las acciones visibles dentro de ella."
-          ),
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
-              <p className="mb-3 text-sm font-semibold">{tr("Categoria", "Category", "Categoría")}</p>
-              <div className="grid gap-2">
-                {/* Só `editing`. As outras três categorias saíram da barra com o
-                    desenho novo do topo, e um interruptor que liga uma seção que
-                    não desenha é um interruptor que promete e não cumpre — a
-                    mesma classe de defeito do rótulo duplicado. */}
-                {(["editing"] as Array<keyof AppSettings["toolbarSections"]>).map((sectionKey) => (
-                  <div key={sectionKey} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
-                    <span className="text-sm">{toolbarSectionLabels[sectionKey]}</span>
-                    {renderSwitch(settings.toolbarSections[sectionKey], (enabled) =>
-                      onSettingsChange({ toolbarSections: { ...settings.toolbarSections, [sectionKey]: enabled } })
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {toolbarItemsBySection
-              .filter((group) => group.titleKey === "editing")
-              .map((group) => (
-              <div key={group.titleKey} className="ml-settings-row ml-settings-row--selectable rounded-xl p-3.5">
-                <p className="mb-3 text-sm font-semibold">{toolbarSectionLabels[group.titleKey]}</p>
-                <div className="grid gap-2">
-                  {group.items.map((item) => (
-                    <div key={item.key} className="ml-settings-inline-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
-                      <span className="text-sm">{toolbarItemLabels[item.labelKey]}</span>
-                      {renderSwitch(settings.toolbarItems[item.key], (enabled) =>
-                        onSettingsChange({ toolbarItems: { ...settings.toolbarItems, [item.key]: enabled } })
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <div className="grid gap-5">{gruposToolbar.map(renderFieldGroup)}</div>
     );
+  /* Paleta no esquema. Os dois grupos já tinham mais de um item, então
+     nenhum título sai — o que muda é que os quatro interruptores de "Fontes de
+     busca" e as duas escolhas de "Busca e execução" passam a ter coluna de
+     valor e a ser encontráveis pelo nome. */
+  const gruposPaleta: FieldGroup[] = [
+    {
+      id: "fontes",
+      title: tr("Fontes de busca", "Search sources", "Fuentes de búsqueda"),
+      fields: [
+        { kind: "switch", id: "paleta-acoes", label: tr("Ações do app", "App actions", "Acciones de la app"), checked: settings.commandPalette.includeActions, onChange: (includeActions) => onSettingsChange({ commandPalette: { ...settings.commandPalette, includeActions } }) },
+        { kind: "switch", id: "paleta-abas", label: tr("Abas abertas", "Open tabs", "Pestañas abiertas"), checked: settings.commandPalette.includeOpenTabs, onChange: (includeOpenTabs) => onSettingsChange({ commandPalette: { ...settings.commandPalette, includeOpenTabs } }) },
+        { kind: "switch", id: "paleta-recentes", label: tr("Arquivos recentes", "Recent files", "Archivos recientes"), checked: settings.commandPalette.includeRecentFiles, onChange: (includeRecentFiles) => onSettingsChange({ commandPalette: { ...settings.commandPalette, includeRecentFiles } }) },
+        { kind: "switch", id: "paleta-snippets", label: "Snippets", checked: settings.commandPalette.includeSnippets, onChange: (includeSnippets) => onSettingsChange({ commandPalette: { ...settings.commandPalette, includeSnippets } }) },
+        {
+          kind: "range",
+          id: "paleta-limite",
+          label: tr("Limite de resultados", "Result limit", "Límite de resultados"),
+          min: 6,
+          max: 40,
+          step: 1,
+          value: settings.commandPalette.maxResults,
+          onChange: (maxResults) => onSettingsChange({ commandPalette: { ...settings.commandPalette, maxResults } }),
+        },
+      ],
+    },
+    {
+      id: "execucao",
+      title: tr("Busca e execução", "Search and execution", "Búsqueda y ejecución"),
+      fields: [
+        {
+          kind: "select",
+          id: "paleta-modo",
+          label: tr("Modo de busca", "Search mode", "Modo de búsqueda"),
+          hint: tr("Padrão casa nome, subtítulo e palavras-chave. Profundo inclui o conteúdo dos snippets e o caminho completo.", "Standard matches title, subtitle and keywords. Deep includes snippet content and the full path.", "Estándar busca nombre, subtítulo y palabras clave. Profundo incluye el contenido y la ruta completa."),
+          value: settings.commandPalette.searchMode,
+          options: [
+            { value: "standard", label: tr("Padrão", "Standard", "Estándar") },
+            { value: "deep", label: tr("Profundo", "Deep", "Profundo") },
+          ],
+          onChange: (searchMode) =>
+            onSettingsChange({ commandPalette: { ...settings.commandPalette, searchMode: searchMode as AppSettings["commandPalette"]["searchMode"] } }),
+        },
+        {
+          kind: "select",
+          id: "paleta-execucao",
+          label: tr("Execução de snippets", "Snippet execution", "Ejecución de snippets"),
+          value: settings.commandPalette.snippetBehavior,
+          options: [
+            { value: "insert", label: tr("Inserir no editor", "Insert in the editor", "Insertar en el editor") },
+            { value: "manage", label: tr("Abrir o gerenciador", "Open the manager", "Abrir el gestor") },
+          ],
+          onChange: (snippetBehavior) =>
+            onSettingsChange({ commandPalette: { ...settings.commandPalette, snippetBehavior: snippetBehavior as AppSettings["commandPalette"]["snippetBehavior"] } }),
+        },
+        {
+          kind: "switch",
+          id: "paleta-fechar",
+          label: tr("Fechar após executar", "Close after running", "Cerrar después de ejecutar"),
+          hint: tr("Útil para comandos únicos. Desative para executar em sequência.", "Useful for one-off commands. Disable it for chained actions.", "Útil para comandos únicos. Desactívalo para ejecutar varios seguidos."),
+          checked: settings.commandPalette.closeAfterSelect,
+          onChange: (closeAfterSelect) => onSettingsChange({ commandPalette: { ...settings.commandPalette, closeAfterSelect } }),
+        },
+        {
+          kind: "switch",
+          id: "paleta-atalhos",
+          label: tr("Mostrar atalhos", "Show shortcuts", "Mostrar atajos"),
+          hint: tr("Exibe o hint de atalho ao lado das ações compatíveis.", "Shows shortcut hints next to compatible actions.", "Muestra el atajo al lado de las acciones compatibles."),
+          checked: settings.commandPalette.showHints,
+          onChange: (showHints) => onSettingsChange({ commandPalette: { ...settings.commandPalette, showHints } }),
+        },
+      ],
+    },
+  ];
 
   conteudoPorCategoria["palette"] = (
-      <div className="grid gap-5">
-        {renderSectionCard(
-          tr("Fontes de busca", "Search sources", "Fuentes de búsqueda"),
-          tr(
-            "Controle o que a paleta de comandos indexa e entrega.",
-            "Control what the command palette indexes and surfaces.",
-            "Controla qué indexa y muestra la paleta de comandos."
-          ),
-          <div className="grid gap-3">
-            {[
-              [tr("Ações do app", "App actions", "Acciones de la app"), settings.commandPalette.includeActions, (includeActions: boolean) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, includeActions } })],
-              [tr("Abas abertas", "Open tabs", "Pestañas abiertas"), settings.commandPalette.includeOpenTabs, (includeOpenTabs: boolean) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, includeOpenTabs } })],
-              [tr("Arquivos recentes", "Recent files", "Archivos recientes"), settings.commandPalette.includeRecentFiles, (includeRecentFiles: boolean) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, includeRecentFiles } })],
-              ["Snippets", settings.commandPalette.includeSnippets, (includeSnippets: boolean) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, includeSnippets } })],
-            ].map(([label, checked, onToggle]) => (
-              <div key={String(label)} className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-                <span className="text-sm">{label as string}</span>
-                {renderSwitch(checked as boolean, onToggle as (next: boolean) => void)}
-              </div>
-            ))}
-            {renderRangeField(tr("Limite de resultados", "Result limit", "Límite de resultados"), settings.commandPalette.maxResults, 6, 40, 1, "", (maxResults) =>
-              onSettingsChange({ commandPalette: { ...settings.commandPalette, maxResults } })
-            )}
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Busca e execução", "Search and execution", "Búsqueda y ejecución"),
-          tr(
-            "Ajustes para transformar a paleta em um centro de comando mais útil.",
-            "Settings to turn the palette into a more useful command surface.",
-            "Ajustes para convertir la paleta en un centro de comandos más útil."
-          ),
-          <div className="grid gap-4">
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Modo de busca", "Search mode", "Modo de búsqueda")}</span>
-              <select
-                className={inputClass}
-                value={settings.commandPalette.searchMode}
-                onChange={(event) =>
-                  onSettingsChange({
-                    commandPalette: {
-                      ...settings.commandPalette,
-                      searchMode: event.target.value as AppSettings["commandPalette"]["searchMode"],
-                    },
-                  })
-                }
-              >
-                <option value="standard">{tr("Padrão: nome, subtítulo e palavras-chave", "Standard: title, subtitle, and keywords", "Estándar: nombre, subtítulo y palabras clave")}</option>
-                <option value="deep">{tr("Profundo: inclui conteúdo de snippets e caminhos completos", "Deep: includes snippet content and full paths", "Profundo: incluye contenido de snippets y rutas completas")}</option>
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{tr("Execução de snippets", "Snippet execution", "Ejecución de snippets")}</span>
-              <select
-                className={inputClass}
-                value={settings.commandPalette.snippetBehavior}
-                onChange={(event) =>
-                  onSettingsChange({
-                    commandPalette: {
-                      ...settings.commandPalette,
-                      snippetBehavior: event.target.value as AppSettings["commandPalette"]["snippetBehavior"],
-                    },
-                  })
-                }
-              >
-                <option value="insert">{tr("Inserir direto no editor", "Insert directly into the editor", "Insertar directo en el editor")}</option>
-                <option value="manage">{tr("Abrir gerenciador de snippets", "Open snippet manager", "Abrir gestor de snippets")}</option>
-              </select>
-            </label>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Fechar após executar", "Close after running", "Cerrar después de ejecutar")}</p>
-                <p className="text-xs opacity-70">
-                  {tr(
-                    "Útil para comandos únicos. Desative para executar em sequência.",
-                    "Useful for one-off commands. Disable it for chained actions.",
-                    "Útil para comandos únicos. Desactívalo para ejecutar varios seguidos."
-                  )}
-                </p>
-              </div>
-              {renderSwitch(settings.commandPalette.closeAfterSelect, (closeAfterSelect) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, closeAfterSelect } })
-              )}
-            </div>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Mostrar atalhos", "Show shortcuts", "Mostrar atajos")}</p>
-                <p className="text-xs opacity-70">
-                  {tr(
-                    "Exibe o hint de atalho ao lado das ações compatíveis.",
-                    "Shows shortcut hints next to compatible actions.",
-                    "Muestra el atajo al lado de las acciones compatibles."
-                  )}
-                </p>
-              </div>
-              {renderSwitch(settings.commandPalette.showHints, (showHints) =>
-                onSettingsChange({ commandPalette: { ...settings.commandPalette, showHints } })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="grid gap-5">{gruposPaleta.map(renderFieldGroup)}</div>
     );
 
   const duplicatePreset = (preset: PublicationPreset) => {
@@ -1700,7 +1816,6 @@ export default function SettingsPanel({
     onSettingsChange({ publicationPresetId: nextPreset.id });
     setExpandedPresetIds([nextPreset.id]);
   };
-
   conteudoPorCategoria["presets"] = (
       <div className="grid gap-5">
         {renderSectionCard(
@@ -1968,27 +2083,32 @@ export default function SettingsPanel({
       </div>
     );
 
+    /* Atalhos migra para o esquema, e com ele a busca passa a alcançar os dez.
+
+     Eram dez campos de leitura numa grade de duas colunas dentro de uma seção em
+     JSX — e "Salvar", "Abrir arquivo", "Paleta de comandos" são justamente os
+     nomes que alguém digita para reconfigurar uma tecla. Eles eram os dez campos
+     mais procuráveis da tela inteira, e eram os dez que a busca não via.
+
+     A grade de duas colunas sai. Com a coluna comum, dez linhas de um campo só
+     leem melhor em coluna, e é o que o resto da tela faz. */
+  const gruposAtalhos: FieldGroup[] = [
+    {
+      id: "personalizados",
+      title: tr("Atalhos personalizados", "Custom shortcuts", "Atajos personalizados"),
+      fields: shortcutActionIds.map((actionId) => ({
+        kind: "shortcut" as const,
+        id: `atalho-${actionId}`,
+        label: shortcutLabels[actionId] ?? actionId,
+        value: settings.customShortcuts?.[actionId] ?? "",
+        placeholder: tr("Pressione um atalho", "Press a shortcut", "Presiona un atajo"),
+        onCapture: (event: React.KeyboardEvent<HTMLInputElement>) => setShortcut(actionId, event),
+      })),
+    },
+  ];
+
   conteudoPorCategoria["shortcuts"] = (
-      <div className="grid gap-5">
-        {renderSectionCard(
-          tr("Atalhos personalizados", "Custom shortcuts", "Atajos personalizados"),
-          tr("Clique no campo e pressione a combinação desejada.", "Click the field and press the desired shortcut.", "Haz clic en el campo y presiona la combinación deseada."),
-          <div className="grid gap-3 sm:grid-cols-2">
-            {shortcutActionIds.map((actionId) => (
-              <label key={actionId} className="ml-settings-row space-y-2 rounded-lg p-3.5">
-                <span className="text-sm font-medium">{shortcutLabels[actionId]}</span>
-                <input
-                  className={inputClass}
-                  readOnly
-                  value={settings.customShortcuts?.[actionId] ?? ""}
-                  onKeyDown={(event) => setShortcut(actionId, event)}
-                  placeholder={tr("Pressione um atalho", "Press a shortcut", "Presiona un atajo")}
-                />
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <div className="grid gap-5">{gruposAtalhos.map(renderFieldGroup)}</div>
     );
 
   /* Página inteira, e não mais um diálogo sobre a aplicação.
@@ -2022,6 +2142,14 @@ export default function SettingsPanel({
      esquece uma das duas metades da lista mente de um jeito que só se vê
      digitando. */
   const temResultado = busca.trim().length === 0 || matches > 0 || gruposCasaram > 0;
+
+  /* Quantos **grupos/seções** casaram. É o que o contador honestamente sabe
+     contar: os capítulos no esquema contam grupo a grupo, e os que ainda são
+     JSX contam seção a seção — e dentro de uma seção antiga não há contagem de
+     campo, porque o filtro antigo era pelo título da seção e não conhecia cada rótulo. Por
+     isso o contador diz "resultados" e não "campos": dizer "campos" seria
+     prometer uma granularidade que os capítulos em JSX ainda não têm. */
+  const totalResultados = gruposCasaram + matches;
 
   return (
     <div className="fixed inset-0 z-[320] flex min-h-0 w-full">
@@ -2066,7 +2194,7 @@ export default function SettingsPanel({
           {tabLabels[categoriaVisivel]}
         </span>
       </span>
-      <div className="ml-auto flex min-w-0 flex-1 justify-end">
+      <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
         <label className="ml-settings-search relative flex min-w-0 max-w-[320px] flex-1 items-center">
           <Search size={14} aria-hidden className="pointer-events-none absolute left-2.5 opacity-45" />
           <input
@@ -2078,6 +2206,19 @@ export default function SettingsPanel({
             className={`${inputClass} h-8 py-0 pl-8 text-sm`}
           />
         </label>
+        {/* A contagem fica **fora** do campo, e não dentro dele: dentro, ela
+            empurra o texto para a direita conforme o número cresce, e o cursor
+            anda junto. Fora, o campo não se mexe. */}
+        {termoBusca.length > 0 && (
+          <span
+            aria-live="polite"
+            className="shrink-0 whitespace-nowrap text-xs opacity-60 tabular-nums"
+          >
+            {totalResultados === 1
+              ? tr("1 resultado", "1 result", "1 resultado")
+              : tr(`${totalResultados} resultados`, `${totalResultados} results`, `${totalResultados} resultados`)}
+          </span>
+        )}
       </div>
     </header>
           <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto py-3">
@@ -2149,9 +2290,9 @@ export default function SettingsPanel({
                   </p>
                   <p className="opacity-65">
                     {tr(
-                      `A busca cobre o nome e a descrição de todas as seções.`,
-                      `Search covers the name and description of every section.`,
-                      `La búsqueda cubre el nombre y la descripción de todas las secciones.`
+                      `A busca cobre o nome de cada configuração, de cada categoria e de cada capítulo.`,
+                      `Search covers the name of every setting, group, and chapter.`,
+                      `La búsqueda cubre el nombre de cada ajuste, grupo y capítulo.`
                     )}
                   </p>
                 </div>
