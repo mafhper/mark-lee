@@ -221,42 +221,37 @@
   outline-offset: 1px;
 }
 
-.ml-settings-panel {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ml-ui, #ffffff) 76%, var(--ml-bg, #f8fafc) 24%),
-      color-mix(in srgb, var(--ml-bg, #f8fafc) 82%, var(--ml-ui, #ffffff) 18%)
-    );
-  border-color: color-mix(in srgb, var(--ml-fg, #111827) 13%, transparent);
-  box-shadow:
-    0 24px 72px rgba(2, 6, 23, 0.24),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 26%, transparent);
+/* `.ml-settings-panel` (o cartão flutuante do modal) e `.ml-settings-shell` (o
+   inset que deixava a tela do editor aparecer em volta) saíram com a virada para
+   tela inteira. As regras ficam aqui, comentadas, porque a decisão é o que
+   importa — e porque a próxima pessoa que abrir um overlay vai procurar aqui o
+   padrão anterior. Ver MKL16.
+
+   `.ml-settings-header` também saiu: numa página inteira o cabeçalho é a coluna
+   de navegação, não uma faixa acima do conteúdo.
+
+   A tela agora tem três partes, e cada uma com um fundo só:
+   - a coluna, um pouco mais recuada;
+   - o conteúdo, o fundo da aplicação;
+   - a faixa do breadcrumb, para o olho achar onde começa o conteúdo. */
+
+.ml-settings-page {
+  background: var(--ml-bg, #f8fafc);
 }
 
-.ml-settings-shell {
-  --ml-settings-viewport-gap: clamp(16px, 4vmin, 56px);
-
-  inset: var(--ml-settings-viewport-gap);
+.ml-settings-sidebar {
+  width: clamp(200px, 18vw, 248px);
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 62%, var(--ml-bg, #f8fafc) 38%);
+  border-color: color-mix(in srgb, var(--ml-fg, #111827) 10%, transparent);
 }
 
-.ml-settings-header {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ml-ui, #ffffff) 92%, var(--ml-bg, #f8fafc) 8%),
-      color-mix(in srgb, var(--ml-ui, #ffffff) 84%, var(--ml-bg, #f8fafc) 16%)
-    );
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+.ml-settings-subheader {
+  border-bottom: 1px solid color-mix(in srgb, var(--ml-fg, #111827) 8%, transparent);
+  background: color-mix(in srgb, var(--ml-ui, #ffffff) 34%, var(--ml-bg, #f8fafc) 66%);
 }
 
 .ml-settings-canvas {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ml-bg, #f8fafc) 88%, var(--ml-ui, #ffffff) 12%),
-      color-mix(in srgb, var(--ml-bg, #f8fafc) 94%, var(--ml-ui, #ffffff) 6%)
-    );
+  background: var(--ml-bg, #f8fafc);
 }
 
 .ml-settings-nav-item {
