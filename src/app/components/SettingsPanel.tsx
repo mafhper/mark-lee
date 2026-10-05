@@ -36,6 +36,52 @@ export type SettingsTabId =
   | "presets"
   | "shortcuts";
 
+/* Um controle é um **dado**, e não JSX.
+
+   Esta é a quinta leva do MKL16, e a virada que sustenta todas as outras. Antes,
+   `renderSectionCard` recebia conteúdo opaco (`<node/>`), e duas coisas que
+   deveriam ser automáticas eram feitas à mão:
+
+   - a busca filtrava `title + description` da seção, então **o nome do controle
+     não entrava na comparação**. Medido: de 13 nomes de controle testados, **10
+     não eram encontrados** — "Sidebar", "Abas", "Pasta de dados", "Otimizar para
+     WebP" todos cegos. A busca ficou "fraca por não achar" e a causa é
+     estrutural: os rótulos estavam dentro de uma árvore que a busca não
+     percorre.
+   - o agrupamento era manual, porque não havia como perguntar "esta seção tem
+     quantos itens?" sem contar `<div>` no meio do JSX.
+
+   Declarado como array, as duas viram consequência: a busca percorre
+   `groups[].fields[].label` — **o mesmo array que desenha a tela**, então não
+   há segunda lista para divergir — e a regra do grupo de seção vira
+   `fields.length > 1`, que é uma linha.
+
+   `hint` é a segunda linha do campo, e tem uma regra testável: **só existe se
+   apagar a linha não perder um fato.** Três exemplos do inventário medido:
+   - "Unidades" encolhe o select para "Métrico"/"Imperial" e a segunda linha vira
+     `km, °C, kg` — a informação sai do `<option>`, que ocupava 190px, e vai
+     para onde há espaço.
+   - "Abas" mantém "Mantém documentos abertos numa trilha previsível" — é fato.
+   - "Sidebar" **perde** a sua: "Mostra workspace, busca e ações locais" repetia
+     o nome do campo, e o nome da seção que o continha ("Workspace") já sumiu.
+
+   `path` carrega `value` à parte de `hint` porque o valor **é** o dado — um
+   caminho de pasta não é explicação, é o que está configurado. */
+type FieldOption = { value: string; label: string };
+
+type Field =
+  | { kind: "switch"; id: string; label: string; hint?: string; checked: boolean; onChange: (next: boolean) => void }
+  | { kind: "select"; id: string; label: string; hint?: string; options: FieldOption[]; value: string; onChange: (next: string) => void }
+  | { kind: "number"; id: string; label: string; hint?: string; min: number; max: number; step: number; value: number; onChange: (next: number) => void }
+  | { kind: "path"; id: string; label: string; value: string; action: string; onAction: () => void }
+  | { kind: "custom"; id: string; label: string; node: React.ReactNode };
+
+/* `id` é um slug estável, e não o texto do título. A chave antiga era
+   ``sec-${title}``, com `title` sendo a saída de `tr()` — trocar de idioma
+   zerava todos os grupos recolhidos, e renomear uma seção também. Aqui o texto
+   pode mudar e o idioma pode mudar; a chave não. */
+type FieldGroup = { id: string; title: string; fields: Field[] };
+
 type SettingsPanelProps = {
   open: boolean;
   settings: AppSettings;
@@ -207,6 +253,10 @@ export default function SettingsPanel({
   // memória porque fechar uma seção é uma preferência de leitura, não uma
   // configuração do programa.
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  /* Grupos de campos fechados, com a mesma razão — e com uma chave melhor.
+     `collapsedSections` guarda `sec-${título}`, e `título` é a saída de `tr()`:
+     trocar de idioma zerava tudo. Aqui a chave é o `id` estável do grupo. */
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [busca, setBusca] = useState("");
   const [expandedPresetIds, setExpandedPresetIds] = useState<string[]>([]);
   const [selectedThemeId, setSelectedThemeId] = useState(settings.theme);
@@ -425,6 +475,42 @@ export default function SettingsPanel({
     }, 80);
     return () => window.clearTimeout(timer);
   }, [open, focusTarget, initialTab, rolarParaCategoria]);
+
+  /* Um capítulo que não tem nada dentro **sai da tela** enquanto a busca está ativa.
+
+     Antes ficava o título sozinho: "Temas", "Editor", "Ferramentas" com um vão
+     embaixo e nenhum campo. Uma lista de resultados que mostra um capítulo
+     vazio não é uma lista de resultados — é a tela inteira com buracos, e obriga
+     a pessoa a rolar para descobrir que não havia nada ali.
+
+     É medido no DOM, e não calculado antes do desenho, por um motivo concreto: os
+     capítulos ainda em JSX (`renderSectionCard`) recebem conteúdo opaco, e não há
+     como perguntar "este capítulo casou?" sem desenhar. O que sobra depois do
+     desenho é a única pergunta que vale para os dois lados — capítulo no esquema
+     e capítulo em JSX — e é uma linha no mesmo laço.
+
+     Sem a busca, o efeito restaura tudo: ele não esconde nada, só decide durante
+     uma busca.
+
+     **Este efeito precisa ficar acima do `if (!open) return null`.** Hook
+     condicional é a forma mais direta de quebrar a tela inteira: o React conta
+     os hooks a cada desenho, e um hook que só existe com a tela aberta faz a
+     contagem mudar de um desenho para o outro. O sintoma é
+     "Rendered more hooks than during the previous render" e a tela em branco —
+     e o `tsc` passa, porque é erro de execução, não de tipo.
+
+     E é a mesma armadilha que o efeito do scroll-spy já tropeçou, quatro linhas
+     acima, e que está documentada no comentário dele: a tela só existe depois do
+     `return null`. O componente já sabia; quem chegou depois não leu. */
+  useEffect(() => {
+    const raiz = contentScrollRef.current;
+    if (!raiz) return;
+    const buscando = busca.trim().length > 0;
+    for (const capitulo of raiz.querySelectorAll<HTMLElement>("[data-settings-category]")) {
+      const temSecao = !!capitulo.querySelector("[data-settings-section]");
+      capitulo.style.display = buscando && !temSecao ? "none" : "";
+    }
+  }, [busca, open]);
 
   if (!open) return null;
 
@@ -683,7 +769,165 @@ export default function SettingsPanel({
     </div>
   );
 
-const renderTabNav = () => (
+/* O texto que a busca compara. Inclui o rótulo do campo e a sua segunda
+     linha, e é esta linha — e não o título da seção — que faz "Sidebar" e
+     "tamanho" aparecerem na busca pela primeira vez. */
+  const textoDoCampo = (campo: Field): string => {
+    const dica = "hint" in campo ? campo.hint ?? "" : "";
+    const base = campo.kind === "path" ? `${campo.label} ${campo.value}` : `${campo.label} ${dica}`;
+    if (campo.kind === "select") return `${base} ${campo.options.map((o) => o.label).join(" ")}`;
+    return base;
+  };
+
+  /* Uma linha, e a mesma linha para os cinco tipos.
+
+     O que há de comum: nome à esquerda, controle à direita, e **a mesma margem
+     direita para todos** — `grid-cols-[minmax(0,1fr)_auto]` resolve, porque
+     `auto` encosta o controle na borda da linha seja ele um switch de 44px ou um
+     select de 180px. Alinhar pela direita, e não pela esquerda, é o que faz o
+     olho varrer a coluna dos controles em vez de caçar cada um.
+
+     O `select` encolhe para 180px porque era o que faltava para a coluna existir:
+     "Idioma" era um campo empilhado de largura total e "Unidades" era um pill à
+     direita — dois desenhos para o mesmo controle. */
+  const renderField = (campo: Field): React.ReactNode => {
+    const casou = termoBusca.length > 0 && semAcento(textoDoCampo(campo)).includes(termoBusca);
+    if (casou) camposCasaram++;
+
+    /* A segunda linha é `hint` — ou, no `path`, o **`value`**.
+
+     O `path` é o caso que quase passou: ele tem `value` e não `hint`, e a
+     primeira versão desta linha desenhava só `hint`. A contagem de controles
+     batia, o alinhamento batia, e a pasta configurada **sumiu da tela** —
+     dava para trocar de pasta sem ver qual estava ativa.
+
+     Nenhum número pega isso. "Pasta de dados" tem um botão e um valor, e uma
+     lista de `data-field-id` não distingue "campo desenhado" de "campo
+     desenhado com o conteúdo dentro". Só a captura pega, e é por isso que a
+     fatia 1 termina em foto, não em asserção. */
+    const segundaLinha = campo.kind === "path" ? campo.value : "hint" in campo ? campo.hint ?? "" : "";
+
+    const rotulo = (
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{campo.label}</span>
+        {segundaLinha ? <span className="mt-0.5 block truncate text-xs opacity-70">{segundaLinha}</span> : null}
+      </span>
+    );
+
+    /* O realce marca **o campo que casou**, e não o grupo inteiro: com 65
+       controles em 7 capítulos, quase nenhum está visível ao mesmo tempo, e a
+       busca é o único caminho para a maioria deles. Marcar o capítulo inteiro
+       seria dizer "achamos alguma coisa aqui" — marcar o campo diz o quê. */
+    const linha = (conteudo: React.ReactNode) => (
+      <div
+        key={campo.id}
+        data-field-id={campo.id}
+        className={`ml-settings-row ml-settings-field-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3.5 py-3 ${
+          casou ? "ml-settings-field-row--hit" : ""
+        }`}
+      >
+        {rotulo}
+        {conteudo}
+      </div>
+    );
+
+    if (campo.kind === "custom") return <div key={campo.id}>{campo.node}</div>;
+    if (campo.kind === "switch") return linha(renderSwitch(campo.checked, campo.onChange));
+
+    if (campo.kind === "select") {
+      return linha(
+        <select
+          className="ml-settings-btn w-[180px] shrink-0 rounded px-3 py-1.5 text-xs font-medium"
+          style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}
+          value={campo.value}
+          onChange={(event) => campo.onChange(event.target.value)}
+        >
+          {campo.options.map((opcao) => (
+            <option key={opcao.value} value={opcao.value}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (campo.kind === "number") {
+      return linha(
+        <input
+          type="number"
+          className="ml-settings-field w-[110px] shrink-0 rounded border px-2 py-1.5 text-right text-xs outline-none"
+          style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }}
+          min={campo.min}
+          max={campo.max}
+          step={campo.step}
+          value={campo.value}
+          onChange={(event) => campo.onChange(Number(event.target.value))}
+        />
+      );
+    }
+
+    /* O caminho fica na coluna da esquerda porque é o valor — e um valor longo
+       espremido à direita empurraria o nome para fora. O botão é a única coisa
+       que vai para a margem comum. */
+    return linha(
+      <button
+        type="button"
+        onClick={campo.onAction}
+        className="ml-settings-btn shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-xs font-medium"
+        style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}
+      >
+        {campo.action}
+      </button>
+    );
+  };
+
+  /* Um grupo de campos: o cabeçalho só existe se houver pares.
+
+     `fields.length > 1` é a regra, e ela é uma linha. "Geral" tinha 4 seções
+     para 10 controles, e duas delas eram **um** interruptor e **um** select
+     sozinhos — um cabeçalho de seção existe para organizar mais de uma coisa, e
+     a seção com um item é um cabeçalho com um item embaixo. */
+  const renderFieldGroup = (grupo: FieldGroup): React.ReactNode => {
+    const buscaAtiva = termoBusca.length > 0;
+    const alvo = semAcento(
+      `${grupo.title} ${grupo.fields.map(textoDoCampo).join(" ")}`
+    ).includes(termoBusca);
+    if (buscaAtiva && !alvo) return null;
+    gruposCasaram++;
+    const fechada = !buscaAtiva && !!collapsedGroups[grupo.id];
+
+    return (
+      /* A `key` vai na `<section>` e não no botão: `grupos.map(renderFieldGroup)`
+         devolve a seção, e é a seção que é filha da lista. Sem ela o React avisa
+         "unique key prop" — e o aviso apareceu só porque os grupos de campos são
+         a **primeira** lista de seções que este componente monta por `map`. */
+      <section key={grupo.id} id={`grp-${grupo.id}`} data-settings-section="true" className="scroll-mt-24 pt-9 first:pt-0">
+        <button
+          type="button"
+          aria-expanded={!fechada}
+          aria-controls={`grp-${grupo.id}-corpo`}
+          onClick={() => setCollapsedGroups((atual) => ({ ...atual, [grupo.id]: !fechada }))}
+          className="group flex w-full items-start gap-3 rounded-lg py-1.5 text-left hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_5%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color-mix(in_srgb,var(--ml-accent,#60a5fa)_46%,transparent)]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold tracking-tight">{grupo.title}</span>
+          </span>
+          {fechada ? (
+            <ChevronRight size={15} className="mt-0.5 shrink-0 opacity-45" />
+          ) : (
+            <ChevronDown size={15} className="mt-0.5 shrink-0 opacity-45" />
+          )}
+        </button>
+        {!fechada && (
+          <div id={`grp-${grupo.id}-corpo`} className="grid gap-2 pt-1">
+            {grupo.fields.map(renderField)}
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const renderTabNav = () => (
     /* A coluna virou **sumário do documento**, e não um seletor de abas.
 
        Três mudanças, e as três são consequência de o conteúdo ser um documento
@@ -735,187 +979,198 @@ const renderTabNav = () => (
      Contador e não booleano porque o `StrictMode` renderiza duas vezes: `> 0`
      continua certo depois de somar o mesmo número duas vezes. */
   let matches = 0;
+  /* Contadores da fatia de campos. `camposCasaram` é o que responde "achou o
+     quê?" e `gruposCasaram` é o que responde "achou onde?" — o estado vazio da
+     busca precisa dos dois, e sem o segundo ele mente quando um único campo
+     casou dentro de um capítulo inteiro. */
+  let camposCasaram = 0;
+  let gruposCasaram = 0;
+  const termoBusca = semAcento(busca.trim());
   const conteudoPorCategoria: Record<string, React.ReactNode> = {};
 
 
+  /* Geral no esquema de campos.
+
+     Medido antes de mexer: `Geral` tinha **4 seções para 10 controles**, e duas
+     delas eram um interruptor e um select sozinhos:
+
+     | seção                 | controles |
+     |-----------------------|-----------|
+     | Shell do app          | 3         |
+     | Workspace             | 1         |
+     | Sistema de Medidas    | 1         |
+     | Diário                | 5         |
+
+     "Workspace" e "Sistema de Medidas" existiam para chamar atenção para um
+     controle cada. Onde eles foram parar:
+
+     - **Sidebar** entra em "Shell do app", porque a descrição daquela seção já
+       dizia "estrutura geral da janela" — e a barra lateral **é** estrutura de
+       janela. A seção "Workspace" existia para dizer isso com três palavras.
+     - **Unidades** entra em "Shell do app" também, porque é configuração de
+       região e fica ao lado de "Idioma", que é a mesma coisa.
+
+     O resultado são **2 grupos** em vez de 4, com os mesmos 10 controles.
+
+     O que foi **descartado** junto com os cabeçalhos:
+
+     - "Ative ou oculte a navegação lateral do projeto." — a seção inteira
+       existia para dizer isso, e o campo diz "Sidebar".
+     - "Unidades usadas na interface (distância, temperatura, etc.)" — e a
+       segunda linha do campo é `km, °C, kg`, que é o mesmo fato com metade do
+       tamanho e sem repetir a palavra "unidades" que o campo já tem.
+
+     E o que foi **guardado**, porque apagar a linha perderia um fato:
+
+     - "Abas" continua com a sua: manter documentos abertos numa trilha
+       previsível não está no nome do campo.
+     - "Importação de mídia" continua com "Cópia segura é o padrão; mover exige
+       confirmação forte" — que explica por que a escolha padrão é a primeira. */
+  const gruposGeral: FieldGroup[] = [
+    {
+      id: "shell",
+      title: tr("Shell do app", "App shell", "Shell de la app"),
+      fields: [
+        {
+          kind: "select",
+          id: "geral-idioma",
+          label: tr("Idioma", "Language", "Idioma"),
+          value: settings.language,
+          options: languages.map((code) => ({ value: code, label: code })),
+          onChange: (language) => onSettingsChange({ language: language as Language }),
+        },
+        {
+          /* O select encolhe para 180px e a unidade sai do `<option>`: "Métrico
+             (km, °C, kg)" ocupava 190px dentro do próprio menu e empurrava a
+             linha. Agora ela ocupa a linha inteira, que é onde há espaço. */
+          kind: "select",
+          id: "geral-unidades",
+          label: tr("Unidades", "Units", "Unidades"),
+          hint: tr("km, °C, kg", "km, °C, kg", "km, °C, kg"),
+          value: settings.measurementSystem,
+          options: [
+            { value: "metric", label: tr("Métrico", "Metric", "Métrico") },
+            { value: "imperial", label: tr("Imperial", "Imperial", "Imperial") },
+          ],
+          onChange: (measurementSystem) =>
+            onSettingsChange({ measurementSystem: measurementSystem as "metric" | "imperial" }),
+        },
+        {
+          kind: "switch",
+          id: "geral-abas",
+          label: tr("Abas", "Tabs", "Pestañas"),
+          hint: tr("Mantém documentos abertos numa trilha previsível.", "Keeps open documents in a predictable strip.", "Mantiene los documentos abiertos en una franja previsible."),
+          checked: settings.tabsEnabled,
+          onChange: (tabsEnabled) => onSettingsChange({ tabsEnabled }),
+        },
+        {
+          kind: "switch",
+          id: "geral-janela-unica",
+          label: tr("Janela única", "Single window", "Ventana única"),
+          hint: tr("Reaproveita a janela atual ao abrir arquivos.", "Reuses the current window when opening files.", "Reutiliza la ventana actual al abrir archivos."),
+          checked: settings.singleInstance,
+          onChange: (singleInstance) => onSettingsChange({ singleInstance }),
+        },
+        {
+          kind: "switch",
+          id: "geral-sidebar",
+          label: tr("Sidebar", "Sidebar", "Barra lateral"),
+          hint: tr("Mostra o sumário de arquivos do projeto.", "Shows the project's file outline.", "Muestra el esquema de archivos del proyecto."),
+          checked: settings.sidebarEnabled,
+          onChange: (sidebarEnabled) => onSettingsChange({ sidebarEnabled }),
+        },
+      ],
+    },
+    {
+      id: "diario",
+      title: tr("Diário", "Journal", "Diario"),
+      fields: [
+        {
+          kind: "path",
+          id: "geral-pasta-dados",
+          label: tr("Pasta de dados", "Data folder", "Carpeta de datos"),
+          value: settings.journalDataDir || tr("Nenhuma pasta definida", "No folder set", "Ninguna carpeta definida"),
+          action: tr("Selecionar pasta", "Select folder", "Seleccionar carpeta"),
+          onAction: async () => {
+            const { openFileDialog } = await import("../../services/filesystem");
+            const selected = await openFileDialog({ directory: true, multiple: false });
+            const path = Array.isArray(selected) ? selected[0] : selected;
+            if (path) {
+              onSettingsChange({ journalDataDir: path });
+              onJournalFolderSelected?.(path);
+            }
+          },
+        },
+        {
+          kind: "select",
+          id: "geral-importacao",
+          label: tr("Importação de mídia", "Media import", "Importación de medios"),
+          hint: tr("Cópia segura é o padrão; mover exige confirmação forte.", "Safe copy is the default; moving requires strong confirmation.", "La copia segura es el valor predeterminado; mover requiere confirmación fuerte."),
+          value: settings.journalMedia.importMode,
+          options: [
+            { value: "copy", label: tr("Copiar", "Copy", "Copiar") },
+            { value: "ask", label: tr("Perguntar", "Ask", "Preguntar") },
+            { value: "move", label: tr("Mover com confirmação", "Move with confirmation", "Mover con confirmación") },
+          ],
+          onChange: (mode) =>
+            onSettingsChange({ journalMedia: { ...settings.journalMedia, importMode: mode as AppSettings["journalMedia"]["importMode"] } }),
+        },
+        {
+          kind: "switch",
+          id: "geral-preservar",
+          label: tr("Preservar originais", "Preserve originals", "Preservar originales"),
+          hint: tr("A otimização WebP sempre mantém o arquivo original.", "WebP optimization always keeps the original file.", "La optimización WebP siempre conserva el archivo original."),
+          checked: settings.journalMedia.preserveOriginals,
+          onChange: (preserveOriginals) =>
+            onSettingsChange({ journalMedia: { ...settings.journalMedia, preserveOriginals } }),
+        },
+        {
+          kind: "switch",
+          id: "geral-webp",
+          label: tr("Otimizar para WebP", "Optimize to WebP", "Optimizar a WebP"),
+          hint: tr("Desligado por padrão. Quando ligado, cria uma cópia WebP.", "Off by default. When enabled, creates a WebP copy.", "Desactivado por defecto. Cuando está activado, crea una copia WebP."),
+          checked: settings.journalMedia.optimizeWebp,
+          onChange: (optimizeWebp) => onSettingsChange({ journalMedia: { ...settings.journalMedia, optimizeWebp } }),
+        },
+        /* Os dois campos numéricos ganharam unidade, e nenhum dos dois tinha.
+
+           "Dimensão máxima 2048" não diz 2048 do quê, e "Qualidade 0.85" não diz
+           em que escala. Antes isso já era assim — não é regressão desta fatia —
+           mas aqui ficou visível, porque os dois viraram linhas de 40px com o
+           número sozinho e sem nenhuma palavra em volta.
+
+           E a regra da segunda linha se confirma nos dois: apagar "px" perde um
+           fato, e apagar "0,5 a 0,95" perde a escala. */
+        {
+          kind: "number",
+          id: "geral-dimensao",
+          label: tr("Dimensão máxima", "Max dimension", "Dimensión máxima"),
+          hint: tr("Lado maior da imagem, em pixels", "Longest side of the image, in pixels", "Lado mayor de la imagen, en píxeles"),
+          min: 512,
+          max: 4096,
+          step: 128,
+          value: settings.journalMedia.maxDimension,
+          onChange: (maxDimension) =>
+            onSettingsChange({ journalMedia: { ...settings.journalMedia, maxDimension } }),
+        },
+        {
+          kind: "number",
+          id: "geral-qualidade",
+          label: tr("Qualidade", "Quality", "Calidad"),
+          hint: tr("De 0,5 a 0,95", "From 0.5 to 0.95", "De 0,5 a 0,95"),
+          min: 0.5,
+          max: 0.95,
+          step: 0.01,
+          value: settings.journalMedia.quality,
+          onChange: (quality) =>
+            onSettingsChange({ journalMedia: { ...settings.journalMedia, quality } }),
+        },
+      ],
+    },
+  ];
+
   conteudoPorCategoria["general"] = (
-      <div className="grid gap-5">
-        {renderSectionCard(
-          tr("Shell do app", "App shell", "Shell de la app"),
-          tr(
-            "Idioma, trilha de documentos e estrutura geral da janela.",
-            "Language, document flow, and overall window structure.",
-            "Idioma, flujo de documentos y estructura general de la ventana."
-          ),
-          <div className="grid gap-4">
-            <label className="space-y-2">
-              <span className="text-sm opacity-80">{t["settings.language"] ?? "Idioma"}</span>
-              <select
-                className={inputClass}
-                value={settings.language}
-                onChange={(event) => onSettingsChange({ language: event.target.value as Language })}
-              >
-                {languages.map((language) => (
-                  <option key={language} value={language}>
-                    {language}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Abas", "Tabs", "Pestañas")}</p>
-                <p className="text-xs opacity-70">
-                  {tr(
-                    "Mantém documentos abertos em uma trilha previsível.",
-                    "Keeps open documents in a predictable strip.",
-                    "Mantiene los documentos abiertos en una franja previsible."
-                  )}
-                </p>
-              </div>
-              {renderSwitch(settings.tabsEnabled, (tabsEnabled) => onSettingsChange({ tabsEnabled }))}
-            </div>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Janela única", "Single window", "Ventana única")}</p>
-                <p className="text-xs opacity-70">
-                  {tr(
-                    "Reaproveita a janela atual ao abrir arquivos.",
-                    "Reuses the current window when opening files.",
-                    "Reutiliza la ventana actual al abrir archivos."
-                  )}
-                </p>
-              </div>
-              {renderSwitch(settings.singleInstance, (singleInstance) => onSettingsChange({ singleInstance }))}
-            </div>
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Workspace", "Workspace", "Workspace"),
-          tr(
-            "Ative ou oculte a navegação lateral do projeto.",
-            "Show or hide the project's lateral navigation.",
-            "Muestra u oculta la navegación lateral del proyecto."
-          ),
-          <div className="grid gap-4">
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">Sidebar</p>
-                <p className="text-xs opacity-70">
-                  {tr(
-                    "Mostra workspace, busca e ações locais.",
-                    "Shows workspace, search, and local actions.",
-                    "Muestra el workspace, la búsqueda y las acciones locales."
-                  )}
-                </p>
-              </div>
-              {renderSwitch(settings.sidebarEnabled, (sidebarEnabled) => onSettingsChange({ sidebarEnabled }))}
-            </div>
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Sistema de Medidas", "Measurement System", "Sistema de Medidas"),
-          tr(
-            "Unidades usadas na interface (distância, temperatura, etc.).",
-            "Units used in the interface (distance, temperature, etc.).",
-            "Unidades usadas en la interfaz (distancia, temperatura, etc.)."
-          ),
-          <div className="grid gap-4">
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{tr("Unidades", "Units", "Unidades")}</p>
-              </div>
-              <select value={settings.measurementSystem} onChange={(e) => onSettingsChange({ measurementSystem: e.target.value as "metric" | "imperial" })}
-                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium"
-                style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}>
-                <option value="metric">{tr("Métrico (km, °C, kg)", "Metric (km, °C, kg)", "Métrico (km, °C, kg)")}</option>
-                <option value="imperial">{tr("Imperial (mi, °F, lb)", "Imperial (mi, °F, lb)", "Imperial (mi, °F, lb)")}</option>
-              </select>
-            </div>
-          </div>
-        )}
-        {renderSectionCard(
-          tr("Diário", "Journal", "Diario"),
-          tr(
-            "Pasta onde os diários serão criados por padrão.",
-            "Folder where journals will be created by default.",
-            "Carpeta donde los diarios se crearán por defecto."
-          ),
-          <div className="grid gap-4">
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{tr("Pasta de dados", "Data folder", "Carpeta de datos")}</p>
-                <p className="text-xs opacity-70 truncate">
-                  {settings.journalDataDir || tr("Nenhuma pasta definida", "No folder set", "Ninguna carpeta definida")}
-                </p>
-              </div>
-              <button type="button" onClick={async () => {
-                const { openFileDialog } = await import("../../services/filesystem");
-                const selected = await openFileDialog({ directory: true, multiple: false });
-                const path = Array.isArray(selected) ? selected[0] : selected;
-                if (path) {
-                  onSettingsChange({ journalDataDir: path });
-                  onJournalFolderSelected?.(path);
-                }
-              }}
-                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium whitespace-nowrap"
-                style={{ backgroundColor: tConfig.accentHex + "20", color: tConfig.accentHex }}>
-                {tr("Selecionar pasta", "Select folder", "Seleccionar carpeta")}
-              </button>
-            </div>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{tr("Importação de mídia", "Media import", "Importación de medios")}</p>
-                <p className="text-xs opacity-70">
-                  {tr("Cópia segura é o padrão; mover exige confirmação forte.", "Safe copy is the default; moving requires strong confirmation.", "La copia segura es el valor predeterminado; mover requiere confirmación fuerte.")}
-                </p>
-              </div>
-              <select value={settings.journalMedia.importMode}
-                onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, importMode: event.target.value as AppSettings["journalMedia"]["importMode"] } })}
-                className="ml-settings-btn text-xs px-3 py-1.5 rounded font-medium"
-                style={{ backgroundColor: tConfig.accentHex + "12", color: tConfig.accentHex, border: `1px solid ${tConfig.uiBorderHex}` }}>
-                <option value="copy">{tr("Copiar", "Copy", "Copiar")}</option>
-                <option value="ask">{tr("Perguntar", "Ask", "Preguntar")}</option>
-                <option value="move">{tr("Mover com confirmação", "Move with confirmation", "Mover con confirmación")}</option>
-              </select>
-            </div>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Preservar originais", "Preserve originals", "Preservar originales")}</p>
-                <p className="text-xs opacity-70">
-                  {tr("A otimização WebP sempre mantém o arquivo original.", "WebP optimization always keeps the original file.", "La optimización WebP siempre conserva el archivo original.")}
-                </p>
-              </div>
-              {renderSwitch(settings.journalMedia.preserveOriginals, (preserveOriginals) => onSettingsChange({ journalMedia: { ...settings.journalMedia, preserveOriginals } }))}
-            </div>
-            <div className="ml-settings-row flex items-center justify-between gap-4 rounded-lg px-3.5 py-3">
-              <div>
-                <p className="text-sm font-medium">{tr("Otimizar para WebP", "Optimize to WebP", "Optimizar a WebP")}</p>
-                <p className="text-xs opacity-70">
-                  {tr("Desligado por padrão. Quando ligado, cria uma cópia WebP.", "Off by default. When enabled, creates a WebP copy.", "Desactivado por defecto. Cuando está activado, crea una copia WebP.")}
-                </p>
-              </div>
-              {renderSwitch(settings.journalMedia.optimizeWebp, (optimizeWebp) => onSettingsChange({ journalMedia: { ...settings.journalMedia, optimizeWebp } }))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="ml-settings-row rounded-lg px-3.5 py-3 text-sm">
-                <span className="mb-2 block font-medium">{tr("Dimensão máxima", "Max dimension", "Dimensión máxima")}</span>
-                <input type="number" min={512} max={4096} step={128} value={settings.journalMedia.maxDimension}
-                  onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, maxDimension: Number(event.target.value) } })}
-                  className="w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
-                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
-              </label>
-              <label className="ml-settings-row rounded-lg px-3.5 py-3 text-sm">
-                <span className="mb-2 block font-medium">{tr("Qualidade", "Quality", "Calidad")}</span>
-                <input type="number" min={0.5} max={0.95} step={0.01} value={settings.journalMedia.quality}
-                  onChange={(event) => onSettingsChange({ journalMedia: { ...settings.journalMedia, quality: Number(event.target.value) } })}
-                  className="w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
-                  style={{ borderColor: tConfig.uiBorderHex, color: tConfig.fgHex }} />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="grid gap-5">{gruposGeral.map(renderFieldGroup)}</div>
     );
 
   conteudoPorCategoria["appearance"] = (
@@ -1760,7 +2015,13 @@ const renderTabNav = () => (
   // `content` já foi montado acima, e cada `renderSectionCard` que casou com a
   // busca contou. É aqui que a resposta fica disponível — antes do `return`, e
   // não antes de `content`, porque `content` é justamente o que conta.
-  const temResultado = busca.trim().length === 0 || matches > 0;
+  /* `matches` conta só as seções antigas, e `gruposCasaram` os grupos novos.
+     Somar os dois não é redundância: sem isso, um termo que casasse apenas em
+     "Geral" — que já migrou para o esquema — deixaria `matches` em zero e a tela
+     mostraria "nada encontrado" **com o resultado na tela**. Um contador que
+     esquece uma das duas metades da lista mente de um jeito que só se vê
+     digitando. */
+  const temResultado = busca.trim().length === 0 || matches > 0 || gruposCasaram > 0;
 
   return (
     <div className="fixed inset-0 z-[320] flex min-h-0 w-full">
