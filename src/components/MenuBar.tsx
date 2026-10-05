@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { ThemeConfig, Language } from '../types';
 import { TRANSLATIONS } from '../translations';
 import { RecentFile } from '../services/storage';
@@ -276,19 +276,52 @@ const MenuBar: React.FC<MenuBarProps> = ({
                   <div key={index} className="relative group/submenu">
                     <button
                       type="button"
-                      className="w-full text-left px-4 py-1.5 flex justify-between items-center hover:bg-black/5 dark:hover:bg-white/10"
+                      role="menuitem"
+                      aria-haspopup="menu"
+                      className="w-full text-left px-4 py-1.5 flex justify-between items-center gap-6 hover:bg-black/5 dark:hover:bg-white/10"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 min-w-0">
                         <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
                           {iconeDeAcao(item.action)}
                         </span>
-                        <span>{item.label}</span>
-                        <span className="text-[10px] opacity-50">&#9656;</span>
+                        {/* A calha do check, **vazia**.
+
+                           O item comum tem duas calhas de largura fixa — a do
+                           ícone e a do check — e o rótulo nasce depois das duas.
+                           Este item tinha só a primeira, e a consequência é
+                           aritmética: 16px da calha que faltou mais os 8px do
+                           `gap` que deixou de existir. Medido, o rótulo de
+                           "Recentes" nascia em x=41 e todos os outros em x=65.
+
+                           A calha vazia não é um elemento morto: é o que impede
+                           que este rótulo dance em relação aos outros quando
+                           algum item passa a ter `checked`. É a mesma razão que
+                           o comentário do item comum já registrava, e o item de
+                           submenu simplesmente não recebeu a calha. */}
+                        <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden />
+                        <span className="truncate">{item.label}</span>
                       </span>
+                      {/* A afordância vai na **mesma coluna** dos atalhos, e é o
+                         que a captura mostrou faltando: o chevron estava dentro
+                         do grupo do rótulo, colado em "Recentes" e a meio caminho
+                         da linha, enquanto `Ctrl+N` encostava na margem. Agora
+                         ambos terminam em x=229.
+
+                         E o `ChevronRight` substitui o `&#9656;`: o resto da tela
+                         usa lucide, e um glifo de outra fonte ao lado de ícones da
+                         mesma família é o tipo de diferença que só aparece quando
+                         alguém olha. */}
+                      <ChevronRight size={12} aria-hidden className="shrink-0 opacity-50" />
                     </button>
+                    {/* `group-focus-within` além do `group-hover`: o submenu é um
+                        `<div>` sem `tabindex`, então ele não recebe foco — mas o
+                        botão que o abre recebe, e `focus-within` sobe até ele.
+                        Sem isso o item era **inalcançável pelo teclado**: dava para
+                        Tab até "Recentes" e nada acontecia, porque só o mouse
+                        abria o submenu. Uma classe resolve e não custa JS. */}
                     <div
                       role="menu"
-                      className={`absolute left-full top-0 min-w-56 py-1 shadow-lg border rounded-md z-[400] hidden group-hover/submenu:block ${tConfig.ui} ${tConfig.uiBorder}`}
+                      className={`absolute left-full top-0 min-w-56 py-1 shadow-lg border rounded-md z-[400] hidden group-hover/submenu:block group-focus-within/submenu:block ${tConfig.ui} ${tConfig.uiBorder}`}
                     >
                       {item.submenu.map((sub, subIndex) => (
                         <button
@@ -303,14 +336,21 @@ const MenuBar: React.FC<MenuBarProps> = ({
                           onClick={() => run(sub)}
                         >
                           <span className="flex items-center gap-2 min-w-0">
+                              {/* A calha do ícone é sempre a mesma — 16px, mesmo
+                                  quando não há glifo. Sem ela, o item sem ícone
+                                  puxa o rótulo 24px para a esquerda dos outros, e
+                                  a linha de "Nenhum arquivo recente" ficava
+                                  desalinhada de todos os itens com arquivo. A
+                                  ausência de ícone é um estado da linha, e um
+                                  estado não pode mudar a geometria da lista. */}
+                              <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
+                                {sub.action ? iconeDeAcao(sub.action === 'file-open-recent' ? 'file-open' : sub.action) : null}
+                              </span>
                               {/* Recentes usam a ação `file-open-recent` para
                                   carregar o caminho, mas o desenho é o de
                                   *abrir arquivo*: um relógio em cada linha
                                   repetiria a mesma imagem cinco vezes e não
                                   diria nada. */}
-                              <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
-                                {iconeDeAcao(sub.action === 'file-open-recent' ? 'file-open' : sub.action)}
-                              </span>
                               <span className="truncate">{sub.label}</span>
                             </span>
                         </button>
