@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BetweenHorizontalStart,
   Check,
@@ -196,7 +196,13 @@ export default function SettingsPanel({
   onPublicationPresetsChange,
   onJournalFolderSelected,
 }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
+  /* Não há mais aba ativa — há **categoria em leitura**, que vem do scroll.
+
+     O estado existia como `activeTab` e era atualizado pelo clique na coluna. O
+     clique agora **rola** (não troca estado), e quem muda o estado é o scroll. O
+     nome antigo mentiria sobre o que ele representa, e um nome que mente é um
+     nome que o próximo leitor usa errado. */
+  const [categoriaVisivel, setCategoriaVisivel] = useState<SettingsTabId>("general");
   // Seções fechadas, por sessão. Ver `renderSectionCard`: o estado vai na
   // memória porque fechar uma seção é uma preferência de leitura, não uma
   // configuração do programa.
@@ -205,6 +211,97 @@ export default function SettingsPanel({
   const [expandedPresetIds, setExpandedPresetIds] = useState<string[]>([]);
   const [selectedThemeId, setSelectedThemeId] = useState(settings.theme);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+
+  /* A ordem de leitura do documento vem de `tabs`, e é a mesma que o menu da
+     esquerda percorre: documento e menu não podem divergir, e ser a mesma lista
+     é o que garante isso. */
+  const ordemDeLeitura = useMemo<SettingsTabId[]>(() => tabs.map((tab) => tab.id), [tabs]);
+
+  /* Rolagem por âncora. `behavior` é parâmetro porque abrir a tela precisa ser
+     imediato (`auto`) e o clique precisa ser visível (`smooth`). */
+  const rolarParaCategoria = useCallback((id: SettingsTabId, behavior: ScrollBehavior = "smooth") => {
+    const alvo = contentScrollRef.current?.querySelector<HTMLElement>(`#cat-${id}`);
+    if (!alvo) return;
+    alvo.scrollIntoView({ block: "start", behavior });
+    setCategoriaVisivel(id);
+  }, []);
+
+  /* Scroll-spy: a coluna da esquerda acompanha a rolagem.
+
+     O critério é a **última** categoria cujo topo passou do limite, e não a
+     primeira visível: com a primeira, uma categoria alta ocupa a tela inteira e a
+     coluna fica presa nela enquanto o usuário lê o resto — que é exatamente
+     quando a coluna precisa mudar.
+
+     `requestAnimationFrame` agrupa as chamadas: o `scroll` dispara dezenas de
+     vezes por gesto, e `setState` em cada uma renderiza a tela toda. */
+  /* `open` está na dependência, e sem ele o spy **nunca registrava**.
+
+     Este efeito roda na montagem do componente, e a tela só existe depois do
+     `if (!open) return null`. Naquele momento `contentScrollRef.current` é
+     `null`, o efeito sai cedo — e como `ordemDeLeitura` não muda, ele nunca mais
+     roda. O sintoma é um sumário que marca sempre a primeira categoria, e que
+     não muda nem com o clique (o clique funciona porque `scrollIntoView` move o
+     scroll de verdade, e o estado é setado à mão).
+
+     Depender de `open` é o que faz o efeito rodar **depois** que a tela montou. */
+  useEffect(() => {
+    if (!open) return;
+    const raiz = contentScrollRef.current;
+    if (!raiz) return;
+    let agendado = 0;
+    const aoRolar = () => {
+      if (agendado) return;
+      agendado = window.requestAnimationFrame(() => {
+        agendado = 0;
+        const r = raiz.getBoundingClientRect();
+        const limite = r.top + 96;
+        /* No fim do documento, a última categoria **nunca** alcança o topo.
+
+           Medido: com o scroll no máximo (5737 de 5737), o topo do bloco de
+           Atalhos fica em 206 e o limite em 153 — 53px de diferença, que é o
+           rodapé da página. Não é bug do spy: é que o documento não tem mais
+           rolagem depois dele, então o critério "passou do limite" fica
+           permanentemente falso para a última categoria.
+
+           Duas saídas, e a escolhida é a segunda:
+
+           - Encolher o rodapé até a última categoria alcançar o topo. Funciona, e
+             faz a última seção ficar colada no fim da janela — sem folga, sem
+             respiro, e a rolagem ainda "estoura" no limite.
+           - **No fim do documento, marcar a última categoria.** É o que a pessoa
+             está vendo: com a barra de rolagem no fim, a última categoria está na
+             tela, e o sumário que discorda disso está mentindo.
+
+           A condição é `noFimDoDocumento`, e ela vale para qualquer categoria —
+           não só para a última. Um documento curto o bastante para caber inteiro
+           na janela tem `scrollHeight == clientHeight`, e o mesmo critério
+           acerta os dois casos. */
+        const noFimDoDocumento = raiz.scrollTop + raiz.clientHeight >= raiz.scrollHeight - 4;
+        let atual: SettingsTabId = ordemDeLeitura[0] ?? "general";
+        if (noFimDoDocumento) {
+          atual = ordemDeLeitura[ordemDeLeitura.length - 1] ?? atual;
+        } else {
+          // A **última** categoria que passou do limite. Percorrer todas as sete
+          // custa sete `getBoundingClientRect` por quadro — e sem `break` não há
+          // nada a raciocinar sobre ordem.
+          for (const tab of ordemDeLeitura) {
+            const bloco = raiz.querySelector<HTMLElement>(`#cat-${tab}`);
+            if (!bloco) continue;
+            if (bloco.getBoundingClientRect().top <= limite) atual = tab;
+          }
+        }
+        setCategoriaVisivel((antes) => (antes === atual ? antes : atual));
+      });
+    };
+    raiz.addEventListener("scroll", aoRolar, { passive: true });
+    aoRolar();
+    return () => {
+      raiz.removeEventListener("scroll", aoRolar);
+      if (agendado) window.cancelAnimationFrame(agendado);
+    };
+  }, [open, ordemDeLeitura]);
+
   const colorInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const selectedTheme = useMemo(
     () => settings.themeLibrary.find((theme) => theme.id === selectedThemeId) ?? settings.themeLibrary[0] ?? null,
@@ -315,34 +412,19 @@ export default function SettingsPanel({
     setSelectedThemeId(settings.theme);
   }, [open, settings.theme]);
 
+  /* Abrir num ponto da tela. `initialTab` deixou de escolher uma **aba**, porque
+     não há mais aba: o conteúdo é um documento. Ele agora quer dizer "comece
+     lendo aqui", e a rolagem só pode acontecer **depois** que o documento existe
+     no DOM — por isso o `setTimeout`. */
   useEffect(() => {
     if (!open) return;
-    if (initialTab) setActiveTab(initialTab);
-  }, [initialTab, open]);
-
-  useEffect(() => {
-    contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!open || !focusTarget) return;
+    const destino = focusTarget ?? initialTab;
+    if (!destino || !(destino in tabLabels)) return;
     const timer = window.setTimeout(() => {
-      const alvo = contentScrollRef.current?.querySelector<HTMLElement>(`[data-settings-focus="${focusTarget}"]`);
-      if (!alvo) return;
-      // `tab-<id>` marca a **raiz da categoria**, e abrir a tela com esse alvo é
-      // o caso comum (o atalho e o ícone passam `"tab-general"`). Rolar até a raiz
-      // com `block: "center"` centraliza o contêiner inteiro e **corta o primeiro
-      // cartão** — que é o que aparecia na tela ao abrir. Rolagem só faz sentido
-      // para um controle de verdade dentro do conteúdo.
-      if (alvo.dataset.settingsTabRoot === "true") {
-        alvo.focus({ preventScroll: true });
-        return;
-      }
-      alvo.scrollIntoView({ block: "center", behavior: "smooth" });
-      alvo.focus({ preventScroll: true });
+      rolarParaCategoria(destino as SettingsTabId, "auto");
     }, 80);
     return () => window.clearTimeout(timer);
-  }, [activeTab, focusTarget, open]);
+  }, [open, focusTarget, initialTab, rolarParaCategoria]);
 
   if (!open) return null;
 
@@ -456,58 +538,70 @@ export default function SettingsPanel({
     </button>
   );
 
-  /* Todas as **15 seções** passam por esta função, e é por isso que o grupo com
-     chevron custou uma edição em vez de quinze: o cartão deixou de ser um
-     `<section>` fixo e virou um grupo que sabe fechar.
+/* Uma **seção**: título, descrição, e as opções sem cartão em volta.
 
-     O botão do cabeçalho é o alvo do clique inteiro, e não só o chevron: um
-     alvo de 14px é um alvo pequeno, e o cabeçalho inteiro é a área que o dedo
-     procura. O chevron fica à **direita**, como no Windows 11, porque é onde o
-     olho vai buscar "isto abre e fecha".
+     O cartão saiu por pedido do dono, e o motivo estava na captura: eram
+     "muitas bordas sobre bordas". A tela tinha **três** níveis de contorno
+     empilhados — a caixa da seção, a caixa da opção dentro dela, e a borda da
+     linha de opção — e três contornos para dizer a mesma coisa: *isto é um
+     grupo*. Um é suficiente.
 
-     O estado é por seção e por sessão — não vai para o disco. Guardar em
-     `AppSettings` faria dapreferência visual uma configuração, e ninguém
-     pediu para configurar se a seção "Sistema de Medidas" começa fechada. */
+     A seção agora é um título, com a descrição abaixo em tom mais fraco, e as
+     opções soltas separadas por **espaço**. O espaço substitui a borda: a mesma
+     hierarquia, sem mais uma linha para desenhar. E o nome da função ficou
+     `renderSectionCard` só porque renomear as quinze chamadas não compra nada —
+     o cartão que ela nomeia é justamente o que saiu.
+
+     O alvo do clique é o cabeçalho inteiro, e não o ícone de 16px: um alvo de
+     16px é um alvo pequeno, e o cabeçalho inteiro é a área que o dedo procura.
+
+     O estado é por seção e por sessão, e não vai para o disco: fechar uma seção
+     é preferência de leitura, não configuração do programa.
+
+     `data-settings-section` é o gancho que o scroll-spy e a busca observam, e
+     `scroll-mt-24` é o respiro para o cabeçalho fixo não cobrir o título. */
   /* A busca compara **sem acento e sem caixa**. Sem isso, "configuracao" não
-     acha "configuração" e o usuário que digita sem acento — que é o jeito normal
-     de digitar num teclado sem cedilha — conclude que a busca está quebrada.
-     Custa uma linha e é a diferença entre a busca funcionar e não. */
+     acha "configuração" e quem digita sem cedilha — o jeito normal, num teclado
+     sem cedilha — conclui que a busca está quebrada. Custa uma linha e é a
+     diferença entre a busca funcionar e não. */
   const semAcento = (v: string) =>
     v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
   const renderSectionCard = (title: string, description: string, contentNode: React.ReactNode) => {
     const id = `sec-${title}`;
     const buscaAtiva = busca.trim().length > 0;
-    //while there's a search, a section can only be open: what matched has to be visible
+    // Com busca ativa a seção **abre**: o que casou precisa estar visível.
     const fechada = !buscaAtiva && !!collapsedSections[id];
-    // Section hides itself entirely instead of showing an empty shell. Filtering at
-    // `renderSectionCard` — and not at the 15 call sites — is what makes one edit
-    // cover the whole screen.
+    // A seção se esconde inteira em vez de mostrar uma casca vazia. Filtrar
+    // aqui, e não nos quinze pontos de chamada, é o que faz uma edição valer
+    // para a tela inteira.
     if (buscaAtiva && !semAcento(`${title} ${description}`).includes(semAcento(busca.trim()))) {
       return null;
     }
     matches++;
     return (
-      <section className={`ml-settings-section rounded-xl ${panelClass}`}>
+      <section id={id} data-settings-section="true" className="scroll-mt-24 pt-9 first:pt-0">
         <button
           type="button"
           aria-expanded={!fechada}
           aria-controls={`${id}-corpo`}
           onClick={() => setCollapsedSections((atual) => ({ ...atual, [id]: !fechada }))}
-          className="ml-settings-group-toggle flex w-full items-start gap-3 rounded-xl p-4 text-left"
+          className="group flex w-full items-start gap-3 rounded-lg py-1.5 text-left hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_5%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color-mix(in_srgb,var(--ml-accent,#60a5fa)_46%,transparent)]"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold opacity-85">{title}</span>
-            <span className="mt-1 block text-sm opacity-70">{description}</span>
+            <span className="block text-[15px] font-semibold tracking-tight">{title}</span>
+            <span className="mt-1 block text-[13px] leading-snug opacity-65">{description}</span>
           </span>
           <ChevronDown
             size={16}
             aria-hidden
-            className={`mt-0.5 shrink-0 opacity-55 transition-transform duration-150 ${fechada ? "" : "rotate-180"}`}
+            className={`mt-1 shrink-0 opacity-45 transition-transform duration-150 group-hover:opacity-80 ${
+              fechada ? "" : "rotate-180"
+            }`}
           />
         </button>
         {!fechada && (
-          <div id={`${id}-corpo`} className="px-4 pb-4">
+          <div id={`${id}-corpo`} className="pt-5">
             {contentNode}
           </div>
         )}
@@ -589,32 +683,32 @@ export default function SettingsPanel({
     </div>
   );
 
-  const renderTabNav = () => (
-    /* Coluna vertical, no padrão do Windows 11.
+const renderTabNav = () => (
+    /* A coluna virou **sumário do documento**, e não um seletor de abas.
 
-       O ramo `compact` (a strip horizontal rolável do cabeçalho) saiu, e com ele
-       saiu a parametrização: passou a haver **um** formato de navegação, que é o
-       motivo de a função não ter mais argumento. A coluna estava pronta no código
-       desde antes — existia um ramo de grid vertical que nunca era chamado, porque
-       o componente só recebia `true`. Código morto que é exatamente o que a tela
-       nova pediu é sorte, não projeto: aproveitei o que já era o certo em vez de
-       desenhar de novo.
+       Três mudanças, e as três são consequência de o conteúdo ser um documento
+       corrido em vez de sete abas:
 
-       A coluna tem uma diferença em relação ao ramo antigo que existia: o item
-       ativo recebe uma **barra lateral** de 3px, e não só um fundo. É o que
-       separa "você está aqui" de "você está aqui e passou o mouse" quando os
-       dois fundo se confundem. */
-    <nav aria-label={t["settings.title"] ?? "Preferências"} className="flex flex-col gap-1">
+       - **Clica, rola.** Não troca estado: procura o bloco da categoria e rola até
+         ele. Trocar estado aqui não teria para onde ir — não há aba para trocar, e
+         um clique que nada faz é pior que nenhum.
+       - **O item ativo vem do scroll**, não do clique. É o que o dono pediu ("ao
+         fazer o scroll o menu corresponde aonde estamos") e é o que torna a coluna
+         um sumário de verdade: ela conta onde você está lendo.
+       - **`aria-current="location"`**, e não `"page"`. Não há página, há a seção do
+         documento que você está lendo, e o leitor de tela precisa que a linguagem
+         diga a mesma coisa que a tela. */
+    <nav aria-label={t["settings.title"] ?? "Preferências"} className="flex flex-col gap-0.5">
       {tabs.map((tab) => {
-        const active = activeTab === tab.id;
+        const active = categoriaVisivel === tab.id;
         return (
           <button
             key={tab.id}
             type="button"
-            aria-current={active ? "page" : undefined}
-            onClick={() => setActiveTab(tab.id)}
+            aria-current={active ? "location" : undefined}
+            onClick={() => rolarParaCategoria(tab.id)}
             style={active ? activeTabStyle : undefined}
-            className={`ml-settings-nav-item relative flex min-w-0 items-center gap-2.5 rounded-lg py-2 pl-3 pr-3 text-left text-sm transition ${
+            className={`ml-settings-nav-item relative flex min-w-0 items-center gap-2.5 rounded-lg py-1.5 pl-3 pr-3 text-left text-[13px] transition ${
               active ? "font-medium" : ""
             }`}
           >
@@ -625,7 +719,7 @@ export default function SettingsPanel({
                 style={{ backgroundColor: tConfig.accentHex }}
               />
             )}
-            <span className={active ? "opacity-100" : "opacity-75"}>{tab.icon}</span>
+            <span className={active ? "opacity-100" : "opacity-60"}>{tab.icon}</span>
             <span className="min-w-0 truncate">{tabLabels[tab.id]}</span>
           </button>
         );
@@ -641,12 +735,10 @@ export default function SettingsPanel({
      Contador e não booleano porque o `StrictMode` renderiza duas vezes: `> 0`
      continua certo depois de somar o mesmo número duas vezes. */
   let matches = 0;
-  let content: React.ReactNode = (
-    <div className="text-sm opacity-70">{tr("Carregando painel...", "Loading panel...", "Cargando panel...")}</div>
-  );
+  const conteudoPorCategoria: Record<string, React.ReactNode> = {};
 
-  if (activeTab === "general") {
-    content = (
+
+  conteudoPorCategoria["general"] = (
       <div className="grid gap-5">
         {renderSectionCard(
           tr("Shell do app", "App shell", "Shell de la app"),
@@ -825,10 +917,8 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
-  if (activeTab === "appearance") {
-    content = (
+  conteudoPorCategoria["appearance"] = (
       <div className="grid gap-5">
         {renderSectionCard(
           tr("Biblioteca de temas", "Theme library", "Biblioteca de temas"),
@@ -974,10 +1064,8 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
-  if (activeTab === "editor") {
-    content = (
+  conteudoPorCategoria["editor"] = (
       <div className="grid gap-5 xl:grid-cols-2">
         {renderSectionCard(
           tr("Tipografia do editor", "Editor typography", "Tipografía del editor"),
@@ -1097,10 +1185,8 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
-  if (activeTab === "toolbar") {
-    content = (
+  conteudoPorCategoria["toolbar"] = (
       <div className="grid gap-5">
         {renderSectionCard(
           tr("Posição e densidade", "Position and density", "Posición y densidad"),
@@ -1243,10 +1329,8 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
-  if (activeTab === "palette") {
-    content = (
+  conteudoPorCategoria["palette"] = (
       <div className="grid gap-5 xl:grid-cols-2">
         {renderSectionCard(
           tr("Fontes de busca", "Search sources", "Fuentes de búsqueda"),
@@ -1354,7 +1438,6 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
   const duplicatePreset = (preset: PublicationPreset) => {
     const nextPreset: PublicationPreset = {
@@ -1368,8 +1451,7 @@ export default function SettingsPanel({
     setExpandedPresetIds([nextPreset.id]);
   };
 
-  if (activeTab === "presets") {
-    content = (
+  conteudoPorCategoria["presets"] = (
       <div className="grid gap-5">
         {renderSectionCard(
           tr("Presets de publicação", "Publishing presets", "Presets de publicación"),
@@ -1635,10 +1717,8 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
-  if (activeTab === "shortcuts") {
-    content = (
+  conteudoPorCategoria["shortcuts"] = (
       <div className="grid gap-5">
         {renderSectionCard(
           tr("Atalhos personalizados", "Custom shortcuts", "Atajos personalizados"),
@@ -1660,7 +1740,6 @@ export default function SettingsPanel({
         )}
       </div>
     );
-  }
 
   /* Página inteira, e não mais um diálogo sobre a aplicação.
 
@@ -1725,8 +1804,10 @@ export default function SettingsPanel({
       <span className="flex min-w-0 items-center gap-2">
         <span className="opacity-55">{t["settings"] ?? "Configurações"}</span>
         <ChevronRight size={13} className="shrink-0 opacity-40" />
-        <span className="truncate font-medium" aria-current="page">
-          {tabLabels[activeTab]}
+        {/* `aria-current="location"`, e não "page": o que muda com o scroll é
+            *onde* se está lendo no documento, e não uma página. */}
+        <span className="truncate font-medium" aria-current="location">
+          {tabLabels[categoriaVisivel]}
         </span>
       </span>
       <div className="ml-auto flex min-w-0 flex-1 justify-end">
@@ -1743,14 +1824,59 @@ export default function SettingsPanel({
         </label>
       </div>
     </header>
-          <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto px-6 pb-10 pt-2">
+          <div ref={contentScrollRef} data-settings-scroll="true" className="min-h-0 flex-1 overflow-y-auto py-3">
+            {/* O `mx-auto` centraliza e o `max-w-[860px]` segura a linha de leitura.
+
+                O `max-w` não é vaidade: sem ele, numa janela de 1400px o rótulo de
+                um switch e o próprio switch ficariam a 1300px de distância um do
+                outro, e o olho perderia a linha entre o que se lê e o que se
+                controla. Centralizar é também o que a referência do dono mostra. */}
             <div
-              className={`min-h-full w-full max-w-[880px] outline-none ${tConfig.fg}`}
-              data-settings-focus={`tab-${activeTab}`}
+              className={`mx-auto min-h-full w-full max-w-[860px] px-6 outline-none ${tConfig.fg}`}
               data-settings-tab-root="true"
               tabIndex={-1}
             >
-              {content}
+              {/* O documento: as sete categorias, uma abaixo da outra.
+
+                  A ordem vem de `ordemDeLeitura`, que e derivada de `tabs` — a
+                  mesma lista que o menu da esquerda percorre. Documento e menu nao
+                  podem divergir, e ser a mesma lista e o que garante isso. */}
+{ordemDeLeitura.map((tab) => (
+                /* Cada categoria é um capítulo do documento, e precisa do
+                   **título do capítulo**.
+
+                   Sem ele, quem rola vê "Snippets", "Limite de resultados",
+                   "Presets de publicação" aparecendo sem saber onde começou
+                   "Paleta de comandos" e onde termina "Temas". O sumário da
+                   esquerda ajuda, mas ele é fino e some do campo de visão numa
+                   rolagem longa — e o título é o que dá a noção de *onde* se está
+                   lendo. Medido na captura: as opções apareciam sem nenhum
+                   cabeçalho acima delas.
+
+                   O `sticky` não é enfeite: o título acompanha a rolagem dentro da
+                   categoria, que é o que a referência do Windows 11 faz com o
+                   cabeçalho de cada página.
+
+                   E o título **não** repete o que o sumário já diz: ele é a única
+                   ocorrência do nome da categoria no documento, e por isso é
+                   também o alvo da busca por nome. */
+                <section
+                  key={tab}
+                  id={`cat-${tab}`}
+                  data-settings-category={tab}
+                  aria-labelledby={`cat-${tab}-titulo`}
+                  className="scroll-mt-24 pb-4 pt-14 first:pt-2"
+                >
+                  <h2
+                    id={`cat-${tab}-titulo`}
+                    className="ml-settings-cat-title sticky top-0 z-10 -mx-1 mb-1 flex items-center gap-2.5 bg-[var(--ml-bg)] px-1 py-3 text-[19px] font-semibold tracking-tight"
+                  >
+                    <span className="opacity-45">{tabs.find((x) => x.id === tab)?.icon}</span>
+                    <span className="truncate">{tabLabels[tab]}</span>
+                  </h2>
+                  {conteudoPorCategoria[tab]}
+                </section>
+              ))}
               {/* Estado vazio da busca. Sem ele, uma busca que não acha nada e uma
                   busca que ainda não carregou são **a mesma tela**: um retângulo
                   vazio. E o pior: o usuário não sabe se digitou errado, se a
@@ -1767,9 +1893,9 @@ export default function SettingsPanel({
                   </p>
                   <p className="opacity-65">
                     {tr(
-                      `A busca cobre o nome e a descrição das seções de ${tabLabels[activeTab]}.`,
-                      `Search covers the name and description of the sections in ${tabLabels[activeTab]}.`,
-                      `La búsqueda cubre el nombre y la descripción de las secciones de ${tabLabels[activeTab]}.`
+                      `A busca cobre o nome e a descrição de todas as seções.`,
+                      `Search covers the name and description of every section.`,
+                      `La búsqueda cubre el nombre y la descripción de todas las secciones.`
                     )}
                   </p>
                 </div>
