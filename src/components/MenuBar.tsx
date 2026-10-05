@@ -250,10 +250,24 @@ const MenuBar: React.FC<MenuBarProps> = ({
             {menuName}
           </button>
 
-          {activeMenu === menuName && (
+{activeMenu === menuName && (
+            /* `z-[400]`, e não `z-50`.
+
+               O dono viu o menu **passando por cima** da faixa de busca e do
+               número da linha. A causa é aritmética de empilhamento, não de
+               layout: `.cm-panels` da biblioteca é `sticky` com `z-index: 300`
+               — e `50` perde para `300` sempre. Como o painel é `sticky`, ele
+               ainda participates do empilhamento do editor, que é um contexto
+               diferente do do menu, e o navegador resolve a favor de quem tem
+               o número maior.
+
+               O `400` é deliberadamente **maior que 300**: é o valor que a
+               biblioteca escolhe, não um que a gente inventou. Se algum dia a
+               biblioteca subir, é este número que tem de acompanhá-lo — e o
+               teste abaixo é o que avisa. */
             <div
               role="menu"
-              className={`absolute left-0 top-full mt-0.5 min-w-56 py-1 shadow-lg border rounded-md z-50 ${tConfig.ui} ${tConfig.uiBorder}`}
+              className={`absolute left-0 top-full mt-0.5 min-w-56 py-1 shadow-lg border rounded-md z-[400] ${tConfig.ui} ${tConfig.uiBorder}`}
             >
               {menus[menuName].map((item, index) =>
                 item.separator ? (
@@ -274,7 +288,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     </button>
                     <div
                       role="menu"
-                      className={`absolute left-full top-0 min-w-56 py-1 shadow-lg border rounded-md z-50 hidden group-hover/submenu:block ${tConfig.ui} ${tConfig.uiBorder}`}
+                      className={`absolute left-full top-0 min-w-56 py-1 shadow-lg border rounded-md z-[400] hidden group-hover/submenu:block ${tConfig.ui} ${tConfig.uiBorder}`}
                     >
                       {item.submenu.map((sub, subIndex) => (
                         <button

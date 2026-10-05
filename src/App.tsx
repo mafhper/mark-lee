@@ -21,10 +21,11 @@ import {
   undoEditor as undoEditorCommand,
   redoEditor as redoEditorCommand,
 } from "./features/editor/editor-commands";
-import { activeEditorRef, activeDocPathRef } from "./features/editor/active-editor";
+import { activeEditorRef, activeDocPathRef, setActiveEditor } from "./features/editor/active-editor";
 import { searchCount } from "./features/editor/search-count";
-import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
+import { closeSearchPanel, search, searchKeymap, searchPanelOpen, openSearchPanel } from "@codemirror/search";
 import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
+import { useSearchPanelOpen } from "./features/editor/use-search-panel-open";
 import {
   addRecentFile,
   getRecentFiles,
@@ -99,7 +100,7 @@ import { addJournal } from "./features/journal/domain/library-service";
 import type { JournalDescriptor } from "./features/journal/domain/journal.types";
 import { resolvePreviewLink } from "./app/markdown/resolvePreviewLink";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput, Search } from "lucide-react";
+import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
@@ -566,6 +567,8 @@ function App() {
   const [highlightedText, setHighlightedText] = useState("");
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [viewMode, setViewMode] = useState(settings.viewMode);
+  // Estado real do painel de busca, para o `aria-pressed` da lupa. Ver o hook.
+  const searchPanelAberto = useSearchPanelOpen(activeEditorRef);
   const [splitRatio, setSplitRatio] = useState(settings.splitRatio);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1291,8 +1294,32 @@ const core = [
   saveTabRef.current = saveTab;
   const saveActiveEditorTab = useCallback(async () => {
     const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
-    if (tab) await saveTabRef.current(tab, false);
+if (tab) await saveTabRef.current(tab, false);
   }, []);
+
+  /* Uma função só para "buscar", usada pela lupa, pelo `Ctrl+F` e pelo menu.
+
+     Ela **alterna**: com o painel aberto, um segundo clique fecha. O dono
+     apontou que a lupa não fechava — a causa era `openSearchPanel` só abrir.
+     Não socorremos o DOM nem fabricamos um `Escape`: a biblioteca exporta
+     `searchPanelOpen` e `closeSearchPanel`, que é o caminho dela.
+
+     Fica **antes** de `deps` porque `openFind` a referencia. O caminho estava
+     escrito duas vezes no arquivo — uma em `deps`, outra aqui embaixo — e foi
+     essa duplicação que deixou a lupa quebrada enquanto o `Ctrl+F` fechava: cada
+     cópia escolheria por conta própria quando alguém atualizasse só uma delas. */
+  const openSearchInActiveDocument = useCallback(() => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.find?.(); return; }
+    if (settingsRef.current.appMode === "journal") return;
+    const view = activeEditorRef.current;
+    if (view) {
+      if (searchPanelOpen(view.state)) closeSearchPanel(view);
+      else openSearchPanel(view);
+      return;
+    }
+    openDialog("find");
+  }, [openDialog]);
 
   const buildEditorContextMenuItems = useCallback(
     (hasSelection: boolean): ContextMenuEntry[] => {
@@ -1743,17 +1770,31 @@ const core = [
    * Os atalhos e o item da paleta chama este mesmo ciclo, então sair da
    * posição por teclado e por clique levam ao mesmo estado.
    */
-  const cycleSidebar = useCallback(() => {
-    if (!settings.sidebarEnabled) {
-      updateSettings({ sidebarEnabled: true, sidebarCollapsed: false });
+const cycleSidebar = useCallback(() => {
+    /* Os dois workspaces **não** têm o mesmo número de estados, e essa era a
+       diferença que o dono apontou.
+
+       - **Editor: dois.** Aberto ou completamente fechado. A posição
+         intermediária — 35px com uma coluna de ícones — saiu: numa faixa de 35px
+         os quatro botões ficavam a 40% de opacidade sem workspace, e a leitura
+         era "ícones pequenos e achatados" em vez de "barra recolhida".
+       - **Memórias: três.** Expandido, compacto com ícones reposicionados, e
+         oculto — e esse compacto **continua**, é pedido do dono. Ele não vive
+         aqui: vive no `JournalWorkspace`, que tem o próprio `navCollapsed` e o
+         próprio botão de recolher. Por isso este ciclo só **existe/não existe**
+         em Memórias; o intermediário é do componente, não é nosso para
+         duplicar.
+
+       `sidebarCollapsed: false` vai junto no Editor porque é um dado antigo que
+       pode ter vindo `true` de um perfil salvo, e a posição que ele descreve não
+       existe mais. Normalizar na ida é mais barato do que migrar, e o dado
+       guardado continua intacto. */
+    if (settingsRef.current.appMode === "journal") {
+      updateSettings({ sidebarEnabled: !settings.sidebarEnabled });
       return;
     }
-    if (!settings.sidebarCollapsed) {
-      updateSettings({ sidebarCollapsed: true });
-      return;
-    }
-    updateSettings({ sidebarEnabled: false, sidebarCollapsed: false });
-  }, [settings.sidebarEnabled, settings.sidebarCollapsed]);
+    updateSettings({ sidebarEnabled: !settings.sidebarEnabled, sidebarCollapsed: false });
+  }, [settings.sidebarEnabled]);
 
   /** Mesmo par que `cycleSidebar`, para o modo de visão: editor → dividido →
    *  visualização → editor. Fica aqui, e não como três `setViewMode` espalhados
@@ -1768,11 +1809,11 @@ const core = [
 
   // Rótulo do estado seguinte, para o `title` do botão dizer para onde ele vai
   // em vez de repetir o que ele é.
-  const sidebarNextLabel = !settings.sidebarEnabled
-    ? t["sidebar.show"] || "Show sidebar"
-    : settings.sidebarCollapsed
-      ? t["sidebar.expand"] || "Expand sidebar"
-      : t["sidebar.collapse"] || "Collapse to icons";
+// Dois estados, então dois rótulos: o `title` do botão nomeia o que o clique
+  // faz. O ramo "expandir a partir de 35px" saiu junto com a posição de 35px.
+  const sidebarNextLabel = settings.sidebarEnabled
+    ? t["sidebar.hide"] || "Ocultar barra lateral"
+    : t["sidebar.show"] || "Mostrar barra lateral";
     const deps = useMemo<AppCommandDependencies>(
     () => ({
       newFile: handleNewFile,
@@ -1784,20 +1825,12 @@ const core = [
         if (settingsRef.current.appMode === "journal") return;
         if (activeTab) return saveTab(activeTab, forceSaveAs);
       },
-      openFind: () => {
-        const target = getActiveTarget();
-        if (target?.kind === "journal-entry") { target.find?.(); return; }
-        if (settingsRef.current.appMode === "journal") return;
-        // `openSearchPanel` e o widget de busca do CodeMirror, que ja estava
-        // instalado no editor: conta as ocorrencias, realca todas e destaca a
-        // atual. `Ctrl+F` caia no modal completo, e o painel nunca aparecia.
-        const view = activeEditorRef.current;
-        if (view) { openSearchPanel(view); return; }
-        // Sem editor montado nao ha o que pesquisar; o modal ainda é a saida.
-        openDialog("find");
-      },
+// `openFind` nao e uma segunda implementacao: e esta funcao. Estava escrito
+        // duas vezes, e foi por isso que a lupa nao fechava e o `Ctrl+F`
+        // fechava — a duplicacao escolhia quem ficava desatualizado.
+        openFind: openSearchInActiveDocument,
     }),
-    [activeTab, handleNewFile, handleOpenFile, handleOpenFolder, openDialog, saveTab]
+    [activeTab, handleNewFile, handleOpenFile, handleOpenFolder, openDialog, openSearchInActiveDocument, saveTab]
   );
 
   const commands = useMemo(() => createAppCommands(deps), [deps]);
@@ -2561,18 +2594,7 @@ label: t["view.sidebar"] || "Sidebar",
     if (settings.appMode === "journal") return;
     if (activeTab) return saveTab(activeTab, false);
   };
-  const findInActiveDocument = () => {
-    const target = getActiveTarget();
-    if (target?.kind === "journal-entry") { target.find?.(); return; }
-    if (settings.appMode === "journal") return;
-    // Mesmo caminho do `Ctrl+F`: a lupa e o atalho precisam abrir a **mesma**
-    // busca. Dois caminhos para "buscar" foi uma das três listas de acoes que a
-    // MKL-N13 reclama — e aqui era o caso mais barato de resolver.
-    const view = activeEditorRef.current;
-    if (view) { openSearchPanel(view); return; }
-    openDialog("find");
-  };
-  const exportActiveDocument = () => {
+const exportActiveDocument = () => {
     const target = getActiveTarget();
     if (target?.kind === "journal-entry") { target.export?.(); return; }
     if (settings.appMode === "journal") return;
@@ -2764,7 +2786,7 @@ showShortcutHints={showShortcutHints}
       onOpenFolder={handleOpenFolder}
       onSave={saveActiveDocument}
       onExport={exportActiveDocument}
-      onFindReplace={findInActiveDocument}
+      onFindReplace={openSearchInActiveDocument}
       onOpenSettings={() => openDialog("settings")}
       onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
@@ -2925,32 +2947,14 @@ Mark-Lee
               {topChromeComponent}
             </div>
           )}
-          {/* A busca é item próprio do canto direito, e não da seção
-              "Sistema". Motivo: dentro da seção ela virava um dos "+10"
-              ocultos, e é a ação mais usada depois de salvar. O atalho vai
-              como dica (`showShortcutHints` respeita quem desligou), e
-              `settings.toolbarItems.sysFind` continua mandando — quem
-              desligou a busca na barra não a ganha no topo. */}
-          {!isZenMode && settings.appMode === "editor" && settings.toolbarItems.sysFind && (
-            <button
-              type="button"
-              className="ml-btn h-7 shrink-0 gap-1.5 px-2 text-xs"
-              onClick={findInActiveDocument}
-              title={
-                showShortcutHints && shortcutLabels["edit-find"]
-                  ? `${t["edit.find"] || "Buscar"} (${shortcutLabels["edit-find"]})`
-                  : t["edit.find"] || "Buscar"
-              }
-              aria-label={t["edit.find"] || "Buscar"}
-            >
-              <Search size={13} className="shrink-0" />
-              {showShortcutHints && shortcutLabels["edit-find"] && (
-                <span className="hidden text-[10px] opacity-50 tabular-nums lg:inline">
-                  {shortcutLabels["edit-find"]}
-                </span>
-              )}
-            </button>
-          )}
+{/* A lupa saiu daqui e foi para a **barra de abas**, ao lado do botão da
+              lateral. O dono pediu, e o motivo se sustenta: o painel de busca
+              abre **logo abaixo da barra de abas**, e o alvo estava a uma faixa
+              inteira de distância, com a formatação no meio.
+
+              `settings.toolbarItems.sysFind` continua mandando sobre quem vê a
+              lupa — a chave não mudou de nome porque a chave é o dado, e o dado
+              não é o dono dele. */}
           <div
             className="flex items-center gap-2"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
@@ -2985,11 +2989,15 @@ Mark-Lee
             className={`relative h-full border-r ${tConfig.uiBorder}`}
           >
             <div className="h-full">
-              <Sidebar
+              {/* `compacto` saiu: o Editor tem dois estados, aberto ou fechado, e o
+              intermediário de 35px foi embora. Em Memórias quem recompõe é o
+              `JournalWorkspace`, com o próprio `navCollapsed` e o próprio
+              botão — os ícones reposicionados continuam existindo, só não
+              moram mais aqui. */}
+            <Sidebar
                 t={t}
-                tConfig={tConfig}
-                compacto={settings.sidebarCollapsed}
-                workspacePath={workspacePath}
+tConfig={tConfig}
+                  workspacePath={workspacePath}
                 workspaceTree={workspaceTree}
                 onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "sidebar" })}
 onOpenFolder={handleOpenFolder}
@@ -3036,6 +3044,13 @@ onOpenFolder={handleOpenFolder}
 onNewTab={createNewTabInCurrentWindow}
               onToggleSidebar={cycleSidebar}
               sidebarOpen={settings.sidebarEnabled}
+              onFind={() => void commands.find((command) => command.id === "edit.find")?.execute()}
+              searchOpen={searchPanelAberto}
+              findLabel={
+                showShortcutHints && shortcutLabels["edit-find"]
+                  ? `${t["edit.find"] || "Buscar"} (${shortcutLabels["edit-find"]})`
+                  : t["edit.find"] || "Buscar"
+              }
               sidebarNextLabel={sidebarNextLabel}
               onCycleView={cycleViewMode}
               viewMode={effectiveViewMode}
@@ -3071,13 +3086,13 @@ onNewTab={createNewTabInCurrentWindow}
                     highlightActiveLine: true,
                   }}
                   theme={hexLuminance(tConfig.editorBgHex) > 0.33 ? "light" : "dark"}
-                  onCreateEditor={(view) => {
+onCreateEditor={(view) => {
                     editorRef.current = view;
                     setEditorView(view);
-                    activeEditorRef.current = view;
+                    setActiveEditor(view);
                     setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
                     view.dom.addEventListener("focus", () => {
-                      activeEditorRef.current = view;
+                      setActiveEditor(view);
                       setActiveTarget({ kind: "editor-tab", save: saveActiveEditorTab });
                     });
                     view.dom.addEventListener("select", () => {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Columns2, ChevronLeft, ChevronRight, PanelLeft, Plus, Square, X } from "lucide-react";
+import { Columns2, ChevronLeft, ChevronRight, PanelLeft, Plus, Search, Square, X } from "lucide-react";
 import { DocumentTab, ThemeConfig } from "../../types";
 import {
   useContextMenuTrigger,
@@ -21,6 +21,11 @@ interface EditorTabsProps {
   /** Recolher/expandir a lateral. Botão da ponta esquerda desta barra. */
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
+  /** Abrir/fechar a busca. Fica ao lado do botão da lateral, porque o painel
+   *  que ela abre cai logo abaixo desta barra. */
+  onFind: () => void;
+  searchOpen: boolean;
+  findLabel: string;
   /** Nomeia o **próximo** estado, para o `title` dizer para onde o botão vai. */
   sidebarNextLabel: string;
   /** Alternar o modo de visão. Botão da ponta direita, depois do `+`. */
@@ -149,6 +154,9 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
   onNewTab,
   onToggleSidebar,
   sidebarOpen,
+  onFind,
+  searchOpen,
+  findLabel,
   sidebarNextLabel,
   onCycleView,
   viewMode,
@@ -308,6 +316,29 @@ const EditorTabs: React.FC<EditorTabsProps> = ({
         className="ml-btn h-9 w-9 shrink-0 inline-flex items-center justify-center transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)]"
       >
         <PanelLeft size={15} />
+      </button>
+
+      {/* A lupa mora **ao lado do botão da lateral**, e não na barra superior.
+          O dono pediu a mudança pelo motivo certo: a busca abre um painel
+          **aqui embaixo**, logo abaixo da barra de abas. Com a lupa na barra de
+          cima, o alvo e o efeito ficavam a uma linha de distância, e a faixa de
+          formatação no meio da tela servia de distração entre os dois.
+
+          O `aria-pressed` acompanha `searchOpen` porque a lupa agora **alterna**:
+          sem o estado announcement, um botão que abre e fecha é igual a um que
+          só abre. */}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onFind();
+        }}
+        title={findLabel}
+        aria-label={findLabel}
+        aria-pressed={searchOpen}
+        className="ml-btn h-9 w-9 shrink-0 inline-flex items-center justify-center transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)]"
+      >
+        <Search size={15} />
       </button>
 
       <button
