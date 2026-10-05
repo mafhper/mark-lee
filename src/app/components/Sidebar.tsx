@@ -20,9 +20,7 @@ import {
 interface SidebarProps {
   t: Record<string, string>;
   tConfig: ThemeConfig;
-  workspacePath: string | null;
-  /** Faixa colapsada: acoes e arvore em icones/uma inicial por linha. */
-  compacto?: boolean;
+workspacePath: string | null;
   workspaceTree: WorkspaceNode | null;
   onOpenFile: (path: string) => void;
   onOpenFolder: () => void;
@@ -55,10 +53,8 @@ resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
   onDelete: (path: string) => void;
   onReveal: (path: string) => void;
   t: Record<string, string>;
-  selectedPath: string | null;
+selectedPath: string | null;
   query: string;
-  /** Colapsado: uma inicial por linha, sem recursão e sem texto. */
-  compacto?: boolean;
 }> = ({
   node,
   level,
@@ -73,7 +69,6 @@ onToggleExpand,
   t,
   selectedPath,
   query,
-  compacto = false,
 }) => {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const isExpanded = expandedPaths.has(node.path);
@@ -92,50 +87,9 @@ onToggleExpand,
       ? node.children!.some((child) => child.name.toLowerCase().includes(normalized))
       : false;
 
-    if (normalized && !matchesSelf && !matchesChildren) return null;
+if (normalized && !matchesSelf && !matchesChildren) return null;
 
-    // Modo compacto: cabe uma letra por linha numa faixa de 36px. Sem recursão
-    // — a árvore inteira vira uma coluna — e sem texto, com o nome inteiro no
-    // `title` para o hover. Profundidade vira **tom**: um arquivo e uma pasta
-    // com filhos não podem ter a mesma cor.
-    if (compacto) {
-      const tom = node.is_dir
-        ? hasChildren
-          ? "text-[color:var(--ml-accent)]"
-          : "opacity-80"
-        : "opacity-55";
-      return (
-        <button
-          ref={buttonRef}
-          type="button"
-          className={`mx-auto flex h-7 w-7 items-center justify-center rounded text-[11px] font-semibold uppercase ${tom} ${
-            isSelected ? "ml-btn-active" : "hover:bg-black/5 dark:hover:bg-white/10"
-          }`}
-          title={node.name}
-          aria-label={node.name}
-          onClick={() => {
-            if (isVirtual) return;
-            onSelect(node);
-            if (node.is_dir) onToggleExpand(node.path);
-            else onOpenFile(node.path);
-          }}
-          onContextMenu={
-            isVirtual
-              ? undefined
-              : (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect(node);
-                  onContextMenu(e);
-                }
-          }
-        >
-          {node.name.replace(/^[^A-Za-zÀ-ÿ0-9]+/, "").charAt(0) || "·"}
-        </button>
-      );
-    }
-
-return (
+    return (
       // `group` + `group-hover` + `absolute`: as ações do item aparecem no hover
       // **sem reservar espaço**. Se estivessem no fluxo, cada linha da árvore
       // ganharia ~24px de largura para controles que quase nunca estão à vista —
@@ -250,7 +204,6 @@ onOpenFile={onOpenFile}
 const Sidebar: React.FC<SidebarProps> = ({
   t,
   tConfig,
-  compacto = false,
   workspacePath,
   workspaceTree,
   onOpenFile,
@@ -343,53 +296,18 @@ onOpenFolder,
 
 return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
-      {/* Colapsado: as ações viram uma coluna de ícones. Horizontais elas ficariam
-          com 16px de largura dentro dos 36px — medido, e inutilizáveis. */}
-{compacto ? (
-        /* Recolhida, a coluna espelha as **mesmas quatro ações** do cabeçalho
-           expandido — salvar, criar arquivo, criar pasta, abrir pasta. Ela ainda
-           trazia as cinco antigas, o que significava duas coisas ruins ao mesmo
-           tempo: as ações que o desenho do dono mandou para o hover da linha
-           continuavam aqui, e a coluna tinha um botão a mais numa faixa de 35px,
-           que é a faixa onde cada pixel conta.
+{/* Uma única forma, sem ramo alternado.
 
-           Renomear, apagar e revelar **não foram perdidos** recolhida: continuam
-           no botão direito da linha, que é o caminho que não depende de largura
-           nem de hover — e por isso é o que funciona também em 35px.
+           A versão de 35px com uma coluna de ícones saiu: o dono definiu que a
+           lateral do Editor tem **dois** estados, aberto ou fechado. E a forma
+           compacta já tinha custado caro — sem workspace, as quatro ações
+           dependiam de `workspacePath` e ficavam as quatro a 40% de opacidade
+           numa faixa de 35px, o que se lia como "ícones diminutos e achatados".
 
-           **Sem pasta aberta, só entra o que dá para fazer.** As quatro ações
-           dependem de `workspacePath`, então sem workspace as quatro ficam
-           desabilitadas — e nenhuma ação da própria tela consegue habilitá-las.
-           Três botões apagados a 40% de opacidade numa faixa de 35px é exatamente
-           a aparência de "ícones diminutos e achatados" que o dono apontou: não é
-           tamanho, é **cansaço visual de alvo morto**. Recolhida e sem pasta, a
-           coluna mostra só a ação possível: abrir pasta. */
-        <div className={`h-10 border-b ${tConfig.uiBorder} px-0.5`}>
-          <div className="flex flex-col items-center gap-0.5 py-0.5">
-            {(workspacePath
-              ? [
-                { rot: Save, on: () => onSave?.(), rot2: t["file.save"] || "Save" },
-                { rot: FilePlus2, on: () => onCreateFile(selectedBasePath), rot2: t["sidebar.newFile"] || "New file" },
-                { rot: FolderPlus, on: () => onCreateFolder(selectedBasePath), rot2: t["sidebar.newFolder"] || "New folder" },
-                { rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder" },
-              ]
-              : [{ rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder" }]
-            ).map(({ rot: Icone, on, rot2 }) => (
-              <button
-                key={rot2}
-                type="button"
-                className="h-7 w-7 rounded-md inline-flex items-center justify-center ml-btn"
-                onClick={on}
-                title={rot2}
-                aria-label={rot2}
-              >
-                <Icone size={14} />
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
+           Em **Memórias** os ícones reposicionados continuam, e continuam pedido:
+           moram no `JournalWorkspace`, com o próprio estado e o próprio botão.
+           Aqui não havia caminho para eles. */}
+      <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
         {/* As quatro ações de **documento e workspace**, nesta ordem: salvar,
             criar arquivo, criar pasta, abrir pasta.
 
@@ -438,15 +356,10 @@ return (
             disabled={!workspacePath}
           >
             <FolderOpen size={14} />
-          </button>
+</button>
         </div>
       </div>
-      )}
 
-      {/* Colapsado não há busca nem cabeçalho de seção: numa faixa de 36px os dois
-          viriam espremidos e ilegíveis. A busca continua no atalho, que é o
-          caminho de verdade para ela. */}
-      {!compacto && (
       <div className="p-2 space-y-2">
         {workspacePath && (
           <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-black/5 dark:bg-white/5">
@@ -467,35 +380,22 @@ return (
 </div>
         )}
       </div>
-      )}
-      <div className={`flex-1 overflow-auto ${compacto ? "p-0.5 pt-1" : "p-2"}`}>
-{!workspaceTree && !compacto && (
+
+      <div className="flex-1 overflow-auto p-2">
+        {!workspaceTree && (
           <div className="space-y-3 px-2 py-3 text-xs opacity-90">
             <div>{t["sidebar.empty"] || "No folder open"}</div>
             <button type="button" className="rounded-md border px-3 py-1.5 ml-btn" onClick={onOpenFolder}>
               {t["sidebar.openFolder"] || "Open folder"}
             </button>
-          </div>
-        )}
-        {/* Recolhida, o estado vazio não mostra botão nenhum: a coluna do cabeçalho já
-            tem "Abrir pasta", e as duas juntas davam **dois botões idênticos
-            empilhados** numa faixa de 35px — que é o que a captura do dono
-            mostrou. Expandida os dois continuam: ali o cabeçalho tem quatro ações e
-            o estado vazio é o convite que diz o que fazer a seguir. */}
-        {!workspaceTree && compacto && (
-          <div className="flex justify-center pt-1">
-            <span className="text-[9px] opacity-45" aria-hidden>
-              {t["sidebar.empty"] || "No folder open"}
-            </span>
-          </div>
+</div>
         )}
         {workspaceTree && (
           <div className="rounded-md p-1">
             <SidebarTreeNode
 node={workspaceTree}
-              level={0}
-                  compacto={compacto}
-                  expandedPaths={expandedPaths}
+level={0}
+              expandedPaths={expandedPaths}
               onToggleExpand={toggleExpand}
               onOpenFile={onOpenFile}
               onSelect={(node) => {
