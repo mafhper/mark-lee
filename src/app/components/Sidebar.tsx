@@ -355,23 +355,33 @@ return (
 
            Renomear, apagar e revelar **não foram perdidos** recolhida: continuam
            no botão direito da linha, que é o caminho que não depende de largura
-           nem de hover — e por isso é o que funciona também em 35px. */
+           nem de hover — e por isso é o que funciona também em 35px.
+
+           **Sem pasta aberta, só entra o que dá para fazer.** As quatro ações
+           dependem de `workspacePath`, então sem workspace as quatro ficam
+           desabilitadas — e nenhuma ação da própria tela consegue habilitá-las.
+           Três botões apagados a 40% de opacidade numa faixa de 35px é exatamente
+           a aparência de "ícones diminutos e achatados" que o dono apontou: não é
+           tamanho, é **cansaço visual de alvo morto**. Recolhida e sem pasta, a
+           coluna mostra só a ação possível: abrir pasta. */
         <div className={`h-10 border-b ${tConfig.uiBorder} px-0.5`}>
           <div className="flex flex-col items-center gap-0.5 py-0.5">
-            {[
-              { rot: Save, on: () => onSave?.(), rot2: t["file.save"] || "Save", ok: !!workspacePath },
-              { rot: FilePlus2, on: () => onCreateFile(selectedBasePath), rot2: t["sidebar.newFile"] || "New file", ok: !!workspacePath },
-              { rot: FolderPlus, on: () => onCreateFolder(selectedBasePath), rot2: t["sidebar.newFolder"] || "New folder", ok: !!workspacePath },
-              { rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder", ok: !!workspacePath },
-            ].map(({ rot: Icone, on, rot2, ok }) => (
+            {(workspacePath
+              ? [
+                { rot: Save, on: () => onSave?.(), rot2: t["file.save"] || "Save" },
+                { rot: FilePlus2, on: () => onCreateFile(selectedBasePath), rot2: t["sidebar.newFile"] || "New file" },
+                { rot: FolderPlus, on: () => onCreateFolder(selectedBasePath), rot2: t["sidebar.newFolder"] || "New folder" },
+                { rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder" },
+              ]
+              : [{ rot: FolderOpen, on: onOpenFolder, rot2: t["file.openFolder"] || "Open folder" }]
+            ).map(({ rot: Icone, on, rot2 }) => (
               <button
                 key={rot2}
                 type="button"
-                className="h-7 w-7 rounded-md inline-flex items-center justify-center disabled:opacity-40 ml-btn"
+                className="h-7 w-7 rounded-md inline-flex items-center justify-center ml-btn"
                 onClick={on}
                 title={rot2}
                 aria-label={rot2}
-                disabled={!ok}
               >
                 <Icone size={14} />
               </button>
@@ -467,23 +477,16 @@ return (
             </button>
           </div>
         )}
-        {/* Recolhida, o estado vazio vira **um botão só**, com o mesmo rótulo do
-            cabeçalho. Antes ele renderizava o bloco de texto inteiro numa faixa
-            de 35px, e "Nenhuma pasta aberta" quebrava uma letra por linha — não
-            estourava a barra, e por isso nenhuma medição de largura pegava: o
-            defeito era o texto espremido dentro dela. Medido por captura, não
-            por número. */}
+        {/* Recolhida, o estado vazio não mostra botão nenhum: a coluna do cabeçalho já
+            tem "Abrir pasta", e as duas juntas davam **dois botões idênticos
+            empilhados** numa faixa de 35px — que é o que a captura do dono
+            mostrou. Expandida os dois continuam: ali o cabeçalho tem quatro ações e
+            o estado vazio é o convite que diz o que fazer a seguir. */}
         {!workspaceTree && compacto && (
           <div className="flex justify-center pt-1">
-            <button
-              type="button"
-              className="h-7 w-7 rounded-md ml-btn inline-flex items-center justify-center"
-              onClick={onOpenFolder}
-              title={t["file.openFolder"] || "Open folder"}
-              aria-label={t["file.openFolder"] || "Open folder"}
-            >
-              <FolderOpen size={14} />
-            </button>
+            <span className="text-[9px] opacity-45" aria-hidden>
+              {t["sidebar.empty"] || "No folder open"}
+            </span>
           </div>
         )}
         {workspaceTree && (
