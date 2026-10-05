@@ -38,7 +38,7 @@ type ToolbarAction = {
   shortcutId?: string;
   /** Quando presente, a ação é um **gatilho de dropdown** e `onClick` fica sem
    *  uso: quem responde é `ToolbarDropdown`, um item por entrada. Convive com
-   *  `onClick` porque o modelo é constru��do por expressões condicionais e
+   *  `onClick` porque o modelo é construído por expressões condicionais e
    *  exigir um ou outro muda todas elas. */
   dropdownItems?: ToolbarDropdownItem[];
 };
@@ -919,15 +919,38 @@ if (typeof window === "undefined") {
               seção virava 1337px dentro de um centro de 771px e as seções 2–4
               saíam da tela, deixando 2 ícones visíveis. O `title` segue no
               elemento, então o nome da seção continua disponível para o reader. */}
+          {/* O rótulo da categoria saiu **inteiro**, e não por configuração.
+
+             A decisão é do dono: os controles de edição não precisam de título
+             visível. Negrito, itálico, código, link, imagem e tabela se
+             reconhecem pelo desenho; o nome da categoria consumia ~34px de uma
+             faixa de 32px e disputava largura com o nome do produto.
+
+             Antes havia um interruptor em Configurações que ligava e desligava
+             isto. Tirar o rótulo e deixar o interruptor seria um interruptor que
+             liga nada — a mesma classe de defeito do item que promete e não
+             cumpre. Os dois saíram juntos.
+
+             O div continua no DOM, com largura zero, e não pode sair: ver o
+             comentário acima, ele é o que fecha o cálculo de `max-content`. O
+             nome da seção continua no `title` dele, então segue disponível para o
+             mouse — e o `aria-hidden` é o que impede o leitor de tela de ler um
+             rótulo de largura zero.
+
+             Este é um comentário **de JSX** (com as chaves) e não um bloco
+             solto. Dentro do JSX, bloco solto vira texto renderizado, e foi
+             exatamente o que aconteceu: ele apareceu na faixa, inteiro, **dentro
+             da linha flex** cujo `max-content` o comentário acima descreve. Um
+             parágrafo de texto nesse meio é pior que inútil — é o que a medição
+             de 1337px existe para impedir. `tsc` e `build` passam verdes: texto
+             é um nó válido, e só a captura pega. */}
           <div
             ref={(el) => {
               sectionTitleRefs.current[section.key] = el;
             }}
-            title={effectiveShowSectionLabels ? undefined : section.title}
-            aria-hidden={effectiveShowSectionLabels ? undefined : true}
-            className={`ml-toolbar-section-title h-8 shrink-0 inline-flex items-center overflow-hidden ${
-              effectiveShowSectionLabels ? "px-2" : "w-0 px-0"
-            }`}
+            title={section.title}
+            aria-hidden
+            className="ml-toolbar-section-title w-0 px-0 h-8 shrink-0 inline-flex items-center overflow-hidden"
           >
             {section.title}
           </div>

@@ -2855,12 +2855,22 @@ showShortcutHints={showShortcutHints}
             WebkitAppRegion: "drag",
             fontFamily: "var(--ml-ui-font)",
             fontSize: "var(--ml-chrome-font-size)",
-            // Acompanha a barra: com rótulo embaixo dos ícones são 44px. O token
+// Acompanha a barra: com rótulo embaixo dos ícones são 44px. O token
             // é o mesmo que a barra usa, para os dois não divergirem.
+            //
+            // O `+ 1px` é a **divisória**. Com `border-b` de 1px e `height` em
+            // `border-box`, os 32px do header viram **31px de caixa de conteúdo** —
+            // e a barra interna é `h-8`, 32px. Ela transborda 1px e **pinta por
+            // cima da borda**: a divisória existia no CSS e não aparecia.
+            //
+            // Medido por pixel: a coluna x=800 não tinha nenhuma quebra de cor
+            // entre y=0 e y=71, e a única linha da tela era a de baixo da barra de
+            // abas, em y=71. Somar 1px devolve os 32px de conteúdo e a borda
+            // volta a ter onde ficar. Mesma aritmética do PR #187, do outro lado.
             height:
               settings.toolbarDisplayMode === "stacked"
-                ? "var(--ml-chrome-h-rotulo)"
-                : "var(--ml-chrome-h)",
+                ? "calc(var(--ml-chrome-h-rotulo) + 1px)"
+                : "calc(var(--ml-chrome-h) + 1px)",
           } as React.CSSProperties}
         >
           {/* A marca cede espaço antes da barra. O logo e o nome sao
@@ -2876,9 +2886,14 @@ showShortcutHints={showShortcutHints}
               className="font-semibold tracking-wide whitespace-nowrap hidden lg:inline"
               style={{ fontSize: "var(--ml-chrome-title-size)" }}
             >
-              Mark-Lee
+Mark-Lee
             </span>
-            <span className="font-semibold opacity-60 whitespace-nowrap hidden xl:inline">v{APP_VERSION}</span>
+            {/* A versão saiu daqui. Ela já vive no título da janela
+                (`App.tsx`, `useEffect` do título) e no topo da tela de
+                Configurações — que é onde se procura uma versão. Na barra de
+                ferramentas ela ocupava 30px à direita do nome do produto, numa
+                faixa de 32px cuja largura é disputada por menus, faixa de
+                formatação e busca. O dono pediu para tirar. */}
           </div>
           {/* O menu entra na linha de topo existente, à esquerda do
               switcher — não numa linha nova. Isso é o que a decisão de layout fixou: a

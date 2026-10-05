@@ -1183,19 +1183,18 @@ export default function SettingsPanel({
                 onSettingsChange({ toolbarAlwaysShowIcons })
               )}
             </div>
-            <div className="ml-settings-row rounded-lg px-3.5 py-3">
-              <p className="text-sm font-medium">{tr("Rótulos de categoria", "Category labels", "Etiquetas de categoría")}</p>
-              <p className="mb-3 text-xs opacity-70">
-                {tr(
-                  "Mantém o nome das categorias visível quando fizer sentido na barra.",
-                  "Keeps category names visible when that improves scanability.",
-                  "Mantiene visibles los nombres de las categorías cuando mejora la lectura."
-                )}
-              </p>
-              {renderSwitch(settings.showToolbarSectionLabels, (showToolbarSectionLabels) =>
-                onSettingsChange({ showToolbarSectionLabels })
-              )}
-            </div>
+            {/* O interruptor de "Rótulos de categoria" saiu junto com o rótulo.
+
+                A decisão foi do dono: os controles de edição não precisam de
+                título visível. Negrito, itálico, código e link se reconhecem pelo
+                desenho; o nome da categoria acima deles só ocupava ~34px de uma
+                faixa de 32px e competia com o nome do produto pela largura.
+
+                Deixar o interruptor aqui seria pior que o rótulo: seria um
+                interruptor que liga e desliga **nada**. A chave continua em
+                `AppSettings` — quem tem o perfil salvo ainda manda o dado, e
+                descartar dado guardado é um apagão que ninguém pediu. O que
+                decide o que desenha é o código, e ele não desenha. */}
           </div>
         )}
         {renderSectionCard(
