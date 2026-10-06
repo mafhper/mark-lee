@@ -13,10 +13,6 @@ O Mark-Lee é um editor Markdown desktop e um espaço de memórias construídos 
 mesmos arquivos locais**. Sem conta, sem formato fechado, sem servidor obrigatório.
 Abra uma pasta, escreva com precisão, e reencontre o mesmo conteúdo por tempo e lugar.
 
-![Mark-Lee](assets/bg-hero.webp)
-
-![Editor do Mark-Lee](assets/screen.png)
-
 <p align="center">
   <a href="https://mafhper.github.io/mark-lee/">Site</a> ·
   <a href="#download">Download</a> ·
@@ -156,7 +152,7 @@ mark-lee/
 │   └── translations.ts    # pt-BR (padrão) · en-US · es-ES
 ├── src-tauri/             # Rust: arquivos, carregamento de imagem, observação
 ├── apps/site/             # site de apresentação (package.json próprio, rotas por idioma)
-├── assets/                # logos e a captura do README
+├── assets/                # logos e a imagem de abertura do README
 └── .github/               # CI, release, pages, dependency guard
 ```
 
