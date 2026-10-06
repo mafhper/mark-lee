@@ -2898,10 +2898,16 @@ showShortcutHints={showShortcutHints}
           {/* A marca cede espaço antes da barra. O logo e o nome sao
               decorativos — o titulo do produto ja esta no arquivo e a versao
               no About — e numa janela estreita eles empurravam a barra para
-              0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport. */}
+              0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport.
+
+              Esta área **é a maior região livre da barra**, e é onde se arrasta
+              a janela. Estava como `no-drag`, o que a tornava o único trecho da
+              linha de topo sem gesto nenhum: sem botão, sem campo, sem menu —
+              e sem arrasto. O header já é `drag`, então basta **não** declarar
+              `no-drag` aqui para a região voltar a arrastar. Declarar `drag`
+              explicitamente seria o mesmo efeito com uma linha a mais. */}
           <div
             className="flex items-center gap-2 min-w-0 shrink"
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
 <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded shrink-0 border ${tConfig.uiBorder}`} />
             <span
