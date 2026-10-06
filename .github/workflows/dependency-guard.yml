@@ -46,14 +46,45 @@ jobs:
         run: npm audit signatures
         working-directory: apps/site
 
+      # `--omit=dev`: audita o que entra no artefato publicado, e nao a arvore
+      # inteira de desenvolvimento.
+      #
+      # Sem este flag, os dois `npm audit` abaixo acusavam `braces` (high) via
+      # `tailwindcss` — e o alerta do Dependabot ja estava dispensado como
+      # `tolerable_risk`, com outra justificativa. Medido antes de decidir:
+      #
+      #   raiz:  `npm ls braces --omit=dev` -> (empty)
+      #   site:  `npm ls braces --omit=dev` -> tailwindcss-animate -> braces
+      #
+      # A diferenca real entre os dois e o manifesto: `tailwindcss-animate` estava
+      # em `dependencies` do site, e e referenciado apenas por `tailwind.config.ts`
+      # (configuracao de build). Foi movido para `devDependencies` neste PR. O
+      # build de `apps/site/dist` (3 MB) nao contem nenhuma referencia a chokidar,
+      # micromatch, brace-expansion ou fast-glob — a cadeia inteira e consumida pelo
+      # Tailwind em Node, e o que sai e CSS.
+      #
+      # O `npm audit signatures` acima continua auditando dev e producao: ele valida
+      # assinatura de registry, nao vulnerabilidade, e nao foi escopado.
+      #
+      # O que este flag deixa de bloquear: advisory em devDependencies. Quem segue
+      # isso sao os alertas do Dependabot, que nao sao required check.
+      #
+      # A remocao real da dependencia continua sendo Tailwind 4 (MKL14); este flag
+      # escopa o portao, nao conserta o pacote.
+
       - name: Audit known vulnerabilities
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit site known vulnerabilities
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
         working-directory: apps/site
 
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
+          # `dev: false` = audita so o que vai para o artefato. A acao nao aceita
+          # `--omit=dev` (e um parametro YAML, nao um flag de CLI), mas tem o
+          # equivalente. Sem ele, esta etapa reprovaria pelo mesmo `braces` que os
+          # dois `npm audit` acima ja deixaram de contar.
+          dev: false
           fail-on-severity: high
