@@ -24,7 +24,6 @@ import {
   Table,
 } from "lucide-react";
 import { AppSettings, ThemeConfig } from "../../types";
-import { isTauriRuntime } from "../../services/runtime";
 import DualToneIcon from "./DualToneIcon";
 
 type ToolbarSectionKey = keyof AppSettings["toolbarSections"];
@@ -68,7 +67,10 @@ interface TopChromeProps {
   onOpenFolder: () => void;
   onSave: () => void;
   onExport: () => void;
-  onFindReplace: () => void;
+  // `onFindReplace` saiu: era declarado, destruturado e listado em `deps` sem
+  // nunca renderizar nada — a busca mora no editor, e o botão que a abre é o da
+  // barra de abas. É a mesma classe do "item de menu que não abre nada", que as
+  // notas da v1.8.0 já apontaram.
   onOpenSettings: () => void;
   onOpenSnippets: () => void;
   onCycleTheme: () => void;
@@ -98,7 +100,6 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onOpenFolder,
   onSave,
   onExport,
-  onFindReplace,
   onOpenSettings,
   onOpenSnippets,
   onCycleTheme,
@@ -108,7 +109,8 @@ const TopChrome: React.FC<TopChromeProps> = ({
   onFormatAction,
   onTransformMarkdown,
 }) => {
-  const canControlWindow = isTauriRuntime();
+  // `canControlWindow` saiu. O único consumidor era o `noDragStyle` condicional,
+  // e ele virou incondicional — ver a definição abaixo, onde o motivo está.
   // `left`/`right` saíram do enumérico de `floatingToolbarAnchor`, e o `isVertical`
   // que governava o layout vertical foi removido junto. Não sobrou ramo
   // vertical: a barra é horizontal em todas as âncoras.
@@ -162,9 +164,21 @@ const TopChrome: React.FC<TopChromeProps> = ({
       .replace(/Meta/gi, "⌘")
       .replace(/\+/g, "");
 
-  const noDragStyle: React.CSSProperties | undefined = canControlWindow
-    ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties)
-    : undefined;
+  // `no-drag` **incondicional**, e o motivo é a correção do arrasto.
+  //
+  // Antes era `canControlWindow ? {...} : undefined` — fora do Tauri o botão
+  // ficava **sem** `no-drag` e herdava `drag` da barra. No Tauri isso não
+  // importava (o wrapper acima era `no-drag` e segurava tudo); mas com o
+  // wrapper corrigido, o botão passaria a herdar `drag` **também no Tauri** e a
+  // disputa entre clique e gesto voltaria — que é exatamente o defeito que o
+  // `no-drag` no contêiner escondia.
+  //
+  // Declarar sempre deixa o DOM honesto: `getComputedStyle` responde a
+  // intenção, no navegador como no Tauri — foi assim que a área sem gesto foi
+  // medida. `MenuBar` e `WindowTitleBar` já eram incondicionais; a barra era a
+  // única com a porta entreaberta. Fora do Tauri `-webkit-app-region` é
+  // inerte, então não custa.
+  const noDragStyle = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
   useEffect(() => {
     return () => {
@@ -538,7 +552,6 @@ if (typeof window === "undefined") {
     [
       onCycleTheme,
       onExport,
-      onFindReplace,
       onFormatAction,
       onNewFile,
       onOpenFile,
@@ -1098,7 +1111,20 @@ if (typeof window === "undefined") {
             Os dois wrappers internos mediam 36px (`h-9`) e, centrados dentro de
             32px, punham o botão de overflow em `y: -1`. Por isso a altura aqui
             acompanha a âncora em vez de ser fixa. */}
-          <div className={`min-w-0 flex-1 ${innerHeightClass}`} ref={centerRef} style={{ WebkitAppRegion: "no-drag", ...noDragStyle } as React.CSSProperties}>
+          <div className={`min-w-0 flex-1 ${innerHeightClass}`} ref={centerRef}>
+            {/* **Sem `no-drag` aqui — e este é o pixel que faltava.**
+              Era o `no-drag` deste contêiner que tirava o gesto da janela dos
+              vãos: com a faixa centralizada por `mx-auto`, sobram duas faixas
+              livres (à esquerda e à direita da seção) que são a maior área sem
+              botão da linha de topo — e nenhuma arrastava.
+              Medido em 700px: a faixa centralizada por `mx-auto` deixa ~72px
+              de vão livre entre o fim do menu e o primeiro ícone, e entre o
+              último ícone e o switcher — todos com `no-drag` herdado deste
+              contêiner.
+              Os botões mantêm `no-drag` no próprio elemento (`renderActionButton`,
+              o gatilho de overflow e `ToolbarDropdown`), que é onde ele pertence:
+              impede o clique e o gesto de disputarem o mesmo pixel sem tirar o
+              gesto do vão. */}
             <div
               // A centralização da faixa é feita pela **margem automática** dela
               // (`mx-auto`, no `renderSection`), e não por `justify-content` aqui.

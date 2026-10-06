@@ -24,6 +24,8 @@ import {
 import { activeEditorRef, activeDocPathRef, setActiveEditor } from "./features/editor/active-editor";
 import { searchCount } from "./features/editor/search-count";
 import { closeSearchPanel, search, searchKeymap, searchPanelOpen, openSearchPanel } from "@codemirror/search";
+import { abrirComTermo, focarSubstituicao, syncDasOpcoes } from "./features/editor/search-panel";
+import { rotulosDaBusca, trocarRotulosDaBusca } from "./features/editor/search-phrases";
 import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
 import { useSearchPanelOpen } from "./features/editor/use-search-panel-open";
 import {
@@ -77,11 +79,11 @@ import {
 } from "./types";
 import { TRANSLATIONS } from "./translations";
 import Sidebar from "./app/components/Sidebar";
+import { buildDemoWorkspaceTree, demoWorkspaceRequested } from "./app/components/dev/demo-workspace";
 import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
 import MenuBar, { type MenuActionId } from "./components/MenuBar";
-import FindReplaceModal, { FindResult } from "./app/components/FindReplaceModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
@@ -199,21 +201,6 @@ function makeNewTab(name = "Untitled.md", content = INITIAL_MARKDOWN): DocumentT
     dirty: false,
     origin: "untitled",
   };
-}
-
-function buildRegex(
-  query: string,
-  options: { caseSensitive: boolean; wholeWord: boolean; useRegex: boolean }
-) {
-  if (!query) return null;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const source = options.useRegex ? query : escaped;
-  const wrapped = options.wholeWord ? `\\b${source}\\b` : source;
-  try {
-    return new RegExp(wrapped, options.caseSensitive ? "g" : "gi");
-  } catch {
-    return null;
-  }
 }
 
 function hexLuminance(hex: string): number {
@@ -544,8 +531,9 @@ function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [publicationPresets, setPublicationPresets] = useState<PublicationPreset[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [showFindReplace, setShowFindReplace] = useState(false);
-  const [findInitialQuery, setFindInitialQuery] = useState<string | undefined>(undefined);
+  // `showFindReplace` e `findInitialQuery` saíram: a busca avançada é o painel do
+  // editor, não um modal. Quem guarda o estado da consulta é o CodeMirror; quem
+  // guarda os três interruptores é `settings.findReplace`, via `syncDasOpcoes`.
   const [showExport, setShowExport] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -807,6 +795,23 @@ const core = [
       // editor principal um recurso dele, e é o que deixa o contador entrar junto.
       search({ top: true }),
       searchCount(),
+      // O painel da busca é desenhado pela biblioteca, com rótulos **hard-coded
+      // em inglês** no pacote. Sem esta linha, `Ctrl+F` abre uma caixa em inglês
+      // num aplicativo cujo idioma padrão é pt-BR — e nada acusa, porque não há
+      // erro: há apenas uma caixa falando outra língua.
+      rotulosDaBusca(t),
+      // Os três interruptores da busca (maiúscula, palavra inteira, regex) agora
+      // sobrevivem à sessão no **painel do editor** — era o que o `FindReplaceModal`
+      // guardava em `settings.findReplace`, e o que o menu "Busca avançada"
+      // prometia. `syncDasOpcoes` restaura na abertura e grava na escolha.
+      //
+      // Fica ao lado do `searchCount()` e não dentro dele porque as duas reagem a
+      // coisas diferentes: o contador responde ao documento, esta à configuração.
+      // Num arquivo só, uma das duas ficaria escondida.
+      syncDasOpcoes(
+        () => settingsRef.current.findReplace,
+        (findReplace) => updateSettings({ findReplace }),
+      ),
       keymap.of([...searchKeymap, ...defaultKeymap, ...historyKeymap]),
       lineNumbers(),
       EditorState.allowMultipleSelections.of(false),
@@ -815,6 +820,21 @@ const core = [
     if (isCodeDocument) return [...core, tsLanguage];
     return [...core, markdownLanguage];
   }, [isCodeDocument, snippetMap]);
+
+  /* Troca de idioma com o app aberto.
+     A configuração do editor **não** se refaz quando `settings.language` muda —
+     a memo acima depende de `isCodeDocument` e `snippetMap`, e recriar o editor a
+     cada idioma custaria cursor, seleção e histórico. O `Compartment` reescreve
+     só o slot dos rótulos, que é a parte que precisa mudar.
+
+     Dependência em `t` (e não em `settings.language`): `t` é o objeto de
+     `TRANSLATIONS[idioma]`, estável por idioma, então o efeito dispara quando o
+     idioma muda e não a cada render. No primeiro render o `activeEditorRef` ainda
+     é nulo — e não precisa ser: a extensão já nasce com os rótulos certos. */
+  useEffect(() => {
+    const view = activeEditorRef.current;
+    if (view) trocarRotulosDaBusca(view, t);
+  }, [t]);
 
   const { width: sidebarWidth, isResizing, feedbackWidth, handleProps } = useSidebarResize({
     initialWidth: settings.sidebarWidth,
@@ -866,7 +886,6 @@ const core = [
 
   const closeAllDialogs = useCallback(() => {
     setShowSettings(false);
-    setShowFindReplace(false);
     setShowExport(false);
     setShowSnippets(false);
     setShowCommandPalette(false);
@@ -876,33 +895,29 @@ const core = [
     setSettingsInitialTab(tab);
     setSettingsFocusTarget(focusTarget);
     setShowSettings(true);
-    setShowFindReplace(false);
     setShowExport(false);
     setShowSnippets(false);
     setShowCommandPalette(false);
   }, []);
 
-  const openDialog = useCallback((dialog: "settings" | "find" | "export" | "snippets" | "palette") => {
+  // `find` saiu do enumérico. A busca não é mais um diálogo: é o painel do
+  // editor, e quem o abre é `openSearchInActiveDocument` / `abrirSubstituicao`.
+  const openDialog = useCallback((dialog: "settings" | "export" | "snippets" | "palette") => {
     if (dialog === "settings") {
       openSettingsPanel();
       return;
     }
     setShowSettings(false);
-    if (dialog === "find") setFindInitialQuery(undefined);
-    setShowFindReplace(dialog === "find");
     setShowExport(dialog === "export");
     setShowSnippets(dialog === "snippets");
     setShowCommandPalette(dialog === "palette");
   }, [openSettingsPanel]);
 
-  const openFindWithQuery = useCallback((initialQuery: string) => {
-    setFindInitialQuery(initialQuery);
-    setShowSettings(false);
-    setShowFindReplace(true);
-    setShowExport(false);
-    setShowSnippets(false);
-    setShowCommandPalette(false);
-  }, []);
+  // `openFindWithQuery` saiu. `defaultQuery` da biblioteca **já** semeia o campo
+  // com a seleção **do editor** (`search: selText`, sem condição), então
+  // `openSearchPanel` entrega "buscar a seleção" de graça nesse caso — e o modal
+  // era o único que exigia um caminho à parte. O que resta é o menu do preview
+  // (seleção de outra origem), e esse tem `abrirBuscaComTexto`.
 
   const showClipboardError = useCallback((reason: "unavailable" | "denied" | "failed") => {
     const key = reason === "unavailable" ? "ctx.clipboardUnavailable" : reason === "denied" ? "ctx.clipboardDenied" : "ctx.clipboardFailed";
@@ -1316,10 +1331,34 @@ if (tab) await saveTabRef.current(tab, false);
     if (view) {
       if (searchPanelOpen(view.state)) closeSearchPanel(view);
       else openSearchPanel(view);
-      return;
     }
-    openDialog("find");
-  }, [openDialog]);
+  }, []);
+
+  /* `Substituir` (Ctrl+H) e `Busca avançada` no menu.
+     A mesma caixa, com o campo de substituição em foco.
+
+     **Alternar, e não abrir às cegas:** com o painel já aberto, o atalho ir direto
+     ao campo de substituição é o que a pessoa quer — o termo não se perde e o foco
+     vai para onde a substituição acontece. Fechar por antigamente tiraria do
+     editor a única tela que a pessoa abriu para usar. */
+  const abrirSubstituicao = useCallback(() => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.find?.(); return; }
+    if (settingsRef.current.appMode === "journal") return;
+    const view = activeEditorRef.current;
+    if (view) focarSubstituicao(view);
+  }, []);
+
+  /* Abrir a busca com um termo que **não** vem da seleção do editor.
+     Único consumidor: o "Buscar seleção" do menu de contexto do preview, onde a
+     seleção é da visualização e não do CodeMirror. */
+  const abrirBuscaComTexto = useCallback((texto: string) => {
+    const target = getActiveTarget();
+    if (target?.kind === "journal-entry") { target.find?.(); return; }
+    if (settingsRef.current.appMode === "journal") return;
+    const view = activeEditorRef.current;
+    if (view) abrirComTermo(view, texto, settingsRef.current.findReplace);
+  }, []);
 
   const buildEditorContextMenuItems = useCallback(
     (hasSelection: boolean): ContextMenuEntry[] => {
@@ -1407,13 +1446,10 @@ if (tab) await saveTabRef.current(tab, false);
 
       items.push(
         { type: "separator", id: "sep-actions" },
-        { type: "item", id: "find", label: t["edit.find"] || "Find", shortcut: "Ctrl+F", onSelect: () => {
-          const view = editorRef.current;
-          const sel = view?.state.selection.main;
-          const text = sel && !sel.empty ? view!.state.doc.sliceString(sel.from, sel.to) : undefined;
-          if (text) openFindWithQuery(text);
-          else openDialog("find");
-        }},
+        // A mesma função que o `Ctrl+F` usa, e é de propósito: `openSearchPanel`
+        // já semeia o campo com a seleção, então "buscar" e "buscar a seleção"
+        // são o mesmo gesto neste editor.
+        { type: "item", id: "find", label: t["edit.find"] || "Find", shortcut: "Ctrl+F", onSelect: openSearchInActiveDocument },
         { type: "item", id: "snippets", label: t["ctx.manageSnippets"] || "Manage snippets…", onSelect: () => openDialog("snippets") }
       );
 
@@ -1441,7 +1477,7 @@ if (tab) await saveTabRef.current(tab, false);
 
       return items;
     },
-    [activeTab, isCodeDocument, openDialog, openFindWithQuery, saveTab, showClipboardError, t, transformActiveMarkdown]
+    [activeTab, isCodeDocument, openDialog, openSearchInActiveDocument, saveTab, showClipboardError, t, transformActiveMarkdown]
   );
 
   const resolveEditorKeyboardAnchor = useCallback((element: HTMLElement): ContextMenuAnchor => {
@@ -1654,45 +1690,13 @@ if (tab) await saveTabRef.current(tab, false);
     }
   };
 
-  const handleFindSelect = (result: FindResult) => {
-    const view = editorRef.current;
-    if (!view) return;
-    const anchor = result.index;
-    const head = result.index + result.length;
-    view.dispatch({
-      selection: EditorSelection.range(anchor, head),
-      effects: EditorView.scrollIntoView(anchor, { y: "center" }),
-    });
-    view.focus();
-  };
-
-  const handleReplaceOne = (
-    query: string,
-    replacement: string,
-    options: AppSettings["findReplace"]
-  ) => {
-    if (!activeTab) return;
-    const regex = buildRegex(query, options);
-    if (!regex) return;
-    const match = activeTab.content.match(regex);
-    if (match?.index === undefined) return;
-    const next =
-      activeTab.content.slice(0, match.index) +
-      replacement +
-      activeTab.content.slice(match.index + match[0].length);
-    updateActiveTabContent(next);
-  };
-
-  const handleReplaceAll = (
-    query: string,
-    replacement: string,
-    options: AppSettings["findReplace"]
-  ) => {
-    if (!activeTab) return;
-    const regex = buildRegex(query, options);
-    if (!regex) return;
-    updateActiveTabContent(activeTab.content.replace(regex, replacement));
-  };
+  // `handleFindSelect`, `handleReplaceOne` e `handleReplaceAll` saíram, e com
+  // eles `buildRegex`. Eles substituíam no **texto da aba** (`activeTab.content`),
+  // reescrevendo o documento inteiro por cima — que é o que faz o cursor pular,
+  // desfazer quebrar e o realce da busca ficar obsoleto. O painel do editor
+  // substitui por transação no CodeMirror, que é a única forma que desfaz certo.
+  //
+  // `buildRegex` ia junto porque só existia para estes três.
 
   const handleExport = async (format: ExportFormat) => {
     if (!activeTab) return;
@@ -2183,6 +2187,21 @@ label: t["view.sidebar"] || "Sidebar",
         }
       }
 
+      /* Árvore de mentira, para desenvolvimento.
+       *
+       * `readWorkspaceTree` chama `requireTauri`, que lança fora do desktop. Em
+       * `npm run dev` a árvore nunca renderiza, e com ela some tudo o que o
+       * sidebar tem: as linhas, o hover, o CRUD, a truncagem do nome. É por isso
+       * que `test:ui-layout` nunca cobriu essa tela, e é por isso que um CRUD
+       * acendendo em todas as linhas passou sem nenhum teste reclamar.
+       *
+       * `?demo=workspace` preenche a árvore para o navegador, e só em DEV: o
+       * Vite elimina o branch, então isto não existe no binário publicado. */
+      if (import.meta.env.DEV && !isTauriRuntime() && demoWorkspaceRequested(window.location.search)) {
+        setWorkspacePath("C:/fixtures/markdown_sample");
+        setWorkspaceTree(buildDemoWorkspaceTree());
+      }
+
       // Sync unaltered tabs on initial load
       const currentTabs = loadLastTabs();
       let changed = false;
@@ -2504,7 +2523,7 @@ label: t["view.sidebar"] || "Sidebar",
         void executeCommand("edit.find");
       } else if (testShortcut(event, getShortcut("edit-replace", "CTRL+H"))) {
         event.preventDefault();
-        openDialog("find");
+        abrirSubstituicao();
       } else if (testShortcut(event, getShortcut("edit-snippets", "CTRL+J"))) {
         event.preventDefault();
         openDialog("snippets");
@@ -2668,9 +2687,16 @@ case "file-rename": {
       case "edit-find":
         await commands.find((command) => command.id === "edit.find")?.execute();
         return;
+      // `Busca avançada` e `Substituir` são **o mesmo painel** agora. A busca
+      // avançada deixou de ser um modal separado: as três opções e a linha de
+      // substituição já estavam no painel do editor, e o modal só duplicava isso
+      // — com a substituição por reescrita do texto da aba, que é pior.
+      // A diferença que sobra é de foco, e é o que o rótulo promete.
       case "edit-find-advanced":
+        openSearchInActiveDocument();
+        return;
       case "edit-replace":
-        openDialog("find");
+        abrirSubstituicao();
         return;
       case "edit-snippets":
         openDialog("snippets");
@@ -2786,7 +2812,6 @@ showShortcutHints={showShortcutHints}
       onOpenFolder={handleOpenFolder}
       onSave={saveActiveDocument}
       onExport={exportActiveDocument}
-      onFindReplace={openSearchInActiveDocument}
       onOpenSettings={() => openDialog("settings")}
       onOpenSnippets={() => openDialog("snippets")}
       onCycleTheme={cycleTheme}
@@ -2898,10 +2923,16 @@ showShortcutHints={showShortcutHints}
           {/* A marca cede espaço antes da barra. O logo e o nome sao
               decorativos — o titulo do produto ja esta no arquivo e a versao
               no About — e numa janela estreita eles empurravam a barra para
-              0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport. */}
+              0px. Medido: a 420px, logo(128) + menu(206) estouravam a viewport.
+
+              Esta área **é a maior região livre da barra**, e é onde se arrasta
+              a janela. Estava como `no-drag`, o que a tornava o único trecho da
+              linha de topo sem gesto nenhum: sem botão, sem campo, sem menu —
+              e sem arrasto. O header já é `drag`, então basta **não** declarar
+              `no-drag` aqui para a região voltar a arrastar. Declarar `drag`
+              explicitamente seria o mesmo efeito com uma linha a mais. */}
           <div
             className="flex items-center gap-2 min-w-0 shrink"
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
 <img src="/img/logo.png" alt="Mark-Lee" className={`h-6 w-6 rounded shrink-0 border ${tConfig.uiBorder}`} />
             <span
@@ -2941,8 +2972,19 @@ Mark-Lee
               `flex-1` — que encolhe primeiro — era justamente a barra. */}
           {!isZenMode && settings.floatingToolbarAnchor === "integrated" && (
             <div
+              // **Sem `no-drag` aqui.** Era este wrapper que tirava o gesto da
+              // janela dos vãos da barra: a seção é centralizada por `mx-auto`,
+              // então sobram duas faixas livres — a maior área sem botão da
+              // linha de topo — e nenhuma arrastava.
+              //
+              // O `no-drag` que o clique precisa **está nos botões**, dentro de
+              // `TopChrome` (`renderActionButton`, gatilho de overflow e
+              // `ToolbarDropdown`). No contêiner ele só protegia o botão por
+              // efeito colateral — e, de quebra, penalizava o vão.
+              //
+              // O `min-w-[120px]` continua: é o piso que impede a barra de
+              // receber 0px quando o menu e o switcher somam mais que a janela.
               className="flex-1 min-w-[120px] flex items-center overflow-hidden"
-              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             >
               {topChromeComponent}
             </div>
@@ -3137,7 +3179,7 @@ onCreateEditor={(view) => {
               onScrollToTop={scrollPreviewToTop}
               onOpenFile={(path) => handleOpenIntent({ kind: "open-file", path, source: "preview" })}
               onReveal={revealInFileManager}
-              onFindWithQuery={openFindWithQuery}
+              onFindWithQuery={abrirBuscaComTexto}
               onClipboardError={showClipboardError}
             >
             <div
@@ -3251,20 +3293,6 @@ onCreateEditor={(view) => {
         isCodeDocument={isCodeDocument}
         t={t}
         tConfig={tConfig}
-      />
-
-      <FindReplaceModal
-        open={showFindReplace}
-        t={t}
-        tConfig={tConfig}
-        content={activeContent}
-        initialQuery={findInitialQuery}
-        options={settings.findReplace}
-        onClose={closeAllDialogs}
-        onOptionsChange={(options) => updateSettings({ findReplace: options })}
-        onSelectResult={handleFindSelect}
-        onReplaceOne={handleReplaceOne}
-        onReplaceAll={handleReplaceAll}
       />
 
       <ExportModal

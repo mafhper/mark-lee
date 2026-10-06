@@ -55,11 +55,24 @@ resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
   t: Record<string, string>;
 selectedPath: string | null;
   query: string;
+  /** Caminho da linha sob o mouse, ou `null`. Uma linha por vez, sempre.
+   *
+   *  Antes disto a visibilidade vinha de `group`/`group-hover` em CSS, e isso
+   *  dependia de um invariante que **nada no repositório guardava**: nenhum
+   *  ancestral da árvore pode ter a classe `group`. Um `group` a mais em um
+   *  wrapper — e `.group:hover .group-hover\:flex` acende em todas as linhas
+   *  descendentes de uma vez. O sintoma é o que o dono viu: mouse sobre um
+   *  arquivo, e o CRUD de todos aceso.
+   *
+   *  Passar a ser estado do React troca uma dependência de CSS por uma de dado:
+   *  a linha acesa é a que o estado aponta, e só existe uma por natureza. */
+  hoveredPath: string | null;
+  onHoveredPathChange: (path: string | null) => void;
 }> = ({
   node,
   level,
   expandedPaths,
-onToggleExpand,
+  onToggleExpand,
   onOpenFile,
   onSelect,
   resolveItems,
@@ -69,6 +82,8 @@ onToggleExpand,
   t,
   selectedPath,
   query,
+  hoveredPath,
+  onHoveredPathChange,
 }) => {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const isExpanded = expandedPaths.has(node.path);
@@ -90,11 +105,15 @@ onToggleExpand,
 if (normalized && !matchesSelf && !matchesChildren) return null;
 
     return (
-      // `group` + `group-hover` + `absolute`: as ações do item aparecem no hover
-      // **sem reservar espaço**. Se estivessem no fluxo, cada linha da árvore
-      // ganharia ~24px de largura para controles que quase nunca estão à vista —
-      // e o nome do arquivo, que é o que se lê, seria espremido para sempre.
-      <div className="group relative">
+      // A linha inteira é a área de hover, e o alvo do gesto é o `button` do
+      // nome. O `onMouseLeave` vai no `group relative` — e não no botão — porque
+      // o CRUD está **fora** do botão: sem ele, passar do nome para os ícones
+      // apagaria os ícones no caminho.
+      <div
+        className="group relative"
+        onMouseEnter={() => onHoveredPathChange(node.path)}
+        onMouseLeave={() => onHoveredPathChange(null)}
+      >
         <button
           ref={buttonRef}
           className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${isSelected ? "ml-btn-active" : "hover:bg-black/5 dark:hover:bg-white/10"
@@ -131,11 +150,25 @@ if (normalized && !matchesSelf && !matchesChildren) return null;
         {/* Renomear, apagar e revelar, na linha do próprio item. Não aparecem no
             nó virtual: "recent files" não é um arquivo do workspace, e oferecer
             renomear algo que não tem lugar no disco seria um botão que não
-            pode funcionar. */}
+            pode funcionar.
+
+            `absolute` + `right-1` para aparecerem **sem reservar espaço**: no
+            fluxo, cada linha ganharia ~24px para controles que quase nunca
+            estão à vista, e o nome do arquivo — que é o que se lê — seria
+            espremido para sempre.
+
+            A visibilidade vem de `hoveredPath`, e não de `group-hover`. Ver a
+            nota em `hoveredPath`: a versão em CSS depende de nenhum ancestral
+            ter `group`, e um `group` a mais acende todas as linhas de uma vez. */}
         {!isVirtual && (
           <span
-            className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 pl-1"
-            style={{ backgroundColor: "var(--ml-ui, transparent)" }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 items-center gap-0.5 pl-1"
+            style={{
+              display: hoveredPath === node.path ? "flex" : "none",
+              backgroundColor: "var(--ml-ui, transparent)",
+            }}
+            data-crud-for={node.path}
+            data-crud-visible={hoveredPath === node.path ? "true" : "false"}
           >
             <button
               type="button"
@@ -193,6 +226,8 @@ onOpenFile={onOpenFile}
                 t={t}
                 selectedPath={selectedPath}
                 query={query}
+                hoveredPath={hoveredPath}
+                onHoveredPathChange={onHoveredPathChange}
               />
             ))}
           </div>
@@ -218,6 +253,9 @@ onOpenFolder,
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<WorkspaceNode | null>(null);
   const [query, setQuery] = useState("");
+  /* A linha sob o mouse. Um único caminho, e a árvore inteira lê o mesmo: é o
+     que garante "um CRUD por vez" por construção, e não por CSS. */
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   const rootPath = workspacePath ?? "";
 
@@ -408,6 +446,8 @@ resolveItems={resolveItems}
               t={t}
               selectedPath={selectedNode?.path ?? null}
               query={query}
+              hoveredPath={hoveredPath}
+              onHoveredPathChange={setHoveredPath}
             />
           </div>
         )}
