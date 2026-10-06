@@ -47,8 +47,8 @@ const SidebarTreeNode: React.FC<{
   onOpenFile: (path: string) => void;
   onSelect: (node: WorkspaceNode) => void;
 resolveItems: (node: WorkspaceNode) => ContextMenuEntry[];
-  /** AÃƒÂ§ÃƒÂµes da prÃƒÂ³pria linha, mostradas no hover. Quem as executa ÃƒÂ© o App: a
-   *  ÃƒÂ¡rvore nÃƒÂ£o deve conhecer o sistema de arquivos. */
+  /** Ações da própria linha, mostradas no hover. Quem as executa é o App: a
+   *  árvore não deve conhecer o sistema de arquivos. */
   onRename: (path: string) => void;
   onDelete: (path: string) => void;
   onReveal: (path: string) => void;
@@ -58,14 +58,14 @@ selectedPath: string | null;
   /** Caminho da linha sob o mouse, ou `null`. Uma linha por vez, sempre.
    *
    *  Antes disto a visibilidade vinha de `group`/`group-hover` em CSS, e isso
-   *  dependia de um invariante que **nada no repositÃƒÂ³rio guardava**: nenhum
-   *  ancestral da ÃƒÂ¡rvore pode ter a classe `group`. Um `group` a mais em um
-   *  wrapper Ã¢â‚¬â€ e `.group:hover .group-hover\:flex` acende em todas as linhas
-   *  descendentes de uma vez. O sintoma ÃƒÂ© o que o dono viu: mouse sobre um
+   *  dependia de um invariante que **nada no repositório guardava**: nenhum
+   *  ancestral da árvore pode ter a classe `group`. Um `group` a mais em um
+   *  wrapper — e `.group:hover .group-hover\:flex` acende em todas as linhas
+   *  descendentes de uma vez. O sintoma é o que o dono viu: mouse sobre um
    *  arquivo, e o CRUD de todos aceso.
    *
-   *  Passar a ser estado do React troca uma dependÃƒÂªncia de CSS por uma de dado:
-   *  a linha acesa ÃƒÂ© a que o estado aponta, e sÃƒÂ³ existe uma por natureza. */
+   *  Passar a ser estado do React troca uma dependência de CSS por uma de dado:
+   *  a linha acesa é a que o estado aponta, e só existe uma por natureza. */
   hoveredPath: string | null;
   onHoveredPathChange: (path: string | null) => void;
 }> = ({
@@ -105,10 +105,10 @@ selectedPath: string | null;
 if (normalized && !matchesSelf && !matchesChildren) return null;
 
     return (
-      // A linha inteira ÃƒÂ© a ÃƒÂ¡rea de hover, e o alvo do gesto ÃƒÂ© o `button` do
-      // nome. O `onMouseLeave` vai no `group relative` Ã¢â‚¬â€ e nÃƒÂ£o no botÃƒÂ£o Ã¢â‚¬â€ porque
-      // o CRUD estÃƒÂ¡ **fora** do botÃƒÂ£o: sem ele, passar do nome para os ÃƒÂ­cones
-      // apagaria os ÃƒÂ­cones no caminho.
+      // A linha inteira é a área de hover, e o alvo do gesto é o `button` do
+      // nome. O `onMouseLeave` vai no `group relative` — e não no botão — porque
+      // o CRUD está **fora** do botão: sem ele, passar do nome para os ícones
+      // apagaria os ícones no caminho.
       <div
         className="group relative"
         onMouseEnter={() => onHoveredPathChange(node.path)}
@@ -147,18 +147,18 @@ if (normalized && !matchesSelf && !matchesChildren) return null;
           )}
 <span className="truncate">{node.name}</span>
         </button>
-        {/* Renomear, apagar e revelar, na linha do prÃƒÂ³prio item. NÃƒÂ£o aparecem no
-            nÃƒÂ³ virtual: "recent files" nÃƒÂ£o ÃƒÂ© um arquivo do workspace, e oferecer
-            renomear algo que nÃƒÂ£o tem lugar no disco seria um botÃƒÂ£o que nÃƒÂ£o
+        {/* Renomear, apagar e revelar, na linha do próprio item. Não aparecem no
+            nó virtual: "recent files" não é um arquivo do workspace, e oferecer
+            renomear algo que não tem lugar no disco seria um botão que não
             pode funcionar.
 
-            `absolute` + `right-1` para aparecerem **sem reservar espaÃƒÂ§o**: no
+            `absolute` + `right-1` para aparecerem **sem reservar espaço**: no
             fluxo, cada linha ganharia ~24px para controles que quase nunca
-            estÃƒÂ£o ÃƒÂ  vista, e o nome do arquivo Ã¢â‚¬â€ que ÃƒÂ© o que se lÃƒÂª Ã¢â‚¬â€ seria
+            estão à vista, e o nome do arquivo — que é o que se lê — seria
             espremido para sempre.
 
-            A visibilidade vem de `hoveredPath`, e nÃƒÂ£o de `group-hover`. Ver a
-            nota em `hoveredPath`: a versÃƒÂ£o em CSS depende de nenhum ancestral
+            A visibilidade vem de `hoveredPath`, e não de `group-hover`. Ver a
+            nota em `hoveredPath`: a versão em CSS depende de nenhum ancestral
             ter `group`, e um `group` a mais acende todas as linhas de uma vez. */}
         {!isVirtual && (
           <span
@@ -253,8 +253,8 @@ onOpenFolder,
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<WorkspaceNode | null>(null);
   const [query, setQuery] = useState("");
-  /* A linha sob o mouse. Um ÃƒÂºnico caminho, e a ÃƒÂ¡rvore inteira lÃƒÂª o mesmo: ÃƒÂ© o
-     que garante "um CRUD por vez" por construÃƒÂ§ÃƒÂ£o, e nÃƒÂ£o por CSS. */
+  /* A linha sob o mouse. Um único caminho, e a árvore inteira lê o mesmo: é o
+     que garante "um CRUD por vez" por construção, e não por CSS. */
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   const rootPath = workspacePath ?? "";
@@ -334,26 +334,26 @@ onOpenFolder,
 
 return (
     <aside className={`h-full ${tConfig.ui} ${tConfig.fg} flex flex-col`}>
-{/* Uma ÃƒÂºnica forma, sem ramo alternado.
+{/* Uma única forma, sem ramo alternado.
 
-           A versÃƒÂ£o de 35px com uma coluna de ÃƒÂ­cones saiu: o dono definiu que a
+           A versão de 35px com uma coluna de ícones saiu: o dono definiu que a
            lateral do Editor tem **dois** estados, aberto ou fechado. E a forma
-           compacta jÃƒÂ¡ tinha custado caro Ã¢â‚¬â€ sem workspace, as quatro aÃƒÂ§ÃƒÂµes
+           compacta já tinha custado caro — sem workspace, as quatro ações
            dependiam de `workspacePath` e ficavam as quatro a 40% de opacidade
-           numa faixa de 35px, o que se lia como "ÃƒÂ­cones diminutos e achatados".
+           numa faixa de 35px, o que se lia como "ícones diminutos e achatados".
 
-           Em **MemÃƒÂ³rias** os ÃƒÂ­cones reposicionados continuam, e continuam pedido:
-           moram no `JournalWorkspace`, com o prÃƒÂ³prio estado e o prÃƒÂ³prio botÃƒÂ£o.
-           Aqui nÃƒÂ£o havia caminho para eles. */}
+           Em **Memórias** os ícones reposicionados continuam, e continuam pedido:
+           moram no `JournalWorkspace`, com o próprio estado e o próprio botão.
+           Aqui não havia caminho para eles. */}
       <div className={`h-10 border-b ${tConfig.uiBorder} px-2`}>
-        {/* As quatro aÃƒÂ§ÃƒÂµes de **documento e workspace**, nesta ordem: salvar,
+        {/* As quatro ações de **documento e workspace**, nesta ordem: salvar,
             criar arquivo, criar pasta, abrir pasta.
 
-            As trÃƒÂªs que agem sobre o **item selecionado** Ã¢â‚¬â€ renomear, apagar e
-            revelar Ã¢â‚¬â€ saÃƒÂ­ram daqui e foram para a **linha do arquivo**, no hover.
-            A regra ÃƒÂ© do dono e ÃƒÂ© a certa: uma aÃƒÂ§ÃƒÂ£o sobre o que estÃƒÂ¡ selecionado
-            pertence a onde a seleÃƒÂ§ÃƒÂ£o estÃƒÂ¡, e a barra do topo da lateral ficava
-            meio passo atrÃƒÂ¡s do cursor. */}
+            As três que agem sobre o **item selecionado** — renomear, apagar e
+            revelar — saíram daqui e foram para a **linha do arquivo**, no hover.
+            A regra é do dono e é a certa: uma ação sobre o que está selecionado
+            pertence a onde a seleção está, e a barra do topo da lateral ficava
+            meio passo atrás do cursor. */}
         <div className="flex items-center gap-1">
           <button
             type="button"

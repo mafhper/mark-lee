@@ -27,6 +27,8 @@
     "test:image-markdown": "node --experimental-strip-types --test src/features/editor/image-markdown.test.ts",
     "test:preprocess-markdown": "node --experimental-strip-types --test src/app/markdown/preprocessMarkdown.test.ts",
     "test:preview-link": "node --experimental-strip-types --test src/app/markdown/resolvePreviewLink.test.ts",
+    "test:search-options": "node --experimental-strip-types --test src/features/editor/search-options.test.ts",
+    "test:search-phrases": "node --experimental-strip-types --test src/features/editor/search-phrases.test.ts",
     "test:commands": "node --experimental-strip-types --test src/app/commands/command.test.ts",
     "test:journal-entry": "node --experimental-strip-types --test src/features/journal/domain/journal-entry.test.ts",
     "test:journal-images": "node --experimental-strip-types --test src/features/journal/domain/entry-images.test.ts",

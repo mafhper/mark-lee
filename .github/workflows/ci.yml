@@ -43,6 +43,8 @@ jobs:
           npm run test:journal-tasks
           npm run test:journal-order
           npm run test:export-html
+          npm run test:search-options
+          npm run test:search-phrases
           npm run test:release-workflow
           node scripts/release-version.test.mjs
 
