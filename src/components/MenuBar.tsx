@@ -241,6 +241,14 @@ const MenuBar: React.FC<MenuBarProps> = ({
             role="menuitem"
             aria-haspopup="menu"
             aria-expanded={activeMenu === menuName}
+            /* `no-drag` em cada botão, e não no container.
+
+               O container herda `drag` do header, e é isso que faz o **espaço
+               entre os menus** — a outra região livre da linha de topo — arrastar
+               a janela. O botão é o inverso: é clicável, e um `drag` herdado
+               sobre ele faz o clique e o gesto disputarem o mesmo pixel. */
+
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             className={`px-2.5 py-1 rounded transition-colors ${
               activeMenu === menuName ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/10'
             }`}
