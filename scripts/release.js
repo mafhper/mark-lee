@@ -36,6 +36,44 @@ async function updateTauriConfig(newVersion) {
   }
 }
 
+/**
+ * A versão do **próprio pacote** dentro do `Cargo.lock`.
+ *
+ * O `Cargo.lock` guarda uma entrada `[[package]]` para o crate local, com a
+ * versão dele. O cargo **não reescreve** essa entrada quando a versão muda no
+ * `Cargo.toml` — medido: `cargo metadata` com o lock em `1.8.1` e o manifesto em
+ * `1.8.2` deixou o lock intacto, e o `cargo check` do CI também não corrige.
+ *
+ * **Por que importa.** Um lock defasado faz o build de release **re-resolver o
+ * próprio pacote**, e o digest do artefato passa a mudar entre máquinas — que é
+ * o defeito que as notas da v1.8.0 registraram e que foi corrigido à mão na
+ * v1.8.1, sem que o script passasse a fazer o mesmo. Sem esta função a deriva
+ * volta em toda release.
+ *
+ * A substituição é ancorada no bloco (`[[package]]` + `name` + `version`) e
+ * **verifica que aconteceu**: um lock silenciosamente intacto reproduziria
+ * exatamente o defeito.
+ */
+async function updateCargoLockVersion(newVersion) {
+  const lockPath = path.join(__dirname, "..", "src-tauri", "Cargo.lock");
+  try {
+    const content = await fs.readFile(lockPath, "utf8");
+    const padrao = /(\[\[package\]\]\r?\nname = "mark-lee-desktop"\r?\nversion = )"[^"]*"/;
+    if (!padrao.test(content)) {
+      throw new Error('bloco `mark-lee-desktop` nao encontrado no Cargo.lock');
+    }
+    const atualizado = content.replace(padrao, `$1"${newVersion}"`);
+    if (atualizado === content) {
+      throw new Error(`Cargo.lock ja' estava em ${newVersion}? substituicao nao mudou nada`);
+    }
+    await fs.writeFile(lockPath, atualizado);
+    console.log(`${COLORS.green}✔ Updated Cargo.lock to version ${newVersion}${COLORS.reset}`);
+  } catch (err) {
+    console.error(`${COLORS.red}✘ Failed to update Cargo.lock${COLORS.reset}`, err);
+    process.exit(1);
+  }
+}
+
 async function updateCargoVersion(newVersion) {
   const cargoPath = path.join(__dirname, "..", "src-tauri", "Cargo.toml");
   try {
@@ -120,6 +158,7 @@ async function main() {
 
   await updateTauriConfig(newVersion);
   await updateCargoVersion(newVersion);
+  await updateCargoLockVersion(newVersion);
   await updateChangeLog(newVersion);
 
   console.log(`\n${COLORS.bold}Next Steps:${COLORS.reset}`);
