@@ -34,6 +34,12 @@ jobs:
       - name: Check public surface
         run: npm run surface:check
 
+      # O alinhamento npm x crate das dependencias do Tauri. So' o `tauri build`
+      # aplica esta regra, e nenhum job de CI o roda — foi assim que um bump de
+      # npm passou verde aqui e matou o release nos tres runners.
+      - name: Check Tauri dependency alignment
+        run: npm run tauri:check
+
       - name: Test journal media and organization
         run: |
           npm run test:image-markdown

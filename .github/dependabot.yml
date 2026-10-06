@@ -45,6 +45,34 @@ updates:
           - "minor"
           - "patch"
 
+  # **O ecossistema `cargo` faltava, e a falta nao era neutra.** Sem ele, os
+  # crates do Tauri so' se movem quando alguem roda `cargo update` por conta
+  # propria — enquanto o lado npm anda sozinho. Foi assim que o release v1.8.2
+  # morreu nos tres runners: `@tauri-apps/api` em 2.12.0 e o crate em 2.11.5.
+  #
+  # O `tauri:check` do CI pega a divergencia, mas pegar e' o segundo melhor: o
+  # primeiro e' os dois lados andarem juntos.
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:45"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 5
+      semver-patch-days: 3
+      semver-minor-days: 7
+      semver-major-days: 30
+    groups:
+      cargo-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
