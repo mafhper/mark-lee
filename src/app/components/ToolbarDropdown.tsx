@@ -47,6 +47,23 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({ label, icon, items, s
   const botaoRef = useRef<HTMLButtonElement | null>(null);
   const painelRef = useRef<HTMLDivElement | null>(null);
 
+  // `no-drag` **neste** componente, e não herdado.
+  //
+  // A barra de formatação deixou de ser `no-drag` no contêiner para que os vãos
+  // em volta dos ícones voltassem a arrastar a janela (ver `TopChrome`). O preço
+  // desse acerto é que todo descendente da seção herda `drag` — e este botão, que
+  // não declara nada, passaria a **arrastar em vez de abrir o menu**. Era
+  // exatamente o defeito que o `no-drag` do contêiner escondia: quem ficava
+  // sem gesto era o vão, e quem herdava o gesto errado era o botão.
+  //
+  // O painel (`fixed`) entra na mesma conta: é filho da seção no DOM, herda o
+  // mesmo `drag`, e um item de menu sob `drag` não recebe clique.
+  //
+  // Fora do Tauri `-webkit-app-region` é inerte, então isto não muda o
+  // comportamento no browser — e foi o que permitiu medir a regra por
+  // `getComputedStyle` sem subir a janela.
+  const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
+
   const fechar = useCallback(() => setAberto(false), []);
 
   const medir = useCallback(() => {
@@ -109,6 +126,7 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({ label, icon, items, s
         className={`ml-btn h-8 shrink-0 inline-flex items-center justify-center gap-1 transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--ml-fg,#111827)_8%,transparent)] ${
           showLabel ? "px-2 text-[11px]" : "w-8"
         } ${className}`}
+        style={noDrag}
       >
         {icon}
         {showLabel && (
@@ -131,6 +149,7 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({ label, icon, items, s
             borderColor: "var(--ml-ui-border, #e5e7eb)",
             color: "var(--ml-fg, #111827)",
             visibility: posicao ? "visible" : "hidden",
+            ...noDrag,
           }}
         >
           {items.map((item) => (
@@ -138,6 +157,7 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({ label, icon, items, s
               key={item.id}
               type="button"
               role="menuitem"
+              style={noDrag}
               onClick={() => {
                 fechar();
                 item.onSelect();

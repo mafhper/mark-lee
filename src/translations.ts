@@ -1,4 +1,9 @@
-import { Language } from "./types";
+// `import type`, e não `import`: `Language` só aparece na anotação de
+// `TRANSLATIONS` (última linha). Como valor, ele não existe em tempo de execução —
+// e o loader do runner de teste (`node --experimental-strip-types`) resolve
+// imports de verdade, então um import de valor aqui faz **qualquer teste que
+// importe as traduções** quebrar por `ERR_MODULE_NOT_FOUND` em `./types`.
+import type { Language } from "./types";
 
 const ptBR: Record<string, string> = {
   file: "Arquivo",
@@ -138,8 +143,15 @@ const ptBR: Record<string, string> = {
   "snippets.delete": "Excluir snippet",
   "snippets.search": "Buscar snippets",
   "snippets.empty": "Nenhum snippet encontrado para esse filtro.",
-  "find.placeholder": "Buscar...",
-  "find.replace": "Substituir por...",
+  // Rótulos do painel de busca. As chaves `find.*` já existiam para o
+  // `FindReplaceModal`, que saiu: a busca avançada passou a ser o painel do
+  // editor. Continuam válidas porque são as mesmas palavras — quem consome agora
+  // é `EditorState.phrases`, que traduz o pacote do CodeMirror.
+  //
+  // As chaves com `$` (`find.replacedOnLine`, `find.replacedMatches`) são
+  // **parametrizadas**: o `$` é o marcador que a biblioteca substitui pelo número
+  // da linha ou da contagem. Perder o `$` quebra o anúncio do leitor de tela sem
+  // erro nenhum — e sem erro é o que faz o defeito durar.
   "find.next": "Próximo",
   "find.prev": "Anterior",
   "find.replaceOne": "Substituir",
@@ -147,7 +159,14 @@ const ptBR: Record<string, string> = {
   "find.caseSensitive": "Sensível a maiúsculas",
   "find.wholeWord": "Palavra inteira",
   "find.regex": "Regex",
-  "find.results": "Ocorrências",
+  "find.selectAll": "Selecionar todas",
+  "find.close": "Fechar",
+  "find.go": "Ir",
+  "find.goToLine": "Ir para a linha",
+  "find.currentMatch": "ocorrência atual",
+  "find.onLine": "na linha",
+  "find.replacedOnLine": "substituição na linha $",
+  "find.replacedMatches": "$ substituições",
   "save.title": "Salvar Como",
   "save.placeholder": "Nome do arquivo (ex: notas.md)",
   "save.confirm": "Salvar",
@@ -644,8 +663,6 @@ const enUS: Record<string, string> = {
   "snippets.add": "Add snippet",
   "snippets.edit": "Edit",
   "snippets.delete": "Delete",
-  "find.placeholder": "Find...",
-  "find.replace": "Replace with...",
   "find.next": "Next",
   "find.prev": "Previous",
   "find.replaceOne": "Replace",
@@ -653,7 +670,14 @@ const enUS: Record<string, string> = {
   "find.caseSensitive": "Case sensitive",
   "find.wholeWord": "Whole word",
   "find.regex": "Regex",
-  "find.results": "{current} of {total}",
+  "find.selectAll": "Select all",
+  "find.close": "Close",
+  "find.go": "Go",
+  "find.goToLine": "Go to line",
+  "find.currentMatch": "current match",
+  "find.onLine": "on line",
+  "find.replacedOnLine": "replaced match on line $",
+  "find.replacedMatches": "replaced $ matches",
   "save.title": "Save As",
   "save.placeholder": "File name (e.g. notes.md)",
   "save.confirm": "Save",
@@ -1149,8 +1173,6 @@ const esES: Record<string, string> = {
   "snippets.add": "Agregar snippet",
   "snippets.edit": "Editar",
   "snippets.delete": "Eliminar",
-  "find.placeholder": "Buscar...",
-  "find.replace": "Reemplazar por...",
   "find.next": "Siguiente",
   "find.prev": "Anterior",
   "find.replaceOne": "Reemplazar",
@@ -1158,7 +1180,14 @@ const esES: Record<string, string> = {
   "find.caseSensitive": "Distinguir mayúsculas",
   "find.wholeWord": "Palabra completa",
   "find.regex": "Regex",
-  "find.results": "{current} de {total}",
+  "find.selectAll": "Seleccionar todas",
+  "find.close": "Cerrar",
+  "find.go": "Ir",
+  "find.goToLine": "Ir a la línea",
+  "find.currentMatch": "coincidencia actual",
+  "find.onLine": "en la línea",
+  "find.replacedOnLine": "reemplazo en la línea $",
+  "find.replacedMatches": "$ reemplazos",
   "save.title": "Guardar como",
   "save.placeholder": "Nombre del archivo (ej. notas.md)",
   "save.confirm": "Guardar",
