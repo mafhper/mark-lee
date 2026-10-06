@@ -77,6 +77,7 @@ import {
 } from "./types";
 import { TRANSLATIONS } from "./translations";
 import Sidebar from "./app/components/Sidebar";
+import { buildDemoWorkspaceTree, demoWorkspaceRequested } from "./app/components/dev/demo-workspace";
 import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
@@ -2181,6 +2182,21 @@ label: t["view.sidebar"] || "Sidebar",
           // Folder may no longer exist
           saveWorkspacePath(null);
         }
+      }
+
+      /* Árvore de mentira, para desenvolvimento.
+       *
+       * `readWorkspaceTree` chama `requireTauri`, que lança fora do desktop. Em
+       * `npm run dev` a árvore nunca renderiza, e com ela some tudo o que o
+       * sidebar tem: as linhas, o hover, o CRUD, a truncagem do nome. É por isso
+       * que `test:ui-layout` nunca cobriu essa tela, e é por isso que um CRUD
+       * acendendo em todas as linhas passou sem nenhum teste reclamar.
+       *
+       * `?demo=workspace` preenche a árvore para o navegador, e só em DEV: o
+       * Vite elimina o branch, então isto não existe no binário publicado. */
+      if (import.meta.env.DEV && !isTauriRuntime() && demoWorkspaceRequested(window.location.search)) {
+        setWorkspacePath("C:/fixtures/markdown_sample");
+        setWorkspaceTree(buildDemoWorkspaceTree());
       }
 
       // Sync unaltered tabs on initial load
