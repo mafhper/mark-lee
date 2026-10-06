@@ -14,10 +14,6 @@ sobre **los mismos archivos locales**. Sin cuenta, sin formato cerrado, sin serv
 obligatorio. Abre una carpeta, escribe con precision y vuelve a encontrar el mismo
 contenido por tiempo y lugar.
 
-![Mark-Lee](assets/bg-hero.webp)
-
-![Editor de Mark-Lee](assets/screen.png)
-
 <p align="center">
   <a href="https://mafhper.github.io/mark-lee/">Sitio</a> ·
   <a href="#download">Descargar</a> ·
@@ -160,7 +156,7 @@ mark-lee/
 │   └── translations.ts    # pt-BR (predeterminado) · en-US · es-ES
 ├── src-tauri/             # Rust: archivos, carga de imagenes, observacion
 ├── apps/site/             # sitio de presentacion (package.json propio, rutas por idioma)
-├── assets/                # logos y la captura del README
+├── assets/                # logos y la imagen de apertura del README
 └── .github/               # CI, release, pages, dependency guard
 ```
 
