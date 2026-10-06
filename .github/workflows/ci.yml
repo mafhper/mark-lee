@@ -128,3 +128,17 @@ jobs:
       - name: Cargo check
         run: cargo check
         working-directory: src-tauri
+
+      # `cargo test`, e não só `cargo check`.
+      #
+      # Os testes do Rust **já existiam** (`read_workspace_tree_omits_heavy_directories`,
+      # no módulo de filesystem) e **nenhum job os executava**: um teste que não
+      # roda é indistinguível de um teste que não existe, e o `check` só prova
+      # que o código compila.
+      #
+      # O custo é o codegen do harness de teste — o `check` não o produz —, e é
+      # o preço de o lado Rust ter alguma proteção de comportamento e não só de
+      # tipos.
+      - name: Cargo test
+        run: cargo test --lib
+        working-directory: src-tauri

@@ -110,3 +110,51 @@ pub fn watch_workspace(
 pub fn unwatch_workspace(watcher: State<'_, FileWatcher>) -> Result<(), String> {
     watcher.unwatch()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::Instant;
+
+    /// O padrao exato que o `watch()` usa: canal **std mpsc** + `RecommendedWatcher`
+    /// + `RecursiveMode::Recursive`, e a leitura por `recv_timeout` com debounce.
+    ///
+    /// O que ele responde: o notify 8 entrega evento nesta plataforma com o canal
+    /// padrao? Se a resposta for nao, o watcher de workspace para de atualizar a
+    /// arvore e as abas — em silencio.
+    #[test]
+    fn entrega_evento_de_arquivo_criado() {
+        let dir = std::env::temp_dir().join(format!("mark-lee-notify-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("criar diretorio de teste");
+
+        let (tx, rx) = channel();
+        let mut watcher = RecommendedWatcher::new(tx, Config::default()).expect("criar watcher");
+        watcher
+            .watch(Path::new(&dir), RecursiveMode::Recursive)
+            .expect("registrar watch");
+
+        // Dar tempo do backend assentar antes de provocar o evento.
+        std::thread::sleep(Duration::from_millis(500));
+        fs::write(dir.join("novo.md"), "conteudo").expect("escrever arquivo");
+
+        let mut achou = false;
+        let limite = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < limite {
+            match rx.recv_timeout(Duration::from_millis(250)) {
+                Ok(Ok(evento)) => {
+                    if evento.paths.iter().any(|p| p.ends_with("novo.md")) {
+                        achou = true;
+                        break;
+                    }
+                }
+                Ok(Err(erro)) => eprintln!("erro do watcher: {erro:?}"),
+                Err(_) => {}
+            }
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+        assert!(achou, "notify nao entregou o evento do arquivo criado em 10s");
+    }
+}
