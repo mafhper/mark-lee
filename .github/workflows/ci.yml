@@ -52,6 +52,7 @@ jobs:
           npm run test:search-options
           npm run test:search-phrases
           npm run test:release-workflow
+          npm run test:cache-evictor
           node scripts/release-version.test.mjs
 
       - name: Build web
