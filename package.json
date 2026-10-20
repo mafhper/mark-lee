@@ -44,6 +44,7 @@
     "test:sidebar-hover": "node scripts/test-sidebar-hover.mjs",
     "demo:workspace": "echo abra http://127.0.0.1:5280/?demo=workspace",
     "test:release-workflow": "node scripts/release-workflow.test.mjs",
+    "test:cache-evictor": "node scripts/cache-evictor.test.mjs",
     "site:dev": "npm --prefix apps/site run dev",
     "site:build": "npm --prefix apps/site run build",
     "site:preview": "npm --prefix apps/site run preview",

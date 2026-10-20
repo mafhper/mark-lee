@@ -1,0 +1,77 @@
+name: Cache Cleanup
+
+# Evictor das entradas de cache que sobraram de pull requests fechadas.
+#
+# Por que existe: `actions/cache` — e os wrappers que o usam — não têm input de
+# retenção no caller. Não existe `retention-days` para declarar no workflow; a
+# entrada sai pelo TTL do GitHub (7 dias sem acesso em repositório público, 90 em
+# privado), e enquanto existir nada a remove. O cache de uma PR, porém, nasce no
+# ref `refs/pull/<n>/merge`, e fechar a PR não apaga o ref: a entrada fica
+# parada, sem nenhum job que a leia, ocupando a cota do repositório.
+#
+# Então a retenção que o caller não tem é feita por delete escopado, uma vez por
+# semana. `scripts/cache-evictor.mjs` é quem decide, e é fail-closed: apaga
+# somente `refs/pull/<n>/merge` de PR comprovadamente `closed` ou `merged`.
+# Branch (`refs/heads/*`, `main` incluso), tag, `refs/pull/<n>/head`, PR aberta e
+# qualquer número cujo estado a API não respondeu ficam de fora. O script também
+# só apaga com `--apply`, que este workflow passa apenas quando não é dry-run.
+
+on:
+  schedule:
+    # 03:00 UTC de segunda: depois do fim de semana, quando o job de uma PR
+    # mergeada no domingo já terminou de escrever no próprio ref.
+    #
+    # Agendamento só roda na default branch, e o GitHub desativa schedule de
+    # repositório sem atividade por 60 dias — se este job sumir do histórico, o
+    # primeiro lugar a olhar é a aba Actions, não o YAML.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Lista e planeja sem apagar"
+        type: boolean
+        default: true
+
+permissions:
+  # Autoriza `gh cache delete`. É o único write deste workflow.
+  actions: write
+  # Checkout do script no ref do workflow.
+  contents: read
+  # Autoriza `GET /repos/{owner}/{repo}/pulls/{n}`, que é como o estado da PR é
+  # conferido. Sem ele o `gh api` responde 403, todo estado vira desconhecido e o
+  # evictor não apaga nada — um dry-run permanente que ainda pareceria verde.
+  pull-requests: read
+
+concurrency:
+  group: cache-cleanup
+  cancel-in-progress: false
+
+jobs:
+  evict:
+    name: Evict closed pull request caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.22.0"
+
+      - name: Evict closed pull request caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          # Agendado apaga; disparo manual nasce em dry-run e só apaga com o
+          # input desmarcado.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        run: |
+          args=(--limit 2000)
+          if [ "$DRY_RUN" != "true" ]; then
+            args+=(--apply)
+          fi
+          echo "dry_run=$DRY_RUN"
+          node scripts/cache-evictor.mjs "${args[@]}"
