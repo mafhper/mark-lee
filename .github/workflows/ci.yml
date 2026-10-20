@@ -147,6 +147,10 @@ jobs:
       - name: Cache Cargo
         uses: swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
+          # Só a `main` grava cache. Em PR a action continua RESTAURANDO, mas não SALVA,
+          # o que evita uma entrada por refs/pull/<n>/merge (~1.28 GiB cada) e o estouro
+          # dos 6 GiB do escopo. Versão do pin e `cache-on-failure` ficam como estavam.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: "./src-tauri -> target"
 
       - name: Cargo check
