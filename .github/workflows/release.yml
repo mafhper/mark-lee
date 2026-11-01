@@ -17,6 +17,15 @@ concurrency:
 jobs:
   release:
     uses: mafhper/release-core/.github/workflows/release.yml@v1.3.0
+    # A chave de assinatura do updater (ML-H06) é repassada **explicitamente**,
+    # e não por `secrets: inherit`: o job não precisa de nenhum outro segredo do
+    # repositório, e o mapa explícito diz no arquivo quais dois segredos o
+    # release consome. O Core os declara opcionais; sem eles, o passo de
+    # assinatura reprova alto — melhor do que publicar uma release que todo
+    # cliente instalado recusa.
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     with:
       # `expect` diz o que cada celula promete entregar. Os caminhos sao os
       # reais, conferidos no log da v1.7.0 - e o Core normaliza o separador,

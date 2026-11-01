@@ -100,6 +100,10 @@ export interface AppSettings {
   // `floatingToolbarAnchor`, que é quem posiciona a barra de verdade.
   chromeMode: 'unified';
   tabsEnabled: boolean;
+  /** Checagem de metadados na abertura. Desligada por padrão (opt-in); manter
+   *  desligada não deixa o app sem updater — o botão dos Ajustes continua
+   *  checando sob demanda. */
+  updaterAutoCheck: boolean;
   sidebarEnabled: boolean;
   sidebarWidth: number;
   // Terceiro estado do sidebar: expandido (false) |
@@ -210,6 +214,13 @@ export interface DocumentTab {
   origin?: "workspace" | "external" | "untitled";
   deletedExternally?: boolean;
   conflictedExternally?: boolean;
+  /**
+   * Quando este conteúdo foi para o cache de abas (`lastTabs`). Não é estado de
+   * produto: a recuperação de rascunho compara com o `savedAt` do rascunho
+   * durável para não adotar um texto mais velho do que o que já está no cache.
+   * Ausente em cache escrito por versão anterior — e aí o rascunho vence.
+   */
+  cachedAt?: number;
 }
 
 export interface WorkspaceState {

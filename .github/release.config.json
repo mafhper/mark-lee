@@ -33,6 +33,25 @@
     "enabled": true,
     "project_path": "."
   },
+  "updater": {
+    "enabled": true,
+    "channel": "stable",
+    "platforms": [
+      {
+        "id": "windows-x86_64",
+        "os": ["windows-latest"],
+        "sig": [
+          "src-tauri/target/release/bundle/nsis/*x64*setup.exe.sig",
+          "src-tauri/target/release/bundle/msi/*x64*.msi.sig"
+        ]
+      },
+      {
+        "id": "linux-x86_64",
+        "os": ["ubuntu-latest"],
+        "sig": ["src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig"]
+      }
+    ]
+  },
   "versions": {
     "files": [
       { "path": "package.json", "format": "json", "field": "version" },

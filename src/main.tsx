@@ -22,3 +22,19 @@ if (isDev && devHarness === "context-menu") {
     </React.StrictMode>,
   );
 }
+
+// H01 — instrumentação mínima de boot, sem efeito no comportamento.
+// input-ready: 1º rAF após o render — o root já commitou e os listeners do React estão
+// anexados, então o documento aceita interação. O mount do CodeMirror mora em App.tsx
+// (fora do escopo desta medição), logo este é o ponto decidível mais próximo daqui.
+// first-paint: 2º rAF — o frame anterior já foi pintado (aproximação usual de first paint).
+function markBoot(name: string) {
+  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+    performance.mark(name);
+  }
+}
+
+requestAnimationFrame(() => {
+  markBoot("mark-lee-first-input-ready");
+  requestAnimationFrame(() => markBoot("mark-lee-first-paint"));
+});

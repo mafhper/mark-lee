@@ -30,3 +30,15 @@ base64 = "0.23"
 notify = "8"
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+# Updater assinado (ML-H06): checagem e download no cliente; a instalação só
+# entra depois do preflight do `LifecycleCoordinator`.
+tauri-plugin-updater = "2"
+
+# Troca de destino no Windows: `ReplaceFileW` preserva ACL/atributos do arquivo
+# substituído, o que `std::fs::rename` não expõe.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+] }

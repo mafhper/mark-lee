@@ -72,6 +72,31 @@ jobs:
           npm run test:md-to-html
           npm run test:export-paths
           npm run test:smoke-github-api
+          # Persistencia de documentos: as suites existiam e passavam, mas nenhum
+          # job as executava. Fiadas no pipeline junto com os scripts npm.
+          npm run test:documents
+          npm run test:close-guard
+          npm run test:close-wiring
+          npm run test:autosave-scheduler
+          npm run test:lifecycle-coordinator
+          npm run test:lifecycle-wiring
+          npm run test:conflict-resolution
+          npm run test:conflict-wiring
+          npm run test:drafts
+          npm run test:draft-keeper
+          # Memórias no caminho comum de persistência (ML-H06): a fila por
+          # caminho, o registro de trabalho prometido do coordenador e a fiação
+          # de gravação do diário. Suites novas nasceram fiadas.
+          npm run test:serial-writes
+          npm run test:pending-work
+          npm run test:journal-lifecycle-wiring
+          npm run test:journal-persistence-wiring
+          # Updater (ML-H06): estados, consentimento do download, a trava da
+          # checagem de boot e a decisão de tela do cartão (bloqueador tipado,
+          # saída explícita de `installing`, cópia por plataforma). Suíte nova
+          # nasce fiada no pipeline.
+          npm run test:updater
+          npm run test:updater-card
 
       - name: Build web
         run: npm run build

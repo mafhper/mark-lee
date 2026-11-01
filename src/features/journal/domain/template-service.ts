@@ -1,4 +1,4 @@
-import { createWorkspaceDirectory, deleteWorkspacePath, listDir, readFile, writeFile } from "../../../services/filesystem";
+import { createWorkspaceDirectory, deleteWorkspacePath, listDir, readFile, atomicWriteText } from "../../../services/filesystem";
 import { readManifest, setTemplatePreferences } from "./manifest-service";
 
 export interface JournalTemplate {
@@ -144,7 +144,11 @@ export async function readTemplate(journalRoot: string, name: string): Promise<J
 export async function saveTemplate(journalRoot: string, name: string, body: string): Promise<void> {
   const dir = templatesDir(journalRoot);
   await createWorkspaceDirectory(dir);
-  await writeFile(templatePath(journalRoot, name), body);
+  // Rascunho de template é texto do usuário: grava pelo primitivo seguro, como a
+  // entrada e o manifesto (H05). `atomicWriteText` é o mesmo `safe_write` do
+  // backend — temporário único e troca sem remover o destino —, então a queda no
+  // meio da gravação deixa o arquivo anterior inteiro em vez de um pedaço dele.
+  await atomicWriteText(templatePath(journalRoot, name), body);
 }
 
 export async function deleteTemplate(journalRoot: string, name: string): Promise<void> {

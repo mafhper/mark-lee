@@ -18,6 +18,9 @@
     "window-state:default",
     "fs:default",
     "fs:allow-write-file",
+    "updater:allow-check",
+    "updater:allow-download",
+    "updater:allow-install",
     {
       "identifier": "fs:scope",
       "allow": [
