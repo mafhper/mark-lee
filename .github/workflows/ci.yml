@@ -72,6 +72,18 @@ jobs:
           npm run test:md-to-html
           npm run test:export-paths
           npm run test:smoke-github-api
+          # Persistencia de documentos: as suites existiam e passavam, mas nenhum
+          # job as executava. Fiadas no pipeline junto com os scripts npm.
+          npm run test:documents
+          npm run test:close-guard
+          npm run test:close-wiring
+          npm run test:autosave-scheduler
+          npm run test:lifecycle-coordinator
+          npm run test:lifecycle-wiring
+          npm run test:conflict-resolution
+          npm run test:conflict-wiring
+          npm run test:drafts
+          npm run test:draft-keeper
 
       - name: Build web
         run: npm run build
