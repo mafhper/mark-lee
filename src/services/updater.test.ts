@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { LifecycleBlocker, RestartVerdict } from "../app/documents/lifecycleCoordinator.ts";
 import {
   BOOT_CHECK_DELAY_MS,
   CHECK_TIMEOUT_MS,
@@ -8,6 +9,7 @@ import {
   createUpdaterService,
   type CheckedUpdate,
   type UpdaterClient,
+  type UpdaterPlatform,
   type UpdaterState,
 } from "./updater.ts";
 
@@ -31,6 +33,9 @@ interface FakeCalls {
   download: Array<{ update: CheckedUpdate; timeout: number }>;
   close: CheckedUpdate[];
   install: CheckedUpdate[];
+  /** Relançamentos, cada um com o número de instalações já feitas — assim o
+   *  teste prova também a **ordem**, e não só a contagem. */
+  relaunch: number[];
 }
 
 function createFakeClient(options: {
@@ -38,9 +43,10 @@ function createFakeClient(options: {
   checkError?: () => Error;
   downloadError?: () => Error;
   installError?: () => Error;
+  relaunchError?: () => Error;
   onDownload?: (emit: (progress: { receivedBytes: number; totalBytes: number | null }) => void) => void;
 } = {}) {
-  const calls: FakeCalls = { check: [], download: [], close: [], install: [] };
+  const calls: FakeCalls = { check: [], download: [], close: [], install: [], relaunch: [] };
 
   const client: UpdaterClient = {
     async check({ timeout }) {
@@ -60,14 +66,32 @@ function createFakeClient(options: {
       calls.install.push(update);
       if (options.installError) throw options.installError();
     },
+    async relaunch() {
+      calls.relaunch.push(calls.install.length);
+      if (options.relaunchError) throw options.relaunchError();
+    },
   };
 
   return { client, calls };
 }
 
+/** O caso comum: o coordenador liberou o reinício. */
+function allowed(): RestartVerdict {
+  return { allowed: true, blocker: null, released: [], kept: [] };
+}
+
+/** O caso de recusa, com o motivo que o coordenador daria. */
+function refused(blocker: LifecycleBlocker): RestartVerdict {
+  return { allowed: false, blocker, released: [], kept: [] };
+}
+
 function createHarness(
   clientOptions: Parameters<typeof createFakeClient>[0] = {},
-  overrides: { supported?: () => boolean; online?: () => boolean } = {}
+  overrides: {
+    supported?: () => boolean;
+    online?: () => boolean;
+    platform?: () => UpdaterPlatform;
+  } = {}
 ) {
   const { client, calls } = createFakeClient(clientOptions);
   const statuses: string[] = [];
@@ -76,6 +100,9 @@ function createHarness(
     client,
     supported: overrides.supported ?? (() => true),
     online: overrides.online ?? (() => true),
+    // O host de teste não é o host de produção: a decisão de relançar é
+    // explícita em cada caso, e o padrão aqui é o caminho de macOS/Linux.
+    platform: overrides.platform ?? (() => "unix"),
     now: () => clock,
   });
   service.subscribe((state) => {
@@ -147,9 +174,9 @@ test("instalar fora do estado ready não chega ao cliente nem com preflight perm
   // seria instalar um binário que ninguém mandou baixar.
   const harness = createHarness({ checkResult: () => update });
   let preflights = 0;
-  const permissive = async () => {
+  const permissive = async (): Promise<RestartVerdict> => {
     preflights += 1;
-    return { allowed: true };
+    return allowed();
   };
 
   await harness.service.check();
@@ -206,20 +233,20 @@ test("preflight que recusa não instala e deixa o pacote pronto para outra tenta
   await harness.service.download();
   assert.equal(harness.state().status, "ready");
 
-  const refused = await harness.service.install(async () => ({ allowed: false, blocker: "cancelled" }));
+  const recused = await harness.service.install(async () => refused("cancelled"));
 
-  assert.equal(refused.installed, false);
-  assert.equal(refused.blocker, "preflight-refused");
+  assert.equal(recused.installed, false);
+  assert.equal(recused.blocker, "preflight-refused");
   assert.equal(harness.calls.install.length, 0);
   assert.equal(harness.state().status, "ready");
   assert.equal(harness.state().installBlocker, "cancelled");
 
-  const second = await harness.service.install(async () => ({ allowed: true }));
+  const second = await harness.service.install(async () => allowed());
   assert.equal(second.installed, true);
   assert.equal(harness.calls.install.length, 1, "a recusa consumiu a tentativa em vez da atualização");
 });
 
-test("preflight que estoura conta como recusa", async () => {
+test("preflight que estoura conta como recusa e registra um código, não a mensagem crua", async () => {
   const harness = createHarness({ checkResult: () => update });
   await harness.service.check();
   await harness.service.download();
@@ -231,6 +258,8 @@ test("preflight que estoura conta como recusa", async () => {
   assert.equal(outcome.blocker, "preflight-refused");
   assert.equal(harness.calls.install.length, 0);
   assert.equal(harness.state().status, "ready", "um preflight quebrado encerrou a atualização");
+  // A mensagem da exceção não é traduzível: o que atravessa é o código.
+  assert.equal(harness.state().installBlocker, "preflight-failed");
 });
 
 test("com os dois portões abertos, o preflight roda antes da instalação", async () => {
@@ -242,14 +271,15 @@ test("com os dois portões abertos, o preflight roda antes da instalação", asy
 
   const outcome = await harness.service.install(async () => {
     events.push(`preflight:${harness.state().status}`);
-    return { allowed: true };
+    return allowed();
   });
   events.push(`install:${original.length}`);
 
   assert.equal(outcome.installed, true);
   assert.deepEqual(events, ["preflight:ready", "install:1"], "instalou antes de perguntar se podia");
   assert.deepEqual(harness.calls.install, [update]);
-  assert.equal(harness.state().status, "installing");
+  assert.ok(harness.statuses.includes("installing"), "a tela nunca mostrou que estava instalando");
+  assert.equal(harness.state().status, "installed");
 });
 
 test("instalação que falha vira error de instalação e aceita nova tentativa", async () => {
@@ -259,11 +289,17 @@ test("instalação que falha vira error de instalação e aceita nova tentativa"
     calls.install.push(target);
     if (fail) throw new Error("o instalador não abriu");
   };
-  const service = createUpdaterService({ client, supported: () => true, online: () => true, now: () => 0 });
+  const service = createUpdaterService({
+    client,
+    supported: () => true,
+    online: () => true,
+    platform: () => "unix",
+    now: () => 0,
+  });
 
   await service.check();
   await service.download();
-  const first = await service.install(async () => ({ allowed: true }));
+  const first = await service.install(async () => allowed());
 
   assert.equal(first.installed, false);
   assert.equal(first.blocker, "install-failed");
@@ -271,9 +307,40 @@ test("instalação que falha vira error de instalação e aceita nova tentativa"
   assert.equal(service.getState().error?.code, "install-failed");
 
   fail = false;
-  const second = await service.install(async () => ({ allowed: true }));
+  const second = await service.install(async () => allowed());
   assert.equal(second.installed, true);
   assert.equal(calls.install.length, 2);
+});
+
+test("a retentativa de instalação limpa o erro da tentativa anterior", async () => {
+  // A tela oferece "Tentar instalar de novo" depois de `install-failed`. Se a
+  // nova tentativa for recusada no preflight, o erro velho não pode continuar
+  // ali: ele descreve a tentativa passada, e a tela passaria a culpar a falha
+  // antiga por uma recusa nova — que é coisa diferente (nada falhou).
+  const { client, calls } = createFakeClient({ checkResult: () => update });
+  client.install = async (target) => {
+    calls.install.push(target);
+    throw new Error("o instalador não abriu");
+  };
+  const service = createUpdaterService({
+    client,
+    supported: () => true,
+    online: () => true,
+    platform: () => "unix",
+    now: () => 0,
+  });
+
+  await service.check();
+  await service.download();
+  await service.install(async () => allowed());
+  assert.equal(service.getState().error?.message, "o instalador não abriu");
+
+  const recused = await service.install(async () => refused("pending_flush_failed"));
+
+  assert.equal(recused.blocker, "preflight-refused");
+  assert.equal(service.getState().error, null, "o erro da tentativa passada ficou na tela");
+  assert.equal(service.getState().status, "ready", "a recusa apareceu em cima de uma falha que já passou");
+  assert.equal(service.getState().installBlocker, "pending_flush_failed");
 });
 
 test("clicar Instalar duas vezes não instala duas vezes", async () => {
@@ -281,7 +348,7 @@ test("clicar Instalar duas vezes não instala duas vezes", async () => {
   await harness.service.check();
   await harness.service.download();
 
-  const preflight = async () => ({ allowed: true });
+  const preflight = async () => allowed();
   const [first, second] = await Promise.all([
     harness.service.install(preflight),
     harness.service.install(preflight),
@@ -290,13 +357,64 @@ test("clicar Instalar duas vezes não instala duas vezes", async () => {
   assert.equal(first.installed, true);
   assert.equal(second.installed, true);
   assert.equal(harness.calls.install.length, 1, "o segundo clique lançou outro instalador");
+  assert.deepEqual(harness.calls.relaunch, [1], "o segundo clique relançou o app de novo");
+});
+
+test("fora do Windows, a instalação que resolve devolve o app pelo relaunch", async () => {
+  // Em macOS/Linux `install()` **resolve**: o pacote no disco já é o novo e o
+  // processo em memória é o antigo. Sem `relaunch()` o app seguiria rodando o
+  // código velho dizendo ter instalado o novo — e o estado ficaria em
+  // `installing` para sempre.
+  const harness = createHarness({ checkResult: () => update }, { platform: () => "unix" });
+  await harness.service.check();
+  await harness.service.download();
+
+  const outcome = await harness.service.install(async () => allowed());
+
+  assert.equal(outcome.installed, true);
+  assert.deepEqual(harness.calls.relaunch, [1], "relançou antes de instalar, ou não relançou");
+  assert.equal(harness.state().status, "installed");
+  assert.equal(harness.state().error, null);
+});
+
+test("no Windows quem reinicia é o instalador: o serviço não relança", async () => {
+  // Se `install()` resolver no Windows, o instalador voltou sem levar o
+  // processo. Chamar `relaunch()` ali subiria uma segunda instância; o registro
+  // correto é `installed` com a instrução de abrir de novo.
+  const harness = createHarness({ checkResult: () => update }, { platform: () => "windows" });
+  await harness.service.check();
+  await harness.service.download();
+
+  const outcome = await harness.service.install(async () => allowed());
+
+  assert.equal(outcome.installed, true);
+  assert.deepEqual(harness.calls.relaunch, [], "relançou o app por cima do instalador");
+  assert.equal(harness.state().status, "installed");
+});
+
+test("relançamento que falha não deixa a tela presa em installing", async () => {
+  const harness = createHarness(
+    { checkResult: () => update, relaunchError: () => new Error("plugin process indisponível") },
+    { platform: () => "unix" }
+  );
+
+  await harness.service.check();
+  await harness.service.download();
+  const outcome = await harness.service.install(async () => allowed());
+
+  // A instalação **aconteceu**: o que falhou foi voltar. O veredito é `installed`
+  // com a razão ao lado, e não `install-failed` — ninguém desfaria a instalação.
+  assert.equal(outcome.installed, true);
+  assert.equal(harness.state().status, "installed");
+  assert.equal(harness.state().error?.code, "relaunch-failed");
+  assert.equal(harness.state().error?.message, "plugin process indisponível");
 });
 
 test("instalar sem ter baixado não instala, mesmo com preflight permissivo", async () => {
   const harness = createHarness({ checkResult: () => update });
   await harness.service.check();
 
-  const outcome = await harness.service.install(async () => ({ allowed: true }));
+  const outcome = await harness.service.install(async () => allowed());
 
   assert.equal(outcome.blocker, "not-consented");
   assert.equal(harness.calls.install.length, 0);
@@ -337,6 +455,7 @@ test("cancelar a checagem descarta o resultado tardio", async () => {
       check: async () => pending,
       download: async () => {},
       close: async () => {},
+      relaunch: async () => {},
     },
     supported: () => true,
     online: () => true,

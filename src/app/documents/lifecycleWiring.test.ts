@@ -110,6 +110,21 @@ test("instalar atualização pede licença ao coordenador antes de instalar", ()
   );
 });
 
+test("o cartão mostra a recusa onde a instalação pode ser tentada de novo", () => {
+  /* A condição deixou de ser `status === "ready"`: uma recusa do preflight na
+     **retentativa** acontece em `error`/`install-failed`, e ali ela ficava
+     invisível. A decisão mora em `updaterCard.ts` (e tem teste próprio, porque
+     JSX não roda no runner deste projeto); aqui se prova que o cartão a usa em
+     vez de decidir sozinho. */
+  const cartao = cartaoUpdater
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  assert.match(cartao, /showsInstallBlocker\(state\)/, "o cartão não usa a condição do bloqueador");
+  assert.match(cartao, /describeBlocker\(state\.installBlocker, tr\)/, "o cartão não traduz o código da recusa");
+  assert.match(cartao, /describeInstalling\(state, tr\)/, "a promessa de instalação deixou de saber a plataforma");
+});
+
 test("fechar abas entra no coordenador, e não em `runClose` solto", () => {
   const fechar = bloco("closeTabs");
   assert.ok(fechar, "closeTabs não existe mais em App.tsx");

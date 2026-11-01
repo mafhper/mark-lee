@@ -70,8 +70,14 @@ export interface LifecycleResult {
  * foi aplicado. `allowed` diz só se o app pode ser encerrado agora — e quem
  * encerra é quem pediu (o updater, ao instalar). `blocker` repete o motivo de
  * `LifecycleBlocker` para que a tela possa dizer por que não deu.
+ *
+ * **Um nome por conceito:** isto é o **veredito** (dado). A **pré-autorização**
+ * (a função que o produz e que o updater recebe) chama-se `RestartPreflight`,
+ * em `services/updater.ts`. Antes os dois se chamavam `RestartPreflight`, e um
+ * nome só para duas coisas é o começo de alguém passar a função onde se espera
+ * o dado.
  */
-export interface RestartPreflight {
+export interface RestartVerdict {
   allowed: boolean;
   blocker: LifecycleBlocker | null;
   /** Documentos que a guarda liberou (gravados ou descartados com decisão). */
@@ -125,7 +131,7 @@ export interface DocumentLifecycleCoordinator<T extends LifecycleCandidate> {
    * instalação de atualização: no Windows o instalador pode encerrar o app por
    * conta própria, então perguntar depois seria tarde.
    */
-  prepareForRestart(): Promise<RestartPreflight>;
+  prepareForRestart(): Promise<RestartVerdict>;
   /** Apagar/mover `target`: não passa por cima de buffer sujo de dentro dele. */
   requestDestructive(target: string, proceed: () => void | Promise<void>): Promise<LifecycleResult>;
 }

@@ -3,6 +3,13 @@ import { AlertTriangle, CheckCircle2, DownloadCloud, Loader2, Power, RefreshCw, 
 import { UPDATER_CHANNEL, type RestartPreflight, type UpdaterState } from "../../services/updater";
 import type { Language } from "../../types";
 import { useUpdater } from "../hooks/useUpdater";
+import {
+  describeBlocker,
+  describeInstalled,
+  describeInstalling,
+  showsInstallBlocker,
+  type Tr,
+} from "./updaterCard";
 
 /**
  * O cartão de atualização dos Ajustes.
@@ -24,6 +31,11 @@ import { useUpdater } from "../hooks/useUpdater";
  * glifo: os temas do app vão de claro a escuro, e uma cor fixa de texto legível
  * em um é ilegível no outro. Quem lê o pill lê a palavra ("Disponível",
  * "Falha"); a cor acelera, não carrega o significado.
+ *
+ * **A cópia sabe a plataforma.** No Windows o instalador encerra o app e abre a
+ * versão nova; no macOS/Linux o pacote é trocado no disco e o app volta pelo
+ * `relaunch()`. As frases de `installing` e `installed` refletem isso, e a
+ * decisão de qual usar mora em `updaterCard.ts` — onde é testável sem JSX.
  */
 
 type Props = {
@@ -52,8 +64,7 @@ function formatBytes(bytes: number): string {
 
 export default function UpdaterStatusCard({ language, accentHex, prepareRestart }: Props) {
   const { state, check, download, install, cancel } = useUpdater();
-  const tr = (pt: string, en: string, es: string) =>
-    language === "en-US" ? en : language === "es-ES" ? es : pt;
+  const tr: Tr = (pt, en, es) => (language === "en-US" ? en : language === "es-ES" ? es : pt);
 
   const currentVersion = state.currentVersion ?? __APP_VERSION__;
   const percent =
@@ -137,17 +148,18 @@ export default function UpdaterStatusCard({ language, accentHex, prepareRestart 
         </p>
       ) : null}
 
-      {state.status === "installing" ? (
-        <p className="text-xs opacity-80">
-          {tr(
-            "Instalando. O app vai fechar e voltar sozinho.",
-            "Installing. The app will close and come back on its own.",
-            "Instalando. La app se cerrará y volverá sola."
-          )}
-        </p>
+      {state.status === "installing" ? <p className="text-xs opacity-80">{describeInstalling(state, tr)}</p> : null}
+
+      {state.status === "installed" ? (
+        <div className="space-y-1">
+          <p className="text-xs opacity-80">{describeInstalled(state, tr)}</p>
+          {state.error?.code === "relaunch-failed" ? (
+            <p className="break-words text-xs opacity-60">{state.error.message}</p>
+          ) : null}
+        </div>
       ) : null}
 
-      {state.status === "ready" && state.installBlocker ? (
+      {showsInstallBlocker(state) && state.installBlocker ? (
         <p className="flex items-start gap-1.5 text-xs" role="status" aria-live="polite">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
           <span className="min-w-0 break-words opacity-85">
@@ -291,44 +303,15 @@ export default function UpdaterStatusCard({ language, accentHex, prepareRestart 
 }
 
 /**
- * Por que o reinício não foi autorizado, em linguagem de tela.
+ * O rótulo, o tom e o glifo do pill — a forma do status.
  *
- * Os códigos vêm do coordenador de ciclo de vida (`LifecycleBlocker`), e o
- * cartão não os interpreta: só traduz. Um código novo cai no texto genérico, que
- * continua sendo verdade — o app não vai reiniciar agora.
+ * O **texto do bloqueador** e as promessas de instalação moram em
+ * `updaterCard.ts`; aqui fica o que precisa de componente (ícone do
+ * `lucide-react`).
  */
-function describeBlocker(blocker: string, tr: (pt: string, en: string, es: string) => string): string {
-  switch (blocker) {
-    case "cancelled":
-      return tr(
-        "Reinício cancelado.",
-        "Restart cancelled.",
-        "Reinicio cancelado."
-      );
-    case "not_released":
-      return tr(
-        "Um documento não terminou de ser gravado.",
-        "A document could not finish saving.",
-        "Un documento no terminó de guardarse."
-      );
-    case "pending_flush_failed":
-      return tr(
-        "Uma alteração prometida não chegou ao disco.",
-        "A promised change did not reach disk.",
-        "Un cambio prometido no llegó al disco."
-      );
-    default:
-      return tr(
-        "A sessão não pôde ser preparada para reiniciar.",
-        "The session could not be prepared to restart.",
-        "La sesión no pudo prepararse para reiniciar."
-      );
-  }
-}
-
 function describeStatus(
   state: UpdaterState,
-  tr: (pt: string, en: string, es: string) => string,
+  tr: Tr,
   percent: number | null
 ): { label: string; tone: Tone; icon: typeof CheckCircle2; spin?: boolean } {
   switch (state.status) {
@@ -364,6 +347,12 @@ function describeStatus(
         tone: "warning",
         icon: Loader2,
         spin: true,
+      };
+    case "installed":
+      return {
+        label: tr("Instalada", "Installed", "Instalada"),
+        tone: "positive",
+        icon: CheckCircle2,
       };
     case "offline":
       return {

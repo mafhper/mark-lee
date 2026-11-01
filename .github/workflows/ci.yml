@@ -91,9 +91,12 @@ jobs:
           npm run test:pending-work
           npm run test:journal-lifecycle-wiring
           npm run test:journal-persistence-wiring
-          # Updater (ML-H06): estados, consentimento do download e a trava da
-          # checagem de boot. Suite nova nasce fiada no pipeline.
+          # Updater (ML-H06): estados, consentimento do download, a trava da
+          # checagem de boot e a decisão de tela do cartão (bloqueador tipado,
+          # saída explícita de `installing`, cópia por plataforma). Suíte nova
+          # nasce fiada no pipeline.
           npm run test:updater
+          npm run test:updater-card
 
       - name: Build web
         run: npm run build

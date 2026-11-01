@@ -1,3 +1,4 @@
+import type { LifecycleBlocker, RestartVerdict } from "../app/documents/lifecycleCoordinator.ts";
 import { isTauriRuntime } from "./runtime.ts";
 
 /**
@@ -6,7 +7,7 @@ import { isTauriRuntime } from "./runtime.ts";
  * **Por que existe:** o app não tinha updater nenhum: quem já instalou o
  * Mark-Lee dependia de baixar o instalador à mão. O plano ML-H06 pede a
  * máquina de estados completa e a instalação atrás de consentimento; aqui estão
- * `idle → checking → available → downloading → ready → installing`
+ * `idle → checking → available → downloading → ready → installing → installed`
  * (mais `cancelled`, `offline`, `unsupported-platform` e `error`).
  *
  * **O que este módulo não sabe:** React, DOM e a forma da tela. Ele expõe um
@@ -14,7 +15,7 @@ import { isTauriRuntime } from "./runtime.ts";
  * Quem fala com o plugin é o `UpdaterClient` injetado — e é por essa porta que
  * os testes provam as regras sem tocar em Tauri.
  *
- * **As quatro regras que sustentam o desenho:**
+ * **As cinco regras que sustentam o desenho:**
  *
  * 1. **Baixar exige consentimento.** `download()` só age no estado `available`.
  *    Não existe caminho de download automático: o boot faz *uma* checagem de
@@ -32,6 +33,11 @@ import { isTauriRuntime } from "./runtime.ts";
  * 4. **Cancelar é definitivo para aquela checagem.** O resultado tardio é
  *    descartado por geração, senão a tela oferece baixar o que a pessoa
  *    acabou de dispensar.
+ * 5. **`installing` tem saída em todos os SOs.** No Windows o processo morre no
+ *    meio — o instalador encerra o app —, mas em macOS/Linux a promessa de
+ *    `install()` **resolve** e o processo segue rodando o binário antigo: quem
+ *    o troca é `relaunch()`. Se o relançamento falhar, a tela diz para abrir de
+ *    novo; ela nunca fica girando em `installing`.
  */
 
 /** Canal do feed. O Core publica `latest.json` no stable e `latest-beta.json` no
@@ -61,15 +67,44 @@ export type UpdaterStatus =
   | "downloading"
   | "ready"
   | "installing"
+  | "installed"
   | "cancelled"
   | "offline"
   | "unsupported-platform"
   | "error";
 
-export type UpdaterErrorCode = "check-failed" | "download-failed" | "install-failed";
+export type UpdaterErrorCode =
+  | "check-failed"
+  | "download-failed"
+  | "install-failed"
+  /** O pacote foi aplicado, mas o app não conseguiu voltar sozinho. */
+  | "relaunch-failed";
+
+/**
+ * Onde o app roda — e, com isso, **quem o traz de volta** depois de instalar.
+ *
+ * No Windows quem sobe a versão nova é o instalador: `install()` não resolve,
+ * porque o processo é encerrado. No macOS e no Linux o pacote é trocado no
+ * disco e a promessa resolve; o processo em memória continua o antigo, e quem o
+ * substitui é `relaunch()`.
+ */
+export type UpdaterPlatform = "windows" | "unix";
+
+/**
+ * Por que a última instalação **não começou**.
+ *
+ * Os motivos do coordenador vêm do tipo dele, e não de uma cópia local: ele é o
+ * dono do vocabulário, e uma segunda lista divergiria em silêncio. O único
+ * código que nasce aqui é `preflight-failed` — o preflight não deu veredito
+ * (estourou, ou recusou sem dizer por quê). Antes isto era `string` com a
+ * mensagem crua da exceção, que a tela não tinha como traduzir.
+ */
+export type InstallBlocker = LifecycleBlocker | "preflight-failed";
 
 export interface UpdaterState {
   status: UpdaterStatus;
+  /** Plataforma resolvida na criação do serviço: a tela diz quem reinicia. */
+  platform: UpdaterPlatform;
   /** Versão instalada, como o feed a reportou. `null` antes da primeira checagem. */
   currentVersion: string | null;
   /** Versão anunciada pelo feed. `null` fora de `available`/`downloading`/`ready`. */
@@ -85,7 +120,7 @@ export interface UpdaterState {
    * falhou — a sessão não estava pronta para encerrar. `null` quando não houve
    * recusa (ou quando a instalação foi autorizada).
    */
-  installBlocker: string | null;
+  installBlocker: InstallBlocker | null;
 }
 
 /** O que o feed anunciou e o que o cliente precisa guardar para baixar. */
@@ -106,6 +141,9 @@ export interface UpdaterClient {
   /** Instala o pacote **já baixado**. No Windows isto encerra o app depois de
    *  lançar o instalador — é por isso que a chamada é gated. */
   install(update: CheckedUpdate): Promise<void>;
+  /** Sobe o app de novo depois de uma instalação que **resolveu**. É o caminho
+   *  de macOS/Linux; no Windows quem reinicia é o instalador. */
+  relaunch(): Promise<void>;
   /** Solta o recurso do plugin quando a atualização é dispensada sem instalar. */
   close(update: CheckedUpdate): Promise<void>;
 }
@@ -113,19 +151,13 @@ export interface UpdaterClient {
 /**
  * O veredito de quem sabe se a sessão pode ser encerrada **agora**.
  *
- * `blocker` é opaco para o updater: quem responde é o coordenador de ciclo de
- * vida, com o motivo dele (`cancelled`, `not_released`, `pending_flush_failed`),
- * e a tela traduz. O updater só olha `allowed`.
- */
-export interface RestartVerdict {
-  allowed: boolean;
-  blocker?: string | null;
-}
-
-/**
- * A pré-autorização de reinício. Em produção é
- * `LifecycleCoordinator.prepareForRestart()`; nos testes é uma função que
- * devolve o veredito que o caso precisa.
+ * O tipo é do coordenador de ciclo de vida (`RestartVerdict`): ele é quem
+ * responde, e o updater só olha `allowed`. O `blocker` dele é tipado
+ * (`LifecycleBlocker`), e é esse vocabulário que a tela traduz — não há
+ * mensagem crua atravessando a fronteira.
+ *
+ * **Um nome por conceito:** a **função** que produz o veredito chama-se
+ * `RestartPreflight`; o **dado** chama-se `RestartVerdict`.
  */
 export type RestartPreflight = () => Promise<RestartVerdict>;
 
@@ -142,6 +174,9 @@ export interface UpdaterServiceOptions {
   supported?: () => boolean;
   online?: () => boolean;
   now?: () => number;
+  /** Plataforma detectada. Injetável porque a decisão de relançar depende dela
+   *  e o teste roda num host só. */
+  platform?: () => UpdaterPlatform;
   /** Agendador injetável: os testes controlam quando a checagem de boot dispara. */
   schedule?: (task: () => void, delayMs: number) => () => void;
 }
@@ -167,9 +202,10 @@ export interface UpdaterService {
   scheduleBootCheck(delayMs?: number): () => void;
 }
 
-function initialState(): UpdaterState {
+function initialState(platform: UpdaterPlatform): UpdaterState {
   return {
     status: "idle",
+    platform,
     currentVersion: null,
     version: null,
     notes: null,
@@ -197,6 +233,16 @@ function isTransportFailure(message: string): boolean {
 function defaultSchedule(task: () => void, delayMs: number): () => void {
   const id = setTimeout(task, delayMs);
   return () => clearTimeout(id);
+}
+
+/** A plataforma do WebView. `navigator.userAgent` a informa nos três motores que
+ *  o Tauri usa no desktop (WebView2 "Windows NT", WKWebView "Macintosh",
+ *  WebKitGTK "Linux"), e o updater só precisa de uma pergunta binária: quem
+ *  reinicia. Não há `tauri-plugin-os` nesta instalação, e um plugin novo por
+ *  causa de uma expressão regular seria dependência a mais para pagar. */
+function detectPlatform(): UpdaterPlatform {
+  if (typeof navigator === "undefined") return "unix";
+  return /Windows/i.test(navigator.userAgent) ? "windows" : "unix";
 }
 
 /** Cliente real: fala com `tauri-plugin-updater` por `import()` dinâmico, para
@@ -251,9 +297,13 @@ function createTauriClient(): UpdaterClient {
         throw new Error("Atualização sem handle: faça a checagem antes de instalar.");
       }
       // No Windows esta promessa não resolve: o plugin lança o instalador e
-      // encerra o processo. Em macOS/Linux ela resolve e o app precisa subir de
-      // novo — o estado `installing` já foi emitido antes.
+      // encerra o processo. Em macOS/Linux ela resolve — e quem sobe o app de
+      // novo é o `relaunch()` abaixo, chamado pelo serviço.
       await handle.install();
+    },
+    async relaunch() {
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
     },
   };
 }
@@ -263,10 +313,11 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
   const supported = options.supported ?? (() => isTauriRuntime());
   const online = options.online ?? (() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
   const now = options.now ?? (() => Date.now());
+  const platform = options.platform ?? detectPlatform;
   const schedule = options.schedule ?? defaultSchedule;
 
   const listeners = new Set<(state: UpdaterState) => void>();
-  let current = initialState();
+  let current = initialState(platform());
   let announced: CheckedUpdate | null = null;
   let inFlight: Promise<void> | null = null;
   let downloadInFlight: Promise<void> | null = null;
@@ -295,7 +346,8 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
     if (
       current.status === "downloading" ||
       current.status === "ready" ||
-      current.status === "installing"
+      current.status === "installing" ||
+      current.status === "installed"
     ) {
       return;
     }
@@ -307,7 +359,7 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
     }
 
     if (!supported()) {
-      emit({ ...initialState(), status: "unsupported-platform", checkedAt: now() });
+      emit({ ...initialState(platform()), status: "unsupported-platform", checkedAt: now() });
       return;
     }
     if (!online()) {
@@ -424,6 +476,11 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
    * **Portão 2 — preflight.** Consultar depois seria tarde: no Windows o
    * instalador pode encerrar o app por conta própria. Enquanto o veredito é
    * `allowed`, a atualização fica onde estava — recusar não custa o download.
+   *
+   * **Todos os caminhos terminam fora de `installing`.** Em macOS/Linux a
+   * instalação resolve e o app precisa voltar pelo `relaunch()`; se ele falhar,
+   * o estado vai para `installed` com `relaunch-failed`, e a tela manda abrir de
+   * novo.
    */
   async function install(preflight: RestartPreflight): Promise<InstallOutcome> {
     if (installInFlight) return installInFlight;
@@ -435,28 +492,36 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
 
     const target = announced;
 
+    /* A retentativa começa limpa. O erro anterior descrevia a tentativa passada;
+       mantê-lo faria a recusa nova aparecer em cima da falha velha. O pacote
+       continua baixado, então `ready` é o estado verdadeiro enquanto o preflight
+       roda. A limpeza acontece antes da promessa, para que a tela nunca observe
+       o estado novo misturado com o antigo. */
+    if (retrying) emit({ status: "ready", error: null, installBlocker: null });
+
     installInFlight = (async (): Promise<InstallOutcome> => {
       try {
         let verdict: RestartVerdict;
         try {
           verdict = await preflight();
-        } catch (error) {
+        } catch {
           // Preflight que estoura não é licença. Fail closed: sem veredito, não
-          // instala — e a razão fica visível em vez de sumir num console.
-          emit({ installBlocker: messageOf(error) });
+          // instala. O motivo vira código (`preflight-failed`) — a mensagem da
+          // exceção não é traduzível e não atravessa a fronteira da tela.
+          emit({ installBlocker: "preflight-failed" });
           return { installed: false, blocker: "preflight-refused" };
         }
         if (!verdict.allowed) {
           // `cancelled` é o motivo mais comum (a pessoa desistiu na guarda), mas
-          // o serviço não interpreta: repassa o que o coordenador disse.
-          emit({ installBlocker: verdict.blocker ?? "cancelled" });
+          // o serviço não interpreta: repassa o código que o coordenador deu.
+          emit({ installBlocker: verdict.blocker ?? "preflight-failed" });
           return { installed: false, blocker: "preflight-refused" };
         }
 
         emit({ status: "installing", installBlocker: null, error: null });
+
         try {
           await client.install(target);
-          return { installed: true, blocker: null };
         } catch (error) {
           // No Windows este caminho é raro (o app já morreu); em macOS/Linux é o
           // normal quando o instalador falha. A atualização continua baixada.
@@ -466,6 +531,27 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
           });
           return { installed: false, blocker: "install-failed" };
         }
+
+        /* A instalação **resolveu** — fora do Windows isso é o normal: o binário
+           do disco já é o novo e o processo em memória, não. Quem troca o
+           processo é `relaunch()`; sem ele o app seguiria rodando o código
+           antigo dizendo ter instalado o novo. No Windows quem reinicia é o
+           instalador, e chegar aqui significa que ele voltou sem levar o
+           processo: relançar seria subir uma segunda instância. */
+        try {
+          if (platform() === "unix") await client.relaunch();
+        } catch (error) {
+          // O pacote está instalado; o que falhou foi voltar. A tela precisa
+          // dizer isso em vez de girar para sempre em `installing`.
+          emit({
+            status: "installed",
+            error: { code: "relaunch-failed", message: messageOf(error) },
+          });
+          return { installed: true, blocker: null };
+        }
+
+        emit({ status: "installed" });
+        return { installed: true, blocker: null };
       } finally {
         /* A trava é do pedido inteiro, e não só do `client.install`: uma recusa
            no preflight também precisa soltá-la, senão a primeira recusa

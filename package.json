@@ -42,6 +42,7 @@
     "test:close-wiring": "node --experimental-strip-types --test src/app/tabs/closeWiring.test.ts",
     "test:autosave-scheduler": "node --experimental-strip-types --test src/app/documents/autosaveScheduler.test.ts",
     "test:updater": "node --experimental-strip-types --test src/services/updater.test.ts",
+    "test:updater-card": "node --experimental-strip-types --test src/app/components/updaterCard.test.ts",
     "test:lifecycle-coordinator": "node --experimental-strip-types --test src/app/documents/lifecycleCoordinator.test.ts",
     "test:lifecycle-wiring": "node --experimental-strip-types --test src/app/documents/lifecycleWiring.test.ts",
     "test:conflict-resolution": "node --experimental-strip-types --test src/app/documents/conflictResolution.test.ts",
