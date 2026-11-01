@@ -100,8 +100,9 @@ export interface AppSettings {
   // `floatingToolbarAnchor`, que é quem posiciona a barra de verdade.
   chromeMode: 'unified';
   tabsEnabled: boolean;
-  /** Checagem de metadados na abertura. Ligada por padrão; desligar não deixa
-   *  o app sem updater — o botão dos Ajustes continua checando sob demanda. */
+  /** Checagem de metadados na abertura. Desligada por padrão (opt-in); manter
+   *  desligada não deixa o app sem updater — o botão dos Ajustes continua
+   *  checando sob demanda. */
   updaterAutoCheck: boolean;
   sidebarEnabled: boolean;
   sidebarWidth: number;
