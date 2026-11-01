@@ -30,3 +30,12 @@ base64 = "0.23"
 notify = "8"
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+
+# Troca de destino no Windows: `ReplaceFileW` preserva ACL/atributos do arquivo
+# substituído, o que `std::fs::rename` não expõe.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+] }

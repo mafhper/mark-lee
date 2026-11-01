@@ -1,4 +1,5 @@
 mod commands;
+pub mod documents;
 mod watcher;
 
 use serde::Serialize;
