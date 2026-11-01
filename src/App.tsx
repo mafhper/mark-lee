@@ -107,7 +107,14 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
-import { nextActiveId, runClose, type CloseCandidate, type CloseDecision } from "./app/tabs/closeGuard";
+import { nextActiveId, type CloseCandidate, type CloseDecision } from "./app/tabs/closeGuard";
+import { createDocumentLifecycleCoordinator } from "./app/documents/lifecycleCoordinator";
+import {
+  createDocumentAutosaveScheduler,
+  type AutosaveState,
+  type DocumentAutosaveScheduler,
+} from "./app/documents/autosaveScheduler";
+import { isSameOrInsidePath } from "./app/documents/paths";
 import "./index.css";
 
 /**
@@ -258,18 +265,13 @@ function normalizeSnippetKey(value: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function normalizeFsPath(path: string) {
-  return path
-    .replace(/\\/g, "/")
-    .replace(/\/+/g, "/")
-    .replace(/\/$/, "")
-    .toLowerCase();
-}
-
+/**
+ * A política de "origem da aba" (`workspace` vs `external`) é a mesma pergunta
+ * que a operação destrutiva do coordenador faz, e por isso a normalização mora
+ * em `app/documents/paths.ts`: duas cópias divergem na primeira correção.
+ */
 function isPathInsideWorkspace(path: string, workspacePath: string) {
-  const normalizedFile = normalizeFsPath(path);
-  const normalizedWorkspace = normalizeFsPath(workspacePath);
-  return normalizedFile === normalizedWorkspace || normalizedFile.startsWith(`${normalizedWorkspace}/`);
+  return isSameOrInsidePath(workspacePath, path);
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -637,6 +639,77 @@ function App() {
     workspacePathRef.current = workspacePath;
   }, [workspacePath]);
 
+  /**
+   * O autosave vive **fora** do ciclo de render (ML-H05 / P0.4).
+   *
+   * O `useEffect` que existia aqui dependia de `tabs` e `activeTab`: cada tecla
+   * mudava `tabs`, o efeito era limpo e o `setInterval` recomeçava — digitação
+   * contínua adiava o salvamento para sempre. O agendador guarda o estado por
+   * documento, e o app só o avisa de duas coisas: "este texto mudou" (`note`) e
+   * "as preferências mudaram" (`updateOptions`).
+   *
+   * A sessão do documento é quem diz se o disco tem a revisão atual; publicar
+   * `dirty` é sempre reflexo dela, nunca do fim do `await`.
+   */
+  const applyAutosaveState = (state: AutosaveState) => {
+    if (state.phase === "saving") {
+      setIsSaving(true);
+      return;
+    }
+    if (state.phase === "saved") {
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) => (item.id === state.documentId ? { ...item, dirty: false } : item))
+      );
+      setLastSavedAt(Date.now());
+      return;
+    }
+    if (state.phase === "pending") {
+      // Chegou edição durante o I/O: o disco tem a revisão anterior. Marcar a
+      // aba limpa aqui é exatamente o defeito que o P0.4 descreve.
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) => (item.id === state.documentId ? { ...item, dirty: true } : item))
+      );
+      return;
+    }
+    if (state.phase === "conflict") {
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) =>
+          item.id === state.documentId ? { ...item, conflictedExternally: true } : item
+        )
+      );
+      setSaveError("file_changed_on_disk");
+      return;
+    }
+    if (state.phase === "failed") {
+      setIsSaving(false);
+      setSaveError(state.reason);
+    }
+  };
+
+  const autosaveRef = useRef<DocumentAutosaveScheduler | null>(null);
+  useEffect(() => {
+    // Criado **no efeito**, e não durante o render: um render que o React
+    // descarta não pode deixar um `setInterval` órfão, e o StrictMode monta,
+    // desmonta e monta de novo em desenvolvimento — criar no render faria a
+    // segunda montagem herdar um agendador já descartado.
+    const scheduler = createDocumentAutosaveScheduler({
+      snapshot: (documentId) => {
+        const tab = tabsRef.current.find((item) => item.id === documentId);
+        return tab ? { path: tab.path, content: tab.content } : null;
+      },
+      session: (documentId) => documentSessions.forDocument(documentId),
+      publish: applyAutosaveState,
+    });
+    autosaveRef.current = scheduler;
+    return () => {
+      scheduler.dispose();
+      autosaveRef.current = null;
+    };
+  }, []);
+
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const previewControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -981,8 +1054,11 @@ const core = [
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // On window close (Tauri), intercept the request, flush all pending autosaves,
-  // then destroy the window — so debounced journal edits are never lost on exit.
+  // On window close (Tauri), intercept the request, then hand it to the single
+  // lifecycle coordinator: it flushes promised work, asks about every dirty tab
+  // (Save / Discard / Cancel) and only destroys the window when nothing is left
+  // undecided. Before ML-H05 this path only flushed the journal's debounce, so an
+  // unsaved editor tab could be closed by the window closing.
   useEffect(() => {
     if (!isTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
@@ -992,44 +1068,44 @@ const core = [
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         const appWindow = getCurrentWindow();
-        unlisten = await appWindow.onCloseRequested(async (event) => {
-          if (allowClose) return; // second pass: let the close proceed
-          event.preventDefault();
-          let failures = 0;
-          try {
-            ({ failures } = await flushAllPending());
-          } catch {
-            failures = 1; // an unexpected flush error means work may be unsaved
-          }
-          if (failures > 0) {
-            // Some autosaves could not be persisted. Don't claim "edits are never
-            // lost on exit" and quit anyway — ask first; if the dialog can't be
-            // shown, keep the window open so the in-app error banner stays visible.
-            const tr = tRef.current;
-            let quitAnyway = false;
-            try {
-              quitAnyway = await ask(
-                tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
-                {
-                  title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
-                  kind: "warning",
-                  okLabel: tr["journal.quitAnyway"] || "Quit anyway",
-                  cancelLabel: tr["journal.cancel"] || "Cancel",
-                },
-              );
-            } catch {
-              quitAnyway = false;
-            }
-            if (!quitAnyway) return; // abort the close; nothing is destroyed
-          }
+        // destroy() is clean (no re-fire); if it's ever unavailable, fall back
+        // to close() — guarded by allowClose so the window always shuts.
+        const finish = async () => {
           allowClose = true;
-          // destroy() is clean (no re-fire); if it's ever unavailable, fall back
-          // to close() — guarded by allowClose so the window always shuts.
           try {
             await appWindow.destroy();
           } catch {
             await appWindow.close();
           }
+        };
+        unlisten = await appWindow.onCloseRequested(async (event) => {
+          if (allowClose) return; // second pass: let the close proceed
+          event.preventDefault();
+
+          const result = await lifecycle.requestExit(finish);
+          if (result.blocker !== "pending_flush_failed") return; // cancelled/aborted
+
+          // Os documentos do editor foram resolvidos, mas algum flush prometido
+          // (diário/editor) falhou. Não dá para afirmar que nada se perde, então
+          // a decisão é explícita; se o diálogo não abrir, a janela fica, e o
+          // aviso de erro na tela continua visível.
+          const tr = tRef.current;
+          let quitAnyway = false;
+          try {
+            quitAnyway = await ask(
+              tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
+              {
+                title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
+                kind: "warning",
+                okLabel: tr["journal.quitAnyway"] || "Quit anyway",
+                cancelLabel: tr["journal.cancel"] || "Cancel",
+              },
+            );
+          } catch {
+            quitAnyway = false;
+          }
+          if (!quitAnyway) return; // abort the close; nothing is destroyed
+          await finish();
         });
         if (disposed) unlisten?.();
       } catch {
@@ -1141,6 +1217,10 @@ const core = [
       // passo. É o que permite responder, depois do I/O, se o disco tem
       // exatamente o texto que está na tela.
       documentSessions.forDocument(activeTab.id).noteEdit();
+      // Avisa o agendador **deste** documento. Não é o render que marca o
+      // relógio: quem digita 40 vezes por segundo não pode reiniciar o autosave
+      // das outras abas, nem o próprio, para sempre (ML-H05).
+      autosaveRef.current?.note(activeTab.id);
     }
     setTabs((previous) =>
       previous.map((tab) =>
@@ -1162,6 +1242,10 @@ const core = [
     }
 
     setSaveError(null);
+    // Quem reescreve o documento inteiro também avança a revisão — sem isso a
+    // sessão acharia que o disco tem o texto de antes da transformação.
+    documentSessions.forDocument(tab.id).noteEdit();
+    autosaveRef.current?.note(tab.id);
     setTabs((previous) =>
       previous.map((item) =>
         item.id === tab.id ? { ...item, content: nextContent, dirty: true } : item
@@ -1251,14 +1335,20 @@ const core = [
       }
 
       if (intent.kind === "open-workspace") {
-        setWorkspacePath(intent.path);
-        saveWorkspacePath(intent.path);
-        try {
-          const tree = await readWorkspaceTree(intent.path);
-          setWorkspaceTree(tree);
-        } catch (error) {
-          console.error("Failed to read workspace tree:", error);
-        }
+        // Trocar de workspace é uma saída: os documentos abertos continuam na
+        // mesa, mas o que está só na memória precisa ser decidido antes de o
+        // caminho mudar debaixo deles. O coordenador escreve o pendente e
+        // pergunta pelo resto; cancelar mantém o workspace atual.
+        await lifecycle.requestWorkspaceSwitch(async () => {
+          setWorkspacePath(intent.path);
+          saveWorkspacePath(intent.path);
+          try {
+            const tree = await readWorkspaceTree(intent.path);
+            setWorkspaceTree(tree);
+          } catch (error) {
+            console.error("Failed to read workspace tree:", error);
+          }
+        });
         return;
       }
 
@@ -1293,6 +1383,9 @@ const core = [
   /** Aplica o fechamento das abas liberadas pela guarda e reposiciona o foco. */
   const applyClose = (ids: readonly string[]) => {
     const closing = new Set(ids);
+    // O agendador guarda estado por documento; uma aba que saiu da memória não
+    // pode continuar com timer armado.
+    for (const id of ids) autosaveRef.current?.forget(id);
     setTabs((previous) => previous.filter((item) => !closing.has(item.id)));
     const current = activeTabIdRef.current;
     if (current && closing.has(current)) {
@@ -1301,18 +1394,12 @@ const core = [
   };
 
   /**
-   * A guarda recebe as três colaborações por injeção: quem pergunta (o modal),
-   * quem grava (`saveTab`, com resultado tipado desde o ML-H03) e quem aplica.
-   * A regra de "só fecha em `saved` ou `discard`" mora em `closeGuard.ts`, não
-   * aqui — é o que a deixa testável fora do app.
+   * Fechar aba passa pelo **mesmo** ponto de consulta de toda saída (ML-H05):
+   * a regra de Salvar/Descartar/Cancelar continua em `runClose`, e o
+   * coordenador decide quando chamá-la. Um fechamento novo que apareça amanhã
+   * entra por aqui em vez de montar a própria conta.
    */
-  const closeGuardDeps = () => ({
-    ask: askCloseDecision,
-    save: (tab: DocumentTab) => saveTab(tab, false),
-    close: applyClose,
-  });
-
-  const closeTabs = (targets: DocumentTab[]) => runClose(targets, closeGuardDeps());
+  const closeTabs = (targets: DocumentTab[]) => lifecycle.requestClose(targets);
 
   const closeTabWithPrompt = async (tabId: string) => {
     const tab = tabs.find((item) => item.id === tabId);
@@ -1398,6 +1485,44 @@ const core = [
   // refs for the active tab to avoid saving a stale/previous tab.
   const saveTabRef = useRef(saveTab);
   saveTabRef.current = saveTab;
+
+  /**
+   * **Um** ponto de consulta para toda saída do aplicativo (ML-H05 / P0.3).
+   *
+   * Criado uma vez, porque o que ele guarda são as colaborações — perguntar,
+   * gravar, fechar, ler os candidatos —, não um instantâneo de estado: tudo o
+   * que ele lê passa por ref (`tabsRef`, `saveTabRef`, `autosaveRef`). É o que
+   * permite que a mesma instância valha do primeiro ao último render, e é por
+   * isso que uma tela nova que queira fechar algo não precisa montar a sua
+   * própria conta.
+   */
+  const [lifecycle] = useState(() =>
+    createDocumentLifecycleCoordinator<DocumentTab>({
+      // O que o coordenador enxerga: a aba traz o que a interface exibe, a
+      // sessão diz o que o disco tem. Depois de um flush, a cópia do render
+      // ainda pode estar marcada como suja; perguntar por ela seria perguntar
+      // sobre trabalho que já foi escrito.
+      candidates: () =>
+        tabsRef.current.map((tab) => ({
+          ...tab,
+          dirty: documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,
+        })),
+      ask: askCloseDecision,
+      save: (tab) => saveTabRef.current(tab, false),
+      close: applyClose,
+      flush: async () => {
+        // O diário tem o debounce dele; o editor tem o agendador. Os dois são
+        // "trabalho prometido", e nenhum dos dois é decidido pela guarda.
+        const journal = await flushAllPending();
+        const editor = await autosaveRef.current?.flushAll();
+        return journal.failures + (editor?.failures ?? 0);
+      },
+      // A aba é a cópia que a interface exibia quando perguntou; a sessão é a
+      // revisão de agora. Divergiu, a aba não fecha (nota deixada no ML-H04).
+      stillDirty: (tab) => documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,
+    })
+  );
+
   const saveActiveEditorTab = useCallback(async () => {
     const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
 if (tab) await saveTabRef.current(tab, false);
@@ -1602,20 +1727,27 @@ if (tab) await saveTabRef.current(tab, false);
       return;
     }
 
-    if (activeTab?.dirty) {
-      const shouldSave = window.confirm(
-        (t["confirm.unsaved.message"] || "").replace("{fileName}", activeTab.name)
-      );
-      if (shouldSave) await saveTab(activeTab, false);
-    }
-
-    if (settings.tabsEnabled) {
-      createNewTabInCurrentWindow();
-    } else {
+    const startNewDocument = () => {
+      if (settings.tabsEnabled) {
+        createNewTabInCurrentWindow();
+        return;
+      }
       const next = makeNewTab("Untitled.md", "");
       setTabs([next]);
       setActiveTabId(next.id);
+    };
+
+    if (!activeTab?.dirty) {
+      startNewDocument();
+      return;
     }
+
+    // O mesmo trio do fechamento de aba (ML-H04), e pelo mesmo motivo: o
+    // `window.confirm` só sabe "sim/não". Ele ignorava a falha da gravação,
+    // cancelava o diálogo de destino sem sair do lugar e confundia "descartar"
+    // com "salvar". `Cancelar` aqui não cria documento nenhum — a sessão fica
+    // como estava, com o texto, o cursor e o histórico dela.
+    await lifecycle.requestReplace([activeTab], startNewDocument);
   };
 
   const handleOpenFile = async () => {
@@ -1705,8 +1837,13 @@ if (tab) await saveTabRef.current(tab, false);
   const handleWorkspaceDelete = async (path: string) => {
     const ok = window.confirm("Delete selected item?");
     if (!ok) return;
-    await deleteWorkspacePath(path);
-    await refreshWorkspace();
+    // Apagar um arquivo que está aberto e sujo destruiria a única cópia do
+    // texto. O coordenador olha **só** as abas que o alvo alcança e, se alguma
+    // não for liberada, nada é apagado.
+    await lifecycle.requestDestructive(path, async () => {
+      await deleteWorkspacePath(path);
+      await refreshWorkspace();
+    });
   };
 
   const applyWrapSelection = (before: string, after = before) => {
@@ -1867,19 +2004,25 @@ if (tab) await saveTabRef.current(tab, false);
   const closeAllTabs = async () => {
     // "Fechar todas" termina com um documento em branco, como uma sessão nova.
     // A aba nova entra no mesmo passo do fechamento — nunca existe um frame sem
-    // aba nenhuma, e a ativa aponta para a que sobrou.
+    // aba nenhuma, e a ativa aponta para a que sobrou. Se alguma aba não foi
+    // liberada (edição que chegou durante o I/O), ela fica: o fechamento em
+    // bloco nunca é desculpa para descartar o que a guarda não liberou.
     const next = makeNewTab("Untitled.md", "");
     if (tabs.length === 0) {
       setTabs([next]);
       setActiveTabId(next.id);
       return;
     }
-    await runClose(tabs, {
-      ...closeGuardDeps(),
-      close: () => {
-        setTabs([next]);
-        setActiveTabId(next.id);
-      },
+    await lifecycle.requestClose(tabs, (released) => {
+      for (const id of released) autosaveRef.current?.forget(id);
+      const remaining = tabs.filter((tab) => !released.includes(tab.id));
+      if (remaining.length > 0) {
+        setTabs(remaining);
+        setActiveTabId(remaining[0].id);
+        return;
+      }
+      setTabs([next]);
+      setActiveTabId(next.id);
     });
   };
 
@@ -2709,44 +2852,17 @@ label: t["view.sidebar"] || "Sidebar",
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeTab, closeAllDialogs, commands, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
 
+  /**
+   * As preferências do autosave chegam ao agendador por aqui — e só elas. O
+   * agendador decide o resto; este efeito não reinicia nada por causa de uma
+   * edição.
+   */
   useEffect(() => {
-    if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
-    const timer = setInterval(() => {
-      const fresh = tabs.find((item) => item.id === activeTab.id);
-      if (!fresh?.path || !fresh.dirty) return;
-      setIsSaving(true);
-      setSaveError(null);
-      const session = documentSessions.forDocument(fresh.id);
-      void session
-        .save({ path: fresh.path, content: fresh.content })
-        .then((outcome) => {
-          if (outcome.kind === "saved") {
-            // Limpar `dirty` porque a escrita terminou é o defeito P0.4: quem
-            // sabe se o disco tem o texto atual é a sessão, comparando a
-            // revisão gravada com a revisão de agora.
-            setTabs((previous) =>
-              previous.map((item) =>
-                item.id === fresh.id ? { ...item, dirty: session.isDirty } : item
-              )
-            );
-            setLastSavedAt(Date.now());
-            return;
-          }
-          if (outcome.kind === "conflict") {
-            setTabs((previous) =>
-              previous.map((item) =>
-                item.id === fresh.id ? { ...item, conflictedExternally: true } : item
-              )
-            );
-            setSaveError("file_changed_on_disk");
-            return;
-          }
-          if (outcome.kind === "failed") setSaveError(outcome.reason);
-        })
-        .finally(() => setIsSaving(false));
-    }, settings.autoSaveInterval * 1000);
-    return () => clearInterval(timer);
-  }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
+    autosaveRef.current?.updateOptions({
+      enabled: settings.autoSave,
+      intervalMs: Math.max(1, settings.autoSaveInterval) * 1000,
+    });
+  }, [settings.autoSave, settings.autoSaveInterval]);
 
   // Toolbar actions must follow the active document, matching the Command Registry
   // (Ctrl+S etc). In journal mode we route to the journal target and never fall

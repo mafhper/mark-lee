@@ -58,7 +58,14 @@ test("os fechamentos em lote entram pela mesma guarda", () => {
 
   const fecharTodas = bloco("closeAllTabs");
   assert.ok(fecharTodas, "closeAllTabs não existe mais em App.tsx");
-  assert.match(fecharTodas, /runClose\(/, "closeAllTabs não pode descartar abas sem guarda");
+  // `runClose` continua sendo a guarda; desde o ML-H05 ele é alcançado pelo
+  // coordenador de ciclo de vida (`requestClose`), que é o mesmo caminho das
+  // outras saídas. O que não se admite é fechar sem guarda nenhuma.
+  assert.match(
+    fecharTodas,
+    /runClose\(|requestClose\(/,
+    "closeAllTabs não pode descartar abas sem guarda",
+  );
 });
 
 test("fechar outras não é mais um filtro inline", () => {
