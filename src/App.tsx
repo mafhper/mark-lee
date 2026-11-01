@@ -64,6 +64,7 @@ import {
   styleObjectToInlineCss,
 } from "./services/publication-style";
 import { isTauriRuntime } from "./services/runtime";
+import { createDocumentSessions, type SaveOutcome } from "./services/documents";
 import { importJournalImage } from "./services/journal-media";
 import { buildMarkdownImageSyntax } from "./features/editor/image-markdown";
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
@@ -106,6 +107,14 @@ import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
 import "./index.css";
+
+/**
+ * Sessões de documento do Editor: uma por aba, com revisão monotônica,
+ * `savedRevision` e fingerprint do disco (ML-H03). O I/O entra por injeção — a
+ * ponte Tauri é a mesma que o resto do app já usa —, e é isso que deixa o
+ * contrato testável fora do app.
+ */
+const documentSessions = createDocumentSessions({ readText: readFile, writeText: writeFile });
 
 const CODE_FILE_EXTENSIONS = new Set([
   "js",
@@ -1118,6 +1127,12 @@ const core = [
   const updateActiveTabContent = (content: string) => {
     if (!activeTab) return;
     setSaveError(null);
+    if (content !== activeTab.content) {
+      // Revisão monotônica da sessão: cada edição que muda o texto avança um
+      // passo. É o que permite responder, depois do I/O, se o disco tem
+      // exatamente o texto que está na tela.
+      documentSessions.forDocument(activeTab.id).noteEdit();
+    }
     setTabs((previous) =>
       previous.map((tab) =>
         tab.id === activeTab.id ? { ...tab, content, dirty: tab.dirty || content !== tab.content } : tab
@@ -1171,6 +1186,10 @@ const core = [
       const origin = resolveTabOrigin(path);
       const existing = tabsRef.current.find((tab) => tab.path === path);
       if (existing) {
+        // O que está no disco vira a referência de comparação da sessão, mesmo
+        // quando a aba está suja: o buffer não é adotado, mas um save futuro
+        // passa a saber que a versão do disco mudou.
+        documentSessions.forDocument(existing.id).trackDisk(path, content);
         setActiveTabId(existing.id);
         setTabs((previous) =>
           previous.map((tab) => {
@@ -1204,6 +1223,7 @@ const core = [
           dirty: false,
           origin,
         };
+        documentSessions.forDocument(next.id).trackDisk(path, content);
         setTabs((previous) => [...previous, next]);
         setActiveTabId(next.id);
       }
@@ -1259,44 +1279,74 @@ const core = [
     }
   };
 
-  const saveTab = async (tab: DocumentTab, forceSaveAs: boolean) => {
+  /**
+   * Salvar uma aba. Devolve o resultado tipado em vez de tratar o erro aqui:
+   * quem chama decide o que fazer com `cancelled` (o usuário desistiu do
+   * diálogo), `conflict` (o disco tem outra versão — nada foi sobrescrito) e
+   * `failed`. Só a gravação em si mora na sessão; diálogo, aba, recentes e
+   * workspace continuam aqui, que é onde a interface está.
+   */
+  const saveTab = async (tab: DocumentTab, forceSaveAs: boolean): Promise<SaveOutcome> => {
     setIsSaving(true);
     setSaveError(null);
     try {
-      let path = tab.path;
+      let path: string | null = tab.path;
       if (!path || forceSaveAs) {
-        const selected = await saveFileDialog(tab.name || "Untitled.md");
-        if (!selected) return;
-        path = selected;
+        path = (await saveFileDialog(tab.name || "Untitled.md")) ?? null;
       }
 
-      await writeFile(path, tab.content);
-      const name = path.split(/[\\/]/).pop() || tab.name;
-      setTabs((previous) =>
-        previous.map((item) =>
-          item.id === tab.id
-            ? {
-                ...item,
-                path,
-                name,
-                dirty: false,
-                origin: resolveTabOrigin(path),
-                deletedExternally: false,
-                conflictedExternally: false,
-              }
-            : item
-        )
-      );
-      addRecentFile(path, name);
-      setRecentFiles(getRecentFiles());
-      setLastSavedAt(Date.now());
+      const session = documentSessions.forDocument(tab.id);
+      const outcome = await session.save({ path, content: tab.content });
 
-      if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
-        await refreshWorkspace();
+      if (outcome.kind === "saved" && path) {
+        const name = path.split(/[\\/]/).pop() || tab.name;
+        setTabs((previous) =>
+          previous.map((item) =>
+            item.id === tab.id
+              ? {
+                  ...item,
+                  path,
+                  name,
+                  // `dirty` vem da sessão: `false` só quando a revisão gravada é
+                  // a revisão atual. Uma edição que chegou durante o I/O deixa o
+                  // documento sujo, que é o ponto do ML-H03.
+                  dirty: session.isDirty,
+                  origin: resolveTabOrigin(path),
+                  deletedExternally: false,
+                  conflictedExternally: false,
+                }
+              : item
+          )
+        );
+        addRecentFile(path, name);
+        setRecentFiles(getRecentFiles());
+        setLastSavedAt(Date.now());
+
+        if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
+          await refreshWorkspace();
+        }
+      } else if (outcome.kind === "conflict") {
+        // Sem UI nova (isso é ML-H05): a aba já tem o selo "Changed on disk" e a
+        // barra de estado já mostra a falha.
+        setTabs((previous) =>
+          previous.map((item) =>
+            item.id === tab.id ? { ...item, conflictedExternally: true } : item
+          )
+        );
+        setSaveError("file_changed_on_disk");
+      } else if (outcome.kind === "failed") {
+        setSaveError(outcome.reason);
+        console.error("Failed to save file:", outcome.reason);
       }
+
+      return outcome;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "save_failed");
+      // Só chega aqui o que acontece fora da sessão (diálogo, refresh do
+      // workspace): a gravação sempre volta como `failed` tipado.
+      const reason = error instanceof Error ? error.message : "save_failed";
+      setSaveError(reason);
       console.error("Failed to save file:", error);
+      return { kind: "failed", reason };
     } finally {
       setIsSaving(false);
     }
@@ -1471,7 +1521,7 @@ if (tab) await saveTabRef.current(tab, false);
 
       if (activeTab) {
         items.push(
-          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => saveTab(activeTab, false) }
+          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => void saveTab(activeTab, false) }
         );
       }
 
@@ -1733,8 +1783,22 @@ if (tab) await saveTabRef.current(tab, false);
 
     const path = await saveFileDialog(suggestedName);
     if (!path) return;
-    await writeFile(path, output);
-    setShowExport(false);
+    // Exportação é artefato derivado, não revisão de documento: grava pelo mesmo
+    // contrato tipado, sem baseline de sessão e sem conflito (o destino foi
+    // escolhido no diálogo e sobrescrevê-lo é a intenção).
+    const outcome = await documentSessions.writeDerived({
+      documentId: activeTab.id,
+      path,
+      content: output,
+    });
+    if (outcome.kind === "saved") {
+      setShowExport(false);
+      return;
+    }
+    if (outcome.kind === "failed") {
+      setSaveError(outcome.reason);
+      console.error("Failed to export document:", outcome.reason);
+    }
   };
 
   const closeRightTabs = (tabId: string) => {
@@ -1827,7 +1891,7 @@ const cycleSidebar = useCallback(() => {
         const target = getActiveTarget();
         if (target?.kind === "journal-entry") { void target.save(); return; }
         if (settingsRef.current.appMode === "journal") return;
-        if (activeTab) return saveTab(activeTab, forceSaveAs);
+        if (activeTab) return saveTab(activeTab, forceSaveAs).then(() => undefined);
       },
 // `openFind` nao e uma segunda implementacao: e esta funcao. Estava escrito
         // duas vezes, e foi por isso que a lupa nao fechava e o `Ctrl+F`
@@ -2589,15 +2653,32 @@ label: t["view.sidebar"] || "Sidebar",
       if (!fresh?.path || !fresh.dirty) return;
       setIsSaving(true);
       setSaveError(null);
-      writeFile(fresh.path, fresh.content)
-        .then(() => {
-          setTabs((previous) =>
-            previous.map((item) => (item.id === fresh.id ? { ...item, dirty: false } : item))
-          );
-          setLastSavedAt(Date.now());
-        })
-        .catch((error) => {
-          setSaveError(error instanceof Error ? error.message : "autosave_failed");
+      const session = documentSessions.forDocument(fresh.id);
+      void session
+        .save({ path: fresh.path, content: fresh.content })
+        .then((outcome) => {
+          if (outcome.kind === "saved") {
+            // Limpar `dirty` porque a escrita terminou é o defeito P0.4: quem
+            // sabe se o disco tem o texto atual é a sessão, comparando a
+            // revisão gravada com a revisão de agora.
+            setTabs((previous) =>
+              previous.map((item) =>
+                item.id === fresh.id ? { ...item, dirty: session.isDirty } : item
+              )
+            );
+            setLastSavedAt(Date.now());
+            return;
+          }
+          if (outcome.kind === "conflict") {
+            setTabs((previous) =>
+              previous.map((item) =>
+                item.id === fresh.id ? { ...item, conflictedExternally: true } : item
+              )
+            );
+            setSaveError("file_changed_on_disk");
+            return;
+          }
+          if (outcome.kind === "failed") setSaveError(outcome.reason);
         })
         .finally(() => setIsSaving(false));
     }, settings.autoSaveInterval * 1000);
