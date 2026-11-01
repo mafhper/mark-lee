@@ -1,16 +1,20 @@
-import { AlertTriangle, CheckCircle2, DownloadCloud, Loader2, RefreshCw, WifiOff, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, DownloadCloud, Loader2, Power, RefreshCw, WifiOff, XCircle } from "lucide-react";
 
-import { UPDATER_CHANNEL, type UpdaterState } from "../../services/updater";
+import { UPDATER_CHANNEL, type RestartPreflight, type UpdaterState } from "../../services/updater";
 import type { Language } from "../../types";
 import { useUpdater } from "../hooks/useUpdater";
 
 /**
  * O cartão de atualização dos Ajustes.
  *
- * **Sem botão de instalar.** Esta fatia termina em `ready`: baixar sim, instalar
- * não. A instalação depende de `LifecycleCoordinator.prepareForRestart()` — sem
- * essa pré-autorização, o instalador do Windows pode encerrar o app no meio de
- * um documento sujo. Então a tela diz que está pronto e espera.
+ * **Instalar é o único clique que pode encerrar o app, e ele passa por dois
+ * portões.** O primeiro é o estado: o botão só existe em `ready`, que só é
+ * alcançado depois de a pessoa pedir para checar e para baixar. O segundo é
+ * `prepareRestart` — a pré-autorização do coordenador de ciclo de vida, que
+ * grava o pendente e pergunta pelas abas sujas antes de liberar. No Windows o
+ * instalador **pode encerrar o app por conta própria**, então perguntar depois
+ * do clique seria tarde: a recusa tem de chegar antes de `install()` ser
+ * chamado, e é por isso que a licença entra como argumento do serviço.
  *
  * **Nada aqui baixa sozinho.** O único caminho para o binário é o botão
  * "Baixar atualização", e o serviço recusa `download()` fora do estado
@@ -26,6 +30,8 @@ type Props = {
   language: Language;
   /** Acento do tema ativo — o mesmo do botão "Selecionar pasta" dos Ajustes. */
   accentHex: string;
+  /** Licença de reinício: quem responde é o coordenador de ciclo de vida. */
+  prepareRestart: RestartPreflight;
 };
 
 type Tone = "positive" | "warning" | "danger" | "neutral";
@@ -44,8 +50,8 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-export default function UpdaterStatusCard({ language, accentHex }: Props) {
-  const { state, check, download, cancel } = useUpdater();
+export default function UpdaterStatusCard({ language, accentHex, prepareRestart }: Props) {
+  const { state, check, download, install, cancel } = useUpdater();
   const tr = (pt: string, en: string, es: string) =>
     language === "en-US" ? en : language === "es-ES" ? es : pt;
 
@@ -124,10 +130,34 @@ export default function UpdaterStatusCard({ language, accentHex }: Props) {
       {state.status === "ready" ? (
         <p className="text-xs opacity-80">
           {tr(
-            "O pacote já está baixado e verificado. A instalação entra numa próxima atualização do app.",
-            "The package is downloaded and verified. Installation arrives in a future app update.",
-            "El paquete ya está descargado y verificado. La instalación llegará en una próxima actualización de la app."
+            "O pacote já está baixado e verificado. Instalar reinicia o app.",
+            "The package is downloaded and verified. Installing restarts the app.",
+            "El paquete ya está descargado y verificado. Instalar reinicia la app."
           )}
+        </p>
+      ) : null}
+
+      {state.status === "installing" ? (
+        <p className="text-xs opacity-80">
+          {tr(
+            "Instalando. O app vai fechar e voltar sozinho.",
+            "Installing. The app will close and come back on its own.",
+            "Instalando. La app se cerrará y volverá sola."
+          )}
+        </p>
+      ) : null}
+
+      {state.status === "ready" && state.installBlocker ? (
+        <p className="flex items-start gap-1.5 text-xs" role="status" aria-live="polite">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
+          <span className="min-w-0 break-words opacity-85">
+            {describeBlocker(state.installBlocker, tr)}{" "}
+            {tr(
+              "Nada foi instalado e sua sessão continua como estava.",
+              "Nothing was installed and your session is exactly as it was.",
+              "No se instaló nada y su sesión sigue como estaba."
+            )}
+          </span>
         </p>
       ) : null}
 
@@ -205,6 +235,35 @@ export default function UpdaterStatusCard({ language, accentHex }: Props) {
           </button>
         ) : null}
 
+        {state.status === "ready" ? (
+          <button
+            type="button"
+            // A licença é pedida **no clique**: o coordenador grava o pendente e
+            // pergunta pelas abas sujas antes de autorizar. Se ele recusar, o
+            // serviço não chama o plugin e o motivo aparece no parágrafo acima.
+            onClick={() => {
+              void install(prepareRestart);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
+            style={primaryButton}
+          >
+            <Power className="h-3.5 w-3.5" aria-hidden />
+            {tr("Instalar e reiniciar", "Install and restart", "Instalar y reiniciar")}
+          </button>
+        ) : null}
+
+        {state.status === "error" && state.error?.code === "install-failed" ? (
+          <button
+            type="button"
+            onClick={() => {
+              void install(prepareRestart);
+            }}
+            className="ml-settings-field rounded-lg border px-3 py-1.5 text-xs font-medium"
+          >
+            {tr("Tentar instalar de novo", "Try installing again", "Intentar instalar de nuevo")}
+          </button>
+        ) : null}
+
         {state.status === "error" && state.error?.code === "check-failed" ? (
           <button
             type="button"
@@ -229,6 +288,42 @@ export default function UpdaterStatusCard({ language, accentHex }: Props) {
       </div>
     </div>
   );
+}
+
+/**
+ * Por que o reinício não foi autorizado, em linguagem de tela.
+ *
+ * Os códigos vêm do coordenador de ciclo de vida (`LifecycleBlocker`), e o
+ * cartão não os interpreta: só traduz. Um código novo cai no texto genérico, que
+ * continua sendo verdade — o app não vai reiniciar agora.
+ */
+function describeBlocker(blocker: string, tr: (pt: string, en: string, es: string) => string): string {
+  switch (blocker) {
+    case "cancelled":
+      return tr(
+        "Reinício cancelado.",
+        "Restart cancelled.",
+        "Reinicio cancelado."
+      );
+    case "not_released":
+      return tr(
+        "Um documento não terminou de ser gravado.",
+        "A document could not finish saving.",
+        "Un documento no terminó de guardarse."
+      );
+    case "pending_flush_failed":
+      return tr(
+        "Uma alteração prometida não chegou ao disco.",
+        "A promised change did not reach disk.",
+        "Un cambio prometido no llegó al disco."
+      );
+    default:
+      return tr(
+        "A sessão não pôde ser preparada para reiniciar.",
+        "The session could not be prepared to restart.",
+        "La sesión no pudo prepararse para reiniciar."
+      );
+  }
 }
 
 function describeStatus(
@@ -263,6 +358,13 @@ function describeStatus(
         tone: "positive",
         icon: CheckCircle2,
       };
+    case "installing":
+      return {
+        label: tr("Instalando", "Installing", "Instalando"),
+        tone: "warning",
+        icon: Loader2,
+        spin: true,
+      };
     case "offline":
       return {
         label: tr("Sem conexão", "Offline", "Sin conexión"),
@@ -286,7 +388,9 @@ function describeStatus(
         label:
           state.error?.code === "download-failed"
             ? tr("Falha no download", "Download failed", "Fallo en la descarga")
-            : tr("Falha na verificação", "Check failed", "Fallo en la comprobación"),
+            : state.error?.code === "install-failed"
+              ? tr("Falha na instalação", "Install failed", "Fallo en la instalación")
+              : tr("Falha na verificação", "Check failed", "Fallo en la comprobación"),
         tone: "danger",
         icon: XCircle,
       };

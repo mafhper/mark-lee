@@ -1768,6 +1768,13 @@ const core = [
     })
   );
 
+  /* A licença que o updater pede antes de instalar (ML-H06).
+     `prepareForRestart` é do coordenador porque é ele que conhece abas sujas e
+     trabalho prometido; o updater só sabe que tem um pacote baixado. Passa como
+     função — e não como `boolean` — porque a resposta só pode ser dada **na
+     hora** do clique: perguntar no render responderia sobre um instantâneo. */
+  const prepareRestart = useCallback(() => lifecycle.prepareForRestart(), [lifecycle]);
+
   const saveActiveEditorTab = useCallback(async () => {
     const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
 if (tab) await saveTabRef.current(tab, false);
@@ -3966,6 +3973,7 @@ onCreateEditor={(view) => {
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
         onJournalFolderSelected={handleJournalFolderSelected}
+        prepareRestart={prepareRestart}
       />
       <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} onLockedChange={setBreakLocked} t={t} />
       {breakLocked && (

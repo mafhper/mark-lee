@@ -151,6 +151,71 @@ test("cancelar a saída não destrói nada", async () => {
   assert.equal(destroyed, false);
 });
 
+test("a pré-autorização de reinício grava, pergunta e libera sem fechar nada", async () => {
+  // Instalar atualização no Windows **pode encerrar o app por conta própria**:
+  // o instalador roda depois do `process::exit(0)` do plugin. Por isso a
+  // instalação não pede "feche estas abas" — pede licença para encerrar, e o
+  // veredito é o que autoriza chamar `install()`. Se a pré-autorização fechasse
+  // abas, recusar depois não teria o que restaurar.
+  const tabs = [tab("a", "/notas/a.md", true), tab("b", "/notas/b.md", false)];
+  const { coordinator, events, closed } = setup({ tabs, decisions: { a: "save" } });
+
+  const verdict = await coordinator.prepareForRestart();
+
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.blocker, null);
+  assert.deepEqual(verdict.released, ["a", "b"]);
+  assert.deepEqual(closed, [], "a pré-autorização fechou aba — recuar já não devolveria a sessão");
+  assert.deepEqual(events, ["flush", "ask:a", "save:a"], "a pré-autorização não esvaziou o pendente");
+});
+
+test("cancelar a pré-autorização aborta o reinício com a sessão intacta", async () => {
+  const tabs = [tab("a", "/notas/a.md", true), tab("b", "/notas/b.md", true)];
+  const { coordinator, closed } = setup({ tabs, decisions: { a: "save", b: "cancel" } });
+
+  const verdict = await coordinator.prepareForRestart();
+
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.blocker, "cancelled");
+  assert.deepEqual(verdict.kept, ["a", "b"], "recusar o reinício não pode deixar a sessão pela metade");
+  assert.deepEqual(closed, []);
+});
+
+test("gravação que não termina em saved aborta o reinício", async () => {
+  const tabs = [tab("a", "/notas/a.md", true)];
+  const failed = setup({
+    tabs,
+    decisions: { a: "save" },
+    outcomes: { a: { kind: "failed", reason: "permissão negada" } },
+  });
+  const conflict = setup({
+    tabs,
+    decisions: { a: "save" },
+    outcomes: { a: { kind: "conflict", documentId: "a", diskHash: "0000000000000001" } },
+  });
+
+  const first = await failed.coordinator.prepareForRestart();
+  const second = await conflict.coordinator.prepareForRestart();
+
+  for (const verdict of [first, second]) {
+    assert.equal(verdict.allowed, false);
+    assert.equal(verdict.blocker, "not_released");
+    assert.deepEqual(verdict.kept, ["a"]);
+  }
+});
+
+test("flush prometido que falha não autoriza reiniciar, mesmo com as abas resolvidas", async () => {
+  // Reiniciar para instalar não tem onde perguntar "sair mesmo assim?": quem
+  // encerra é o instalador. Sem a pergunta, o lado seguro é negar.
+  const tabs = [tab("a", "/notas/a.md", false)];
+  const { coordinator } = setup({ tabs, flushFailures: 1 });
+
+  const verdict = await coordinator.prepareForRestart();
+
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.blocker, "pending_flush_failed");
+});
+
 test("flush prometido que falha bloqueia a saída com motivo próprio", async () => {
   const tabs = [tab("a", "/notas/a.md", false)];
   const { coordinator } = setup({ tabs, flushFailures: 1 });

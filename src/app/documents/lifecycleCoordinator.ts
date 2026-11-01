@@ -18,7 +18,12 @@
  * decide **quando** chamá-la e **o que** fazer com o resultado.
  */
 
-import { runClose, type CloseCandidate, type CloseDecision } from "../tabs/closeGuard.ts";
+import {
+  runClose,
+  type CloseCandidate,
+  type CloseDecision,
+  type CloseGuardResult,
+} from "../tabs/closeGuard.ts";
 import type { SaveOutcome } from "../../services/documents.ts";
 import { isSameOrInsidePath } from "./paths.ts";
 import type { PendingWorkRegistry } from "./pendingWork.ts";
@@ -29,7 +34,13 @@ export interface LifecycleCandidate extends CloseCandidate {
 }
 
 /** Qual saída está pedindo decisão. Vira rótulo em log/teste, não comportamento. */
-export type LifecycleIntent = "close" | "replace" | "switch-workspace" | "exit" | "destructive";
+export type LifecycleIntent =
+  | "close"
+  | "replace"
+  | "switch-workspace"
+  | "exit"
+  | "restart"
+  | "destructive";
 
 /**
  * Por que a saída não seguiu. `null` = seguiu.
@@ -50,6 +61,23 @@ export interface LifecycleResult {
   /** Documentos que ficaram abertos, com o trabalho deles intacto. */
   kept: string[];
   blocker: LifecycleBlocker | null;
+}
+
+/**
+ * Veredito de `prepareForRestart()`: **licença**, não ação.
+ *
+ * Não é um `LifecycleResult` porque não houve operação: nada foi fechado, nada
+ * foi aplicado. `allowed` diz só se o app pode ser encerrado agora — e quem
+ * encerra é quem pediu (o updater, ao instalar). `blocker` repete o motivo de
+ * `LifecycleBlocker` para que a tela possa dizer por que não deu.
+ */
+export interface RestartPreflight {
+  allowed: boolean;
+  blocker: LifecycleBlocker | null;
+  /** Documentos que a guarda liberou (gravados ou descartados com decisão). */
+  released: string[];
+  /** Documentos que seguem abertos, com o trabalho deles intacto. */
+  kept: string[];
 }
 
 export interface LifecycleDeps<T extends LifecycleCandidate> {
@@ -89,6 +117,15 @@ export interface DocumentLifecycleCoordinator<T extends LifecycleCandidate> {
   requestWorkspaceSwitch(proceed: () => void | Promise<void>): Promise<LifecycleResult>;
   /** Sair ou reiniciar (inclusive instalar atualização). */
   requestExit(proceed: () => void | Promise<void>): Promise<LifecycleResult>;
+  /**
+   * Pedir licença para reiniciar e **parar aí** — o preflight do updater.
+   *
+   * Escreve o que o autosave prometeu, pergunta pelo que sobrou sujo, e devolve
+   * o veredito sem fechar, aplicar ou destruir nada. É o que autoriza a
+   * instalação de atualização: no Windows o instalador pode encerrar o app por
+   * conta própria, então perguntar depois seria tarde.
+   */
+  prepareForRestart(): Promise<RestartPreflight>;
   /** Apagar/mover `target`: não passa por cima de buffer sujo de dentro dele. */
   requestDestructive(target: string, proceed: () => void | Promise<void>): Promise<LifecycleResult>;
 }
@@ -144,15 +181,12 @@ export function createDocumentLifecycleCoordinator<T extends LifecycleCandidate>
   };
 
   /**
-   * Sair, reiniciar e trocar de workspace fazem a mesma coisa, nesta ordem:
-   * escreve o que o autosave já prometeu, pergunta pelo que sobrou sujo, e só
-   * então aplica. A ordem importa — perguntar antes de escrever pediria decisão
-   * sobre um documento que o autosave ia salvar sozinho.
+   * A metade que toda saída compartilha: escrever o que já foi prometido e
+   * perguntar pelo que sobrou sujo. Devolve o resultado da guarda **e** quantas
+   * gravações prometidas falharam, porque `pending_flush_failed` só pode ser
+   * decidido depois de a guarda liberar os documentos do editor.
    */
-  const flushThenRelease = async (
-    intent: LifecycleIntent,
-    proceed: () => void | Promise<void>
-  ): Promise<LifecycleResult> => {
+  const drain = async (): Promise<{ released: CloseGuardResult; failures: number }> => {
     let failures = 0;
     // Ordem das duas fontes é indiferente para a contagem, mas o registro vem
     // primeiro para que o trabalho do diário (o único que pode gravar por cima
@@ -170,7 +204,20 @@ export function createDocumentLifecycleCoordinator<T extends LifecycleCandidate>
       failures += 1;
     }
 
-    const released = await guard(deps.candidates(), () => undefined);
+    return { released: await guard(deps.candidates(), () => undefined), failures };
+  };
+
+  /**
+   * Sair, reiniciar e trocar de workspace fazem a mesma coisa, nesta ordem:
+   * escreve o que o autosave já prometeu, pergunta pelo que sobrou sujo, e só
+   * então aplica. A ordem importa — perguntar antes de escrever pediria decisão
+   * sobre um documento que o autosave ia salvar sozinho.
+   */
+  const flushThenRelease = async (
+    intent: LifecycleIntent,
+    proceed: () => void | Promise<void>
+  ): Promise<LifecycleResult> => {
+    const { released, failures } = await drain();
     const result = settle(intent, released);
     if (!result.proceeded) return result;
 
@@ -214,6 +261,26 @@ export function createDocumentLifecycleCoordinator<T extends LifecycleCandidate>
 
     requestExit(proceed) {
       return flushThenRelease("exit", proceed);
+    },
+
+    async prepareForRestart() {
+      const { released, failures } = await drain();
+      const result = settle("restart", released);
+      if (!result.proceeded) {
+        return {
+          allowed: false,
+          blocker: result.blocker,
+          released: result.released,
+          kept: result.kept,
+        };
+      }
+      if (failures > 0) {
+        // Algo prometido não chegou ao disco. A saída normal ainda perguntaria
+        // ("sair mesmo assim?"), mas reiniciar para instalar não tem onde
+        // perguntar: o instalador encerra o app. Aqui a resposta é não.
+        return { allowed: false, blocker: "pending_flush_failed", released: result.released, kept: [] };
+      }
+      return { allowed: true, blocker: null, released: result.released, kept: [] };
     },
 
     async requestDestructive(target, proceed) {

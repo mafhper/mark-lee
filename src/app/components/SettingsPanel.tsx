@@ -20,6 +20,7 @@ import {
 import { createDefaultThemeLibrary } from "../../constants";
 import { createPublicationPreset } from "../../services/publication-style";
 import UpdaterStatusCard from "./UpdaterStatusCard";
+import type { RestartPreflight } from "../../services/updater";
 import {
   AppSettings,
   Language,
@@ -100,6 +101,9 @@ type SettingsPanelProps = {
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onPublicationPresetsChange: React.Dispatch<React.SetStateAction<PublicationPreset[]>>;
   onJournalFolderSelected?: (path: string) => void;
+  /** Licença de reinício para instalar atualização — vem do coordenador de
+   *  ciclo de vida, que é o único que sabe se a sessão pode terminar. */
+  prepareRestart: RestartPreflight;
 };
 
 /* `Rows3` e nao `BetweenHorizontalStart` para Ferramentas.
@@ -260,6 +264,7 @@ export default function SettingsPanel({
   onSettingsChange,
   onPublicationPresetsChange,
   onJournalFolderSelected,
+  prepareRestart,
 }: SettingsPanelProps) {
   /* Não há mais aba ativa — há **categoria em leitura**, que vem do scroll.
 
@@ -2139,7 +2144,8 @@ export default function SettingsPanel({
      fechamento do painel — o serviço é da sessão —, então quem volta aqui
      encontra a tela onde deixou. Um interruptor e um cartão de status: o
      interruptor decide se a checagem de boot acontece, e o cartão mostra o que
-     ela encontrou. O botão de **instalar** não existe nesta fatia. */
+     ela encontrou. O botão de **instalar** existe, e o cartão o tranca atrás de
+     dois portões — o estado `ready` e o veredito de `prepareRestart`. */
   const gruposAtualizacoes: FieldGroup[] = [
     {
       id: "atualizacoes",
@@ -2161,7 +2167,13 @@ export default function SettingsPanel({
           kind: "custom",
           id: "updater-status",
           label: tr("Status da atualização", "Update status", "Estado de la actualización"),
-          node: <UpdaterStatusCard language={settings.language} accentHex={tConfig.accentHex} />,
+          node: (
+            <UpdaterStatusCard
+              language={settings.language}
+              accentHex={tConfig.accentHex}
+              prepareRestart={prepareRestart}
+            />
+          ),
         },
       ],
     },

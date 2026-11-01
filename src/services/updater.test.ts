@@ -30,15 +30,17 @@ interface FakeCalls {
   check: Array<{ timeout: number }>;
   download: Array<{ update: CheckedUpdate; timeout: number }>;
   close: CheckedUpdate[];
+  install: CheckedUpdate[];
 }
 
 function createFakeClient(options: {
   checkResult?: () => CheckedUpdate | null;
   checkError?: () => Error;
   downloadError?: () => Error;
+  installError?: () => Error;
   onDownload?: (emit: (progress: { receivedBytes: number; totalBytes: number | null }) => void) => void;
 } = {}) {
-  const calls: FakeCalls = { check: [], download: [], close: [] };
+  const calls: FakeCalls = { check: [], download: [], close: [], install: [] };
 
   const client: UpdaterClient = {
     async check({ timeout }) {
@@ -53,6 +55,10 @@ function createFakeClient(options: {
     },
     async close(update) {
       calls.close.push(update);
+    },
+    async install(update) {
+      calls.install.push(update);
+      if (options.installError) throw options.installError();
     },
   };
 
@@ -135,6 +141,27 @@ test("baixar sem consentimento não toca a rede", async () => {
   assert.equal(harness.state().status, "idle");
 });
 
+test("instalar fora do estado ready não chega ao cliente nem com preflight permissivo", async () => {
+  // O primeiro portão é o consentimento: `ready` só existe depois de dois
+  // pedidos explícitos (checar e baixar). Instalar a partir de `available`
+  // seria instalar um binário que ninguém mandou baixar.
+  const harness = createHarness({ checkResult: () => update });
+  let preflights = 0;
+  const permissive = async () => {
+    preflights += 1;
+    return { allowed: true };
+  };
+
+  await harness.service.check();
+  const outcome = await harness.service.install(permissive);
+
+  assert.equal(outcome.installed, false);
+  assert.equal(outcome.blocker, "not-consented");
+  assert.equal(harness.calls.install.length, 0);
+  assert.equal(preflights, 0, "perguntou ao coordenador uma licença que não seria usada");
+  assert.equal(harness.state().status, "available", "recusar não pode consumir a atualização anunciada");
+});
+
 test("baixar depois da checagem vai de downloading a ready com progresso", async () => {
   const harness = createHarness({
     checkResult: () => update,
@@ -169,6 +196,110 @@ test("falha no download vira error de download e não vira ready", async () => {
   assert.equal(harness.state().status, "error");
   assert.equal(harness.state().error?.code, "download-failed");
   assert.equal(harness.state().error?.message, "assinatura inválida");
+});
+
+test("preflight que recusa não instala e deixa o pacote pronto para outra tentativa", async () => {
+  // O segundo portão. Recusar não pode custar o download: o pacote continua em
+  // `ready`, e o motivo fica visível para a tela dizer por quê.
+  const harness = createHarness({ checkResult: () => update });
+  await harness.service.check();
+  await harness.service.download();
+  assert.equal(harness.state().status, "ready");
+
+  const refused = await harness.service.install(async () => ({ allowed: false, blocker: "cancelled" }));
+
+  assert.equal(refused.installed, false);
+  assert.equal(refused.blocker, "preflight-refused");
+  assert.equal(harness.calls.install.length, 0);
+  assert.equal(harness.state().status, "ready");
+  assert.equal(harness.state().installBlocker, "cancelled");
+
+  const second = await harness.service.install(async () => ({ allowed: true }));
+  assert.equal(second.installed, true);
+  assert.equal(harness.calls.install.length, 1, "a recusa consumiu a tentativa em vez da atualização");
+});
+
+test("preflight que estoura conta como recusa", async () => {
+  const harness = createHarness({ checkResult: () => update });
+  await harness.service.check();
+  await harness.service.download();
+
+  const outcome = await harness.service.install(async () => {
+    throw new Error("coordenador indisponível");
+  });
+
+  assert.equal(outcome.blocker, "preflight-refused");
+  assert.equal(harness.calls.install.length, 0);
+  assert.equal(harness.state().status, "ready", "um preflight quebrado encerrou a atualização");
+});
+
+test("com os dois portões abertos, o preflight roda antes da instalação", async () => {
+  const events: string[] = [];
+  const harness = createHarness({ checkResult: () => update });
+  const original = harness.calls.install;
+  await harness.service.check();
+  await harness.service.download();
+
+  const outcome = await harness.service.install(async () => {
+    events.push(`preflight:${harness.state().status}`);
+    return { allowed: true };
+  });
+  events.push(`install:${original.length}`);
+
+  assert.equal(outcome.installed, true);
+  assert.deepEqual(events, ["preflight:ready", "install:1"], "instalou antes de perguntar se podia");
+  assert.deepEqual(harness.calls.install, [update]);
+  assert.equal(harness.state().status, "installing");
+});
+
+test("instalação que falha vira error de instalação e aceita nova tentativa", async () => {
+  let fail = true;
+  const { client, calls } = createFakeClient({ checkResult: () => update });
+  client.install = async (target) => {
+    calls.install.push(target);
+    if (fail) throw new Error("o instalador não abriu");
+  };
+  const service = createUpdaterService({ client, supported: () => true, online: () => true, now: () => 0 });
+
+  await service.check();
+  await service.download();
+  const first = await service.install(async () => ({ allowed: true }));
+
+  assert.equal(first.installed, false);
+  assert.equal(first.blocker, "install-failed");
+  assert.equal(service.getState().status, "error");
+  assert.equal(service.getState().error?.code, "install-failed");
+
+  fail = false;
+  const second = await service.install(async () => ({ allowed: true }));
+  assert.equal(second.installed, true);
+  assert.equal(calls.install.length, 2);
+});
+
+test("clicar Instalar duas vezes não instala duas vezes", async () => {
+  const harness = createHarness({ checkResult: () => update });
+  await harness.service.check();
+  await harness.service.download();
+
+  const preflight = async () => ({ allowed: true });
+  const [first, second] = await Promise.all([
+    harness.service.install(preflight),
+    harness.service.install(preflight),
+  ]);
+
+  assert.equal(first.installed, true);
+  assert.equal(second.installed, true);
+  assert.equal(harness.calls.install.length, 1, "o segundo clique lançou outro instalador");
+});
+
+test("instalar sem ter baixado não instala, mesmo com preflight permissivo", async () => {
+  const harness = createHarness({ checkResult: () => update });
+  await harness.service.check();
+
+  const outcome = await harness.service.install(async () => ({ allowed: true }));
+
+  assert.equal(outcome.blocker, "not-consented");
+  assert.equal(harness.calls.install.length, 0);
 });
 
 test("depois de um download que falhou, a retentativa é permitida", async () => {

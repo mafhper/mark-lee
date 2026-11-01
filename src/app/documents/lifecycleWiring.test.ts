@@ -15,6 +15,8 @@ import { readFileSync } from "node:fs";
 
 const FONTE = "src/App.tsx";
 const src = readFileSync(FONTE, "utf8");
+const CARTAO_UPDATER = "src/app/components/UpdaterStatusCard.tsx";
+const cartaoUpdater = readFileSync(CARTAO_UPDATER, "utf8");
 
 /* Comentários fora: este arquivo e o App citam `window.confirm` de propósito
  * (o de apagar item continua sendo uma confirmação simples), e casar a discussão
@@ -76,6 +78,35 @@ test("fechar a janela consulta as abas, não só o flush do diário", () => {
   assert.ok(
     !/\.flushAll\(\)/.test(fechamento.split("lifecycle.requestExit")[0] ?? ""),
     "o fechamento voltou a resolver o trabalho pendente por conta própria, antes do coordenador",
+  );
+});
+
+test("instalar atualização pede licença ao coordenador antes de instalar", () => {
+  /* No Windows o instalador **pode encerrar o app por conta própria** — o
+     `process::exit(0)` é do plugin, depois de lançar o instalador. Então a
+     licença tem de existir antes da chamada, e quem assina é o coordenador
+     (ML-H05), o único que conhece abas sujas e trabalho prometido. Sem esta
+     fiação o botão "Instalar" seria a única saída do app que não passa por
+     ninguém — exatamente o P0.3 de volta por outra porta. */
+  const cartao = cartaoUpdater
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  assert.ok(
+    /lifecycle\.prepareForRestart\(\)/.test(codigo),
+    "o app não liga a pré-autorização de reinício ao coordenador de ciclo de vida",
+  );
+  assert.ok(
+    /prepareRestart=\{prepareRestart\}/.test(codigo),
+    "a pré-autorização não chega ao cartão de atualização",
+  );
+  assert.ok(
+    /install\(prepareRestart\)/.test(cartao),
+    "o botão Instalar chama o serviço sem o veredito do coordenador",
+  );
+  assert.ok(
+    !/(?<![.\w])install\(\s*\)/.test(cartao),
+    "o cartão voltou a chamar install() sem preflight: instalar virou um clique só",
   );
 });
 

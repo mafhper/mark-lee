@@ -1,30 +1,35 @@
 import { isTauriRuntime } from "./runtime.ts";
 
 /**
- * Updater do Tauri — checagem e download, **sem instalar** (`ML-H06`, fatia 1).
+ * Updater do Tauri — checagem, download e instalação (`ML-H06`).
  *
  * **Por que existe:** o app não tinha updater nenhum: quem já instalou o
  * Mark-Lee dependia de baixar o instalador à mão. O plano ML-H06 pede a
- * máquina de estados completa e a instalação atrás de consentimento; esta
- * fatia entrega `idle → checking → available → downloading → ready`
- * (mais `cancelled`, `offline`, `unsupported-platform` e `error`) e **para**
- * aí. `install()` não é chamado em produção — ele entra na fatia seguinte,
- * depois do `LifecycleCoordinator.prepareForRestart()`.
+ * máquina de estados completa e a instalação atrás de consentimento; aqui estão
+ * `idle → checking → available → downloading → ready → installing`
+ * (mais `cancelled`, `offline`, `unsupported-platform` e `error`).
  *
  * **O que este módulo não sabe:** React, DOM e a forma da tela. Ele expõe um
- * estado observável e três verbos (`check`, `download`, `cancel`). Quem fala
- * com o plugin é o `UpdaterClient` injetado — e é por essa porta que os testes
- * provam as regras sem tocar em Tauri.
+ * estado observável e quatro verbos (`check`, `download`, `cancel`, `install`).
+ * Quem fala com o plugin é o `UpdaterClient` injetado — e é por essa porta que
+ * os testes provam as regras sem tocar em Tauri.
  *
- * **As três regras que sustentam o desenho:**
+ * **As quatro regras que sustentam o desenho:**
  *
  * 1. **Baixar exige consentimento.** `download()` só age no estado `available`.
  *    Não existe caminho de download automático: o boot faz *uma* checagem de
  *    metadados, e o binário só desce quando a pessoa pede.
- * 2. **Uma checagem de boot por sessão.** A trava mora no serviço, e não no
+ * 2. **Instalar exige dois portões, e nenhum deles se basta.** O primeiro é o
+ *    estado `ready` — que só existe depois de dois pedidos explícitos (checar e
+ *    baixar). O segundo é o veredito de quem sabe se a sessão pode ser
+ *    encerrada agora: no Windows o instalador **pode encerrar o app por conta
+ *    própria**, então perguntar depois seria tarde. `install()` recebe esse
+ *    veredito como argumento — não há default permissivo, e um preflight que
+ *    estoura conta como recusa.
+ * 3. **Uma checagem de boot por sessão.** A trava mora no serviço, e não no
  *    efeito do React: duplo mount (StrictMode) agenda duas vezes e cabe ao
  *    serviço recusar a segunda — uma requisição por sessão, não duas.
- * 3. **Cancelar é definitivo para aquela checagem.** O resultado tardio é
+ * 4. **Cancelar é definitivo para aquela checagem.** O resultado tardio é
  *    descartado por geração, senão a tela oferece baixar o que a pessoa
  *    acabou de dispensar.
  */
@@ -55,12 +60,13 @@ export type UpdaterStatus =
   | "available"
   | "downloading"
   | "ready"
+  | "installing"
   | "cancelled"
   | "offline"
   | "unsupported-platform"
   | "error";
 
-export type UpdaterErrorCode = "check-failed" | "download-failed";
+export type UpdaterErrorCode = "check-failed" | "download-failed" | "install-failed";
 
 export interface UpdaterState {
   status: UpdaterStatus;
@@ -74,6 +80,12 @@ export interface UpdaterState {
   receivedBytes: number;
   totalBytes: number | null;
   error: { code: UpdaterErrorCode; message: string } | null;
+  /**
+   * Por que o último pedido de instalação **não começou**. Não é `error`: nada
+   * falhou — a sessão não estava pronta para encerrar. `null` quando não houve
+   * recusa (ou quando a instalação foi autorizada).
+   */
+  installBlocker: string | null;
 }
 
 /** O que o feed anunciou e o que o cliente precisa guardar para baixar. */
@@ -91,8 +103,37 @@ export interface UpdaterClient {
     onProgress: (progress: { receivedBytes: number; totalBytes: number | null }) => void,
     options: { timeout: number }
   ): Promise<void>;
+  /** Instala o pacote **já baixado**. No Windows isto encerra o app depois de
+   *  lançar o instalador — é por isso que a chamada é gated. */
+  install(update: CheckedUpdate): Promise<void>;
   /** Solta o recurso do plugin quando a atualização é dispensada sem instalar. */
   close(update: CheckedUpdate): Promise<void>;
+}
+
+/**
+ * O veredito de quem sabe se a sessão pode ser encerrada **agora**.
+ *
+ * `blocker` é opaco para o updater: quem responde é o coordenador de ciclo de
+ * vida, com o motivo dele (`cancelled`, `not_released`, `pending_flush_failed`),
+ * e a tela traduz. O updater só olha `allowed`.
+ */
+export interface RestartVerdict {
+  allowed: boolean;
+  blocker?: string | null;
+}
+
+/**
+ * A pré-autorização de reinício. Em produção é
+ * `LifecycleCoordinator.prepareForRestart()`; nos testes é uma função que
+ * devolve o veredito que o caso precisa.
+ */
+export type RestartPreflight = () => Promise<RestartVerdict>;
+
+/** O que aconteceu com o pedido de instalação. `installed: false` **não** é
+ *  erro: a instalação não começou e a sessão continua exatamente como estava. */
+export interface InstallOutcome {
+  installed: boolean;
+  blocker: "not-consented" | "preflight-refused" | "install-failed" | null;
 }
 
 export interface UpdaterServiceOptions {
@@ -113,6 +154,14 @@ export interface UpdaterService {
   check(): Promise<void>;
   /** Só tem efeito no estado `available`: é o consentimento explícito. */
   download(): Promise<void>;
+  /**
+   * Instalar o pacote já baixado. Exige **os dois portões**: o estado `ready`
+   * (consentimento de quem pediu para baixar e agora pede para instalar) e um
+   * `preflight` que responda `allowed`. O preflight é argumento obrigatório:
+   * não existe caminho para instalar sem alguém dizer que a sessão pode
+   * terminar.
+   */
+  install(preflight: RestartPreflight): Promise<InstallOutcome>;
   cancel(): void;
   /** Devolve o cancelamento do agendamento, para o efeito do React limpar. */
   scheduleBootCheck(delayMs?: number): () => void;
@@ -128,6 +177,7 @@ function initialState(): UpdaterState {
     receivedBytes: 0,
     totalBytes: null,
     error: null,
+    installBlocker: null,
   };
 }
 
@@ -195,6 +245,16 @@ function createTauriClient(): UpdaterClient {
       handles.delete(update);
       await handle.close();
     },
+    async install(update) {
+      const handle = handles.get(update);
+      if (!handle) {
+        throw new Error("Atualização sem handle: faça a checagem antes de instalar.");
+      }
+      // No Windows esta promessa não resolve: o plugin lança o instalador e
+      // encerra o processo. Em macOS/Linux ela resolve e o app precisa subir de
+      // novo — o estado `installing` já foi emitido antes.
+      await handle.install();
+    },
   };
 }
 
@@ -210,6 +270,7 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
   let announced: CheckedUpdate | null = null;
   let inFlight: Promise<void> | null = null;
   let downloadInFlight: Promise<void> | null = null;
+  let installInFlight: Promise<InstallOutcome> | null = null;
   /** Geração da checagem: cancelar incrementa, e a resposta velha é descartada. */
   let generation = 0;
   let bootCheckSettled = false;
@@ -231,7 +292,13 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
 
   async function check(): Promise<void> {
     if (inFlight) return inFlight;
-    if (current.status === "downloading" || current.status === "ready") return;
+    if (
+      current.status === "downloading" ||
+      current.status === "ready" ||
+      current.status === "installing"
+    ) {
+      return;
+    }
 
     bootCheckSettled = true;
     if (cancelScheduled) {
@@ -257,6 +324,7 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
       receivedBytes: 0,
       totalBytes: null,
       error: null,
+      installBlocker: null,
     });
 
     inFlight = (async () => {
@@ -308,7 +376,13 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
 
     const target = announced;
     let lastNotified = Number.NEGATIVE_INFINITY;
-    emit({ status: "downloading", receivedBytes: 0, totalBytes: null, error: null });
+    emit({
+      status: "downloading",
+      receivedBytes: 0,
+      totalBytes: null,
+      error: null,
+      installBlocker: null,
+    });
 
     downloadInFlight = (async () => {
       try {
@@ -336,6 +410,71 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
     })();
 
     return downloadInFlight;
+  }
+
+  /**
+   * Instalação: o único verbo que pode encerrar o app.
+   *
+   * **Portão 1 — consentimento.** `ready` só é alcançado por `download()`, que
+   * só age em `available`, que só existe depois de `check()`. Instalar de
+   * qualquer outro estado devolve `not-consented` **sem** consultar o
+   * coordenador: não se pede licença para uma saída que não vai acontecer. A
+   * exceção é a retentativa de uma instalação que falhou ao lançar.
+   *
+   * **Portão 2 — preflight.** Consultar depois seria tarde: no Windows o
+   * instalador pode encerrar o app por conta própria. Enquanto o veredito é
+   * `allowed`, a atualização fica onde estava — recusar não custa o download.
+   */
+  async function install(preflight: RestartPreflight): Promise<InstallOutcome> {
+    if (installInFlight) return installInFlight;
+
+    const retrying = current.status === "error" && current.error?.code === "install-failed";
+    if ((current.status !== "ready" && !retrying) || !announced) {
+      return { installed: false, blocker: "not-consented" };
+    }
+
+    const target = announced;
+
+    installInFlight = (async (): Promise<InstallOutcome> => {
+      try {
+        let verdict: RestartVerdict;
+        try {
+          verdict = await preflight();
+        } catch (error) {
+          // Preflight que estoura não é licença. Fail closed: sem veredito, não
+          // instala — e a razão fica visível em vez de sumir num console.
+          emit({ installBlocker: messageOf(error) });
+          return { installed: false, blocker: "preflight-refused" };
+        }
+        if (!verdict.allowed) {
+          // `cancelled` é o motivo mais comum (a pessoa desistiu na guarda), mas
+          // o serviço não interpreta: repassa o que o coordenador disse.
+          emit({ installBlocker: verdict.blocker ?? "cancelled" });
+          return { installed: false, blocker: "preflight-refused" };
+        }
+
+        emit({ status: "installing", installBlocker: null, error: null });
+        try {
+          await client.install(target);
+          return { installed: true, blocker: null };
+        } catch (error) {
+          // No Windows este caminho é raro (o app já morreu); em macOS/Linux é o
+          // normal quando o instalador falha. A atualização continua baixada.
+          emit({
+            status: "error",
+            error: { code: "install-failed", message: messageOf(error) },
+          });
+          return { installed: false, blocker: "install-failed" };
+        }
+      } finally {
+        /* A trava é do pedido inteiro, e não só do `client.install`: uma recusa
+           no preflight também precisa soltá-la, senão a primeira recusa
+           envenenaria todas as tentativas seguintes. */
+        installInFlight = null;
+      }
+    })();
+
+    return installInFlight;
   }
 
   function cancel(): void {
@@ -381,6 +520,7 @@ export function createUpdaterService(options: UpdaterServiceOptions = {}): Updat
     },
     check,
     download,
+    install,
     cancel,
     scheduleBootCheck,
   };
