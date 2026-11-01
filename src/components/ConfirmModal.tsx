@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ThemeConfig, Language } from '../types';
 import { TRANSLATIONS } from '../translations';
@@ -24,11 +24,31 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
 
+  /* Escape = Cancelar. É a decisão que não destrói nada, então é a leitura certa
+     para "sair do diálogo sem escolher". O listener vive na janela porque o
+     painel não recebe foco — sem isto o teclado só consegue desistir do
+     fechamento clicando. */
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className={`w-96 rounded-xl shadow-2xl border ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg}`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t['confirm.unsaved.title']}
+        className={`w-96 rounded-xl shadow-2xl border ${tConfig.ui} ${tConfig.uiBorder} ${tConfig.fg}`}
+      >
         <div className="flex items-center gap-3 p-4 border-b border-opacity-10 border-gray-500">
           <AlertTriangle size={24} className="text-amber-500" />
           <h2 className="font-semibold">{t['confirm.unsaved.title']}</h2>

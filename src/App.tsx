@@ -85,6 +85,7 @@ import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
 import MenuBar, { type MenuActionId } from "./components/MenuBar";
+import ConfirmModal from "./components/ConfirmModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
@@ -106,6 +107,7 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
+import { nextActiveId, runClose, type CloseCandidate, type CloseDecision } from "./app/tabs/closeGuard";
 import "./index.css";
 
 /**
@@ -570,6 +572,13 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  /* Fechamento de aba (ML-H04): o diálogo é o mesmo para qualquer operação que
+     descarte trabalho — fechar, fechar outras, fechar à direita, fechar todas —,
+     e responde Salvar/Descartar/Cancelar. O `resolve` fica fora do estado: o
+     React pode reexecutar um updater, e resolver a mesma pergunta duas vezes
+     deixaria a guarda com uma promessa pendurada. */
+  const [closePrompt, setClosePrompt] = useState<{ name: string } | null>(null);
+  const closePromptResolveRef = useRef<((decision: CloseDecision) => void) | null>(null);
 
   const lastEditorUserScrollAtRef = useRef(0);
   const lastPreviewUserScrollAtRef = useRef(0);
@@ -1258,25 +1267,57 @@ const core = [
     [openPathInTab]
   );
 
+  /** Pergunta ao usuário o que fazer com uma aba suja. Uma pergunta por vez. */
+  const askCloseDecision = (tab: CloseCandidate): Promise<CloseDecision> =>
+    new Promise((resolve) => {
+      if (closePromptResolveRef.current) {
+        // Já há um diálogo aberto: este pedido não pode tomar a promessa do
+        // primeiro (ele ficaria pendurado para sempre), e "cancelar" é a única
+        // resposta que não descarta nada sem decisão.
+        resolve("cancel");
+        return;
+      }
+      closePromptResolveRef.current = resolve;
+      setClosePrompt({ name: tab.name });
+    });
+
+  const answerClosePrompt = useCallback((decision: CloseDecision) => {
+    // Fecha o diálogo **antes** de resolver: a guarda pode pedir outra pergunta
+    // na sequência (várias abas sujas), e o estado precisa estar livre para ela.
+    setClosePrompt(null);
+    const resolve = closePromptResolveRef.current;
+    closePromptResolveRef.current = null;
+    resolve?.(decision);
+  }, []);
+
+  /** Aplica o fechamento das abas liberadas pela guarda e reposiciona o foco. */
+  const applyClose = (ids: readonly string[]) => {
+    const closing = new Set(ids);
+    setTabs((previous) => previous.filter((item) => !closing.has(item.id)));
+    const current = activeTabIdRef.current;
+    if (current && closing.has(current)) {
+      setActiveTabId(nextActiveId(tabsRef.current, ids, current));
+    }
+  };
+
+  /**
+   * A guarda recebe as três colaborações por injeção: quem pergunta (o modal),
+   * quem grava (`saveTab`, com resultado tipado desde o ML-H03) e quem aplica.
+   * A regra de "só fecha em `saved` ou `discard`" mora em `closeGuard.ts`, não
+   * aqui — é o que a deixa testável fora do app.
+   */
+  const closeGuardDeps = () => ({
+    ask: askCloseDecision,
+    save: (tab: DocumentTab) => saveTab(tab, false),
+    close: applyClose,
+  });
+
+  const closeTabs = (targets: DocumentTab[]) => runClose(targets, closeGuardDeps());
+
   const closeTabWithPrompt = async (tabId: string) => {
     const tab = tabs.find((item) => item.id === tabId);
     if (!tab) return;
-    if (tab.dirty) {
-      const shouldSave = window.confirm(
-        (t["confirm.unsaved.message"] || "")
-          .replace("{fileName}", tab.name)
-          .trim() || `Save changes for ${tab.name}?`
-      );
-      if (shouldSave) {
-        await saveTab(tab, false);
-      }
-    }
-    setTabs((previous) => previous.filter((item) => item.id !== tabId));
-    if (activeTabId === tabId) {
-      const index = tabs.findIndex((item) => item.id === tabId);
-      const fallback = tabs[index - 1] || tabs[index + 1];
-      setActiveTabId(fallback?.id ?? null);
-    }
+    await closeTabs([tab]);
   };
 
   /**
@@ -1801,12 +1842,20 @@ if (tab) await saveTabRef.current(tab, false);
     }
   };
 
-  const closeRightTabs = (tabId: string) => {
+  /**
+   * Os quatro fechamentos em lote passam pela mesma guarda da aba única: a
+   * diferença entre eles é **quais** abas entram, não como cada uma decide.
+   * "Fechar salvas" fica de fora de propósito — ele só toca abas limpas, então
+   * não há trabalho a perder nem pergunta a fazer.
+   */
+  const closeOtherTabs = async (tabId: string) => {
+    await closeTabs(tabs.filter((tab) => tab.id !== tabId));
+  };
+
+  const closeRightTabs = async (tabId: string) => {
     const index = tabs.findIndex((tab) => tab.id === tabId);
     if (index === -1) return;
-    const keep = tabs.slice(0, index + 1);
-    setTabs(keep);
-    setActiveTabId(tabId);
+    await closeTabs(tabs.slice(index + 1));
   };
 
   const closeSavedTabs = () => {
@@ -1815,9 +1864,23 @@ if (tab) await saveTabRef.current(tab, false);
     setActiveTabId(dirtyTabs[0]?.id ?? null);
   };
 
-  const closeAllTabs = () => {
-    setTabs([makeNewTab("Untitled.md", "")]);
-    setActiveTabId((current) => current ?? tabs[0]?.id ?? null);
+  const closeAllTabs = async () => {
+    // "Fechar todas" termina com um documento em branco, como uma sessão nova.
+    // A aba nova entra no mesmo passo do fechamento — nunca existe um frame sem
+    // aba nenhuma, e a ativa aponta para a que sobrou.
+    const next = makeNewTab("Untitled.md", "");
+    if (tabs.length === 0) {
+      setTabs([next]);
+      setActiveTabId(next.id);
+      return;
+    }
+    await runClose(tabs, {
+      ...closeGuardDeps(),
+      close: () => {
+        setTabs([next]);
+        setActiveTabId(next.id);
+      },
+    });
   };
 
   const shortcutLabels: Record<string, string> = useMemo(
@@ -3157,10 +3220,7 @@ onOpenFolder={handleOpenFolder}
               tConfig={tConfig}
               onActivate={setActiveTabId}
               onClose={closeTabWithPrompt}
-              onCloseOthers={(tabId) => {
-                setTabs((previous) => previous.filter((tab) => tab.id === tabId));
-                setActiveTabId(tabId);
-              }}
+              onCloseOthers={closeOtherTabs}
               onCloseRight={closeRightTabs}
               onCloseSaved={closeSavedTabs}
               onCloseAll={closeAllTabs}
@@ -3374,6 +3434,16 @@ onCreateEditor={(view) => {
         isCodeDocument={isCodeDocument}
         t={t}
         tConfig={tConfig}
+      />
+
+      <ConfirmModal
+        isOpen={closePrompt !== null}
+        fileName={closePrompt?.name ?? ""}
+        tConfig={tConfig}
+        language={settings.language}
+        onClose={() => answerClosePrompt("cancel")}
+        onConfirm={() => answerClosePrompt("save")}
+        onDiscard={() => answerClosePrompt("discard")}
       />
 
       <ExportModal
