@@ -1475,21 +1475,27 @@ const core = [
   }, []);
 
   /** Aplica o fechamento das abas liberadas pela guarda e reposiciona o foco. */
-  const applyClose = (ids: readonly string[]) => {
+  const applyClose = async (ids: readonly string[]) => {
     const closing = new Set(ids);
     // O agendador guarda estado por documento; uma aba que saiu da memória não
     // pode continuar com timer armado. O rascunho também sai: a aba foi fechada
     // com decisão explícita (salva ou descartada), e recuperá-la na próxima
     // abertura seria desfazer essa decisão.
+    //
+    // A promessa é aguardada, não descartada: o guardião espera a gravação em voo
+    // antes de apagar o rascunho, e o fechamento só termina quando isso termina —
+    // senão o `remove` poderia chegar depois da saída do app.
+    const forgets: Promise<void>[] = [];
     for (const id of ids) {
       autosaveRef.current?.forget(id);
-      void draftKeeperRef.current?.forget(id);
+      forgets.push(draftKeeperRef.current?.forget(id) ?? Promise.resolve());
     }
     setTabs((previous) => previous.filter((item) => !closing.has(item.id)));
     const current = activeTabIdRef.current;
     if (current && closing.has(current)) {
       setActiveTabId(nextActiveId(tabsRef.current, ids, current));
     }
+    await Promise.all(forgets);
   };
 
   /**
@@ -1593,7 +1599,7 @@ const core = [
         )
       );
       setSaveError(null);
-      void draftKeeperRef.current?.forget(current.id);
+      await draftKeeperRef.current?.forget(current.id);
       return;
     }
 
@@ -1618,7 +1624,7 @@ const core = [
     addRecentFile(result.path, name);
     setRecentFiles(getRecentFiles());
     setSaveError(null);
-    void draftKeeperRef.current?.forget(current.id);
+    await draftKeeperRef.current?.forget(current.id);
     if (workspacePath && isPathInsideWorkspace(result.path, workspacePath)) {
       await refreshWorkspace();
     }
@@ -1678,7 +1684,7 @@ const core = [
           // Editou durante o I/O: o rascunho continua sendo a rede.
           draftKeeperRef.current?.note(tab.id);
         } else {
-          void draftKeeperRef.current?.forget(tab.id);
+          await draftKeeperRef.current?.forget(tab.id);
         }
 
         if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {

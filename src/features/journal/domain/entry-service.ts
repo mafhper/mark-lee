@@ -24,9 +24,16 @@ export class ConflictError extends Error {
 const lastMtimes = new Map<string, number>();
 
 /**
- * Fila de gravação de entrada, por caminho (`ML-H06`). Criar e duplicar ficam
+ * Fila de gravação de entrada, por caminho (H05). Criar e duplicar ficam
  * de fora de propósito: cada um escolhe um caminho com `randomUUID`, então não
  * existe segundo escritor para serializar.
+ *
+ * **Contrato comum** (desenho completo em `services/serialWrites.ts`): primitivo
+ * `atomic_write_text` → `safe_write`, fila serial por caminho e resultado tipado
+ * na borda (`ConflictError`, aqui). O detector de conflito do diário é o
+ * **`mtime`** — o do editor é fingerprint de conteúdo: o arquivo da entrada é
+ * escrito por várias superfícies e o painel não carrega o texto inteiro a cada
+ * tecla. Os dois recusam sobrescrita silenciosa — o que difere é o sinal.
  */
 const writes = createSerialWrites();
 
@@ -114,7 +121,7 @@ export async function readEntry(path: string): Promise<EntryRecord | null> {
 }
 
 export async function saveEntry(path: string, metadata: JournalEntryMetadata, body: string, force = false): Promise<void> {
-  // Uma escrita por caminho (`ML-H06`). `saveEntry` é o ponto único de gravação
+  // Uma escrita por caminho (H05). `saveEntry` é o ponto único de gravação
   // de entrada, mas não é chamado por um só lugar: o debounce do painel, o
   // favorito da lista, o tracker de Pins e a galeria gravam o mesmo arquivo. Sem
   // a fila, dois deles intercalavam "ler mtime → gravar" e o segundo acusava

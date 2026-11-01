@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 
 /* Seam: a **fiação de persistência das Memórias**. O contrato comum
- * (`ML-H06`) pede três coisas — o primitivo seguro do ML-H02, uma escrita por
+ * (H05) pede três coisas — o primitivo seguro do ML-H02, uma escrita por
  * caminho e um ponto único de saída. O editor já tinha as três; as Memórias
  * tinham o primitivo e nenhuma das outras duas.
  *
@@ -47,7 +47,7 @@ test("a entrada do diário grava pelo primitivo seguro, do frontend ao Rust", ()
   );
   assert.ok(
     !/\bwriteFile\(/.test(entry),
-    "a entrada voltou a usar `writeFile`, a rotina direta que trunca o arquivo",
+    "a entrada voltou a usar `writeFile` em vez do primitivo atômico do contrato",
   );
 
   // Elo 1: a ponte chama o comando atômico.
@@ -149,6 +149,20 @@ test("a biblioteca de cadernos grava e faz read-modify-write na fila", () => {
     assert.ok(corpo, `${nome} não existe mais`);
     assert.match(corpo, /libraryWrites\.run\(/, `${nome} muta a biblioteca fora da fila`);
   }
+
+  // O backup também sai pelo primitivo seguro: ele é o que recupera a biblioteca
+  // quando o principal corrompe, e protegê-la com um arquivo que pode ser
+  // truncado no meio da própria gravação é proteger nada.
+  assert.match(
+    library,
+    /writeLibraryFile\(LIBRARY_BACKUP, prev\)/,
+    "o backup da biblioteca voltou a ser gravado fora do primitivo seguro",
+  );
+  assert.match(
+    library,
+    /async function writeLibraryFile\(fileName: string, content: string\)[\s\S]{0,400}?atomicWriteText/,
+    "a gravação da biblioteca deixou de usar o primitivo atômico",
+  );
 });
 
 test("o painel só declara limpo quando a revisão gravada é a de agora", () => {
@@ -169,9 +183,10 @@ test("o painel só declara limpo quando a revisão gravada é a de agora", () =>
 });
 
 test("nenhum escritor de texto das Memórias usa o primitivo direto", () => {
-  // Varredura do domínio inteiro: o P0.1 nasceu de um `fs::write` que trunca o
-  // arquivo se o processo cair no meio. As Memórias tinham um sobrevivente fora
-  // dos três serviços auditados — o template, que é texto do usuário.
+  // Varredura do domínio inteiro. A regra da casa é sair por `atomicWriteText`:
+  // desde o ML-H02 o `write_file` do backend também chama `safe_write`, mas o
+  // nome dele é histórico e o atômico é o único que declara a intenção — quem lê
+  // o domínio não precisa saber qual dos dois comandos faz o quê hoje.
   //
   // `export-service.ts` fica de fora de propósito e nomeado: o destino dele é o
   // que o usuário escolheu no diálogo, e ali o contrato é outro (gravação

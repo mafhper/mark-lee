@@ -204,7 +204,7 @@ async function mkdirIfMissing(path: string): Promise<void> {
 }
 
 /**
- * Fila de gravação do manifesto, por caderno (`ML-H06`).
+ * Fila de gravação do manifesto, por caderno (H05).
  *
  * **Por que existe:** todos os setters do manifesto são "ler o JSON, aplicar uma
  * chave, gravar", e o arquivo é o mesmo para todos. Dois setters concorrentes —

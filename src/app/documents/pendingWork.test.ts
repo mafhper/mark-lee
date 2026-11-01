@@ -4,7 +4,7 @@ import test from "node:test";
 import { createPendingWorkRegistry } from "./pendingWork.ts";
 
 /* Seam: o **registro de trabalho prometido** do coordenador de ciclo de vida
- * (`ML-H06`, P0.3). O editor tinha o seu `flush` injetado, o diário tinha um
+ * (H05, P0.3). O editor tinha o seu `flush` injetado, o diário tinha um
  * registro próprio em `features/editor/active-target.ts` e cada saída nova
  * precisava lembrar de somar os dois — que é exatamente o defeito que o P0.3
  * descreve. Aqui se prova a regra do registro, de fora: o coordenador só precisa

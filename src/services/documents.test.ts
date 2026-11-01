@@ -281,6 +281,40 @@ describe("DocumentSession — conflito com o disco", () => {
     assert.equal(session.isDirty, true);
   });
 
+  it("arquivo ausente com a sessão sem referência não é recriado em silêncio", async () => {
+    // O caso que o teste acima não cobria: a sessão sabe **em que caminho** o
+    // documento vive (é o que um rascunho recuperado traz) mas não tem
+    // fingerprint de disco — o arquivo não pôde ser lido na abertura. Sem
+    // referência, a gravação antiga escrevia por cima do nada e recriava o
+    // arquivo que alguém tinha apagado; ausência de referência não é licença
+    // para isso.
+    const disk = createFakeDisk();
+    const session = createDocumentSessions(disk.io).forDocument("aba-1");
+    session.restoreDraft("/notas/a.md", "texto não salvo", null);
+
+    const outcome = await session.save({ path: "/notas/a.md", content: "texto não salvo" });
+
+    assert.deepEqual(outcome, { kind: "failed", reason: "file_removed_on_disk" });
+    assert.equal(disk.writes.length, 0, "a gravação recriou um arquivo que não existia mais");
+    assert.equal(disk.files.has("/notas/a.md"), false);
+    assert.equal(session.isDirty, true, "o texto continua sem destino depois da recusa");
+  });
+
+  it("arquivo presente sem referência aceita a gravação pedida", async () => {
+    // Ausência de fingerprint não bloqueia para sempre: o documento precisa
+    // continuar salvável. O que se recusa é a **criação** silenciosa, provada
+    // acima — não a gravação que o usuário pediu num caminho que existe.
+    const disk = createFakeDisk({ "/notas/a.md": "criado por outro programa" });
+    const session = createDocumentSessions(disk.io).forDocument("aba-1");
+    session.restoreDraft("/notas/a.md", "texto não salvo", null);
+
+    const outcome = await session.save({ path: "/notas/a.md", content: "texto não salvo" });
+
+    assert.equal(outcome.kind, "saved");
+    assert.equal(disk.files.get("/notas/a.md"), "texto não salvo");
+    assert.equal(session.isDirty, false);
+  });
+
   it("Salvar como não compara contra a referência do arquivo anterior", async () => {
     const disk = createFakeDisk({
       "/notas/a.md": "original",
@@ -348,6 +382,40 @@ describe("DocumentSession — decisões do conflito externo", () => {
     semCaminho.restoreDraft(null, "rascunho", null);
     assert.equal(semCaminho.isDirty, true);
     assert.equal(semCaminho.path, null);
+  });
+
+  it("restaurar rascunho não faz a revisão retroceder", () => {
+    // Um rascunho recuperado pode chegar a uma sessão que já tem edições (a
+    // sessão é por id de aba, e o id reaparece). Devolver a revisão a 1 faria
+    // `savedRevision === revision` com texto que ninguém gravou: o documento
+    // apareceria limpo e a guarda de fechamento não perguntaria nada.
+    const sessions = createDocumentSessions(createFakeDisk().io);
+    const session = sessions.forDocument("aba-1");
+    session.noteEdit();
+    session.noteEdit();
+    session.noteEdit();
+
+    session.restoreDraft("/notas/a.md", "texto do rascunho", fingerprintContent("texto do disco"));
+
+    assert.equal(session.revision, 3, "a revisão voltou a 1 depois de três edições");
+    assert.equal(session.isDirty, true);
+  });
+
+  it("restaurar rascunho não inventa revisão gravada", async () => {
+    // A revisão salva não pode **subir** sem gravação: a única que houve foi a
+    // da revisão 1, e é ela que continua valendo depois do rascunho.
+    const disk = createFakeDisk();
+    const session = createDocumentSessions(disk.io).forDocument("aba-1");
+    session.noteEdit();
+    await session.save({ path: "/notas/a.md", content: "gravado" });
+    session.noteEdit();
+    session.noteEdit();
+
+    session.restoreDraft("/notas/a.md", "outro texto", fingerprintContent("gravado"));
+
+    assert.equal(session.revision, 3);
+    assert.equal(session.savedRevision, 1, "o rascunho declarou gravada uma revisão que nunca foi para o disco");
+    assert.equal(session.isDirty, true);
   });
 });
 

@@ -12,6 +12,13 @@
  * (`DocumentIo`). A ponte Tauri continua em `services/filesystem.ts`, e quem
  * monta as duas é o app. Isso é o que permite testar a sessão com um disco falso
  * em vez de simular `invoke`.
+ *
+ * **Contrato comum de persistência** (o desenho inteiro está em
+ * `services/serialWrites.ts`): primitivo `atomic_write_text` → `safe_write`,
+ * fila serial **por caminho** e resultado tipado nesta borda. O detector de
+ * conflito do editor é o **fingerprint de conteúdo** — o do diário é `mtime`, e a
+ * diferença é deliberada: os dois recusam sobrescrita silenciosa de uma versão
+ * que o app não viu, por sinais que cada lado tem em mãos.
  */
 
 /** Porta de I/O. `readText` rejeita quando o arquivo não existe ou não abre. */
@@ -176,9 +183,18 @@ class DocumentSessionImpl implements DocumentSession {
   restoreDraft(path: string | null, content: string, diskHash: string | null): void {
     this.currentPath = path;
     this.currentDiskHash = diskHash;
-    this.currentRevision = 1;
+    // A revisão não retrocede: reabrir a sessão a partir de um rascunho pode
+    // acontecer depois de edições, e voltar para 1 faria um texto que ninguém
+    // gravou aparecer como salvo (`savedRevision === revision`). O piso é 1
+    // porque o buffer restaurado já é uma revisão do documento.
+    const revision = Math.max(this.currentRevision, 1);
+    this.currentRevision = revision;
     const matchesDisk = diskHash !== null && diskHash === fingerprintContent(content);
-    this.lastSavedRevision = matchesDisk ? 1 : 0;
+    // A revisão gravada também não sobe: só uma gravação faz isso. Com texto que
+    // não é o do disco, ela fica abaixo da atual — e o documento, sujo.
+    this.lastSavedRevision = matchesDisk
+      ? revision
+      : Math.min(this.lastSavedRevision, revision - 1);
   }
 
   async save(request: SaveRequest): Promise<SaveOutcome> {
@@ -217,20 +233,30 @@ class DocumentSessionImpl implements DocumentSession {
   ): Promise<SaveOutcome> {
     if (!request.path) return { kind: "cancelled" };
 
-    const baseline = this.currentPath === request.path ? this.currentDiskHash : null;
-    if (baseline !== null) {
-      // A referência só vale para o arquivo que a sessão conhece: `Salvar como`
-      // aponta para outro caminho e sobrescrevê-lo é a escolha do usuário.
+    // A referência só vale para o arquivo que a sessão conhece: `Salvar como`
+    // aponta para outro caminho e sobrescrevê-lo é a escolha declarada do
+    // usuário. Caminho conhecido **sem** referência (rascunho recuperado, por
+    // exemplo) é outra coisa: a sessão sabe onde o documento vive e nunca leu o
+    // que está lá.
+    const knownPath = this.currentPath === request.path;
+    const baseline = knownPath ? this.currentDiskHash : null;
+    if (knownPath) {
       const onDisk = await this.readDiskHash(request.path);
       if (onDisk === null) {
         // A sessão conhecia uma versão neste caminho e agora não consegue ler
         // nenhuma. Pode ser remoção por fora ou permissão de leitura perdida;
         // nos dois casos gravar por cima recriaria um arquivo sem saber o que
         // havia nele. Recriar em silêncio é o que o P0.5 proíbe — quem decide é
-        // o usuário, por `Salvar como` (que não usa esta referência).
+        // o usuário, por `Salvar como` (que não usa esta referência). O selo
+        // `deletedExternally` da aba é só o aviso do watcher; aqui quem decide é
+        // a leitura, que é autoritativa e cobre também o caso em que o selo não
+        // chegou (permissão perdida, watcher atrasado).
         return { kind: "failed", reason: "file_removed_on_disk" };
       }
-      if (onDisk !== baseline) {
+      // Sem fingerprint não há o que comparar: o usuário pediu para salvar neste
+      // caminho e o arquivo existe. O que não se admite é a criação silenciosa
+      // acima, não a gravação pedida.
+      if (baseline !== null && onDisk !== baseline) {
         return { kind: "conflict", diskHash: onDisk, expectedHash: baseline };
       }
     }

@@ -1,6 +1,6 @@
 /**
  * Registro de trabalho prometido do coordenador de ciclo de vida
- * (`ML-H06`, fecha a pendência que o P0.3 deixou aberta).
+ * (H05, fecha a pendência que o P0.3 deixou aberta).
  *
  * **Por que existe:** o coordenador (`lifecycleCoordinator.ts`) decide **quando**
  * sair e o que fazer com o resultado, mas as superfícies que prometem trabalho

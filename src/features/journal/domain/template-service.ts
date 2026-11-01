@@ -145,8 +145,9 @@ export async function saveTemplate(journalRoot: string, name: string, body: stri
   const dir = templatesDir(journalRoot);
   await createWorkspaceDirectory(dir);
   // Rascunho de template é texto do usuário: grava pelo primitivo seguro, como a
-  // entrada e o manifesto (`ML-H06`). O `writeFile` direto truncava o arquivo se
-  // o processo caísse no meio da gravação.
+  // entrada e o manifesto (H05). `atomicWriteText` é o mesmo `safe_write` do
+  // backend — temporário único e troca sem remover o destino —, então a queda no
+  // meio da gravação deixa o arquivo anterior inteiro em vez de um pedaço dele.
   await atomicWriteText(templatePath(journalRoot, name), body);
 }
 

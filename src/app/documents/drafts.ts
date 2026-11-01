@@ -121,6 +121,12 @@ export interface DraftRecovery {
   restored: string[];
   /** Rascunhos obsoletos (documento limpo quando foram escritos): remover do disco. */
   dropped: string[];
+  /**
+   * Rascunhos **mais velhos que o cache**: não entram no buffer, mas continuam no
+   * disco. Não são lixo (são a cópia durável), são uma versão que o cache já
+   * superou; o guardião os reescreve na próxima edição.
+   */
+  stale: string[];
   /** Rascunho mais recente, para a abertura mostrar o trabalho recuperado. */
   newest: string | null;
 }
@@ -133,6 +139,14 @@ export interface DraftRecovery {
  * aconteceu, e adotá-lo traria de volta texto que o usuário já tinha salvo — ou
  * descartado. Rascunho sem aba correspondente vira aba: o cache pode ter sumido,
  * e o texto não.
+ *
+ * **E quem é mais novo vence.** O cache de abas guarda `cachedAt` (quando aquela
+ * aba foi parar no `localStorage`); o rascunho guarda `savedAt` (quando foi
+ * escrito). Os dois discordarem é normal — o cache é reescrito a cada mudança e
+ * o rascunho tem debounce —, e adotar o mais velho devolveria o texto para trás,
+ * apagando teclas que a pessoa já tinha visto na tela. Cache sem `cachedAt` (de
+ * uma versão anterior) não bloqueia: aí o rascunho vence, porque ele é a cópia
+ * durável.
  */
 export function mergeDraftRecovery(
   cached: readonly DocumentTab[],
@@ -142,6 +156,7 @@ export function mergeDraftRecovery(
   const adopted: string[] = [];
   const restored: string[] = [];
   const dropped: string[] = [];
+  const stale: string[] = [];
   let newest: DocumentDraft | null = null;
 
   // Do mais antigo para o mais novo: se dois rascunhos disputassem a mesma aba
@@ -157,6 +172,12 @@ export function mergeDraftRecovery(
     const index = tabs.findIndex((tab) => tab.id === draft.documentId);
     if (index >= 0) {
       const tab = tabs[index];
+      // Rascunho mais velho que o cache: o cache já tem o texto mais recente. O
+      // rascunho fica no disco (é a rede), mas não volta para o buffer.
+      if (tab.cachedAt !== undefined && draft.savedAt < tab.cachedAt) {
+        stale.push(draft.documentId);
+        continue;
+      }
       if (tab.content === draft.content) {
         // Mesmo texto: não há o que recuperar. Se a aba está limpa, o rascunho é
         // sobra (a remoção depois do save não chegou ao disco); se está suja, ele
@@ -195,5 +216,5 @@ export function mergeDraftRecovery(
     if (!newest || draft.savedAt >= newest.savedAt) newest = draft;
   }
 
-  return { tabs, adopted, restored, dropped, newest: newest?.documentId ?? null };
+  return { tabs, adopted, restored, dropped, stale, newest: newest?.documentId ?? null };
 }

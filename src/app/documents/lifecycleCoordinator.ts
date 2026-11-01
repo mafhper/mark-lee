@@ -58,7 +58,7 @@ export interface LifecycleDeps<T extends LifecycleCandidate> {
   ask(tab: T): Promise<CloseDecision>;
   save(tab: T): Promise<SaveOutcome>;
   /** Aplicar o fechamento das abas liberadas. Só o `close` o usa. */
-  close(ids: readonly string[]): void;
+  close(ids: readonly string[]): void | Promise<void>;
   /** Autosaves prometidos pelo editor (agendador + guardião de rascunhos). */
   flush(): Promise<number>;
   /**
@@ -81,7 +81,7 @@ export interface DocumentLifecycleCoordinator<T extends LifecycleCandidate> {
   /** Fechar abas. `close` troca quem aplica; o padrão é `deps.close`. */
   requestClose(
     tabs: readonly T[],
-    close?: (ids: readonly string[]) => void
+    close?: (ids: readonly string[]) => void | Promise<void>
   ): Promise<LifecycleResult>;
   /** "Arquivo → Novo" sobre um documento em memória: `proceed` cria o novo. */
   requestReplace(tabs: readonly T[], proceed: () => void | Promise<void>): Promise<LifecycleResult>;
@@ -98,8 +98,10 @@ export function createDocumentLifecycleCoordinator<T extends LifecycleCandidate>
 ): DocumentLifecycleCoordinator<T> {
   const stillDirty = deps.stillDirty;
 
-  const guard = (tabs: readonly T[], close: (ids: readonly string[]) => void) =>
-    runClose(tabs, { ask: deps.ask, save: deps.save, close, stillDirty });
+  const guard = (
+    tabs: readonly T[],
+    close: (ids: readonly string[]) => void | Promise<void>
+  ) => runClose(tabs, { ask: deps.ask, save: deps.save, close, stillDirty });
 
   /** Traduz o resultado da guarda para a resposta do ciclo de vida. */
   const settle = (

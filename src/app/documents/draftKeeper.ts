@@ -72,6 +72,12 @@ interface Entry {
   pending: boolean;
   /** Gravação em curso, para pedidos que chegam durante o I/O esperarem por ela. */
   running: Promise<DraftWriteOutcome> | null;
+  /**
+   * O documento foi salvo ou descartado enquanto a gravação corria. A gravação
+   * em voo não pode escrever depois disto, e a falha dela não pode rearmar
+   * retentativa: o rascunho deixou de existir por decisão do usuário.
+   */
+  forgotten: boolean;
 }
 
 const globalTimers: DraftKeeperTimers = {
@@ -109,7 +115,24 @@ class DocumentDraftKeeperImpl implements DocumentDraftKeeper {
     const entry = this.entries.get(documentId);
     if (entry) {
       this.clearTimer(entry);
+      // Marca antes de esperar: a gravação em voo já passou do ponto de decisão
+      // ou ainda vai passar, e nenhuma das duas pode escrever por cima da
+      // remoção que vem depois.
+      entry.forgotten = true;
+      entry.pending = false;
       this.entries.delete(documentId);
+    }
+    // Esperar a gravação em voo é o que impede a ressurreição: ela pode estar
+    // exatamente entre o `store.write` e o retorno, e sem esta espera o
+    // `remove` aconteceria **antes** da escrita — o arquivo voltaria a existir
+    // e a próxima abertura ofereceria de volta o texto que o usuário descartou.
+    if (entry?.running) {
+      try {
+        await entry.running;
+      } catch {
+        // A gravação em voo falhou: não há o que remover, mas o `remove` abaixo
+        // continua valendo para o rascunho que já estava no disco.
+      }
     }
     try {
       await this.deps.store.remove(documentId);
@@ -172,6 +195,7 @@ class DocumentDraftKeeperImpl implements DocumentDraftKeeper {
 
   private async performWrite(documentId: string, entry: Entry): Promise<DraftWriteOutcome> {
     try {
+      if (entry.forgotten) return "skipped";
       const snapshot = this.deps.snapshot(documentId);
       if (!snapshot) {
         // O documento saiu da memória sem passar por `forget` (troca de workspace,
@@ -184,6 +208,10 @@ class DocumentDraftKeeperImpl implements DocumentDraftKeeper {
         await this.deps.store.remove(documentId);
         return "skipped";
       }
+      // Segunda checagem, depois do último ponto em que se pode desistir sem
+      // efeito: `forget` pode ter marcado a entrada enquanto o snapshot era
+      // montado.
+      if (entry.forgotten) return "skipped";
       await this.deps.store.write({
         documentId,
         name: snapshot.name,
@@ -196,11 +224,14 @@ class DocumentDraftKeeperImpl implements DocumentDraftKeeper {
       });
       return "written";
     } catch {
+      // Falha de documento esquecido não vira promessa: não há aba para tentar
+      // de novo, e um retry recriaria o rascunho que `forget` apagou.
+      if (entry.forgotten) return "skipped";
       entry.pending = true;
       return "failed";
     } finally {
       entry.running = null;
-      if (!this.disposed && entry.pending && entry.timer === null) {
+      if (!this.disposed && !entry.forgotten && entry.pending && entry.timer === null) {
         this.arm(documentId, entry);
       }
     }
@@ -209,7 +240,7 @@ class DocumentDraftKeeperImpl implements DocumentDraftKeeper {
   private entryFor(documentId: string): Entry {
     const existing = this.entries.get(documentId);
     if (existing) return existing;
-    const created: Entry = { timer: null, pending: false, running: null };
+    const created: Entry = { timer: null, pending: false, running: null, forgotten: false };
     this.entries.set(documentId, created);
     return created;
   }

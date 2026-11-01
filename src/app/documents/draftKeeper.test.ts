@@ -67,6 +67,8 @@ function drain(): Promise<void> {
 interface FakeDrafts {
   drafts: DocumentDraft[];
   removed: string[];
+  /** Ordem das operações no "disco": é o que prova que a remoção veio depois da escrita. */
+  log: string[];
   store: DraftStore;
   failNextWrites(count: number): void;
   holdWrites(): () => void;
@@ -75,12 +77,14 @@ interface FakeDrafts {
 function createFakeStore(): FakeDrafts {
   const drafts: DocumentDraft[] = [];
   const removed: string[] = [];
+  const log: string[] = [];
   let failures = 0;
   let gate: Promise<void> | null = null;
 
   return {
     drafts,
     removed,
+    log,
     failNextWrites(count) {
       failures = count;
     },
@@ -99,12 +103,18 @@ function createFakeStore(): FakeDrafts {
           throw new Error("disco cheio");
         }
         drafts.push({ ...draft });
+        log.push(`write:${draft.documentId}`);
       },
       async list() {
         return [];
       },
       async remove(documentId) {
         removed.push(documentId);
+        log.push(`remove:${documentId}`);
+        // O disco de verdade apaga o arquivo: sem isto, um rascunho gravado
+        // **depois** da remoção continuaria parecendo vivo na asserção.
+        const index = drafts.findIndex((draft) => draft.documentId === documentId);
+        if (index >= 0) drafts.splice(index, 1);
       },
     },
   };
@@ -274,6 +284,30 @@ describe("guardião de rascunhos — falha e recuperação", () => {
       ["antes", "depois"],
       "o flush não esperou a gravação em curso e perdeu o texto novo"
     );
+  });
+
+  it("forget espera a gravação em voo: o rascunho descartado não ressuscita", async () => {
+    // O defeito: `forget` apagava o arquivo enquanto uma gravação deste
+    // documento ainda estava no disco. A gravação chegava depois e **recriava**
+    // o rascunho de uma aba que o usuário já tinha fechado/salvo — texto
+    // descartado voltando na próxima abertura.
+    const h = createHarness({ "aba-1": { content: "texto descartado" } });
+    const release = h.fake.holdWrites();
+
+    h.keeper.note("aba-1");
+    await h.clock.advance(DRAFT_KEEPER_DEFAULTS.debounceMs);
+    assert.equal(h.fake.log.length, 0, "a escrita devia estar em voo, presa no disco falso");
+
+    const forgetting = h.keeper.forget("aba-1");
+    release();
+    await forgetting;
+
+    assert.deepEqual(
+      h.fake.log,
+      ["write:aba-1", "remove:aba-1"],
+      "a remoção aconteceu antes da gravação em voo acabar"
+    );
+    assert.deepEqual(h.fake.drafts, [], "a gravação em voo recriou o rascunho depois do forget");
   });
 
   it("forget cancela o timer e apaga o rascunho", async () => {

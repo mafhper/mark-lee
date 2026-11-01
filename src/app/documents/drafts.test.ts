@@ -204,6 +204,47 @@ describe("recuperação na abertura", () => {
     assert.equal(result.tabs[1].conflictedExternally, false);
   });
 
+  it("rascunho mais velho que o cache não sobrescreve o cache", () => {
+    // O cache de abas é reescrito a cada mudança de conteúdo; o rascunho tem o
+    // seu debounce. Quando os dois discordam, quem é mais novo manda — adotar um
+    // rascunho 2 s mais velho devolveria o texto 2 s no passado, apagando teclas
+    // que a pessoa já tinha visto na tela.
+    const result = mergeDraftRecovery(
+      [tab({ content: "texto do cache, 2 s mais novo", dirty: true, cachedAt: 12_000 })],
+      [draft({ content: "texto do rascunho, mais velho", savedAt: 10_000 })]
+    );
+
+    assert.deepEqual(result.adopted, [], "o rascunho é mais velho que o cache e foi adotado");
+    assert.deepEqual(result.stale, ["aba-1"]);
+    assert.equal(result.tabs[0].content, "texto do cache, 2 s mais novo");
+    assert.equal(result.tabs[0].dirty, true, "o texto do cache ainda não está no disco");
+    assert.equal(result.newest, null, "o foco foi para um texto que não foi recuperado");
+  });
+
+  it("rascunho mais novo que o cache é adotado", () => {
+    const result = mergeDraftRecovery(
+      [tab({ content: "texto do cache", dirty: true, cachedAt: 10_000 })],
+      [draft({ content: "texto do rascunho, mais novo", savedAt: 12_000 })]
+    );
+
+    assert.deepEqual(result.adopted, ["aba-1"]);
+    assert.deepEqual(result.stale, []);
+    assert.equal(result.tabs[0].content, "texto do rascunho, mais novo");
+    assert.equal(result.newest, "aba-1");
+  });
+
+  it("cache sem idade não bloqueia a recuperação", () => {
+    // Cache escrito por uma versão anterior não tem `cachedAt`. Na dúvida quem
+    // vence é o rascunho: ele é a cópia durável, e é o que o ML-H05 promete.
+    const result = mergeDraftRecovery(
+      [tab({ content: "cache antigo", dirty: true })],
+      [draft({ content: "texto do rascunho", savedAt: 5 })]
+    );
+
+    assert.deepEqual(result.adopted, ["aba-1"]);
+    assert.equal(result.tabs[0].content, "texto do rascunho");
+  });
+
   it("o mais recente entre os rascunhos recuperados vira a aba em foco", () => {
     const result = mergeDraftRecovery(
       [],

@@ -33,7 +33,7 @@ export interface CloseGuardDeps<T extends CloseCandidate> {
   /** Gravar. **Só** é chamado para aba suja cuja decisão foi `save`. */
   save(tab: T): Promise<SaveOutcome>;
   /** Aplicar o fechamento de fato. Recebe só as abas liberadas. */
-  close(ids: readonly string[]): void;
+  close(ids: readonly string[]): void | Promise<void>;
   /**
    * Uma aba liberada ainda tem trabalho em memória **agora**?
    *
@@ -109,7 +109,7 @@ export async function runClose<T extends CloseCandidate>(
 
   if (dirtyAgain.length > 0) {
     const closable = tabs.filter((tab) => !dirtyAgain.includes(tab));
-    if (closable.length > 0) deps.close(closable.map((tab) => tab.id));
+    if (closable.length > 0) await deps.close(closable.map((tab) => tab.id));
     return {
       closed: closable.map((tab) => tab.id),
       kept: dirtyAgain.map((tab) => tab.id),
@@ -117,7 +117,10 @@ export async function runClose<T extends CloseCandidate>(
     };
   }
 
-  deps.close(ids);
+  // `await` de propósito: o fechamento pode ter trabalho que não pode chegar
+  // depois da saída (apagar o rascunho durável de uma aba descartada, por
+  // exemplo). Quem aplica devolve a promessa; ignorá-la era o defeito.
+  await deps.close(ids);
   return { closed: ids, kept: [], cancelled: false };
 }
 

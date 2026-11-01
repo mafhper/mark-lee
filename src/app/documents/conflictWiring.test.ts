@@ -149,6 +149,17 @@ test("editar, fechar e sair conversam com o guardião de rascunhos", () => {
     /draftKeeperRef\.current\?\.forget\(id\)/,
     "fechar aba não apaga o rascunho durável (o texto descartado voltaria na próxima abertura)"
   );
+  // Apagar o rascunho pode esperar uma gravação em voo; a promessa não pode ser
+  // descartada, senão o `remove` chega depois da saída e o rascunho volta.
+  assert.match(
+    fechamento,
+    /await Promise\.all\(/,
+    "o fechamento voltou a ignorar a remoção dos rascunhos"
+  );
+  assert.ok(
+    !/void draftKeeperRef\.current\?\.forget/.test(app),
+    "algum ponto do app voltou a descartar a promessa de `forget`"
+  );
 
   assert.match(
     app,
