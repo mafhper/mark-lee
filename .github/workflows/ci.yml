@@ -40,7 +40,10 @@ jobs:
       - name: Check Tauri dependency alignment
         run: npm run tauri:check
 
-      - name: Test journal media and organization
+      # O nome antigo era "Test journal media and organization": depois de 2026-10-31 o
+      # bloco roda tambem as suites de commands, markdown e clipboard, entao o rotulo
+      # passou a mentir. O nome do JOB (status check) nao muda.
+      - name: Unit tests
         run: |
           npm run test:image-markdown
           npm run test:preprocess-markdown
@@ -54,6 +57,21 @@ jobs:
           npm run test:release-workflow
           npm run test:cache-evictor
           node scripts/release-version.test.mjs
+          # Estes ficaram fora do portao sem que nada reclamasse: a suite existia e
+          # passava, mas nenhum job a executava. Reconectados em 2026-10-31.
+          npm run test:commands
+          npm run test:preview-link
+          npm run test:image-path-guard
+          npm run test:editor-commands
+          npm run test:clipboard
+          npm run test:context-menu:unit
+          npm run test:sidebar
+          npm run test:side-accent-policy
+          npm run test:journal-tags
+          npm run test:journal-coords
+          npm run test:md-to-html
+          npm run test:export-paths
+          npm run test:smoke-github-api
 
       - name: Build web
         run: npm run build
@@ -116,6 +134,12 @@ jobs:
           SITE_BASE: /
           SITE_GITHUB_OWNER: ${{ github.repository_owner }}
           SITE_GITHUB_REPO: ${{ github.event.repository.name }}
+
+      - name: Lint site
+        run: npm run site:lint
+
+      - name: Unit tests site
+        run: npm run site:test
 
       - name: Build site
         run: npm run site:build
