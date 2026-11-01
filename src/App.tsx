@@ -135,6 +135,7 @@ import {
   type ConflictChoice,
 } from "./app/documents/conflictResolution";
 import { isSameOrInsidePath } from "./app/documents/paths";
+import { updaterService } from "./services/updater";
 import "./index.css";
 
 /**
@@ -2374,6 +2375,7 @@ const cycleSidebar = useCallback(() => {
       { id: "palette", label: t["settings.tab.palette"] || "Command palette", keywords: "preferences settings command palette search" },
       { id: "presets", label: t["settings.tab.presets"] || "Publishing", keywords: "preferences settings publication presets html preview" },
       { id: "shortcuts", label: t["settings.tab.shortcuts"] || "Shortcuts", keywords: "preferences settings shortcuts keyboard hotkeys" },
+      { id: "updates", label: t["settings.tab.updates"] || "Updates", keywords: "preferences settings updates version release atualizar atualização" },
     ];
     const items: CommandPaletteItem[] = [];
 
@@ -2409,6 +2411,20 @@ const cycleSidebar = useCallback(() => {
           hint: shortcutLabels["file-export"],
           keywords: "export html pdf markdown",
           onSelect: () => openDialog("export"),
+        },
+        {
+          /* A paleta não é atalho para "baixar": ela abre a seção e dispara a
+             checagem. O download continua sendo um segundo clique explícito,
+             porque baixar binário é decisão, não navegação. */
+          id: "palette-check-updates",
+          label: t["updates.check"] || "Check for updates",
+          section: actionSection,
+          kind: "action",
+          keywords: "update updater version release atualizar atualização verificar",
+          onSelect: () => {
+            openSettingsPanel("updates", "tab-updates");
+            void updaterService.check();
+          },
         },
         {
           id: "palette-theme",
@@ -2658,6 +2674,18 @@ label: t["view.sidebar"] || "Sidebar",
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
+
+  /* Checagem de atualização deferida (ML-H06).
+     Roda **uma vez por sessão**, e a trava é do serviço — `scheduleBootCheck`
+     recusa o segundo agendamento. Não dá para usar `useRef` para isso: o
+     StrictMode monta o efeito duas vezes de propósito, e uma trava de
+     componente viraria duas requisições. Deferida por 8s para não competir com
+     a leitura dos arquivos da sessão; sem download — o binário só desce quando
+     a pessoa pedir nos Ajustes. */
+  useEffect(() => {
+    if (!settings.updaterAutoCheck) return;
+    return updaterService.scheduleBootCheck();
+  }, [settings.updaterAutoCheck]);
 
   useEffect(() => {
     const title = activeTab

@@ -101,6 +101,13 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   if (typeof merged.sidebarCollapsed !== "boolean") {
     merged.sidebarCollapsed = false;
   }
+
+  // Chave nova nasce com o padrão, inclusive para quem já tem settings salvos.
+  // O spread já cobre a ausência; isto cobre o valor corrompido (`null`, texto),
+  // que sem a linha viraria `truthy`/`falsy` por acidente na checagem de boot.
+  if (typeof merged.updaterAutoCheck !== "boolean") {
+    merged.updaterAutoCheck = DEFAULT_SETTINGS.updaterAutoCheck;
+  }
 const byAnchor = settings.toolbarByAnchor as
     | Record<string, Partial<AppSettings> | undefined>
     | undefined;

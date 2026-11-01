@@ -558,6 +558,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   selectionToolbarEnabled: true,
   chromeMode: "unified",
   tabsEnabled: true,
+  // A checagem de abertura é só de metadados (versão, notas e URL do pacote):
+  // nenhum conteúdo do usuário sai do app. Desligar aqui mantém o botão dos
+  // Ajustes funcionando — o que se desliga é a rede involuntária, não o updater.
+  updaterAutoCheck: true,
   sidebarEnabled: true,
   sidebarCollapsed: false,
   sidebarWidth: 260,

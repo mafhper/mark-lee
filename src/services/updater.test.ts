@@ -1,0 +1,318 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  BOOT_CHECK_DELAY_MS,
+  CHECK_TIMEOUT_MS,
+  DOWNLOAD_TIMEOUT_MS,
+  createUpdaterService,
+  type CheckedUpdate,
+  type UpdaterClient,
+  type UpdaterState,
+} from "./updater.ts";
+
+/* Seam: o **contrato do updater** — quais transições o app pode observar e
+ * quando a rede é tocada. Nada de React, nada de Tauri, nada de `invoke`: o
+ * cliente é o par externo que o serviço recebe, e é ele que fala com o plugin.
+ *
+ * O que estes testes protegem, em ordem de dano:
+ *
+ * 1. **Baixar exige consentimento.** Um `download()` fora do estado `available`
+ *    não pode chamar o cliente — baixar binário sem o usuário pedir é o defeito
+ *    que o ML-H06 existe para não ter.
+ * 2. **A checagem de boot roda uma vez.** Duplo mount do React (StrictMode) não
+ *    pode virar duas requisições; a trava é do serviço, não do efeito.
+ * 3. **Cancelar uma checagem não vira "disponível".** O resultado tardio é
+ *    ignorado, senão a tela oferece baixar o que a pessoa já dispensou.
+ */
+
+interface FakeCalls {
+  check: Array<{ timeout: number }>;
+  download: Array<{ update: CheckedUpdate; timeout: number }>;
+  close: CheckedUpdate[];
+}
+
+function createFakeClient(options: {
+  checkResult?: () => CheckedUpdate | null;
+  checkError?: () => Error;
+  downloadError?: () => Error;
+  onDownload?: (emit: (progress: { receivedBytes: number; totalBytes: number | null }) => void) => void;
+} = {}) {
+  const calls: FakeCalls = { check: [], download: [], close: [] };
+
+  const client: UpdaterClient = {
+    async check({ timeout }) {
+      calls.check.push({ timeout });
+      if (options.checkError) throw options.checkError();
+      return options.checkResult ? options.checkResult() : null;
+    },
+    async download(update, onProgress, { timeout }) {
+      calls.download.push({ update, timeout });
+      if (options.downloadError) throw options.downloadError();
+      options.onDownload?.(onProgress);
+    },
+    async close(update) {
+      calls.close.push(update);
+    },
+  };
+
+  return { client, calls };
+}
+
+function createHarness(
+  clientOptions: Parameters<typeof createFakeClient>[0] = {},
+  overrides: { supported?: () => boolean; online?: () => boolean } = {}
+) {
+  const { client, calls } = createFakeClient(clientOptions);
+  const statuses: string[] = [];
+  let clock = 0;
+  const service = createUpdaterService({
+    client,
+    supported: overrides.supported ?? (() => true),
+    online: overrides.online ?? (() => true),
+    now: () => clock,
+  });
+  service.subscribe((state) => {
+    // Só as **transições**: o progresso emite vários estados com o mesmo
+    // status, e repetir "downloading" na lista não diz nada sobre a ordem.
+    if (statuses[statuses.length - 1] !== state.status) statuses.push(state.status);
+  });
+  return {
+    service,
+    calls,
+    statuses,
+    advance(ms: number) {
+      clock += ms;
+    },
+    state(): UpdaterState {
+      return service.getState();
+    },
+  };
+}
+
+const update: CheckedUpdate = {
+  version: "1.9.0",
+  currentVersion: "1.8.3",
+  notes: "Notas da 1.9.0",
+};
+
+test("checagem com atualização disponível passa por checking e expõe a versão anunciada", async () => {
+  const harness = createHarness({ checkResult: () => update });
+
+  await harness.service.check();
+
+  assert.deepEqual(harness.statuses, ["checking", "available"]);
+  assert.equal(harness.state().status, "available");
+  assert.equal(harness.state().version, "1.9.0");
+  assert.equal(harness.state().currentVersion, "1.8.3");
+  assert.equal(harness.state().notes, "Notas da 1.9.0");
+});
+
+test("checagem sem atualização volta para idle e registra quando foi checada", async () => {
+  const harness = createHarness({ checkResult: () => null });
+  harness.advance(1_000);
+
+  await harness.service.check();
+
+  assert.deepEqual(harness.statuses, ["checking", "idle"]);
+  assert.equal(harness.state().checkedAt, 1_000);
+});
+
+test("a checagem usa o timeout declarado", async () => {
+  const harness = createHarness({ checkResult: () => null });
+
+  await harness.service.check();
+
+  assert.deepEqual(harness.calls.check, [{ timeout: CHECK_TIMEOUT_MS }]);
+});
+
+test("baixar sem consentimento não toca a rede", async () => {
+  const harness = createHarness({ checkResult: () => update });
+
+  await harness.service.download();
+
+  assert.equal(harness.calls.download.length, 0);
+  assert.equal(harness.state().status, "idle");
+});
+
+test("baixar depois da checagem vai de downloading a ready com progresso", async () => {
+  const harness = createHarness({
+    checkResult: () => update,
+    onDownload: (emit) => {
+      emit({ receivedBytes: 0, totalBytes: 1_000 });
+      harness.advance(200);
+      emit({ receivedBytes: 400, totalBytes: 1_000 });
+      harness.advance(200);
+      emit({ receivedBytes: 1_000, totalBytes: 1_000 });
+    },
+  });
+
+  await harness.service.check();
+  await harness.service.download();
+
+  assert.deepEqual(harness.statuses, ["checking", "available", "downloading", "ready"]);
+  assert.equal(harness.state().version, "1.9.0");
+  assert.equal(harness.state().receivedBytes, 1_000);
+  assert.equal(harness.state().totalBytes, 1_000);
+  assert.deepEqual(harness.calls.download, [{ update, timeout: DOWNLOAD_TIMEOUT_MS }]);
+});
+
+test("falha no download vira error de download e não vira ready", async () => {
+  const harness = createHarness({
+    checkResult: () => update,
+    downloadError: () => new Error("assinatura inválida"),
+  });
+
+  await harness.service.check();
+  await harness.service.download();
+
+  assert.equal(harness.state().status, "error");
+  assert.equal(harness.state().error?.code, "download-failed");
+  assert.equal(harness.state().error?.message, "assinatura inválida");
+});
+
+test("depois de um download que falhou, a retentativa é permitida", async () => {
+  let fail = true;
+  const { client, calls } = createFakeClient({ checkResult: () => update });
+  client.download = async (updated) => {
+    calls.download.push({ update: updated, timeout: DOWNLOAD_TIMEOUT_MS });
+    if (fail) throw new Error("conexão caiu");
+  };
+  const service = createUpdaterService({
+    client,
+    supported: () => true,
+    online: () => true,
+    now: () => 0,
+  });
+
+  await service.check();
+  await service.download();
+  assert.equal(service.getState().status, "error");
+
+  fail = false;
+  await service.download();
+
+  assert.equal(service.getState().status, "ready");
+  assert.equal(calls.download.length, 2);
+});
+
+test("cancelar a checagem descarta o resultado tardio", async () => {
+  let resolveCheck = (_value: CheckedUpdate | null) => {};
+  const pending = new Promise<CheckedUpdate | null>((resolve) => {
+    resolveCheck = resolve;
+  });
+  const service = createUpdaterService({
+    client: {
+      check: async () => pending,
+      download: async () => {},
+      close: async () => {},
+    },
+    supported: () => true,
+    online: () => true,
+    now: () => 0,
+  });
+
+  const started = service.check();
+  service.cancel();
+  resolveCheck(update);
+  await started;
+
+  assert.equal(service.getState().status, "cancelled");
+  assert.equal(service.getState().version, null);
+});
+
+test("sem rede a checagem reporta offline sem chamar o cliente", async () => {
+  const harness = createHarness({ checkResult: () => update }, { online: () => false });
+
+  await harness.service.check();
+
+  assert.equal(harness.state().status, "offline");
+  assert.equal(harness.calls.check.length, 0);
+});
+
+test("fora do runtime Tauri a checagem reporta plataforma não suportada", async () => {
+  const harness = createHarness({ checkResult: () => update }, { supported: () => false });
+
+  await harness.service.check();
+
+  assert.equal(harness.state().status, "unsupported-platform");
+  assert.equal(harness.calls.check.length, 0);
+});
+
+test("erro de transporte vira offline; erro do feed vira error", async () => {
+  const transport = createHarness({
+    checkError: () => new Error("error sending request for url: dns error"),
+  });
+  await transport.service.check();
+  assert.equal(transport.state().status, "offline");
+
+  const feed = createHarness({ checkError: () => new Error("manifesto sem assinatura") });
+  await feed.service.check();
+  assert.equal(feed.state().status, "error");
+  assert.equal(feed.state().error?.code, "check-failed");
+});
+
+test("a checagem de boot agenda uma vez só, com o atraso declarado", async () => {
+  const { client, calls } = createFakeClient({ checkResult: () => null });
+  const tasks: Array<() => void> = [];
+  const delays: number[] = [];
+  const service = createUpdaterService({
+    client,
+    supported: () => true,
+    online: () => true,
+    now: () => 0,
+    schedule: (task, delayMs) => {
+      tasks.push(task);
+      delays.push(delayMs);
+      return () => {
+        const index = tasks.indexOf(task);
+        if (index >= 0) tasks.splice(index, 1);
+      };
+    },
+  });
+
+  service.scheduleBootCheck();
+  service.scheduleBootCheck();
+  assert.equal(tasks.length, 1);
+  assert.deepEqual(delays, [BOOT_CHECK_DELAY_MS]);
+
+  tasks[0]();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(calls.check.length, 1);
+  assert.equal(service.getState().status, "idle");
+
+  // Depois de rodar, um novo agendamento não refaz a requisição.
+  service.scheduleBootCheck();
+  assert.equal(tasks.length, 0);
+  assert.equal(delays.length, 1);
+});
+
+test("a checagem manual desarma a de boot", async () => {
+  const { client, calls } = createFakeClient({ checkResult: () => null });
+  const tasks: Array<() => void> = [];
+  const service = createUpdaterService({
+    client,
+    supported: () => true,
+    online: () => true,
+    now: () => 0,
+    schedule: (task) => {
+      tasks.push(task);
+      return () => {
+        const index = tasks.indexOf(task);
+        if (index >= 0) tasks.splice(index, 1);
+      };
+    },
+  });
+
+  service.scheduleBootCheck();
+  assert.equal(tasks.length, 1);
+
+  await service.check();
+  assert.equal(tasks.length, 0);
+
+  service.scheduleBootCheck();
+  assert.equal(tasks.length, 0);
+  assert.equal(calls.check.length, 1);
+});

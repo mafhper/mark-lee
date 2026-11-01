@@ -8,6 +8,7 @@ import {
   Keyboard,
   Layers3,
   Palette,
+  RefreshCw,
   RotateCcw,
   Rows3,
   Search,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { createDefaultThemeLibrary } from "../../constants";
 import { createPublicationPreset } from "../../services/publication-style";
+import UpdaterStatusCard from "./UpdaterStatusCard";
 import {
   AppSettings,
   Language,
@@ -34,7 +36,8 @@ export type SettingsTabId =
   | "toolbar"
   | "palette"
   | "presets"
-  | "shortcuts";
+  | "shortcuts"
+  | "updates";
 
 /* Um controle é um **dado**, e não JSX.
 
@@ -119,6 +122,7 @@ const tabs: Array<{ id: SettingsTabId; icon: React.ReactNode }> = [
   { id: "palette", icon: <Command className="h-4 w-4" /> },
   { id: "presets", icon: <Layers3 className="h-4 w-4" /> },
   { id: "shortcuts", icon: <Keyboard className="h-4 w-4" /> },
+  { id: "updates", icon: <RefreshCw className="h-4 w-4" /> },
 ];
 
 const languages: Language[] = ["pt-BR", "en-US", "es-ES"];
@@ -402,6 +406,7 @@ export default function SettingsPanel({
     palette: tr("Paleta de comandos", "Command palette", "Paleta de comandos"),
     presets: tr("Publicação", "Publishing", "Publicación"),
     shortcuts: tr("Atalhos", "Shortcuts", "Atajos"),
+    updates: tr("Atualizações", "Updates", "Actualizaciones"),
   };
   const shortcutLabels: Record<(typeof shortcutActionIds)[number], string> = {
     "file-save": tr("Salvar", "Save", "Guardar"),
@@ -2127,6 +2132,43 @@ export default function SettingsPanel({
 
   conteudoPorCategoria["shortcuts"] = (
       <div className="grid gap-5">{gruposAtalhos.map(renderFieldGroup)}</div>
+    );
+
+  /* Atualizações é um capítulo, e não um cartão dentro de "Geral".
+     O estado do updater (`available`, `downloading`, `ready`) sobrevive ao
+     fechamento do painel — o serviço é da sessão —, então quem volta aqui
+     encontra a tela onde deixou. Um interruptor e um cartão de status: o
+     interruptor decide se a checagem de boot acontece, e o cartão mostra o que
+     ela encontrou. O botão de **instalar** não existe nesta fatia. */
+  const gruposAtualizacoes: FieldGroup[] = [
+    {
+      id: "atualizacoes",
+      title: tr("Atualização do app", "App update", "Actualización de la app"),
+      fields: [
+        {
+          kind: "switch",
+          id: "updater-auto-check",
+          label: tr("Buscar ao iniciar", "Check on startup", "Buscar al iniciar"),
+          hint: tr(
+            "Só metadados: o conteúdo dos seus documentos nunca sai do app.",
+            "Metadata only: your document content never leaves the app.",
+            "Solo metadatos: el contenido de sus documentos nunca sale de la app."
+          ),
+          checked: settings.updaterAutoCheck,
+          onChange: (updaterAutoCheck) => onSettingsChange({ updaterAutoCheck }),
+        },
+        {
+          kind: "custom",
+          id: "updater-status",
+          label: tr("Status da atualização", "Update status", "Estado de la actualización"),
+          node: <UpdaterStatusCard language={settings.language} accentHex={tConfig.accentHex} />,
+        },
+      ],
+    },
+  ];
+
+  conteudoPorCategoria["updates"] = (
+      <div className="grid gap-5">{gruposAtualizacoes.map(renderFieldGroup)}</div>
     );
 
   /* Página inteira, e não mais um diálogo sobre a aplicação.
