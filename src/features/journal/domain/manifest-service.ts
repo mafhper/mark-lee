@@ -1,4 +1,5 @@
 import { readFile, atomicWriteText, ensureDirectoryTree, copyImageToDocumentDir } from "../../../services/filesystem";
+import { createSerialWrites } from "../../../services/serialWrites";
 import type {
   BlogViewConfig,
   EntryFieldDefinition,
@@ -202,6 +203,23 @@ async function mkdirIfMissing(path: string): Promise<void> {
   await ensureDirectoryTree(path);
 }
 
+/**
+ * Fila de gravação do manifesto, por caderno (`ML-H06`).
+ *
+ * **Por que existe:** todos os setters do manifesto são "ler o JSON, aplicar uma
+ * chave, gravar", e o arquivo é o mesmo para todos. Dois setters concorrentes —
+ * cor e pins, campos de entrada e preferências de template — leem o mesmo JSON,
+ * cada um aplica a sua chave e o último a gravar apaga a do outro. É o mesmo
+ * defeito que a fila da entrada de diário fecha, no arquivo que guarda a
+ * configuração do caderno inteiro; a atomicidade do `safe_write` protege contra
+ * arquivo truncado, não contra atualização perdida.
+ */
+const manifestWrites = createSerialWrites();
+
+function withManifestWrite<T>(rootPath: string, task: () => Promise<T>): Promise<T> {
+  return manifestWrites.run(manifestPath(rootPath), task);
+}
+
 export async function checkManifest(rootPath: string): Promise<ManifestCheckResult> {
   try {
     const raw = await readFile(manifestPath(rootPath));
@@ -270,8 +288,10 @@ export async function checkManifest(rootPath: string): Promise<ManifestCheckResu
 }
 
 export async function writeManifest(rootPath: string, manifest: JournalManifest): Promise<void> {
-  await mkdirIfMissing(`${rootPath}/.marklee`);
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    await mkdirIfMissing(`${rootPath}/.marklee`);
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  });
 }
 
 export async function createJournal(
@@ -290,7 +310,9 @@ export async function createJournal(
   await ensureDirectoryTree(`${rootPath}/assets`);
 
   // Write manifest atomically
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  });
 
   return {
     id: manifest.id,
@@ -311,26 +333,28 @@ export async function updateJournalAppearance(
   rootPath: string,
   patch: { name?: string; description?: string | null; color?: string | null; cover?: string | null },
 ): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  if (patch.name !== undefined) {
-    const name = patch.name.trim();
-    if (name) parsed.name = name;
-  }
-  if (patch.description !== undefined) {
-    const description = patch.description?.trim();
-    if (!description) delete parsed.description;
-    else parsed.description = description;
-  }
-  if (patch.color !== undefined) {
-    if (patch.color === null) delete parsed.color;
-    else parsed.color = patch.color;
-  }
-  if (patch.cover !== undefined) {
-    if (patch.cover === null) delete parsed.cover;
-    else parsed.cover = patch.cover;
-  }
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (name) parsed.name = name;
+    }
+    if (patch.description !== undefined) {
+      const description = patch.description?.trim();
+      if (!description) delete parsed.description;
+      else parsed.description = description;
+    }
+    if (patch.color !== undefined) {
+      if (patch.color === null) delete parsed.color;
+      else parsed.color = patch.color;
+    }
+    if (patch.cover !== undefined) {
+      if (patch.cover === null) delete parsed.cover;
+      else parsed.cover = patch.cover;
+    }
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 /**
@@ -338,27 +362,33 @@ export async function updateJournalAppearance(
  * notebook folder was copied — duplicating its id — so each copy gets a unique id.
  */
 export async function updateManifestId(rootPath: string, id: string): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.id = id;
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.id = id;
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 /** Persist which Pins metrics are shown in the sidebar (preserves unknown fields). */
 export async function setPinnedMetrics(rootPath: string, ids: string[]): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.pinnedMetrics = ids;
-  parsed.pinsConfig = normalizePinsConfig(undefined, ids);
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.pinnedMetrics = ids;
+    parsed.pinsConfig = normalizePinsConfig(undefined, ids);
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 export async function setPinsConfig(rootPath: string, config: PinsConfig): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.pinsConfig = { version: 1, items: config.items.map((item, order) => ({ ...item, order })) };
-  delete parsed.pinnedMetrics;
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.pinsConfig = { version: 1, items: config.items.map((item, order) => ({ ...item, order })) };
+    delete parsed.pinnedMetrics;
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 export async function setJournalInsights(
@@ -366,36 +396,44 @@ export async function setJournalInsights(
   trackerDefinitions: JournalManifest["trackerDefinitions"],
   pinsConfig: PinsConfig,
 ): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.trackerDefinitions = trackerDefinitions ?? [];
-  parsed.pinsConfig = { version: 1, items: pinsConfig.items.map((item, order) => ({ ...item, order })) };
-  delete parsed.pinnedMetrics;
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.trackerDefinitions = trackerDefinitions ?? [];
+    parsed.pinsConfig = { version: 1, items: pinsConfig.items.map((item, order) => ({ ...item, order })) };
+    delete parsed.pinnedMetrics;
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 export async function setBlogView(rootPath: string, blogView: BlogViewConfig): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.blogView = blogView;
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.blogView = blogView;
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 export async function setEntryFieldDefinitions(rootPath: string, config: EntryFieldDefinitionsConfig): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.entryFieldDefinitions = normalizeEntryFieldDefinitions(config);
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.entryFieldDefinitions = normalizeEntryFieldDefinitions(config);
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 export async function setTemplatePreferences(rootPath: string, preferences: TemplatePreferences): Promise<void> {
-  const raw = await readFile(manifestPath(rootPath));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  parsed.templatePreferences = {
-    version: 1,
-    hiddenBuiltInIds: Array.from(new Set(preferences.hiddenBuiltInIds.filter(Boolean))),
-  };
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    const raw = await readFile(manifestPath(rootPath));
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.templatePreferences = {
+      version: 1,
+      hiddenBuiltInIds: Array.from(new Set(preferences.hiddenBuiltInIds.filter(Boolean))),
+    };
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(parsed, null, 2));
+  });
 }
 
 /**
@@ -451,7 +489,9 @@ export async function repairJournal(
   await mkdirIfMissing(`${rootPath}/.marklee`);
   await mkdirIfMissing(`${rootPath}/entries`);
   await mkdirIfMissing(`${rootPath}/assets`);
-  await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  await withManifestWrite(rootPath, async () => {
+    await atomicWriteText(manifestPath(rootPath), JSON.stringify(manifest, null, 2));
+  });
 
   return {
     id: manifest.id,

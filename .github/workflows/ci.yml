@@ -84,6 +84,13 @@ jobs:
           npm run test:conflict-wiring
           npm run test:drafts
           npm run test:draft-keeper
+          # Memórias no caminho comum de persistência (ML-H06): a fila por
+          # caminho, o registro de trabalho prometido do coordenador e a fiação
+          # de gravação do diário. Suites novas nasceram fiadas.
+          npm run test:serial-writes
+          npm run test:pending-work
+          npm run test:journal-lifecycle-wiring
+          npm run test:journal-persistence-wiring
 
       - name: Build web
         run: npm run build

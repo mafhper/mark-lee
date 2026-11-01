@@ -8,6 +8,7 @@ import {
   type LifecycleCandidate,
 } from "./lifecycleCoordinator.ts";
 import { isSameOrInsidePath } from "./paths.ts";
+import { createPendingWorkRegistry, type PendingWorkRegistry } from "./pendingWork.ts";
 
 /* Seam: o **contrato do coordenador** — quais documentos entram na pergunta,
  * em que ordem o trabalho é escrito e o que acontece quando a resposta não
@@ -41,6 +42,7 @@ interface Setup {
   stillDirty?: (tab: Tab) => boolean;
   candidates?: () => readonly Tab[];
   flush?: () => Promise<number>;
+  pendingWork?: PendingWorkRegistry;
 }
 
 function setup(config: Setup = {}) {
@@ -69,6 +71,7 @@ function setup(config: Setup = {}) {
         return config.flushFailures ?? 0;
       }),
     stillDirty: config.stillDirty,
+    pendingWork: config.pendingWork,
   });
 
   return { coordinator, tabs, events, closed };
@@ -161,6 +164,88 @@ test("flush prometido que falha bloqueia a saída com motivo próprio", async ()
   assert.equal(result.blocker, "pending_flush_failed");
   assert.equal(result.cancelled, false);
   assert.equal(destroyed, false);
+});
+
+test("sair descarrega o trabalho prometido ao coordenador mesmo sem quem chama somar", async () => {
+  // O P0.3 prometia **um** ponto consultado por todas as saídas. As superfícies
+  // com debounce próprio (o diário) prometem trabalho que não é documento do
+  // editor: elas se registram, e o coordenador consulta o registro na saída.
+  const pendingWork = createPendingWorkRegistry();
+  const events: string[] = [];
+  pendingWork.register({
+    label: "journal-entry",
+    flush: () => {
+      events.push("journal:flush");
+    },
+  });
+
+  const { coordinator } = setup({ tabs: [], pendingWork });
+
+  let destroyed = false;
+  const result = await coordinator.requestExit(() => {
+    destroyed = true;
+  });
+
+  assert.deepEqual(events, ["journal:flush"], "a saída não descarregou o diário");
+  assert.equal(result.proceeded, true);
+  assert.equal(destroyed, true);
+});
+
+test("trabalho prometido que falha bloqueia a saída com motivo próprio", async () => {
+  const pendingWork = createPendingWorkRegistry();
+  pendingWork.register({ label: "journal-entry", flush: () => false });
+
+  const { coordinator } = setup({ tabs: [], pendingWork });
+
+  let destroyed = false;
+  const result = await coordinator.requestExit(() => {
+    destroyed = true;
+  });
+
+  assert.equal(result.proceeded, false);
+  assert.equal(result.blocker, "pending_flush_failed");
+  assert.equal(result.cancelled, false);
+  assert.equal(destroyed, false, "saiu por cima de uma gravação do diário que falhou");
+});
+
+test("trocar de workspace também descarrega o registro", async () => {
+  const pendingWork = createPendingWorkRegistry();
+  let flushed = 0;
+  pendingWork.register({ label: "journal-entry", flush: () => { flushed += 1; } });
+
+  const { coordinator } = setup({ tabs: [], pendingWork });
+
+  await coordinator.requestWorkspaceSwitch(() => undefined);
+
+  assert.equal(flushed, 1, "trocar de workspace abandonou o pendente do diário");
+});
+
+test("fechar aba não descarrega o registro — fechar aba não é sair do app", async () => {
+  const pendingWork = createPendingWorkRegistry();
+  let flushed = 0;
+  pendingWork.register({ label: "journal-entry", flush: () => { flushed += 1; } });
+
+  const tabs = [tab("a", "/notas/a.md", false)];
+  const { coordinator } = setup({ tabs, pendingWork });
+
+  await coordinator.requestClose(tabs);
+
+  assert.equal(flushed, 0, "fechar uma aba do editor virou saída do aplicativo");
+});
+
+test("o registro é descarregado antes de perguntar pelas abas", async () => {
+  const pendingWork = createPendingWorkRegistry();
+  const tabs = [tab("a", "/notas/a.md", true)];
+  const { coordinator, events } = setup({ tabs, decisions: { a: "save" }, pendingWork });
+  pendingWork.register({ label: "journal-entry", flush: () => { events.push("journal:flush"); } });
+
+  await coordinator.requestExit(() => undefined);
+
+  assert.deepEqual(
+    events,
+    ["journal:flush", "flush", "ask:a", "save:a"],
+    "a saída perguntou antes de escrever o que já estava prometido"
+  );
 });
 
 test("trocar de workspace não pergunta o que o flush já resolveu", async () => {

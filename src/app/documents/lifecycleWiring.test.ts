@@ -74,7 +74,7 @@ test("fechar a janela consulta as abas, não só o flush do diário", () => {
     "fechar a janela deixou de consultar o coordenador (P0.3: aba suja encerrada sem pergunta)",
   );
   assert.ok(
-    !/flushAllPending\(\)/.test(fechamento.split("lifecycle.requestExit")[0] ?? ""),
+    !/\.flushAll\(\)/.test(fechamento.split("lifecycle.requestExit")[0] ?? ""),
     "o fechamento voltou a resolver o trabalho pendente por conta própria, antes do coordenador",
   );
 });

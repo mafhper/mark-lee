@@ -1,4 +1,5 @@
 import { getFileMetadata, readFile, atomicWriteText, createDirectoryTree, listDir, deleteWorkspacePath } from "../../../services/filesystem";
+import { createSerialWrites } from "../../../services/serialWrites";
 import { parseJournalEntry } from "./journal-entry.parser";
 import { serializeJournalEntry } from "./journal-entry.serializer";
 import type { JournalEntryMetadata } from "./journal-entry.types";
@@ -21,6 +22,13 @@ export class ConflictError extends Error {
 }
 
 const lastMtimes = new Map<string, number>();
+
+/**
+ * Fila de gravação de entrada, por caminho (`ML-H06`). Criar e duplicar ficam
+ * de fora de propósito: cada um escolhe um caminho com `randomUUID`, então não
+ * existe segundo escritor para serializar.
+ */
+const writes = createSerialWrites();
 
 function getStoredMtime(path: string): number | undefined {
   return lastMtimes.get(path);
@@ -106,22 +114,31 @@ export async function readEntry(path: string): Promise<EntryRecord | null> {
 }
 
 export async function saveEntry(path: string, metadata: JournalEntryMetadata, body: string, force = false): Promise<void> {
-  if (!force) {
-    const beforeMtime = await captureMtime(path);
-    const stored = getStoredMtime(path);
-    if (stored !== undefined && beforeMtime !== 0 && beforeMtime !== stored) {
-      throw new ConflictError(path);
+  // Uma escrita por caminho (`ML-H06`). `saveEntry` é o ponto único de gravação
+  // de entrada, mas não é chamado por um só lugar: o debounce do painel, o
+  // favorito da lista, o tracker de Pins e a galeria gravam o mesmo arquivo. Sem
+  // a fila, dois deles intercalavam "ler mtime → gravar" e o segundo acusava
+  // conflito externo contra a gravação do primeiro — um conflito que ninguém
+  // causou por fora. É a mesma garantia que o `DocumentSession` dá ao documento
+  // do editor; a checagem de `mtime` continua sendo o gatilho do conflito.
+  await writes.run(path, async () => {
+    if (!force) {
+      const beforeMtime = await captureMtime(path);
+      const stored = getStoredMtime(path);
+      if (stored !== undefined && beforeMtime !== 0 && beforeMtime !== stored) {
+        throw new ConflictError(path);
+      }
     }
-  }
-  const updated: JournalEntryMetadata = {
-    ...metadata,
-    updatedAt: new Date().toISOString(),
-  };
-  const content = serializeJournalEntry(updated, body);
-  await atomicWriteText(path, content);
-  // update stored mtime after write
-  const afterMtime = await captureMtime(path);
-  if (afterMtime) setStoredMtime(path, afterMtime);
+    const updated: JournalEntryMetadata = {
+      ...metadata,
+      updatedAt: new Date().toISOString(),
+    };
+    const content = serializeJournalEntry(updated, body);
+    await atomicWriteText(path, content);
+    // update stored mtime after write
+    const afterMtime = await captureMtime(path);
+    if (afterMtime) setStoredMtime(path, afterMtime);
+  });
 }
 
 async function collectEntriesRecursive(baseDir: string, prefix: string): Promise<string[]> {

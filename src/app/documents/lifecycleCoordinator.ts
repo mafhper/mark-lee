@@ -21,6 +21,7 @@
 import { runClose, type CloseCandidate, type CloseDecision } from "../tabs/closeGuard.ts";
 import type { SaveOutcome } from "../../services/documents.ts";
 import { isSameOrInsidePath } from "./paths.ts";
+import type { PendingWorkRegistry } from "./pendingWork.ts";
 
 /** O que o coordenador precisa saber de um documento. `DocumentTab` satisfaz. */
 export interface LifecycleCandidate extends CloseCandidate {
@@ -58,8 +59,15 @@ export interface LifecycleDeps<T extends LifecycleCandidate> {
   save(tab: T): Promise<SaveOutcome>;
   /** Aplicar o fechamento das abas liberadas. Só o `close` o usa. */
   close(ids: readonly string[]): void;
-  /** Autosaves prometidos (diário + editor). Devolve quantos falharam. */
+  /** Autosaves prometidos pelo editor (agendador + guardião de rascunhos). */
   flush(): Promise<number>;
+  /**
+   * Trabalho prometido por superfícies com debounce próprio (o diário é a que
+   * existe hoje). Vem **separado** de `flush` porque quem prometeu não é uma aba
+   * do editor e não sabe quem está saindo; o coordenador consulta o registro sem
+   * que o chamador precise lembrar de somar.
+   */
+  pendingWork?: PendingWorkRegistry;
   /**
    * A aba liberada ainda tem trabalho em memória **neste instante**? É a
    * re-checagem que o ML-H04 deixou anotada: a decisão foi tomada sobre um
@@ -144,11 +152,20 @@ export function createDocumentLifecycleCoordinator<T extends LifecycleCandidate>
     proceed: () => void | Promise<void>
   ): Promise<LifecycleResult> => {
     let failures = 0;
+    // Ordem das duas fontes é indiferente para a contagem, mas o registro vem
+    // primeiro para que o trabalho do diário (o único que pode gravar por cima
+    // de uma edição que o editor também tocou) esteja no disco antes de o
+    // editor drenar. Flush que estoura é trabalho que pode não ter ido para o
+    // disco: conta como uma falha, não como sucesso silencioso.
     try {
-      failures = await deps.flush();
+      failures += (await deps.pendingWork?.flushAll())?.failures ?? 0;
     } catch {
-      // Flush que estoura é trabalho que pode não ter ido para o disco.
-      failures = 1;
+      failures += 1;
+    }
+    try {
+      failures += await deps.flush();
+    } catch {
+      failures += 1;
     }
 
     const released = await guard(deps.candidates(), () => undefined);

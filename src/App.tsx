@@ -26,7 +26,8 @@ import { searchCount } from "./features/editor/search-count";
 import { closeSearchPanel, search, searchKeymap, searchPanelOpen, openSearchPanel } from "@codemirror/search";
 import { abrirComTermo, focarSubstituicao, syncDasOpcoes } from "./features/editor/search-panel";
 import { rotulosDaBusca, trocarRotulosDaBusca } from "./features/editor/search-phrases";
-import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
+import { getActiveTarget, setActiveTarget } from "./features/editor/active-target";
+import { appPendingWork } from "./app/documents/pendingWork";
 import { useSearchPanelOpen } from "./features/editor/use-search-panel-open";
 import {
   addRecentFile,
@@ -1745,14 +1746,15 @@ const core = [
       save: (tab) => saveTabRef.current(tab, false, false),
       close: applyClose,
       flush: async () => {
-        // O diário tem o debounce dele; o editor tem o agendador; os rascunhos
-        // têm o guardião. Os três são "trabalho prometido", e nenhum deles é
-        // decidido pela guarda.
-        const journal = await flushAllPending();
+        // O diário entra pela porta do registro (ele se registra em
+        // `appPendingWork`), não por uma soma que quem chama teria de lembrar de
+        // fazer. Aqui sobra o que é do editor e do guardião de rascunhos, que
+        // são consultados na hora da saída.
         const editor = await autosaveRef.current?.flushAll();
         const drafts = await draftKeeperRef.current?.flushAll();
-        return journal.failures + (editor?.failures ?? 0) + (drafts?.failures ?? 0);
+        return (editor?.failures ?? 0) + (drafts?.failures ?? 0);
       },
+      pendingWork: appPendingWork,
       // A aba é a cópia que a interface exibia quando perguntou; a sessão é a
       // revisão de agora. Divergiu, a aba não fecha (nota deixada no ML-H04).
       stillDirty: (tab) => documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,

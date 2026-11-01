@@ -1,4 +1,5 @@
 import { readUserDataFile, writeUserDataFile, atomicWriteText, getUserDataPath, ensureDirectoryTree } from "../../../services/filesystem";
+import { createSerialWrites } from "../../../services/serialWrites";
 import { isTauriRuntime } from "../../../services/runtime";
 import { readManifest } from "./manifest-service";
 import type { JournalDescriptor } from "./journal.types";
@@ -6,6 +7,20 @@ import type { JournalDescriptor } from "./journal.types";
 const LIBRARY_FILE = "journal-library.json";
 const LIBRARY_BACKUP = "journal-library.json.bak";
 const LIBRARY_CORRUPT = "journal-library.corrupt.json";
+
+/**
+ * Fila da biblioteca, uma só para o arquivo inteiro (`ML-H06`).
+ *
+ * `saveLibrary` grava duas vezes (backup e principal) e os três mutadores fazem
+ * "carregar lista → mutar → gravar". Sem a fila, dois cliques em cadernos
+ * diferentes perdiam um deles e um backup podia ser escrito no meio do par
+ * backup/principal que deveria ser uma transição.
+ *
+ * As funções internas (`persistLibrary`) **não** pegam a fila: a trava é do
+ * chamador público, e enfileirar de dentro de uma tarefa já enfileirada
+ * esperaria por si mesma para sempre.
+ */
+const libraryWrites = createSerialWrites();
 
 function emptyLibrary(): LibraryData {
   return { version: 1, journals: [], activeJournalId: null };
@@ -87,7 +102,8 @@ export async function loadLibrary(): Promise<LibraryData> {
   }
 }
 
-export async function saveLibrary(data: LibraryData): Promise<void> {
+/** Grava backup + principal do conteúdo recebido. Não pega a fila: é o miolo. */
+async function persistLibrary(data: LibraryData): Promise<void> {
   const content = JSON.stringify(data, null, 2);
   // Back up the previous content first, but only if it parses — so a corrupt main
   // file can never overwrite a healthy backup.
@@ -106,33 +122,43 @@ export async function saveLibrary(data: LibraryData): Promise<void> {
   }
 }
 
+export async function saveLibrary(data: LibraryData): Promise<void> {
+  await libraryWrites.run(LIBRARY_FILE, () => persistLibrary(data));
+}
+
 export async function addJournal(journal: JournalDescriptor): Promise<void> {
-  const library = await loadLibrary();
-  const existing = library.journals.find((j) => j.id === journal.id);
-  if (existing) {
-    // Update existing journal
-    Object.assign(existing, journal);
-    existing.unavailable = false;
-  } else {
-    library.journals.push(journal);
-  }
-  library.activeJournalId = journal.id;
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    const existing = library.journals.find((j) => j.id === journal.id);
+    if (existing) {
+      // Update existing journal
+      Object.assign(existing, journal);
+      existing.unavailable = false;
+    } else {
+      library.journals.push(journal);
+    }
+    library.activeJournalId = journal.id;
+    await persistLibrary(library);
+  });
 }
 
 export async function removeJournal(journalId: string): Promise<void> {
-  const library = await loadLibrary();
-  library.journals = library.journals.filter((j) => j.id !== journalId);
-  if (library.activeJournalId === journalId) {
-    library.activeJournalId = library.journals[0]?.id ?? null;
-  }
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    library.journals = library.journals.filter((j) => j.id !== journalId);
+    if (library.activeJournalId === journalId) {
+      library.activeJournalId = library.journals[0]?.id ?? null;
+    }
+    await persistLibrary(library);
+  });
 }
 
 export async function setActiveJournal(journalId: string | null): Promise<void> {
-  const library = await loadLibrary();
-  library.activeJournalId = journalId;
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    library.activeJournalId = journalId;
+    await persistLibrary(library);
+  });
 }
 
 export { LIBRARY_FILE };
