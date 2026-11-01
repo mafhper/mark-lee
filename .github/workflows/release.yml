@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   release:
-    uses: mafhper/release-core/.github/workflows/release.yml@v1.3.0
+    uses: mafhper/release-core/.github/workflows/release.yml@v1.4.1
     # A chave de assinatura do updater (ML-H06) é repassada **explicitamente**,
     # e não por `secrets: inherit`: o job não precisa de nenhum outro segredo do
     # repositório, e o mapa explícito diz no arquivo quais dois segredos o
