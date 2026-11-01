@@ -266,6 +266,21 @@ describe("DocumentSession — conflito com o disco", () => {
     assert.equal(session.isDirty, false);
   });
 
+  it("arquivo removido por fora não é recriado em silêncio", async () => {
+    const disk = createFakeDisk({ "/notas/a.md": "original" });
+    const session = createDocumentSessions(disk.io).forDocument("tab-1");
+    session.trackDisk("/notas/a.md", "original");
+    session.noteEdit();
+    disk.files.delete("/notas/a.md");
+
+    const outcome = await session.save({ path: "/notas/a.md", content: "o meu texto" });
+
+    assert.deepEqual(outcome, { kind: "failed", reason: "file_removed_on_disk" });
+    assert.equal(disk.writes.length, 0, "a gravação recriou um arquivo que não existia mais");
+    assert.equal(disk.files.has("/notas/a.md"), false);
+    assert.equal(session.isDirty, true);
+  });
+
   it("Salvar como não compara contra a referência do arquivo anterior", async () => {
     const disk = createFakeDisk({
       "/notas/a.md": "original",
@@ -283,8 +298,60 @@ describe("DocumentSession — conflito com o disco", () => {
   });
 });
 
-describe("DocumentSessions — gravação derivada (export)", () => {
-  it("grava sobre arquivo existente sem conflito e não mexe na sessão de origem", async () => {
+describe("DocumentSession — decisões do conflito externo", () => {
+  it("adotar o disco torna o buffer limpo sem gravar nada", async () => {
+    const disk = createFakeDisk({ "/notas/a.md": "versão do disco" });
+    const session = createDocumentSessions(disk.io).forDocument("tab-1");
+    session.trackDisk("/notas/a.md", "versão antiga");
+    session.noteEdit();
+    session.noteEdit();
+    assert.equal(session.isDirty, true);
+
+    session.adoptDiskContent("/notas/a.md", "versão do disco");
+
+    assert.equal(session.revision, 3, "a revisão avança: o texto em memória mudou");
+    assert.equal(session.savedRevision, 3);
+    assert.equal(session.isDirty, false);
+    assert.equal(session.diskHash, fingerprintContent("versão do disco"));
+    assert.equal(disk.writes.length, 0, "adotar o disco não escreve");
+    assert.equal(disk.files.get("/notas/a.md"), "versão do disco");
+  });
+
+  it("registrar cópia aponta a sessão para o arquivo novo e mantém o buffer limpo", async () => {
+    const disk = createFakeDisk({ "/notas/a.md": "versão do disco" });
+    const session = createDocumentSessions(disk.io).forDocument("tab-1");
+    session.trackDisk("/notas/a.md", "versão antiga");
+    session.noteEdit();
+    disk.files.set("/notas/copia.md", "a minha versão");
+
+    session.trackSavedCopy("/notas/copia.md", "a minha versão");
+
+    assert.equal(session.path, "/notas/copia.md");
+    assert.equal(session.isDirty, false, "o arquivo novo tem exatamente o texto do buffer");
+    assert.equal(session.diskHash, fingerprintContent("a minha versão"));
+    assert.equal(disk.files.get("/notas/a.md"), "versão do disco", "o original não muda");
+  });
+
+  it("restaurar rascunho reconstrói a relação sujo/limpo pelo hash de disco", () => {
+    const sessions = createDocumentSessions(createFakeDisk().io);
+
+    const sujo = sessions.forDocument("aba-suja");
+    sujo.restoreDraft("/notas/a.md", "texto não salvo", fingerprintContent("texto do disco"));
+    assert.equal(sujo.isDirty, true);
+    assert.equal(sujo.path, "/notas/a.md");
+
+    const limpo = sessions.forDocument("aba-limpa");
+    limpo.restoreDraft("/notas/a.md", "texto do disco", fingerprintContent("texto do disco"));
+    assert.equal(limpo.isDirty, false);
+
+    const semCaminho = sessions.forDocument("aba-sem-caminho");
+    semCaminho.restoreDraft(null, "rascunho", null);
+    assert.equal(semCaminho.isDirty, true);
+    assert.equal(semCaminho.path, null);
+  });
+});
+
+describe("DocumentSessions — gravação derivada (export)", () => {  it("grava sobre arquivo existente sem conflito e não mexe na sessão de origem", async () => {
     const disk = createFakeDisk({ "/saida/a.html": "versão anterior" });
     const sessions = createDocumentSessions(disk.io);
     const session = sessions.forDocument("tab-1");

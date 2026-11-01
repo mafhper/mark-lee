@@ -362,6 +362,14 @@ export function clearRecentFiles(): void {
   }
 }
 
+/**
+ * Cache da sessão de abas: quais abas existiam e qual estava ativa.
+ *
+ * **Não é a garantia do texto.** Desde o ML-H05, trabalho não salvo vive no
+ * armazenamento durável do aplicativo (`recovery/drafts`, escrito pelo backend
+ * com troca atômica). Perder este cache custa a lista de abas; o conteúdo sujo
+ * continua recuperável pelo rascunho.
+ */
 export function saveLastTabs(tabs: DocumentTab[]): void {
   try {
     localStorage.setItem(LAST_TABS_KEY, JSON.stringify(tabs));

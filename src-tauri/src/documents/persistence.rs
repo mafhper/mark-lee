@@ -24,6 +24,9 @@
 //!   não seja sucesso. Nenhum temporário sobrevive a uma operação concluída.
 //! - **Erro tipado**: bloqueio, permissão, destino removido, symlink,
 //!   diretório-pai ausente e E/S genérica.
+//! - **Criação exclusiva** (`Salvar cópia`): [`create_new`] grava somente em nome
+//!   livre. Um destino ocupado nunca é tocado — nem para descobrir o que havia
+//!   nele.
 //!
 //! ## Políticas documentadas
 //!
@@ -70,6 +73,8 @@ pub enum SafeWriteFailureKind {
     TargetRemoved,
     /// O destino é um link simbólico; o primitivo não escreve através dele.
     SymlinkTarget,
+    /// O destino já existe e a operação era de criação exclusiva.
+    AlreadyExists,
     /// O diretório-pai não existe (ou não é diretório).
     MissingParent,
     /// Qualquer outra falha de E/S, incluindo disco cheio e volume removido.
@@ -122,6 +127,9 @@ impl std::fmt::Display for SafeWriteError {
             }
             SafeWriteFailureKind::SymlinkTarget => {
                 write!(formatter, "refusing to replace a symlink: {path}")?;
+            }
+            SafeWriteFailureKind::AlreadyExists => {
+                write!(formatter, "destination already exists: {path}")?;
             }
             SafeWriteFailureKind::MissingParent => {
                 write!(formatter, "parent directory does not exist: {path}")?;
@@ -212,6 +220,76 @@ where
     Ok(SafeWriteOutcome {
         path: destination.to_path_buf(),
         replaced: state.existed,
+        bytes,
+    })
+}
+
+/// Cria o destino **somente se ele ainda não existir** (`Salvar cópia`).
+///
+/// **Por que não reutiliza [`safe_write`]:** `safe_write` troca o destino, e
+/// trocar é exatamente o que uma cópia não pode fazer — o arquivo escolhido pode
+/// ser trabalho de outra pessoa. Aqui o `create_new` no destino final é a
+/// garantia: ou o nome estava livre e os bytes são nossos, ou nada é tocado.
+///
+/// **Durabilidade igual à do `safe_write`:** bytes → `flush` → `sync_all`. Não
+/// há temporário porque não há troca; se a gravação falhar no meio, o arquivo
+/// parcial é removido — ele não existia antes, então deixá-lo seria inventar um
+/// destino com metade do conteúdo.
+pub fn create_new(
+    path: impl AsRef<Path>,
+    content: &str,
+) -> Result<SafeWriteOutcome, SafeWriteError> {
+    let bytes = content.as_bytes();
+    create_new_with(path, |file| file.write_all(bytes))
+}
+
+/// Variante com escrita por closure, para fluxos grandes e para injetar falha no
+/// meio da criação em teste.
+pub fn create_new_with<F>(
+    path: impl AsRef<Path>,
+    write: F,
+) -> Result<SafeWriteOutcome, SafeWriteError>
+where
+    F: FnOnce(&mut File) -> io::Result<()>,
+{
+    let destination = path.as_ref();
+    let _parent = ensure_parent(destination)?;
+
+    let mut file = match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)
+    {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+            // Inclui o caso de link simbólico: ele já ocupa o nome, e o
+            // primitivo não escreve através dele nem o substitui.
+            return Err(SafeWriteError::new(
+                SafeWriteFailureKind::AlreadyExists,
+                destination,
+                Some(error),
+            ));
+        }
+        Err(error) => return Err(classify(destination, error)),
+    };
+
+    let written = write(&mut file)
+        .and_then(|()| file.flush())
+        .and_then(|()| file.sync_all());
+    let bytes = match &written {
+        Ok(()) => file.metadata().map(|metadata| metadata.len()).unwrap_or(0),
+        Err(_) => 0,
+    };
+    drop(file);
+
+    if let Err(error) = written {
+        let _ = fs::remove_file(destination);
+        return Err(classify(destination, error));
+    }
+
+    Ok(SafeWriteOutcome {
+        path: destination.to_path_buf(),
+        replaced: false,
         bytes,
     })
 }
@@ -534,7 +612,8 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::{
-        create_unique_temp, safe_write, safe_write_with, SafeWriteFailureKind, SafeWriteOutcome,
+        create_new, create_new_with, create_unique_temp, safe_write, safe_write_with,
+        SafeWriteFailureKind, SafeWriteOutcome,
     };
     use std::fs;
     use std::io::{self, Write};
@@ -631,6 +710,54 @@ mod tests {
         assert_eq!(fs::read_to_string(&destino).unwrap(), "versao nova");
         assert!(resultado.replaced);
         assert_eq!(entries(dir.path()), vec!["nota.md".to_string()]);
+    }
+
+    #[test]
+    fn criacao_exclusiva_nao_sobrescreve_destino_existente() {
+        let dir = TestDir::new("exclusiva-ocupado");
+        let destino = dir.join("copia.md");
+        fs::write(&destino, "trabalho de outra pessoa").unwrap();
+
+        let erro = create_new(&destino, "meu texto").expect_err("destino ocupado");
+
+        assert_eq!(erro.kind(), SafeWriteFailureKind::AlreadyExists);
+        assert_eq!(
+            fs::read_to_string(&destino).unwrap(),
+            "trabalho de outra pessoa"
+        );
+        assert_eq!(entries(dir.path()), vec!["copia.md".to_string()]);
+    }
+
+    #[test]
+    fn criacao_exclusiva_grava_em_nome_livre() {
+        let dir = TestDir::new("exclusiva-livre");
+        let destino = dir.join("copia.md");
+
+        let resultado = create_new(&destino, "meu texto").expect("nome livre");
+
+        assert_eq!(fs::read_to_string(&destino).unwrap(), "meu texto");
+        assert!(!resultado.replaced);
+        assert_eq!(resultado.bytes, "meu texto".len() as u64);
+        assert_eq!(entries(dir.path()), vec!["copia.md".to_string()]);
+    }
+
+    #[test]
+    fn criacao_exclusiva_com_falha_no_meio_nao_deixa_arquivo_parcial() {
+        let dir = TestDir::new("exclusiva-falha");
+        let destino = dir.join("copia.md");
+
+        let erro = create_new_with(&destino, |file| {
+            file.write_all(b"metade")?;
+            Err(io::Error::other("falha injetada no meio da criação"))
+        })
+        .expect_err("a escrita injetada precisa falhar");
+
+        assert_eq!(erro.kind(), SafeWriteFailureKind::Io);
+        assert!(
+            !destino.exists(),
+            "arquivo parcial ficou no destino de uma criação que falhou"
+        );
+        assert!(entries(dir.path()).is_empty(), "{:?}", entries(dir.path()));
     }
 
     #[test]

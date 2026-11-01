@@ -41,7 +41,9 @@ import {
 import {
   createWorkspaceDirectory,
   createWorkspaceFile,
+  deleteDocumentDraft,
   deleteWorkspacePath,
+  listDocumentDrafts,
   openFileDialog,
   readFile,
   readWorkspaceTree,
@@ -50,7 +52,9 @@ import {
   saveFileDialog,
   unwatchWorkspace,
   watchWorkspace,
+  writeDocumentDraft,
   writeFile,
+  writeNewFile,
 } from "./services/filesystem";
 import {
   loadPublicationPresets,
@@ -64,7 +68,7 @@ import {
   styleObjectToInlineCss,
 } from "./services/publication-style";
 import { isTauriRuntime } from "./services/runtime";
-import { createDocumentSessions, type SaveOutcome } from "./services/documents";
+import { createDocumentSessions, fingerprintContent, type SaveOutcome } from "./services/documents";
 import { importJournalImage } from "./services/journal-media";
 import { buildMarkdownImageSyntax } from "./features/editor/image-markdown";
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
@@ -86,6 +90,7 @@ import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
 import MenuBar, { type MenuActionId } from "./components/MenuBar";
 import ConfirmModal from "./components/ConfirmModal";
+import ConflictModal from "./app/components/ConflictModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
@@ -114,6 +119,20 @@ import {
   type AutosaveState,
   type DocumentAutosaveScheduler,
 } from "./app/documents/autosaveScheduler";
+import {
+  createDraftStore,
+  mergeDraftRecovery,
+  type DraftStore,
+} from "./app/documents/drafts";
+import {
+  createDraftKeeper,
+  type DocumentDraftKeeper,
+} from "./app/documents/draftKeeper";
+import {
+  loadDiskVersion,
+  resolveConflict,
+  type ConflictChoice,
+} from "./app/documents/conflictResolution";
 import { isSameOrInsidePath } from "./app/documents/paths";
 import "./index.css";
 
@@ -124,6 +143,18 @@ import "./index.css";
  * contrato testável fora do app.
  */
 const documentSessions = createDocumentSessions({ readText: readFile, writeText: writeFile });
+
+/**
+ * Rascunhos duráveis (ML-H05): um arquivo por documento em
+ * `<app-data>/recovery/drafts`, escrito pelo backend com troca atômica. O
+ * `localStorage` continua guardando a sessão de abas (cache de interface), mas o
+ * texto não salvo mora aqui — é o que sobrevive a um crash.
+ */
+const documentDrafts: DraftStore = createDraftStore({
+  write: writeDocumentDraft,
+  list: listDocumentDrafts,
+  remove: deleteDocumentDraft,
+});
 
 const CODE_FILE_EXTENSIONS = new Set([
   "js",
@@ -582,6 +613,18 @@ function App() {
   const [closePrompt, setClosePrompt] = useState<{ name: string } | null>(null);
   const closePromptResolveRef = useRef<((decision: CloseDecision) => void) | null>(null);
 
+  /* Conflito externo (ML-H05 / P0.5). O diálogo abre quando um `save` explícito
+     encontra o disco com outra versão — autosave não abre modal por trás de quem
+     está digitando; ele marca o selo e a pergunta vem no próximo save pedido.
+     O `resolve` fica fora do estado pelo mesmo motivo do fechamento de aba:
+     reaproveitar um updater não pode resolver a mesma pergunta duas vezes. */
+  const [conflictPrompt, setConflictPrompt] = useState<{ documentId: string; name: string } | null>(null);
+  const [conflictCompare, setConflictCompare] = useState<{
+    state: "idle" | "loading" | "loaded" | "failed";
+    content: string | null;
+  }>({ state: "idle", content: null });
+  const conflictResolveRef = useRef<((choice: ConflictChoice) => void) | null>(null);
+
   const lastEditorUserScrollAtRef = useRef(0);
   const lastPreviewUserScrollAtRef = useRef(0);
   const activeTabIdRef = useRef(activeTabId);
@@ -707,6 +750,42 @@ function App() {
     return () => {
       scheduler.dispose();
       autosaveRef.current = null;
+    };
+  }, []);
+
+  /**
+   * Guardião dos rascunhos duráveis (ML-H05).
+   *
+   * Separado do autosave de propósito: o autosave grava o documento no caminho
+   * dele, e não faz nada quando não há caminho. O rascunho cobre exatamente o
+   * caso sem destino — a aba nova — e a edição que ainda não foi salva. Criado
+   * no efeito pelo mesmo motivo do agendador: um render descartado não pode
+   * deixar timer órfão.
+   */
+  const draftKeeperRef = useRef<DocumentDraftKeeper | null>(null);
+  useEffect(() => {
+    const keeper = createDraftKeeper({
+      snapshot: (documentId) => {
+        const tab = tabsRef.current.find((item) => item.id === documentId);
+        if (!tab) return null;
+        const session = documentSessions.peek(documentId);
+        return {
+          name: tab.name,
+          path: tab.path,
+          content: tab.content,
+          // A sessão é a fonte da verdade do "limpo/sujo" (ML-H03); a aba é a
+          // cópia que o render exibia.
+          dirty: session?.isDirty ?? tab.dirty,
+          origin: tab.origin,
+          diskHash: session?.diskHash ?? null,
+        };
+      },
+      store: documentDrafts,
+    });
+    draftKeeperRef.current = keeper;
+    return () => {
+      keeper.dispose();
+      draftKeeperRef.current = null;
     };
   }, []);
 
@@ -1082,7 +1161,17 @@ const core = [
           if (allowClose) return; // second pass: let the close proceed
           event.preventDefault();
 
-          const result = await lifecycle.requestExit(finish);
+          const result = await lifecycle.requestExit(async () => {
+            // Tudo o que estava pendente foi salvo ou descartado com decisão
+            // explícita: nenhum rascunho deve sobreviver a esta saída. Sem isto,
+            // um texto descartado no fechamento voltaria na próxima abertura.
+            await Promise.all(
+              tabsRef.current.map(
+                (tab) => draftKeeperRef.current?.forget(tab.id) ?? Promise.resolve()
+              )
+            );
+            await finish();
+          });
           if (result.blocker !== "pending_flush_failed") return; // cancelled/aborted
 
           // Os documentos do editor foram resolvidos, mas algum flush prometido
@@ -1221,6 +1310,9 @@ const core = [
       // relógio: quem digita 40 vezes por segundo não pode reiniciar o autosave
       // das outras abas, nem o próprio, para sempre (ML-H05).
       autosaveRef.current?.note(activeTab.id);
+      // O rascunho durável é a rede que existe mesmo sem caminho: o autosave não
+      // grava aba nova, e é justamente ela que o crash levaria embora.
+      draftKeeperRef.current?.note(activeTab.id);
     }
     setTabs((previous) =>
       previous.map((tab) =>
@@ -1246,6 +1338,7 @@ const core = [
     // sessão acharia que o disco tem o texto de antes da transformação.
     documentSessions.forDocument(tab.id).noteEdit();
     autosaveRef.current?.note(tab.id);
+    draftKeeperRef.current?.note(tab.id);
     setTabs((previous) =>
       previous.map((item) =>
         item.id === tab.id ? { ...item, content: nextContent, dirty: true } : item
@@ -1384,8 +1477,13 @@ const core = [
   const applyClose = (ids: readonly string[]) => {
     const closing = new Set(ids);
     // O agendador guarda estado por documento; uma aba que saiu da memória não
-    // pode continuar com timer armado.
-    for (const id of ids) autosaveRef.current?.forget(id);
+    // pode continuar com timer armado. O rascunho também sai: a aba foi fechada
+    // com decisão explícita (salva ou descartada), e recuperá-la na próxima
+    // abertura seria desfazer essa decisão.
+    for (const id of ids) {
+      autosaveRef.current?.forget(id);
+      void draftKeeperRef.current?.forget(id);
+    }
     setTabs((previous) => previous.filter((item) => !closing.has(item.id)));
     const current = activeTabIdRef.current;
     if (current && closing.has(current)) {
@@ -1408,13 +1506,139 @@ const core = [
   };
 
   /**
+   * Pergunta ao usuário o que fazer com o conflito externo. Uma pergunta por
+   * vez: se outra já estiver aberta, este pedido responde `cancel`, que é a
+   * única escolha que não descarta nem sobrescreve nada.
+   */
+  const askConflictChoice = (tab: DocumentTab): Promise<ConflictChoice> =>
+    new Promise((resolve) => {
+      if (conflictResolveRef.current) {
+        resolve("cancel");
+        return;
+      }
+      conflictResolveRef.current = resolve;
+      setConflictCompare({ state: "idle", content: null });
+      setConflictPrompt({ documentId: tab.id, name: tab.name });
+    });
+
+  const answerConflictChoice = useCallback((choice: ConflictChoice) => {
+    // Fecha o diálogo antes de resolver: outra pergunta pode vir na sequência e
+    // o estado precisa estar livre para ela.
+    setConflictPrompt(null);
+    const resolve = conflictResolveRef.current;
+    conflictResolveRef.current = null;
+    resolve?.(choice);
+  }, []);
+
+  /** "Comparar": lê o disco para exibição. Não muda aba, sessão nem arquivo. */
+  const compareConflictingVersion = async () => {
+    const documentId = conflictPrompt?.documentId;
+    const tab = documentId ? tabsRef.current.find((item) => item.id === documentId) : null;
+    if (!tab?.path) return;
+    setConflictCompare({ state: "loading", content: null });
+    const result = await loadDiskVersion(tab.path, { readDisk: readFile });
+    setConflictCompare(
+      result.kind === "loaded"
+        ? { state: "loaded", content: result.content }
+        : { state: "failed", content: null }
+    );
+  };
+
+  /**
+   * Executa a decisão do conflito. A regra mora em `conflictResolution.ts`
+   * (testada fora do React); aqui só se aplica o resultado na aba — e o
+   * rascunho durável acompanha: recarregar/copiar resolvem a divergência, então
+   * ele deixa de ser a cópia mais nova.
+   */
+  const resolveTabConflict = async (tab: DocumentTab): Promise<void> => {
+    // A aba é a cópia que o render exibia; o buffer de agora está em `tabsRef`.
+    const current = tabsRef.current.find((item) => item.id === tab.id) ?? tab;
+    if (!current.path) return;
+
+    const choice = await askConflictChoice(current);
+    if (choice === "cancel") return;
+
+    const result = await resolveConflict(
+      choice,
+      { documentId: current.id, name: current.name, path: current.path, content: current.content },
+      {
+        readDisk: readFile,
+        chooseCopyPath: (name) => saveFileDialog(name),
+        // Criação exclusiva: a cópia não sobrescreve nem o original nem um nome
+        // já ocupado (ML-H05 / P0.5).
+        createExclusive: writeNewFile,
+        session: (documentId) => documentSessions.forDocument(documentId),
+      }
+    );
+
+    if (result.kind === "failed") {
+      setSaveError(result.reason);
+      return;
+    }
+    if (result.kind === "cancelled") return;
+
+    if (result.kind === "reloaded") {
+      setTabs((previous) =>
+        previous.map((item) =>
+          item.id === current.id
+            ? {
+                ...item,
+                content: result.content,
+                dirty: false,
+                deletedExternally: false,
+                conflictedExternally: false,
+              }
+            : item
+        )
+      );
+      setSaveError(null);
+      void draftKeeperRef.current?.forget(current.id);
+      return;
+    }
+
+    // Cópia gravada: o arquivo novo passa a ser o documento desta aba. O
+    // arquivo original continua no disco com a versão de outro programa.
+    const name = result.path.split(/[\\/]/).pop() || current.name;
+    setTabs((previous) =>
+      previous.map((item) =>
+        item.id === current.id
+          ? {
+              ...item,
+              path: result.path,
+              name,
+              dirty: false,
+              origin: resolveTabOrigin(result.path),
+              deletedExternally: false,
+              conflictedExternally: false,
+            }
+          : item
+      )
+    );
+    addRecentFile(result.path, name);
+    setRecentFiles(getRecentFiles());
+    setSaveError(null);
+    void draftKeeperRef.current?.forget(current.id);
+    if (workspacePath && isPathInsideWorkspace(result.path, workspacePath)) {
+      await refreshWorkspace();
+    }
+  };
+
+  /**
    * Salvar uma aba. Devolve o resultado tipado em vez de tratar o erro aqui:
    * quem chama decide o que fazer com `cancelled` (o usuário desistiu do
    * diálogo), `conflict` (o disco tem outra versão — nada foi sobrescrito) e
    * `failed`. Só a gravação em si mora na sessão; diálogo, aba, recentes e
    * workspace continuam aqui, que é onde a interface está.
+   *
+   * `promptOnConflict` existe porque a guarda de fechamento não pode abrir um
+   * modal dentro do próprio `await`: ela recebe o conflito como bloqueio, mantém
+   * a aba aberta, e a decisão fica para o próximo save explícito.
    */
-  const saveTab = async (tab: DocumentTab, forceSaveAs: boolean): Promise<SaveOutcome> => {
+  const saveTab = async (
+    tab: DocumentTab,
+    forceSaveAs: boolean,
+    promptOnConflict = true
+  ): Promise<SaveOutcome> => {
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -1449,19 +1673,26 @@ const core = [
         addRecentFile(path, name);
         setRecentFiles(getRecentFiles());
         setLastSavedAt(Date.now());
+        if (session.isDirty) {
+          // Editou durante o I/O: o rascunho continua sendo a rede.
+          draftKeeperRef.current?.note(tab.id);
+        } else {
+          void draftKeeperRef.current?.forget(tab.id);
+        }
 
         if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
           await refreshWorkspace();
         }
       } else if (outcome.kind === "conflict") {
-        // Sem UI nova (isso é ML-H05): a aba já tem o selo "Changed on disk" e a
-        // barra de estado já mostra a falha.
+        // A versão do disco não é sobrescrita sem decisão: a aba ganha o selo e,
+        // no save explícito, a pergunta Recarregar/Comparar/Salvar cópia/Cancelar.
         setTabs((previous) =>
           previous.map((item) =>
             item.id === tab.id ? { ...item, conflictedExternally: true } : item
           )
         );
         setSaveError("file_changed_on_disk");
+        if (promptOnConflict) await resolveTabConflict(tab);
       } else if (outcome.kind === "failed") {
         setSaveError(outcome.reason);
         console.error("Failed to save file:", outcome.reason);
@@ -1508,14 +1739,19 @@ const core = [
           dirty: documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,
         })),
       ask: askCloseDecision,
-      save: (tab) => saveTabRef.current(tab, false),
+      // Sem diálogo de conflito aqui: a guarda já está no meio de uma pergunta,
+      // e um modal aninhado tomaria a resposta do fechamento. `conflict` volta
+      // como bloqueio, a aba fica aberta, e o próximo save explícito pergunta.
+      save: (tab) => saveTabRef.current(tab, false, false),
       close: applyClose,
       flush: async () => {
-        // O diário tem o debounce dele; o editor tem o agendador. Os dois são
-        // "trabalho prometido", e nenhum dos dois é decidido pela guarda.
+        // O diário tem o debounce dele; o editor tem o agendador; os rascunhos
+        // têm o guardião. Os três são "trabalho prometido", e nenhum deles é
+        // decidido pela guarda.
         const journal = await flushAllPending();
         const editor = await autosaveRef.current?.flushAll();
-        return journal.failures + (editor?.failures ?? 0);
+        const drafts = await draftKeeperRef.current?.flushAll();
+        return journal.failures + (editor?.failures ?? 0) + (drafts?.failures ?? 0);
       },
       // A aba é a cópia que a interface exibia quando perguntou; a sessão é a
       // revisão de agora. Divergiu, a aba não fecha (nota deixada no ML-H04).
@@ -1794,6 +2030,12 @@ if (tab) await saveTabRef.current(tab, false);
                   deletedExternally: false,
                 }
           );
+          if (!tab.dirty) {
+            // A aba limpa passou a ser o disco: sem atualizar a referência da
+            // sessão, o próximo save acusaria conflito contra uma versão que o
+            // próprio app adotou.
+            documentSessions.forDocument(tab.id).trackDisk(tab.path, diskContent);
+          }
         } else if (tab.deletedExternally || tab.conflictedExternally) {
           updates.push({ id: tab.id, deletedExternally: false, conflictedExternally: false });
         }
@@ -2472,26 +2714,94 @@ label: t["view.sidebar"] || "Sidebar",
         setWorkspaceTree(buildDemoWorkspaceTree());
       }
 
-      // Sync unaltered tabs on initial load
-      const currentTabs = loadLastTabs();
-      let changed = false;
+      /* Recuperação de rascunhos (ML-H05).
+       *
+       * O cache de abas (`localStorage`) diz **quais abas existiam**; o rascunho
+       * durável diz **qual era o texto não salvo**. Os dois podem discordar — o
+       * app caiu antes de o cache ser reescrito, ou o webview limpou o cache —, e
+       * a regra de `mergeDraftRecovery` é conservadora: rascunho só entra se era
+       * de trabalho não salvo.
+       */
+      let recoveredTabs = tabsRef.current;
+      let recoveredNewest: string | null = null;
+      let recoveredChanged = false;
+      try {
+        const drafts = await documentDrafts.list();
+        if (drafts.length > 0) {
+          const recovery = mergeDraftRecovery(tabsRef.current, drafts);
+          recoveredTabs = recovery.tabs;
+          recoveredNewest = recovery.newest;
+          recoveredChanged = recovery.adopted.length > 0 || recovery.restored.length > 0;
+          for (const id of recovery.dropped) {
+            void documentDrafts.remove(id).catch(() => undefined);
+          }
+          for (const id of [...recovery.adopted, ...recovery.restored]) {
+            const draft = drafts.find((item) => item.documentId === id);
+            if (draft) {
+              documentSessions
+                .forDocument(id)
+                .restoreDraft(draft.path, draft.content, draft.diskHash);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to recover drafts:", error);
+      }
+
+      /* A sessão nasce vazia a cada início. Sem esta passada, uma aba suja do
+         cache apareceria como "limpa" para a guarda de fechamento — a sessão
+         diria `savedRevision === revision` — e o próximo save não teria
+         referência de disco. Aba limpa adota o disco; aba suja só ganha a
+         referência, sem perder o buffer. */
+      let changed = recoveredChanged;
       const syncedTabs = await Promise.all(
-        currentTabs.map(async (tab) => {
-          if (!tab.path || tab.dirty) return tab;
+        recoveredTabs.map(async (tab) => {
+          if (!tab.path) {
+            if (tab.dirty) {
+              documentSessions.forDocument(tab.id).restoreDraft(null, tab.content, null);
+            }
+            return tab;
+          }
           try {
             const diskContent = await readFile(tab.path);
+            const session = documentSessions.forDocument(tab.id);
+            if (tab.dirty) {
+              session.restoreDraft(tab.path, tab.content, fingerprintContent(diskContent));
+              return tab;
+            }
+            session.trackDisk(tab.path, diskContent);
             if (diskContent !== tab.content) {
               changed = true;
-              return { ...tab, content: diskContent };
+              return { ...tab, content: diskContent, dirty: false };
             }
+            return tab;
           } catch {
-            // ignore
+            // Arquivo removido ou sem leitura: a aba suja mantém o texto e perde
+            // a referência de disco; a limpa continua como o cache a deixou.
+            if (tab.dirty) {
+              documentSessions.forDocument(tab.id).restoreDraft(tab.path, tab.content, null);
+            }
+            return tab;
           }
-          return tab;
         })
       );
       if (changed) {
-        setTabs(syncedTabs);
+        // Atualização funcional: uma aba aberta enquanto isto corria não pode ser
+        // substituída pelo retrato do início. Aba recuperada que não existe mais
+        // no estado é anexada; a que já existe é atualizada no lugar.
+        setTabs((previous) => {
+          const byId = new Map(syncedTabs.map((tab) => [tab.id, tab]));
+          const merged = previous.map((tab) => byId.get(tab.id) ?? tab);
+          const present = new Set(merged.map((tab) => tab.id));
+          for (const tab of syncedTabs) {
+            if (!present.has(tab.id)) merged.push(tab);
+          }
+          return merged;
+        });
+      }
+      if (recoveredChanged && recoveredNewest) {
+        // O trabalho recuperado é o que a pessoa precisa ver na abertura.
+        setActiveTabId(recoveredNewest);
       }
     };
     loadStartupData();
@@ -3560,6 +3870,20 @@ onCreateEditor={(view) => {
         onClose={() => answerClosePrompt("cancel")}
         onConfirm={() => answerClosePrompt("save")}
         onDiscard={() => answerClosePrompt("discard")}
+      />
+
+      <ConflictModal
+        isOpen={conflictPrompt !== null}
+        fileName={conflictPrompt?.name ?? ""}
+        t={t}
+        tConfig={tConfig}
+        buffer={tabs.find((tab) => tab.id === conflictPrompt?.documentId)?.content ?? ""}
+        diskPreview={conflictCompare.content}
+        compareState={conflictCompare.state}
+        onReload={() => answerConflictChoice("reload")}
+        onCompare={() => void compareConflictingVersion()}
+        onSaveCopy={() => answerConflictChoice("save-copy")}
+        onCancel={() => answerConflictChoice("cancel")}
       />
 
       <ExportModal

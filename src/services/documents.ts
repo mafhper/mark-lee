@@ -58,6 +58,24 @@ export interface DocumentSession {
   noteEdit(): number;
   /** Adota o que está no disco como referência de comparação. */
   trackDisk(path: string, content: string): void;
+  /**
+   * Adota a versão do disco como conteúdo do documento ("Recarregar" no
+   * diálogo de conflito). A revisão **avança** — o texto em memória mudou — e já
+   * nasce gravada: o buffer é exatamente o que está no disco.
+   */
+  adoptDiskContent(path: string, content: string): void;
+  /**
+   * Registra uma cópia que o usuário gravou em caminho novo ("Salvar cópia").
+   * O buffer passa a ser o documento daquele arquivo, e o caminho original não
+   * foi tocado.
+   */
+  trackSavedCopy(path: string, content: string): void;
+  /**
+   * Reabre a sessão a partir de um rascunho recuperado (`diskHash` é o
+   * fingerprint que a sessão acreditava estar no disco quando o rascunho foi
+   * escrito). Reconstrói a relação limpo/sujo sem fingir que houve gravação.
+   */
+  restoreDraft(path: string | null, content: string, diskHash: string | null): void;
   save(request: SaveRequest): Promise<SaveOutcome>;
 }
 
@@ -80,7 +98,7 @@ export function fingerprintContent(content: string): string {
 }
 
 /** Tauri rejeita `invoke` com `String`; o resto pode ser `Error`. */
-function describeFailure(error: unknown): string {
+export function describeFailure(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string" && error.trim().length > 0) return error;
   return "unknown_error";
@@ -139,6 +157,30 @@ class DocumentSessionImpl implements DocumentSession {
     this.currentDiskHash = fingerprintContent(content);
   }
 
+  adoptDiskContent(path: string, content: string): void {
+    this.currentPath = path;
+    this.currentDiskHash = fingerprintContent(content);
+    // O texto em memória mudou para o do disco: a revisão avança (é monotônica)
+    // e a revisão salva acompanha, porque não há nada a gravar.
+    this.currentRevision += 1;
+    this.lastSavedRevision = this.currentRevision;
+  }
+
+  trackSavedCopy(path: string, content: string): void {
+    // O buffer já era este texto; só o disco é novo. Nenhuma revisão avança.
+    this.currentPath = path;
+    this.currentDiskHash = fingerprintContent(content);
+    this.lastSavedRevision = this.currentRevision;
+  }
+
+  restoreDraft(path: string | null, content: string, diskHash: string | null): void {
+    this.currentPath = path;
+    this.currentDiskHash = diskHash;
+    this.currentRevision = 1;
+    const matchesDisk = diskHash !== null && diskHash === fingerprintContent(content);
+    this.lastSavedRevision = matchesDisk ? 1 : 0;
+  }
+
   async save(request: SaveRequest): Promise<SaveOutcome> {
     // A revisão é capturada **no pedido**, não na vez da fila: é a revisão do
     // texto que o chamador entregou. Capturar dentro da tarefa daria à primeira
@@ -180,12 +222,17 @@ class DocumentSessionImpl implements DocumentSession {
       // A referência só vale para o arquivo que a sessão conhece: `Salvar como`
       // aponta para outro caminho e sobrescrevê-lo é a escolha do usuário.
       const onDisk = await this.readDiskHash(request.path);
-      if (onDisk !== null && onDisk !== baseline) {
+      if (onDisk === null) {
+        // A sessão conhecia uma versão neste caminho e agora não consegue ler
+        // nenhuma. Pode ser remoção por fora ou permissão de leitura perdida;
+        // nos dois casos gravar por cima recriaria um arquivo sem saber o que
+        // havia nele. Recriar em silêncio é o que o P0.5 proíbe — quem decide é
+        // o usuário, por `Salvar como` (que não usa esta referência).
+        return { kind: "failed", reason: "file_removed_on_disk" };
+      }
+      if (onDisk !== baseline) {
         return { kind: "conflict", diskHash: onDisk, expectedHash: baseline };
       }
-      // Arquivo ilegível (removido, sem permissão de leitura): não há versão do
-      // disco para preservar. A política para arquivo removido é do ML-H05; aqui
-      // a escrita decide o resultado e ele é tipado.
     }
 
     try {
