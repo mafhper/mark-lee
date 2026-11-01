@@ -97,6 +97,9 @@ jobs:
           # nasce fiada no pipeline.
           npm run test:updater
           npm run test:updater-card
+          # A nota da release é Markdown da rede: a suite renderiza a nota real da
+          # v1.8.5 e a hostil, para que marcador vire elemento e script não passe.
+          npm run test:updater-notes
 
       - name: Build web
         run: npm run build

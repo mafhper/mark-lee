@@ -10,6 +10,7 @@ import {
   showsInstallBlocker,
   type Tr,
 } from "./updaterCard";
+import { renderUpdaterNotes } from "./updaterNotes";
 
 /**
  * O cartão de atualização dos Ajustes.
@@ -36,6 +37,10 @@ import {
  * versão nova; no macOS/Linux o pacote é trocado no disco e o app volta pelo
  * `relaunch()`. As frases de `installing` e `installed` refletem isso, e a
  * decisão de qual usar mora em `updaterCard.ts` — onde é testável sem JSX.
+ *
+ * **A nota da release é lida, não despejada.** O corpo chega do feed em Markdown,
+ * e a tela o renderiza por `updaterNotes.ts` — o mesmo pipeline do preview, com
+ * sanitização — para que `##` vire título em vez de aparecer literal.
  */
 
 type Props = {
@@ -135,7 +140,9 @@ export default function UpdaterStatusCard({ language, accentHex, prepareRestart 
       ) : null}
 
       {state.notes && (state.status === "available" || state.status === "ready") ? (
-        <p className="max-h-20 overflow-y-auto whitespace-pre-line text-xs opacity-70">{state.notes}</p>
+        <div className="ml-updater-notes max-h-40 overflow-y-auto rounded-lg border px-3 py-2 text-xs">
+          {renderUpdaterNotes(state.notes)}
+        </div>
       ) : null}
 
       {state.status === "ready" ? (
