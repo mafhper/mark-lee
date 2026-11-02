@@ -101,6 +101,13 @@ function withMigrations(settings: Partial<AppSettings>): AppSettings {
   if (typeof merged.sidebarCollapsed !== "boolean") {
     merged.sidebarCollapsed = false;
   }
+
+  // Chave nova nasce com o padrão, inclusive para quem já tem settings salvos.
+  // O spread já cobre a ausência; isto cobre o valor corrompido (`null`, texto),
+  // que sem a linha viraria `truthy`/`falsy` por acidente na checagem de boot.
+  if (typeof merged.updaterAutoCheck !== "boolean") {
+    merged.updaterAutoCheck = DEFAULT_SETTINGS.updaterAutoCheck;
+  }
 const byAnchor = settings.toolbarByAnchor as
     | Record<string, Partial<AppSettings> | undefined>
     | undefined;
@@ -362,9 +369,22 @@ export function clearRecentFiles(): void {
   }
 }
 
+/**
+ * Cache da sessão de abas: quais abas existiam e qual estava ativa.
+ *
+ * **Não é a garantia do texto.** Desde o ML-H05, trabalho não salvo vive no
+ * armazenamento durável do aplicativo (`recovery/drafts`, escrito pelo backend
+ * com troca atômica). Perder este cache custa a lista de abas; o conteúdo sujo
+ * continua recuperável pelo rascunho.
+ */
 export function saveLastTabs(tabs: DocumentTab[]): void {
   try {
-    localStorage.setItem(LAST_TABS_KEY, JSON.stringify(tabs));
+    // Carimba a idade do cache: a recuperação de rascunho compara este instante
+    // com o `savedAt` do rascunho durável, e adotar um texto mais velho do que o
+    // que já está aqui devolveria o buffer para trás.
+    const cachedAt = Date.now();
+    const payload = tabs.map((tab) => ({ ...tab, cachedAt }));
+    localStorage.setItem(LAST_TABS_KEY, JSON.stringify(payload));
   } catch (error) {
     console.error("Failed to save last tabs:", error);
   }

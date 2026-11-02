@@ -1,4 +1,5 @@
 import { readUserDataFile, writeUserDataFile, atomicWriteText, getUserDataPath, ensureDirectoryTree } from "../../../services/filesystem";
+import { createSerialWrites } from "../../../services/serialWrites";
 import { isTauriRuntime } from "../../../services/runtime";
 import { readManifest } from "./manifest-service";
 import type { JournalDescriptor } from "./journal.types";
@@ -6,6 +7,20 @@ import type { JournalDescriptor } from "./journal.types";
 const LIBRARY_FILE = "journal-library.json";
 const LIBRARY_BACKUP = "journal-library.json.bak";
 const LIBRARY_CORRUPT = "journal-library.corrupt.json";
+
+/**
+ * Fila da biblioteca, uma só para o arquivo inteiro (H05).
+ *
+ * `saveLibrary` grava duas vezes (backup e principal) e os três mutadores fazem
+ * "carregar lista → mutar → gravar". Sem a fila, dois cliques em cadernos
+ * diferentes perdiam um deles e um backup podia ser escrito no meio do par
+ * backup/principal que deveria ser uma transição.
+ *
+ * As funções internas (`persistLibrary`) **não** pegam a fila: a trava é do
+ * chamador público, e enfileirar de dentro de uma tarefa já enfileirada
+ * esperaria por si mesma para sempre.
+ */
+const libraryWrites = createSerialWrites();
 
 function emptyLibrary(): LibraryData {
   return { version: 1, journals: [], activeJournalId: null };
@@ -82,57 +97,79 @@ export async function loadLibrary(): Promise<LibraryData> {
     const recovered = await tryLoadLibraryFile(LIBRARY_BACKUP);
     if (recovered) return recovered;
     // No usable backup: keep the corrupt bytes for manual recovery and continue.
-    try { await writeUserDataFile(LIBRARY_CORRUPT, raw); } catch { /* best effort */ }
+    try { await writeLibraryFile(LIBRARY_CORRUPT, raw); } catch { /* best effort */ }
     return emptyLibrary();
   }
 }
 
-export async function saveLibrary(data: LibraryData): Promise<void> {
+/**
+ * Grava um arquivo da biblioteca pelo primitivo seguro.
+ *
+ * **Por que o backup também passa por aqui:** o backup é o que salva a biblioteca
+ * quando o principal corrompe — deixá-lo no caminho direto seria protegê-la por
+ * um arquivo que pode ser truncado no meio da própria gravação. No desktop a
+ * troca é atômica (temporário único + rename do `safe_write`); no navegador não
+ * existe diretório de dados, e o `localStorage` é a única implementação possível.
+ */
+async function writeLibraryFile(fileName: string, content: string): Promise<void> {
+  if (isTauriRuntime()) {
+    const base = await getUserDataPath();
+    await ensureDirectoryTree(base);
+    await atomicWriteText(`${base}/${fileName}`, content);
+    return;
+  }
+  await writeUserDataFile(fileName, content);
+}
+
+/** Grava backup + principal do conteúdo recebido. Não pega a fila: é o miolo. */
+async function persistLibrary(data: LibraryData): Promise<void> {
   const content = JSON.stringify(data, null, 2);
   // Back up the previous content first, but only if it parses — so a corrupt main
   // file can never overwrite a healthy backup.
   try {
     const prev = await readUserDataFile(LIBRARY_FILE);
-    if (prev) { JSON.parse(prev); await writeUserDataFile(LIBRARY_BACKUP, prev); }
+    if (prev) { JSON.parse(prev); await writeLibraryFile(LIBRARY_BACKUP, prev); }
   } catch { /* nothing to back up (missing or unparseable) */ }
-  // Atomic write (temp + rename) under Tauri so a crash mid-write can't truncate
-  // the library; fall back to the plain write (localStorage) in the browser.
-  if (isTauriRuntime()) {
-    const base = await getUserDataPath();
-    await ensureDirectoryTree(base);
-    await atomicWriteText(`${base}/${LIBRARY_FILE}`, content);
-  } else {
-    await writeUserDataFile(LIBRARY_FILE, content);
-  }
+  await writeLibraryFile(LIBRARY_FILE, content);
+}
+
+export async function saveLibrary(data: LibraryData): Promise<void> {
+  await libraryWrites.run(LIBRARY_FILE, () => persistLibrary(data));
 }
 
 export async function addJournal(journal: JournalDescriptor): Promise<void> {
-  const library = await loadLibrary();
-  const existing = library.journals.find((j) => j.id === journal.id);
-  if (existing) {
-    // Update existing journal
-    Object.assign(existing, journal);
-    existing.unavailable = false;
-  } else {
-    library.journals.push(journal);
-  }
-  library.activeJournalId = journal.id;
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    const existing = library.journals.find((j) => j.id === journal.id);
+    if (existing) {
+      // Update existing journal
+      Object.assign(existing, journal);
+      existing.unavailable = false;
+    } else {
+      library.journals.push(journal);
+    }
+    library.activeJournalId = journal.id;
+    await persistLibrary(library);
+  });
 }
 
 export async function removeJournal(journalId: string): Promise<void> {
-  const library = await loadLibrary();
-  library.journals = library.journals.filter((j) => j.id !== journalId);
-  if (library.activeJournalId === journalId) {
-    library.activeJournalId = library.journals[0]?.id ?? null;
-  }
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    library.journals = library.journals.filter((j) => j.id !== journalId);
+    if (library.activeJournalId === journalId) {
+      library.activeJournalId = library.journals[0]?.id ?? null;
+    }
+    await persistLibrary(library);
+  });
 }
 
 export async function setActiveJournal(journalId: string | null): Promise<void> {
-  const library = await loadLibrary();
-  library.activeJournalId = journalId;
-  await saveLibrary(library);
+  await libraryWrites.run(LIBRARY_FILE, async () => {
+    const library = await loadLibrary();
+    library.activeJournalId = journalId;
+    await persistLibrary(library);
+  });
 }
 
 export { LIBRARY_FILE };

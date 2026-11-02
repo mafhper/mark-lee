@@ -36,6 +36,17 @@ export async function writeFile(path: string, content: string): Promise<void> {
   await invoke("write_file", { path, content });
 }
 
+/**
+ * Gravação **exclusiva** (ML-H05, "Salvar cópia"): o comando falha quando o
+ * destino já existe, e nada é sobrescrito. Separado de `writeFile` de propósito
+ * — quem quer substituir não usa este, e quem usa este não pode substituir por
+ * engano.
+ */
+export async function writeNewFile(path: string, content: string): Promise<void> {
+  requireTauri("Write new file");
+  await invoke("write_file_new", { path, content });
+}
+
 export async function atomicWriteText(path: string, content: string): Promise<void> {
   requireTauri("Atomic write");
   await invoke("atomic_write_text", { path, content });
@@ -112,6 +123,54 @@ export async function writeUserDataFile(fileName: string, content: string): Prom
     return;
   }
   await invoke("write_user_data_file", { fileName, content });
+}
+
+/**
+ * Rascunhos duráveis (`ML-H05`).
+ *
+ * No desktop a garantia é o arquivo em `<app-data>/recovery/drafts`, escrito
+ * pelo primitivo seguro do backend. Fora do desktop — `npm run dev` no
+ * navegador — não existe diretório de dados do aplicativo, e o `localStorage`
+ * volta a ser o que sempre foi: **cache**. É o único caminho em que ele ainda
+ * segura texto, e é declarado em vez de silencioso.
+ */
+const DRAFT_CACHE_PREFIX = "mark-lee-draft:";
+
+export interface StoredDraft {
+  document_id: string;
+  payload: string;
+}
+
+export async function writeDocumentDraft(documentId: string, payload: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    localStorage.setItem(`${DRAFT_CACHE_PREFIX}${documentId}`, payload);
+    return;
+  }
+  await invoke("write_document_draft", { documentId, payload });
+}
+
+export async function listDocumentDrafts(): Promise<StoredDraft[]> {
+  if (!isTauriRuntime()) {
+    const drafts: StoredDraft[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(DRAFT_CACHE_PREFIX)) continue;
+      const payload = localStorage.getItem(key);
+      if (payload !== null) {
+        drafts.push({ document_id: key.slice(DRAFT_CACHE_PREFIX.length), payload });
+      }
+    }
+    return drafts;
+  }
+  return invoke<StoredDraft[]>("list_document_drafts");
+}
+
+export async function deleteDocumentDraft(documentId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    localStorage.removeItem(`${DRAFT_CACHE_PREFIX}${documentId}`);
+    return;
+  }
+  await invoke("delete_document_draft", { documentId });
 }
 
 export async function loadImage(path: string): Promise<string> {

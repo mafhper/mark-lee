@@ -25,7 +25,8 @@ import { EditorView } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { MarkdownEditor } from "../../editor/MarkdownEditor";
 import { activeDocPathRef } from "../../editor/active-editor";
-import { setActiveTarget, registerFlushHandler, setEntryTrackerAdjuster, setEntryFavoriteToggler } from "../../editor/active-target";
+import { setActiveTarget, setEntryTrackerAdjuster, setEntryFavoriteToggler } from "../../editor/active-target";
+import { appPendingWork } from "../../../app/documents/pendingWork";
 import { resolveEntryAssetPath } from "../domain/export-paths";
 import { collectEntryImageRefs } from "../domain/entry-images";
 import type { TagStat } from "../domain/tag-service";
@@ -879,8 +880,13 @@ export function JournalEntryPanel({ t, tConfig, journal, entry, viewMode, onEntr
     },
   };
 
-  // Register a pending-save flusher so the window-close handler (App) can await it.
-  useEffect(() => registerFlushHandler(flushPendingSave), [flushPendingSave]);
+  // Register the panel's debounced save with the lifecycle coordinator's pending
+  // work, so closing the window flushes the journal without App having to know
+  // which surface promised it.
+  useEffect(
+    () => appPendingWork.register({ label: "journal-entry", flush: flushPendingSave }),
+    [flushPendingSave],
+  );
 
   // Expose tracker-adjust and favorite-toggle so the sidebar Pins and the entry
   // context menu route through this draft when this entry is the active one.

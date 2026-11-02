@@ -18,7 +18,8 @@ import { checkManifest } from "./domain/manifest-service";
 import { addJournal } from "./domain/library-service";
 import { createEntry, deleteEntry, duplicateEntry, readEntry, saveEntry } from "./domain/entry-service";
 import { collectLibraryTagStats, collectTagStats, mergeTagStats, type TagStat } from "./domain/tag-service";
-import { flushAllPending, toggleActiveEntryFavorite } from "../editor/active-target";
+import { toggleActiveEntryFavorite } from "../editor/active-target";
+import { appPendingWork } from "../../app/documents/pendingWork";
 import { openFileDialog } from "../../services/filesystem";
 import type { JournalDescriptor } from "./domain/journal.types";
 import type { EntryRecord } from "./domain/entry-service";
@@ -147,7 +148,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
 
   const handleReloadJournal = useCallback(async () => {
     if (!activeJournal) return;
-    await flushAllPending();
+    await appPendingWork.flushAll();
     await loadJournal(activeJournal.rootPath);
   }, [activeJournal, loadJournal]);
 
@@ -204,7 +205,7 @@ function JournalWorkspaceInner({ t, tConfig, isZenMode, language, viewMode, side
   }, [activeJournal]);
 
   const handleSaveActive = useCallback(async () => {
-    await flushAllPending();
+    await appPendingWork.flushAll();
   }, []);
 
   const handleCreateFromTemplate = useCallback(async (templateBody: string) => {

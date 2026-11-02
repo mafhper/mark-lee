@@ -1,4 +1,5 @@
 mod commands;
+pub mod documents;
 mod watcher;
 
 use serde::Serialize;
@@ -32,12 +33,26 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        /* Updater assinado (ML-H06). O plugin NÃO oferece `on_before_exit`
+           registrável daqui: `tauri_plugin_updater::Builder` só tem target,
+           pubkey, installer_args, headers e version comparator. O hook existe em
+           `UpdaterBuilder::on_before_exit`, é `#[cfg(windows)]` e é `Fn()` — sem
+           retorno, portanto **sem veto**; e `UpdaterExt::updater_builder()`, por
+           onde passam todos os comandos JS (`check`, `download`, `install`), o
+           sobrescreve com `cleanup_before_exit` do próprio plugin. Ou seja: um
+           hook nosso rodaria depois da decisão de instalar, e não poderia
+           desfazê-la. A proteção real é o preflight do ciclo de vida em
+           `src/services/updater.ts` (`install()` recusa sem `allowed`), que roda
+           **antes** do `Install` ser chamado; o `cleanup_before_exit` do plugin
+           continua como proteção complementar que já vem de fábrica. */
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::filesystem::read_file,
             commands::filesystem::read_binary_file,
             commands::filesystem::get_file_metadata,
             commands::filesystem::write_file,
+            commands::filesystem::write_file_new,
             commands::filesystem::list_dir,
             commands::filesystem::read_workspace_tree,
             commands::filesystem::create_workspace_file,
@@ -48,6 +63,9 @@ pub fn run() {
             commands::filesystem::get_user_data_path,
             commands::filesystem::read_user_data_file,
             commands::filesystem::write_user_data_file,
+            commands::filesystem::write_document_draft,
+            commands::filesystem::list_document_drafts,
+            commands::filesystem::delete_document_draft,
             commands::filesystem::atomic_write_text,
             commands::filesystem::create_directory_tree,
             commands::filesystem::ensure_directory_tree,

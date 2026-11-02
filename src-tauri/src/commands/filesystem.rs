@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{command, Manager};
 
+use crate::documents::{create_new, drafts, safe_write};
+
 const MAX_WORKSPACE_DEPTH: usize = 8;
 const MAX_CHILDREN_PER_DIRECTORY: usize = 250;
 const MAX_TOTAL_WORKSPACE_NODES: usize = 5_000;
@@ -197,38 +199,45 @@ pub fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
     fs::read(p).map_err(|e| e.to_string())
 }
 
-#[command]
-pub fn write_file(path: String, content: String) -> Result<(), String> {
-    let p = if Path::new(&path).exists() {
-        canonical_existing(&path)?
+/// Destino de uma escrita: resolve o arquivo existente (inclusive link
+/// simbólico) e, quando ele ainda não existe, canonicaliza o diretório-pai sem
+/// criar nada. Quem grava é `documents::persistence::safe_write`.
+fn resolve_write_target(path: &str) -> Result<PathBuf, String> {
+    if Path::new(path).exists() {
+        canonical_existing(path)
     } else {
-        ensure_safe_parent(&path)?
-    };
-    fs::write(&p, content).map_err(|e| e.to_string())
+        ensure_safe_parent(path)
+    }
 }
 
 #[command]
+pub fn write_file(path: String, content: String) -> Result<(), String> {
+    let target = resolve_write_target(&path)?;
+    safe_write(&target, &content)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// Mesmo primitivo de `write_file`. O nome do comando é histórico — as Memórias
+/// chamam este — e a rotina diferente que ele descrevia deixou de existir no
+/// ML-H02: os dois escritores agora passam pelo mesmo caminho seguro, com
+/// temporário único, `sync_all` e troca sem remover o destino antes.
+#[command]
 pub fn atomic_write_text(path: String, content: String) -> Result<(), String> {
-    let p = if Path::new(&path).exists() {
-        canonical_existing(&path)?
-    } else {
-        ensure_safe_parent(&path)?
-    };
-    let dir = p.parent().ok_or_else(|| "No parent directory".to_string())?;
-    let file_stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("entry");
-    let _ext = p.extension().and_then(|s| s.to_str()).unwrap_or("md");
-    let tmp_name = format!(".{}_{}.tmp", file_stem, std::process::id());
-    let tmp_path = dir.join(&tmp_name);
+    let target = resolve_write_target(&path)?;
+    safe_write(&target, &content)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
 
-    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
-
-    // On the same filesystem, rename is atomic
-    fs::rename(&tmp_path, &p).map_err(|e| {
-        let _ = fs::remove_file(&tmp_path);
-        format!("Failed to rename temp file: {}", e)
-    })?;
-
-    Ok(())
+/// Gravação **exclusiva**: falha se o destino já existe. É o que "Salvar cópia"
+/// do conflito externo usa — uma cópia nunca sobrescreve o trabalho de ninguém.
+#[command]
+pub fn write_file_new(path: String, content: String) -> Result<(), String> {
+    let target = ensure_safe_parent(&path)?;
+    create_new(&target, &content)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[command]
@@ -393,6 +402,35 @@ pub fn write_user_data_file(
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     path.push(file_name);
     fs::write(path, content).map_err(|e| e.to_string())
+}
+
+/// Pasta durável de rascunhos do aplicativo.
+fn draft_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(drafts::root(&app_data))
+}
+
+/// Grava o rascunho de um documento aberto (aba sem caminho ou edição não
+/// salva). O `payload` é opaco para o backend: o formato é do front-end.
+#[command]
+pub fn write_document_draft(
+    app: tauri::AppHandle,
+    document_id: String,
+    payload: String,
+) -> Result<(), String> {
+    drafts::write(&draft_directory(&app)?, &document_id, &payload).map(|_| ())
+}
+
+/// Todos os rascunhos legíveis, para a recuperação na abertura.
+#[command]
+pub fn list_document_drafts(app: tauri::AppHandle) -> Result<Vec<drafts::StoredDraft>, String> {
+    Ok(drafts::read_all(&draft_directory(&app)?))
+}
+
+/// Remove o rascunho de um documento que foi salvo ou descartado.
+#[command]
+pub fn delete_document_draft(app: tauri::AppHandle, document_id: String) -> Result<(), String> {
+    drafts::remove(&draft_directory(&app)?, &document_id)
 }
 
 fn sanitize_filename(name: &str) -> String {

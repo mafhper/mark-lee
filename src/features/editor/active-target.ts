@@ -20,44 +20,6 @@ export function getActiveTarget(): ActiveDocumentTarget | null {
 }
 
 /**
- * Registry of pending-save flushers. Components with debounced autosave (e.g. the
- * journal entry panel) register a flusher so the app can guarantee everything is
- * persisted before the window closes, regardless of which surface is mounted.
- *
- * A handler resolves to `false` (or throws) when its pending save could not be
- * persisted, so the caller can decide whether it is safe to proceed (e.g. close
- * the window) instead of silently losing edits.
- */
-type FlushHandler = () => void | boolean | Promise<void | boolean>;
-const flushHandlers = new Set<FlushHandler>();
-
-export function registerFlushHandler(handler: FlushHandler): () => void {
-  flushHandlers.add(handler);
-  return () => {
-    flushHandlers.delete(handler);
-  };
-}
-
-export interface FlushResult {
-  /** Number of registered flushers whose pending save failed (or threw). */
-  failures: number;
-}
-
-export async function flushAllPending(): Promise<FlushResult> {
-  const results = await Promise.all(
-    [...flushHandlers].map((handler) =>
-      Promise.resolve()
-        .then(handler)
-        .then(
-          (ok) => ok !== false, // void/true → success; explicit false → failure
-          () => false, // a thrown flusher is a failure
-        ),
-    ),
-  );
-  return { failures: results.filter((ok) => ok === false).length };
-}
-
-/**
  * Channel for routing a tracker quick-adjust (the Pins +/- buttons) through the
  * live entry draft when that entry is the one currently open in the editor panel.
  * The panel registers an adjuster; it returns `true` only when it owns the target
