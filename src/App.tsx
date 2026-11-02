@@ -26,7 +26,8 @@ import { searchCount } from "./features/editor/search-count";
 import { closeSearchPanel, search, searchKeymap, searchPanelOpen, openSearchPanel } from "@codemirror/search";
 import { abrirComTermo, focarSubstituicao, syncDasOpcoes } from "./features/editor/search-panel";
 import { rotulosDaBusca, trocarRotulosDaBusca } from "./features/editor/search-phrases";
-import { getActiveTarget, setActiveTarget, flushAllPending } from "./features/editor/active-target";
+import { getActiveTarget, setActiveTarget } from "./features/editor/active-target";
+import { appPendingWork } from "./app/documents/pendingWork";
 import { useSearchPanelOpen } from "./features/editor/use-search-panel-open";
 import {
   addRecentFile,
@@ -41,7 +42,9 @@ import {
 import {
   createWorkspaceDirectory,
   createWorkspaceFile,
+  deleteDocumentDraft,
   deleteWorkspacePath,
+  listDocumentDrafts,
   openFileDialog,
   readFile,
   readWorkspaceTree,
@@ -50,7 +53,9 @@ import {
   saveFileDialog,
   unwatchWorkspace,
   watchWorkspace,
+  writeDocumentDraft,
   writeFile,
+  writeNewFile,
 } from "./services/filesystem";
 import {
   loadPublicationPresets,
@@ -64,6 +69,7 @@ import {
   styleObjectToInlineCss,
 } from "./services/publication-style";
 import { isTauriRuntime } from "./services/runtime";
+import { createDocumentSessions, fingerprintContent, type SaveOutcome } from "./services/documents";
 import { importJournalImage } from "./services/journal-media";
 import { buildMarkdownImageSyntax } from "./features/editor/image-markdown";
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS, INITIAL_MARKDOWN, THEMES } from "./constants";
@@ -84,6 +90,8 @@ import EditorTabs from "./app/components/EditorTabs";
 import TopChrome from "./app/components/TopChrome";
 import WindowTitleBar from "./app/components/WindowTitleBar";
 import MenuBar, { type MenuActionId } from "./components/MenuBar";
+import ConfirmModal from "./components/ConfirmModal";
+import ConflictModal from "./app/components/ConflictModal";
 import ExportModal, { ExportFormat } from "./app/components/ExportModal";
 import SnippetManagerModal from "./app/components/SnippetManagerModal";
 import SettingsPanel, { SettingsTabId } from "./app/components/SettingsPanel";
@@ -105,7 +113,50 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { DoorOpen, Link2, Unlink2, Lock, TextCursorInput } from "lucide-react";
 import { createAppCommands, resolveCommandShortcut, toCommandPaletteItems } from "./app/commands";
 import type { AppCommandDependencies, CommandId } from "./app/commands";
+import { nextActiveId, type CloseCandidate, type CloseDecision } from "./app/tabs/closeGuard";
+import { createDocumentLifecycleCoordinator } from "./app/documents/lifecycleCoordinator";
+import {
+  createDocumentAutosaveScheduler,
+  type AutosaveState,
+  type DocumentAutosaveScheduler,
+} from "./app/documents/autosaveScheduler";
+import {
+  createDraftStore,
+  mergeDraftRecovery,
+  type DraftStore,
+} from "./app/documents/drafts";
+import {
+  createDraftKeeper,
+  type DocumentDraftKeeper,
+} from "./app/documents/draftKeeper";
+import {
+  loadDiskVersion,
+  resolveConflict,
+  type ConflictChoice,
+} from "./app/documents/conflictResolution";
+import { isSameOrInsidePath } from "./app/documents/paths";
+import { updaterService } from "./services/updater";
 import "./index.css";
+
+/**
+ * Sessões de documento do Editor: uma por aba, com revisão monotônica,
+ * `savedRevision` e fingerprint do disco (ML-H03). O I/O entra por injeção — a
+ * ponte Tauri é a mesma que o resto do app já usa —, e é isso que deixa o
+ * contrato testável fora do app.
+ */
+const documentSessions = createDocumentSessions({ readText: readFile, writeText: writeFile });
+
+/**
+ * Rascunhos duráveis (ML-H05): um arquivo por documento em
+ * `<app-data>/recovery/drafts`, escrito pelo backend com troca atômica. O
+ * `localStorage` continua guardando a sessão de abas (cache de interface), mas o
+ * texto não salvo mora aqui — é o que sobrevive a um crash.
+ */
+const documentDrafts: DraftStore = createDraftStore({
+  write: writeDocumentDraft,
+  list: listDocumentDrafts,
+  remove: deleteDocumentDraft,
+});
 
 const CODE_FILE_EXTENSIONS = new Set([
   "js",
@@ -247,18 +298,13 @@ function normalizeSnippetKey(value: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function normalizeFsPath(path: string) {
-  return path
-    .replace(/\\/g, "/")
-    .replace(/\/+/g, "/")
-    .replace(/\/$/, "")
-    .toLowerCase();
-}
-
+/**
+ * A política de "origem da aba" (`workspace` vs `external`) é a mesma pergunta
+ * que a operação destrutiva do coordenador faz, e por isso a normalização mora
+ * em `app/documents/paths.ts`: duas cópias divergem na primeira correção.
+ */
 function isPathInsideWorkspace(path: string, workspacePath: string) {
-  const normalizedFile = normalizeFsPath(path);
-  const normalizedWorkspace = normalizeFsPath(workspacePath);
-  return normalizedFile === normalizedWorkspace || normalizedFile.startsWith(`${normalizedWorkspace}/`);
+  return isSameOrInsidePath(workspacePath, path);
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -561,6 +607,25 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  /* Fechamento de aba (ML-H04): o diálogo é o mesmo para qualquer operação que
+     descarte trabalho — fechar, fechar outras, fechar à direita, fechar todas —,
+     e responde Salvar/Descartar/Cancelar. O `resolve` fica fora do estado: o
+     React pode reexecutar um updater, e resolver a mesma pergunta duas vezes
+     deixaria a guarda com uma promessa pendurada. */
+  const [closePrompt, setClosePrompt] = useState<{ name: string } | null>(null);
+  const closePromptResolveRef = useRef<((decision: CloseDecision) => void) | null>(null);
+
+  /* Conflito externo (ML-H05 / P0.5). O diálogo abre quando um `save` explícito
+     encontra o disco com outra versão — autosave não abre modal por trás de quem
+     está digitando; ele marca o selo e a pergunta vem no próximo save pedido.
+     O `resolve` fica fora do estado pelo mesmo motivo do fechamento de aba:
+     reaproveitar um updater não pode resolver a mesma pergunta duas vezes. */
+  const [conflictPrompt, setConflictPrompt] = useState<{ documentId: string; name: string } | null>(null);
+  const [conflictCompare, setConflictCompare] = useState<{
+    state: "idle" | "loading" | "loaded" | "failed";
+    content: string | null;
+  }>({ state: "idle", content: null });
+  const conflictResolveRef = useRef<((choice: ConflictChoice) => void) | null>(null);
 
   const lastEditorUserScrollAtRef = useRef(0);
   const lastPreviewUserScrollAtRef = useRef(0);
@@ -618,6 +683,113 @@ function App() {
   useEffect(() => {
     workspacePathRef.current = workspacePath;
   }, [workspacePath]);
+
+  /**
+   * O autosave vive **fora** do ciclo de render (ML-H05 / P0.4).
+   *
+   * O `useEffect` que existia aqui dependia de `tabs` e `activeTab`: cada tecla
+   * mudava `tabs`, o efeito era limpo e o `setInterval` recomeçava — digitação
+   * contínua adiava o salvamento para sempre. O agendador guarda o estado por
+   * documento, e o app só o avisa de duas coisas: "este texto mudou" (`note`) e
+   * "as preferências mudaram" (`updateOptions`).
+   *
+   * A sessão do documento é quem diz se o disco tem a revisão atual; publicar
+   * `dirty` é sempre reflexo dela, nunca do fim do `await`.
+   */
+  const applyAutosaveState = (state: AutosaveState) => {
+    if (state.phase === "saving") {
+      setIsSaving(true);
+      return;
+    }
+    if (state.phase === "saved") {
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) => (item.id === state.documentId ? { ...item, dirty: false } : item))
+      );
+      setLastSavedAt(Date.now());
+      return;
+    }
+    if (state.phase === "pending") {
+      // Chegou edição durante o I/O: o disco tem a revisão anterior. Marcar a
+      // aba limpa aqui é exatamente o defeito que o P0.4 descreve.
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) => (item.id === state.documentId ? { ...item, dirty: true } : item))
+      );
+      return;
+    }
+    if (state.phase === "conflict") {
+      setIsSaving(false);
+      setTabs((previous) =>
+        previous.map((item) =>
+          item.id === state.documentId ? { ...item, conflictedExternally: true } : item
+        )
+      );
+      setSaveError("file_changed_on_disk");
+      return;
+    }
+    if (state.phase === "failed") {
+      setIsSaving(false);
+      setSaveError(state.reason);
+    }
+  };
+
+  const autosaveRef = useRef<DocumentAutosaveScheduler | null>(null);
+  useEffect(() => {
+    // Criado **no efeito**, e não durante o render: um render que o React
+    // descarta não pode deixar um `setInterval` órfão, e o StrictMode monta,
+    // desmonta e monta de novo em desenvolvimento — criar no render faria a
+    // segunda montagem herdar um agendador já descartado.
+    const scheduler = createDocumentAutosaveScheduler({
+      snapshot: (documentId) => {
+        const tab = tabsRef.current.find((item) => item.id === documentId);
+        return tab ? { path: tab.path, content: tab.content } : null;
+      },
+      session: (documentId) => documentSessions.forDocument(documentId),
+      publish: applyAutosaveState,
+    });
+    autosaveRef.current = scheduler;
+    return () => {
+      scheduler.dispose();
+      autosaveRef.current = null;
+    };
+  }, []);
+
+  /**
+   * Guardião dos rascunhos duráveis (ML-H05).
+   *
+   * Separado do autosave de propósito: o autosave grava o documento no caminho
+   * dele, e não faz nada quando não há caminho. O rascunho cobre exatamente o
+   * caso sem destino — a aba nova — e a edição que ainda não foi salva. Criado
+   * no efeito pelo mesmo motivo do agendador: um render descartado não pode
+   * deixar timer órfão.
+   */
+  const draftKeeperRef = useRef<DocumentDraftKeeper | null>(null);
+  useEffect(() => {
+    const keeper = createDraftKeeper({
+      snapshot: (documentId) => {
+        const tab = tabsRef.current.find((item) => item.id === documentId);
+        if (!tab) return null;
+        const session = documentSessions.peek(documentId);
+        return {
+          name: tab.name,
+          path: tab.path,
+          content: tab.content,
+          // A sessão é a fonte da verdade do "limpo/sujo" (ML-H03); a aba é a
+          // cópia que o render exibia.
+          dirty: session?.isDirty ?? tab.dirty,
+          origin: tab.origin,
+          diskHash: session?.diskHash ?? null,
+        };
+      },
+      store: documentDrafts,
+    });
+    draftKeeperRef.current = keeper;
+    return () => {
+      keeper.dispose();
+      draftKeeperRef.current = null;
+    };
+  }, []);
 
   const editorRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -963,8 +1135,11 @@ const core = [
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // On window close (Tauri), intercept the request, flush all pending autosaves,
-  // then destroy the window — so debounced journal edits are never lost on exit.
+  // On window close (Tauri), intercept the request, then hand it to the single
+  // lifecycle coordinator: it flushes promised work, asks about every dirty tab
+  // (Save / Discard / Cancel) and only destroys the window when nothing is left
+  // undecided. Before ML-H05 this path only flushed the journal's debounce, so an
+  // unsaved editor tab could be closed by the window closing.
   useEffect(() => {
     if (!isTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
@@ -974,44 +1149,54 @@ const core = [
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         const appWindow = getCurrentWindow();
-        unlisten = await appWindow.onCloseRequested(async (event) => {
-          if (allowClose) return; // second pass: let the close proceed
-          event.preventDefault();
-          let failures = 0;
-          try {
-            ({ failures } = await flushAllPending());
-          } catch {
-            failures = 1; // an unexpected flush error means work may be unsaved
-          }
-          if (failures > 0) {
-            // Some autosaves could not be persisted. Don't claim "edits are never
-            // lost on exit" and quit anyway — ask first; if the dialog can't be
-            // shown, keep the window open so the in-app error banner stays visible.
-            const tr = tRef.current;
-            let quitAnyway = false;
-            try {
-              quitAnyway = await ask(
-                tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
-                {
-                  title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
-                  kind: "warning",
-                  okLabel: tr["journal.quitAnyway"] || "Quit anyway",
-                  cancelLabel: tr["journal.cancel"] || "Cancel",
-                },
-              );
-            } catch {
-              quitAnyway = false;
-            }
-            if (!quitAnyway) return; // abort the close; nothing is destroyed
-          }
+        // destroy() is clean (no re-fire); if it's ever unavailable, fall back
+        // to close() — guarded by allowClose so the window always shuts.
+        const finish = async () => {
           allowClose = true;
-          // destroy() is clean (no re-fire); if it's ever unavailable, fall back
-          // to close() — guarded by allowClose so the window always shuts.
           try {
             await appWindow.destroy();
           } catch {
             await appWindow.close();
           }
+        };
+        unlisten = await appWindow.onCloseRequested(async (event) => {
+          if (allowClose) return; // second pass: let the close proceed
+          event.preventDefault();
+
+          const result = await lifecycle.requestExit(async () => {
+            // Tudo o que estava pendente foi salvo ou descartado com decisão
+            // explícita: nenhum rascunho deve sobreviver a esta saída. Sem isto,
+            // um texto descartado no fechamento voltaria na próxima abertura.
+            await Promise.all(
+              tabsRef.current.map(
+                (tab) => draftKeeperRef.current?.forget(tab.id) ?? Promise.resolve()
+              )
+            );
+            await finish();
+          });
+          if (result.blocker !== "pending_flush_failed") return; // cancelled/aborted
+
+          // Os documentos do editor foram resolvidos, mas algum flush prometido
+          // (diário/editor) falhou. Não dá para afirmar que nada se perde, então
+          // a decisão é explícita; se o diálogo não abrir, a janela fica, e o
+          // aviso de erro na tela continua visível.
+          const tr = tRef.current;
+          let quitAnyway = false;
+          try {
+            quitAnyway = await ask(
+              tr["journal.quitUnsavedBody"] || "Some changes couldn't be saved and will be lost if you quit now. Quit anyway?",
+              {
+                title: tr["journal.quitUnsavedTitle"] || "Unsaved changes",
+                kind: "warning",
+                okLabel: tr["journal.quitAnyway"] || "Quit anyway",
+                cancelLabel: tr["journal.cancel"] || "Cancel",
+              },
+            );
+          } catch {
+            quitAnyway = false;
+          }
+          if (!quitAnyway) return; // abort the close; nothing is destroyed
+          await finish();
         });
         if (disposed) unlisten?.();
       } catch {
@@ -1118,6 +1303,19 @@ const core = [
   const updateActiveTabContent = (content: string) => {
     if (!activeTab) return;
     setSaveError(null);
+    if (content !== activeTab.content) {
+      // Revisão monotônica da sessão: cada edição que muda o texto avança um
+      // passo. É o que permite responder, depois do I/O, se o disco tem
+      // exatamente o texto que está na tela.
+      documentSessions.forDocument(activeTab.id).noteEdit();
+      // Avisa o agendador **deste** documento. Não é o render que marca o
+      // relógio: quem digita 40 vezes por segundo não pode reiniciar o autosave
+      // das outras abas, nem o próprio, para sempre (ML-H05).
+      autosaveRef.current?.note(activeTab.id);
+      // O rascunho durável é a rede que existe mesmo sem caminho: o autosave não
+      // grava aba nova, e é justamente ela que o crash levaria embora.
+      draftKeeperRef.current?.note(activeTab.id);
+    }
     setTabs((previous) =>
       previous.map((tab) =>
         tab.id === activeTab.id ? { ...tab, content, dirty: tab.dirty || content !== tab.content } : tab
@@ -1138,6 +1336,11 @@ const core = [
     }
 
     setSaveError(null);
+    // Quem reescreve o documento inteiro também avança a revisão — sem isso a
+    // sessão acharia que o disco tem o texto de antes da transformação.
+    documentSessions.forDocument(tab.id).noteEdit();
+    autosaveRef.current?.note(tab.id);
+    draftKeeperRef.current?.note(tab.id);
     setTabs((previous) =>
       previous.map((item) =>
         item.id === tab.id ? { ...item, content: nextContent, dirty: true } : item
@@ -1171,6 +1374,10 @@ const core = [
       const origin = resolveTabOrigin(path);
       const existing = tabsRef.current.find((tab) => tab.path === path);
       if (existing) {
+        // O que está no disco vira a referência de comparação da sessão, mesmo
+        // quando a aba está suja: o buffer não é adotado, mas um save futuro
+        // passa a saber que a versão do disco mudou.
+        documentSessions.forDocument(existing.id).trackDisk(path, content);
         setActiveTabId(existing.id);
         setTabs((previous) =>
           previous.map((tab) => {
@@ -1204,6 +1411,7 @@ const core = [
           dirty: false,
           origin,
         };
+        documentSessions.forDocument(next.id).trackDisk(path, content);
         setTabs((previous) => [...previous, next]);
         setActiveTabId(next.id);
       }
@@ -1222,14 +1430,20 @@ const core = [
       }
 
       if (intent.kind === "open-workspace") {
-        setWorkspacePath(intent.path);
-        saveWorkspacePath(intent.path);
-        try {
-          const tree = await readWorkspaceTree(intent.path);
-          setWorkspaceTree(tree);
-        } catch (error) {
-          console.error("Failed to read workspace tree:", error);
-        }
+        // Trocar de workspace é uma saída: os documentos abertos continuam na
+        // mesa, mas o que está só na memória precisa ser decidido antes de o
+        // caminho mudar debaixo deles. O coordenador escreve o pendente e
+        // pergunta pelo resto; cancelar mantém o workspace atual.
+        await lifecycle.requestWorkspaceSwitch(async () => {
+          setWorkspacePath(intent.path);
+          saveWorkspacePath(intent.path);
+          try {
+            const tree = await readWorkspaceTree(intent.path);
+            setWorkspaceTree(tree);
+          } catch (error) {
+            console.error("Failed to read workspace tree:", error);
+          }
+        });
         return;
       }
 
@@ -1238,65 +1452,268 @@ const core = [
     [openPathInTab]
   );
 
+  /** Pergunta ao usuário o que fazer com uma aba suja. Uma pergunta por vez. */
+  const askCloseDecision = (tab: CloseCandidate): Promise<CloseDecision> =>
+    new Promise((resolve) => {
+      if (closePromptResolveRef.current) {
+        // Já há um diálogo aberto: este pedido não pode tomar a promessa do
+        // primeiro (ele ficaria pendurado para sempre), e "cancelar" é a única
+        // resposta que não descarta nada sem decisão.
+        resolve("cancel");
+        return;
+      }
+      closePromptResolveRef.current = resolve;
+      setClosePrompt({ name: tab.name });
+    });
+
+  const answerClosePrompt = useCallback((decision: CloseDecision) => {
+    // Fecha o diálogo **antes** de resolver: a guarda pode pedir outra pergunta
+    // na sequência (várias abas sujas), e o estado precisa estar livre para ela.
+    setClosePrompt(null);
+    const resolve = closePromptResolveRef.current;
+    closePromptResolveRef.current = null;
+    resolve?.(decision);
+  }, []);
+
+  /** Aplica o fechamento das abas liberadas pela guarda e reposiciona o foco. */
+  const applyClose = async (ids: readonly string[]) => {
+    const closing = new Set(ids);
+    // O agendador guarda estado por documento; uma aba que saiu da memória não
+    // pode continuar com timer armado. O rascunho também sai: a aba foi fechada
+    // com decisão explícita (salva ou descartada), e recuperá-la na próxima
+    // abertura seria desfazer essa decisão.
+    //
+    // A promessa é aguardada, não descartada: o guardião espera a gravação em voo
+    // antes de apagar o rascunho, e o fechamento só termina quando isso termina —
+    // senão o `remove` poderia chegar depois da saída do app.
+    const forgets: Promise<void>[] = [];
+    for (const id of ids) {
+      autosaveRef.current?.forget(id);
+      forgets.push(draftKeeperRef.current?.forget(id) ?? Promise.resolve());
+    }
+    setTabs((previous) => previous.filter((item) => !closing.has(item.id)));
+    const current = activeTabIdRef.current;
+    if (current && closing.has(current)) {
+      setActiveTabId(nextActiveId(tabsRef.current, ids, current));
+    }
+    await Promise.all(forgets);
+  };
+
+  /**
+   * Fechar aba passa pelo **mesmo** ponto de consulta de toda saída (ML-H05):
+   * a regra de Salvar/Descartar/Cancelar continua em `runClose`, e o
+   * coordenador decide quando chamá-la. Um fechamento novo que apareça amanhã
+   * entra por aqui em vez de montar a própria conta.
+   */
+  const closeTabs = (targets: DocumentTab[]) => lifecycle.requestClose(targets);
+
   const closeTabWithPrompt = async (tabId: string) => {
     const tab = tabs.find((item) => item.id === tabId);
     if (!tab) return;
-    if (tab.dirty) {
-      const shouldSave = window.confirm(
-        (t["confirm.unsaved.message"] || "")
-          .replace("{fileName}", tab.name)
-          .trim() || `Save changes for ${tab.name}?`
-      );
-      if (shouldSave) {
-        await saveTab(tab, false);
-      }
-    }
-    setTabs((previous) => previous.filter((item) => item.id !== tabId));
-    if (activeTabId === tabId) {
-      const index = tabs.findIndex((item) => item.id === tabId);
-      const fallback = tabs[index - 1] || tabs[index + 1];
-      setActiveTabId(fallback?.id ?? null);
-    }
+    await closeTabs([tab]);
   };
 
-  const saveTab = async (tab: DocumentTab, forceSaveAs: boolean) => {
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      let path = tab.path;
-      if (!path || forceSaveAs) {
-        const selected = await saveFileDialog(tab.name || "Untitled.md");
-        if (!selected) return;
-        path = selected;
+  /**
+   * Pergunta ao usuário o que fazer com o conflito externo. Uma pergunta por
+   * vez: se outra já estiver aberta, este pedido responde `cancel`, que é a
+   * única escolha que não descarta nem sobrescreve nada.
+   */
+  const askConflictChoice = (tab: DocumentTab): Promise<ConflictChoice> =>
+    new Promise((resolve) => {
+      if (conflictResolveRef.current) {
+        resolve("cancel");
+        return;
       }
+      conflictResolveRef.current = resolve;
+      setConflictCompare({ state: "idle", content: null });
+      setConflictPrompt({ documentId: tab.id, name: tab.name });
+    });
 
-      await writeFile(path, tab.content);
-      const name = path.split(/[\\/]/).pop() || tab.name;
+  const answerConflictChoice = useCallback((choice: ConflictChoice) => {
+    // Fecha o diálogo antes de resolver: outra pergunta pode vir na sequência e
+    // o estado precisa estar livre para ela.
+    setConflictPrompt(null);
+    const resolve = conflictResolveRef.current;
+    conflictResolveRef.current = null;
+    resolve?.(choice);
+  }, []);
+
+  /** "Comparar": lê o disco para exibição. Não muda aba, sessão nem arquivo. */
+  const compareConflictingVersion = async () => {
+    const documentId = conflictPrompt?.documentId;
+    const tab = documentId ? tabsRef.current.find((item) => item.id === documentId) : null;
+    if (!tab?.path) return;
+    setConflictCompare({ state: "loading", content: null });
+    const result = await loadDiskVersion(tab.path, { readDisk: readFile });
+    setConflictCompare(
+      result.kind === "loaded"
+        ? { state: "loaded", content: result.content }
+        : { state: "failed", content: null }
+    );
+  };
+
+  /**
+   * Executa a decisão do conflito. A regra mora em `conflictResolution.ts`
+   * (testada fora do React); aqui só se aplica o resultado na aba — e o
+   * rascunho durável acompanha: recarregar/copiar resolvem a divergência, então
+   * ele deixa de ser a cópia mais nova.
+   */
+  const resolveTabConflict = async (tab: DocumentTab): Promise<void> => {
+    // A aba é a cópia que o render exibia; o buffer de agora está em `tabsRef`.
+    const current = tabsRef.current.find((item) => item.id === tab.id) ?? tab;
+    if (!current.path) return;
+
+    const choice = await askConflictChoice(current);
+    if (choice === "cancel") return;
+
+    const result = await resolveConflict(
+      choice,
+      { documentId: current.id, name: current.name, path: current.path, content: current.content },
+      {
+        readDisk: readFile,
+        chooseCopyPath: (name) => saveFileDialog(name),
+        // Criação exclusiva: a cópia não sobrescreve nem o original nem um nome
+        // já ocupado (ML-H05 / P0.5).
+        createExclusive: writeNewFile,
+        session: (documentId) => documentSessions.forDocument(documentId),
+      }
+    );
+
+    if (result.kind === "failed") {
+      setSaveError(result.reason);
+      return;
+    }
+    if (result.kind === "cancelled") return;
+
+    if (result.kind === "reloaded") {
       setTabs((previous) =>
         previous.map((item) =>
-          item.id === tab.id
+          item.id === current.id
             ? {
                 ...item,
-                path,
-                name,
+                content: result.content,
                 dirty: false,
-                origin: resolveTabOrigin(path),
                 deletedExternally: false,
                 conflictedExternally: false,
               }
             : item
         )
       );
-      addRecentFile(path, name);
-      setRecentFiles(getRecentFiles());
-      setLastSavedAt(Date.now());
+      setSaveError(null);
+      await draftKeeperRef.current?.forget(current.id);
+      return;
+    }
 
-      if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
-        await refreshWorkspace();
+    // Cópia gravada: o arquivo novo passa a ser o documento desta aba. O
+    // arquivo original continua no disco com a versão de outro programa.
+    const name = result.path.split(/[\\/]/).pop() || current.name;
+    setTabs((previous) =>
+      previous.map((item) =>
+        item.id === current.id
+          ? {
+              ...item,
+              path: result.path,
+              name,
+              dirty: false,
+              origin: resolveTabOrigin(result.path),
+              deletedExternally: false,
+              conflictedExternally: false,
+            }
+          : item
+      )
+    );
+    addRecentFile(result.path, name);
+    setRecentFiles(getRecentFiles());
+    setSaveError(null);
+    await draftKeeperRef.current?.forget(current.id);
+    if (workspacePath && isPathInsideWorkspace(result.path, workspacePath)) {
+      await refreshWorkspace();
+    }
+  };
+
+  /**
+   * Salvar uma aba. Devolve o resultado tipado em vez de tratar o erro aqui:
+   * quem chama decide o que fazer com `cancelled` (o usuário desistiu do
+   * diálogo), `conflict` (o disco tem outra versão — nada foi sobrescrito) e
+   * `failed`. Só a gravação em si mora na sessão; diálogo, aba, recentes e
+   * workspace continuam aqui, que é onde a interface está.
+   *
+   * `promptOnConflict` existe porque a guarda de fechamento não pode abrir um
+   * modal dentro do próprio `await`: ela recebe o conflito como bloqueio, mantém
+   * a aba aberta, e a decisão fica para o próximo save explícito.
+   */
+  const saveTab = async (
+    tab: DocumentTab,
+    forceSaveAs: boolean,
+    promptOnConflict = true
+  ): Promise<SaveOutcome> => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      let path: string | null = tab.path;
+      if (!path || forceSaveAs) {
+        path = (await saveFileDialog(tab.name || "Untitled.md")) ?? null;
       }
+
+      const session = documentSessions.forDocument(tab.id);
+      const outcome = await session.save({ path, content: tab.content });
+
+      if (outcome.kind === "saved" && path) {
+        const name = path.split(/[\\/]/).pop() || tab.name;
+        setTabs((previous) =>
+          previous.map((item) =>
+            item.id === tab.id
+              ? {
+                  ...item,
+                  path,
+                  name,
+                  // `dirty` vem da sessão: `false` só quando a revisão gravada é
+                  // a revisão atual. Uma edição que chegou durante o I/O deixa o
+                  // documento sujo, que é o ponto do ML-H03.
+                  dirty: session.isDirty,
+                  origin: resolveTabOrigin(path),
+                  deletedExternally: false,
+                  conflictedExternally: false,
+                }
+              : item
+          )
+        );
+        addRecentFile(path, name);
+        setRecentFiles(getRecentFiles());
+        setLastSavedAt(Date.now());
+        if (session.isDirty) {
+          // Editou durante o I/O: o rascunho continua sendo a rede.
+          draftKeeperRef.current?.note(tab.id);
+        } else {
+          await draftKeeperRef.current?.forget(tab.id);
+        }
+
+        if (workspacePath && isPathInsideWorkspace(path, workspacePath)) {
+          await refreshWorkspace();
+        }
+      } else if (outcome.kind === "conflict") {
+        // A versão do disco não é sobrescrita sem decisão: a aba ganha o selo e,
+        // no save explícito, a pergunta Recarregar/Comparar/Salvar cópia/Cancelar.
+        setTabs((previous) =>
+          previous.map((item) =>
+            item.id === tab.id ? { ...item, conflictedExternally: true } : item
+          )
+        );
+        setSaveError("file_changed_on_disk");
+        if (promptOnConflict) await resolveTabConflict(tab);
+      } else if (outcome.kind === "failed") {
+        setSaveError(outcome.reason);
+        console.error("Failed to save file:", outcome.reason);
+      }
+
+      return outcome;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "save_failed");
+      // Só chega aqui o que acontece fora da sessão (diálogo, refresh do
+      // workspace): a gravação sempre volta como `failed` tipado.
+      const reason = error instanceof Error ? error.message : "save_failed";
+      setSaveError(reason);
       console.error("Failed to save file:", error);
+      return { kind: "failed", reason };
     } finally {
       setIsSaving(false);
     }
@@ -1307,6 +1724,57 @@ const core = [
   // refs for the active tab to avoid saving a stale/previous tab.
   const saveTabRef = useRef(saveTab);
   saveTabRef.current = saveTab;
+
+  /**
+   * **Um** ponto de consulta para toda saída do aplicativo (ML-H05 / P0.3).
+   *
+   * Criado uma vez, porque o que ele guarda são as colaborações — perguntar,
+   * gravar, fechar, ler os candidatos —, não um instantâneo de estado: tudo o
+   * que ele lê passa por ref (`tabsRef`, `saveTabRef`, `autosaveRef`). É o que
+   * permite que a mesma instância valha do primeiro ao último render, e é por
+   * isso que uma tela nova que queira fechar algo não precisa montar a sua
+   * própria conta.
+   */
+  const [lifecycle] = useState(() =>
+    createDocumentLifecycleCoordinator<DocumentTab>({
+      // O que o coordenador enxerga: a aba traz o que a interface exibe, a
+      // sessão diz o que o disco tem. Depois de um flush, a cópia do render
+      // ainda pode estar marcada como suja; perguntar por ela seria perguntar
+      // sobre trabalho que já foi escrito.
+      candidates: () =>
+        tabsRef.current.map((tab) => ({
+          ...tab,
+          dirty: documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,
+        })),
+      ask: askCloseDecision,
+      // Sem diálogo de conflito aqui: a guarda já está no meio de uma pergunta,
+      // e um modal aninhado tomaria a resposta do fechamento. `conflict` volta
+      // como bloqueio, a aba fica aberta, e o próximo save explícito pergunta.
+      save: (tab) => saveTabRef.current(tab, false, false),
+      close: applyClose,
+      flush: async () => {
+        // O diário entra pela porta do registro (ele se registra em
+        // `appPendingWork`), não por uma soma que quem chama teria de lembrar de
+        // fazer. Aqui sobra o que é do editor e do guardião de rascunhos, que
+        // são consultados na hora da saída.
+        const editor = await autosaveRef.current?.flushAll();
+        const drafts = await draftKeeperRef.current?.flushAll();
+        return (editor?.failures ?? 0) + (drafts?.failures ?? 0);
+      },
+      pendingWork: appPendingWork,
+      // A aba é a cópia que a interface exibia quando perguntou; a sessão é a
+      // revisão de agora. Divergiu, a aba não fecha (nota deixada no ML-H04).
+      stillDirty: (tab) => documentSessions.peek(tab.id)?.isDirty ?? tab.dirty,
+    })
+  );
+
+  /* A licença que o updater pede antes de instalar (ML-H06).
+     `prepareForRestart` é do coordenador porque é ele que conhece abas sujas e
+     trabalho prometido; o updater só sabe que tem um pacote baixado. Passa como
+     função — e não como `boolean` — porque a resposta só pode ser dada **na
+     hora** do clique: perguntar no render responderia sobre um instantâneo. */
+  const prepareRestart = useCallback(() => lifecycle.prepareForRestart(), [lifecycle]);
+
   const saveActiveEditorTab = useCallback(async () => {
     const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current) ?? tabsRef.current[0];
 if (tab) await saveTabRef.current(tab, false);
@@ -1471,7 +1939,7 @@ if (tab) await saveTabRef.current(tab, false);
 
       if (activeTab) {
         items.push(
-          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => saveTab(activeTab, false) }
+          { type: "item", id: "save", label: t["file.save"] || "Save", shortcut: "Ctrl+S", onSelect: () => void saveTab(activeTab, false) }
         );
       }
 
@@ -1511,20 +1979,27 @@ if (tab) await saveTabRef.current(tab, false);
       return;
     }
 
-    if (activeTab?.dirty) {
-      const shouldSave = window.confirm(
-        (t["confirm.unsaved.message"] || "").replace("{fileName}", activeTab.name)
-      );
-      if (shouldSave) await saveTab(activeTab, false);
-    }
-
-    if (settings.tabsEnabled) {
-      createNewTabInCurrentWindow();
-    } else {
+    const startNewDocument = () => {
+      if (settings.tabsEnabled) {
+        createNewTabInCurrentWindow();
+        return;
+      }
       const next = makeNewTab("Untitled.md", "");
       setTabs([next]);
       setActiveTabId(next.id);
+    };
+
+    if (!activeTab?.dirty) {
+      startNewDocument();
+      return;
     }
+
+    // O mesmo trio do fechamento de aba (ML-H04), e pelo mesmo motivo: o
+    // `window.confirm` só sabe "sim/não". Ele ignorava a falha da gravação,
+    // cancelava o diálogo de destino sem sair do lugar e confundia "descartar"
+    // com "salvar". `Cancelar` aqui não cria documento nenhum — a sessão fica
+    // como estava, com o texto, o cursor e o histórico dela.
+    await lifecycle.requestReplace([activeTab], startNewDocument);
   };
 
   const handleOpenFile = async () => {
@@ -1571,6 +2046,12 @@ if (tab) await saveTabRef.current(tab, false);
                   deletedExternally: false,
                 }
           );
+          if (!tab.dirty) {
+            // A aba limpa passou a ser o disco: sem atualizar a referência da
+            // sessão, o próximo save acusaria conflito contra uma versão que o
+            // próprio app adotou.
+            documentSessions.forDocument(tab.id).trackDisk(tab.path, diskContent);
+          }
         } else if (tab.deletedExternally || tab.conflictedExternally) {
           updates.push({ id: tab.id, deletedExternally: false, conflictedExternally: false });
         }
@@ -1614,8 +2095,13 @@ if (tab) await saveTabRef.current(tab, false);
   const handleWorkspaceDelete = async (path: string) => {
     const ok = window.confirm("Delete selected item?");
     if (!ok) return;
-    await deleteWorkspacePath(path);
-    await refreshWorkspace();
+    // Apagar um arquivo que está aberto e sujo destruiria a única cópia do
+    // texto. O coordenador olha **só** as abas que o alvo alcança e, se alguma
+    // não for liberada, nada é apagado.
+    await lifecycle.requestDestructive(path, async () => {
+      await deleteWorkspacePath(path);
+      await refreshWorkspace();
+    });
   };
 
   const applyWrapSelection = (before: string, after = before) => {
@@ -1733,16 +2219,38 @@ if (tab) await saveTabRef.current(tab, false);
 
     const path = await saveFileDialog(suggestedName);
     if (!path) return;
-    await writeFile(path, output);
-    setShowExport(false);
+    // Exportação é artefato derivado, não revisão de documento: grava pelo mesmo
+    // contrato tipado, sem baseline de sessão e sem conflito (o destino foi
+    // escolhido no diálogo e sobrescrevê-lo é a intenção).
+    const outcome = await documentSessions.writeDerived({
+      documentId: activeTab.id,
+      path,
+      content: output,
+    });
+    if (outcome.kind === "saved") {
+      setShowExport(false);
+      return;
+    }
+    if (outcome.kind === "failed") {
+      setSaveError(outcome.reason);
+      console.error("Failed to export document:", outcome.reason);
+    }
   };
 
-  const closeRightTabs = (tabId: string) => {
+  /**
+   * Os quatro fechamentos em lote passam pela mesma guarda da aba única: a
+   * diferença entre eles é **quais** abas entram, não como cada uma decide.
+   * "Fechar salvas" fica de fora de propósito — ele só toca abas limpas, então
+   * não há trabalho a perder nem pergunta a fazer.
+   */
+  const closeOtherTabs = async (tabId: string) => {
+    await closeTabs(tabs.filter((tab) => tab.id !== tabId));
+  };
+
+  const closeRightTabs = async (tabId: string) => {
     const index = tabs.findIndex((tab) => tab.id === tabId);
     if (index === -1) return;
-    const keep = tabs.slice(0, index + 1);
-    setTabs(keep);
-    setActiveTabId(tabId);
+    await closeTabs(tabs.slice(index + 1));
   };
 
   const closeSavedTabs = () => {
@@ -1751,9 +2259,29 @@ if (tab) await saveTabRef.current(tab, false);
     setActiveTabId(dirtyTabs[0]?.id ?? null);
   };
 
-  const closeAllTabs = () => {
-    setTabs([makeNewTab("Untitled.md", "")]);
-    setActiveTabId((current) => current ?? tabs[0]?.id ?? null);
+  const closeAllTabs = async () => {
+    // "Fechar todas" termina com um documento em branco, como uma sessão nova.
+    // A aba nova entra no mesmo passo do fechamento — nunca existe um frame sem
+    // aba nenhuma, e a ativa aponta para a que sobrou. Se alguma aba não foi
+    // liberada (edição que chegou durante o I/O), ela fica: o fechamento em
+    // bloco nunca é desculpa para descartar o que a guarda não liberou.
+    const next = makeNewTab("Untitled.md", "");
+    if (tabs.length === 0) {
+      setTabs([next]);
+      setActiveTabId(next.id);
+      return;
+    }
+    await lifecycle.requestClose(tabs, (released) => {
+      for (const id of released) autosaveRef.current?.forget(id);
+      const remaining = tabs.filter((tab) => !released.includes(tab.id));
+      if (remaining.length > 0) {
+        setTabs(remaining);
+        setActiveTabId(remaining[0].id);
+        return;
+      }
+      setTabs([next]);
+      setActiveTabId(next.id);
+    });
   };
 
   const shortcutLabels: Record<string, string> = useMemo(
@@ -1827,7 +2355,7 @@ const cycleSidebar = useCallback(() => {
         const target = getActiveTarget();
         if (target?.kind === "journal-entry") { void target.save(); return; }
         if (settingsRef.current.appMode === "journal") return;
-        if (activeTab) return saveTab(activeTab, forceSaveAs);
+        if (activeTab) return saveTab(activeTab, forceSaveAs).then(() => undefined);
       },
 // `openFind` nao e uma segunda implementacao: e esta funcao. Estava escrito
         // duas vezes, e foi por isso que a lupa nao fechava e o `Ctrl+F`
@@ -1854,6 +2382,7 @@ const cycleSidebar = useCallback(() => {
       { id: "palette", label: t["settings.tab.palette"] || "Command palette", keywords: "preferences settings command palette search" },
       { id: "presets", label: t["settings.tab.presets"] || "Publishing", keywords: "preferences settings publication presets html preview" },
       { id: "shortcuts", label: t["settings.tab.shortcuts"] || "Shortcuts", keywords: "preferences settings shortcuts keyboard hotkeys" },
+      { id: "updates", label: t["settings.tab.updates"] || "Updates", keywords: "preferences settings updates version release atualizar atualização" },
     ];
     const items: CommandPaletteItem[] = [];
 
@@ -1889,6 +2418,20 @@ const cycleSidebar = useCallback(() => {
           hint: shortcutLabels["file-export"],
           keywords: "export html pdf markdown",
           onSelect: () => openDialog("export"),
+        },
+        {
+          /* A paleta não é atalho para "baixar": ela abre a seção e dispara a
+             checagem. O download continua sendo um segundo clique explícito,
+             porque baixar binário é decisão, não navegação. */
+          id: "palette-check-updates",
+          label: t["updates.check"] || "Check for updates",
+          section: actionSection,
+          kind: "action",
+          keywords: "update updater version release atualizar atualização verificar",
+          onSelect: () => {
+            openSettingsPanel("updates", "tab-updates");
+            void updaterService.check();
+          },
         },
         {
           id: "palette-theme",
@@ -2139,6 +2682,18 @@ label: t["view.sidebar"] || "Sidebar",
     saveSettings(settings);
   }, [settings]);
 
+  /* Checagem de atualização deferida (ML-H06).
+     Roda **uma vez por sessão**, e a trava é do serviço — `scheduleBootCheck`
+     recusa o segundo agendamento. Não dá para usar `useRef` para isso: o
+     StrictMode monta o efeito duas vezes de propósito, e uma trava de
+     componente viraria duas requisições. Deferida por 8s para não competir com
+     a leitura dos arquivos da sessão; sem download — o binário só desce quando
+     a pessoa pedir nos Ajustes. */
+  useEffect(() => {
+    if (!settings.updaterAutoCheck) return;
+    return updaterService.scheduleBootCheck();
+  }, [settings.updaterAutoCheck]);
+
   useEffect(() => {
     const title = activeTab
       ? `${activeTab.name}${activeTab.dirty ? "*" : ""} - Mark-Lee v${APP_VERSION}`
@@ -2202,26 +2757,94 @@ label: t["view.sidebar"] || "Sidebar",
         setWorkspaceTree(buildDemoWorkspaceTree());
       }
 
-      // Sync unaltered tabs on initial load
-      const currentTabs = loadLastTabs();
-      let changed = false;
+      /* Recuperação de rascunhos (ML-H05).
+       *
+       * O cache de abas (`localStorage`) diz **quais abas existiam**; o rascunho
+       * durável diz **qual era o texto não salvo**. Os dois podem discordar — o
+       * app caiu antes de o cache ser reescrito, ou o webview limpou o cache —, e
+       * a regra de `mergeDraftRecovery` é conservadora: rascunho só entra se era
+       * de trabalho não salvo.
+       */
+      let recoveredTabs = tabsRef.current;
+      let recoveredNewest: string | null = null;
+      let recoveredChanged = false;
+      try {
+        const drafts = await documentDrafts.list();
+        if (drafts.length > 0) {
+          const recovery = mergeDraftRecovery(tabsRef.current, drafts);
+          recoveredTabs = recovery.tabs;
+          recoveredNewest = recovery.newest;
+          recoveredChanged = recovery.adopted.length > 0 || recovery.restored.length > 0;
+          for (const id of recovery.dropped) {
+            void documentDrafts.remove(id).catch(() => undefined);
+          }
+          for (const id of [...recovery.adopted, ...recovery.restored]) {
+            const draft = drafts.find((item) => item.documentId === id);
+            if (draft) {
+              documentSessions
+                .forDocument(id)
+                .restoreDraft(draft.path, draft.content, draft.diskHash);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to recover drafts:", error);
+      }
+
+      /* A sessão nasce vazia a cada início. Sem esta passada, uma aba suja do
+         cache apareceria como "limpa" para a guarda de fechamento — a sessão
+         diria `savedRevision === revision` — e o próximo save não teria
+         referência de disco. Aba limpa adota o disco; aba suja só ganha a
+         referência, sem perder o buffer. */
+      let changed = recoveredChanged;
       const syncedTabs = await Promise.all(
-        currentTabs.map(async (tab) => {
-          if (!tab.path || tab.dirty) return tab;
+        recoveredTabs.map(async (tab) => {
+          if (!tab.path) {
+            if (tab.dirty) {
+              documentSessions.forDocument(tab.id).restoreDraft(null, tab.content, null);
+            }
+            return tab;
+          }
           try {
             const diskContent = await readFile(tab.path);
+            const session = documentSessions.forDocument(tab.id);
+            if (tab.dirty) {
+              session.restoreDraft(tab.path, tab.content, fingerprintContent(diskContent));
+              return tab;
+            }
+            session.trackDisk(tab.path, diskContent);
             if (diskContent !== tab.content) {
               changed = true;
-              return { ...tab, content: diskContent };
+              return { ...tab, content: diskContent, dirty: false };
             }
+            return tab;
           } catch {
-            // ignore
+            // Arquivo removido ou sem leitura: a aba suja mantém o texto e perde
+            // a referência de disco; a limpa continua como o cache a deixou.
+            if (tab.dirty) {
+              documentSessions.forDocument(tab.id).restoreDraft(tab.path, tab.content, null);
+            }
+            return tab;
           }
-          return tab;
         })
       );
       if (changed) {
-        setTabs(syncedTabs);
+        // Atualização funcional: uma aba aberta enquanto isto corria não pode ser
+        // substituída pelo retrato do início. Aba recuperada que não existe mais
+        // no estado é anexada; a que já existe é atualizada no lugar.
+        setTabs((previous) => {
+          const byId = new Map(syncedTabs.map((tab) => [tab.id, tab]));
+          const merged = previous.map((tab) => byId.get(tab.id) ?? tab);
+          const present = new Set(merged.map((tab) => tab.id));
+          for (const tab of syncedTabs) {
+            if (!present.has(tab.id)) merged.push(tab);
+          }
+          return merged;
+        });
+      }
+      if (recoveredChanged && recoveredNewest) {
+        // O trabalho recuperado é o que a pessoa precisa ver na abertura.
+        setActiveTabId(recoveredNewest);
       }
     };
     loadStartupData();
@@ -2582,27 +3205,17 @@ label: t["view.sidebar"] || "Sidebar",
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeTab, closeAllDialogs, commands, handleFormatAction, openDialog, selectAllEditorContent, settings, shortcutLabels, tabs]);
 
+  /**
+   * As preferências do autosave chegam ao agendador por aqui — e só elas. O
+   * agendador decide o resto; este efeito não reinicia nada por causa de uma
+   * edição.
+   */
   useEffect(() => {
-    if (!settings.autoSave || !activeTab?.dirty || !activeTab.path) return;
-    const timer = setInterval(() => {
-      const fresh = tabs.find((item) => item.id === activeTab.id);
-      if (!fresh?.path || !fresh.dirty) return;
-      setIsSaving(true);
-      setSaveError(null);
-      writeFile(fresh.path, fresh.content)
-        .then(() => {
-          setTabs((previous) =>
-            previous.map((item) => (item.id === fresh.id ? { ...item, dirty: false } : item))
-          );
-          setLastSavedAt(Date.now());
-        })
-        .catch((error) => {
-          setSaveError(error instanceof Error ? error.message : "autosave_failed");
-        })
-        .finally(() => setIsSaving(false));
-    }, settings.autoSaveInterval * 1000);
-    return () => clearInterval(timer);
-  }, [activeTab, settings.autoSave, settings.autoSaveInterval, tabs]);
+    autosaveRef.current?.updateOptions({
+      enabled: settings.autoSave,
+      intervalMs: Math.max(1, settings.autoSaveInterval) * 1000,
+    });
+  }, [settings.autoSave, settings.autoSaveInterval]);
 
   // Toolbar actions must follow the active document, matching the Command Registry
   // (Ctrl+S etc). In journal mode we route to the journal target and never fall
@@ -3076,10 +3689,7 @@ onOpenFolder={handleOpenFolder}
               tConfig={tConfig}
               onActivate={setActiveTabId}
               onClose={closeTabWithPrompt}
-              onCloseOthers={(tabId) => {
-                setTabs((previous) => previous.filter((tab) => tab.id === tabId));
-                setActiveTabId(tabId);
-              }}
+              onCloseOthers={closeOtherTabs}
               onCloseRight={closeRightTabs}
               onCloseSaved={closeSavedTabs}
               onCloseAll={closeAllTabs}
@@ -3295,6 +3905,30 @@ onCreateEditor={(view) => {
         tConfig={tConfig}
       />
 
+      <ConfirmModal
+        isOpen={closePrompt !== null}
+        fileName={closePrompt?.name ?? ""}
+        tConfig={tConfig}
+        language={settings.language}
+        onClose={() => answerClosePrompt("cancel")}
+        onConfirm={() => answerClosePrompt("save")}
+        onDiscard={() => answerClosePrompt("discard")}
+      />
+
+      <ConflictModal
+        isOpen={conflictPrompt !== null}
+        fileName={conflictPrompt?.name ?? ""}
+        t={t}
+        tConfig={tConfig}
+        buffer={tabs.find((tab) => tab.id === conflictPrompt?.documentId)?.content ?? ""}
+        diskPreview={conflictCompare.content}
+        compareState={conflictCompare.state}
+        onReload={() => answerConflictChoice("reload")}
+        onCompare={() => void compareConflictingVersion()}
+        onSaveCopy={() => answerConflictChoice("save-copy")}
+        onCancel={() => answerConflictChoice("cancel")}
+      />
+
       <ExportModal
         open={showExport}
         t={t}
@@ -3339,6 +3973,7 @@ onCreateEditor={(view) => {
         onSettingsChange={updateSettings}
         onPublicationPresetsChange={setPublicationPresets}
         onJournalFolderSelected={handleJournalFolderSelected}
+        prepareRestart={prepareRestart}
       />
       <PomodoroTimer tConfig={tConfig} activated={pomodoroActive} onActivate={setPomodoroActive} onLockedChange={setBreakLocked} t={t} />
       {breakLocked && (

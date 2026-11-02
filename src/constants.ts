@@ -558,6 +558,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   selectionToolbarEnabled: true,
   chromeMode: "unified",
   tabsEnabled: true,
+  // Checagem automática é **opt-in**, não padrão: o desenho do ML-H06 pede que
+  // nenhuma rede aconteça sem a pessoa pedir, e "buscar ao iniciar" é rede. Quem
+  // quiser liga no interruptor dos Ajustes; o botão "Buscar atualizações"
+  // funciona com isto desligado, porque desligar aqui desliga o agendamento, não
+  // o updater.
+  updaterAutoCheck: false,
   sidebarEnabled: true,
   sidebarCollapsed: false,
   sidebarWidth: 260,

@@ -37,6 +37,7 @@ const PARES = [
   ["@tauri-apps/plugin-fs", "tauri-plugin-fs"],
   ["@tauri-apps/plugin-opener", "tauri-plugin-opener"],
   ["@tauri-apps/plugin-process", "tauri-plugin-process"],
+  ["@tauri-apps/plugin-updater", "tauri-plugin-updater"],
   ["@tauri-apps/plugin-window-state", "tauri-plugin-window-state"],
 ];
 
