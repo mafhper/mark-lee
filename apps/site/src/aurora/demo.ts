@@ -161,12 +161,118 @@ export const RECORD_TREE: DemoTreeNode[] = [
   { depth: 1, name: "leia-me.md", kind: "file" },
 ];
 
-/** Registros vizinhos, como Memorias os lista por data. */
-export const RECENT_RECORDS: Array<{ date: string; title: string; summary: string; active?: boolean }> = [
-  { date: "2026-11-02", title: "Nebulosa de Órion", summary: "Primeira noite sem nuvens em três semanas.", active: true },
-  { date: "2026-10-28", title: "Vento sul", summary: "Rajadas fortes durante a madrugada." },
-  { date: "2026-10-19", title: "Primeira geada", summary: "A horta amanheceu coberta de gelo fino." },
-  { date: "2026-10-12", title: "Maré baixa", summary: "As pedras do costão ficaram expostas por duas horas." },
+/**
+ * Os registros que o caderno demo tem no disco, na ordem em que a lista os
+ * mostra: mais novo primeiro, agrupado por mes.
+ *
+ * Isto deixou de ser invencao: cada linha aqui sai do front-matter do arquivo
+ * real (`.dev/tmp/memorias-real/dados.mjs` le e imprime). A contagem de
+ * palavras usa a mesma regra do app — `body.trim().split(/\s+/).length` — e a
+ * miniatura existe em toda entrada que tem `cover` ou `images`.
+ */
+export interface DemoEntryRow {
+  date: string;
+  title: string;
+  summary: string;
+  mood?: string;
+  words: number;
+  hasImage: boolean;
+  active?: boolean;
+}
+
+export const NOTEBOOK_RECORDS: DemoEntryRow[] = [
+  {
+    date: "2026-11-02",
+    title: "Nebulosa de Órion",
+    summary: "Primeira noite sem nuvens em três semanas. A constelação ficou alta o bastante para fotografar a espada.",
+    mood: "excited",
+    words: 101,
+    hasImage: true,
+    active: true,
+  },
+  {
+    date: "2026-10-28",
+    title: "Balanço do mês",
+    summary: "O que rendeu, o que ficou pela metade, e o que sai da lista em novembro.",
+    mood: "neutral",
+    words: 222,
+    hasImage: false,
+  },
+  {
+    date: "2026-10-18",
+    title: "Relendo Florbela em outubro",
+    summary: "Amar! é um poema de repetição, e a repetição é o argumento.",
+    mood: "loved",
+    words: 198,
+    hasImage: true,
+  },
+  {
+    date: "2026-03-21",
+    title: "Terminei Dom Casmurro",
+    summary: "Segunda leitura, agora sabendo o final. O livro muda de assunto.",
+    mood: "thankful",
+    words: 210,
+    hasImage: true,
+  },
+  {
+    date: "2026-02-03",
+    title: "O manjericão dobrou de tamanho",
+    summary: "Duas semanas depois da poda no topo, dois ramos novos por corte.",
+    mood: "creative",
+    words: 196,
+    hasImage: true,
+  },
+  {
+    date: "2026-01-12",
+    title: "Noite limpa no mirante",
+    summary: "Céu Bortle 5, sem Lua até 23h. O Trapézio apareceu no binóculo.",
+    mood: "excited",
+    words: 188,
+    hasImage: true,
+  },
+];
+
+/** O emoji de cada humor, como os `MOOD_EMOJI` do app. */
+export const MOOD_EMOJI: Record<string, string> = {
+  excited: "🤩",
+  neutral: "😐",
+  loved: "🥰",
+  thankful: "🙏",
+  creative: "✨",
+};
+
+/** Estatistica de tag do caderno inteiro (`collectTagStats`). */
+export const NOTEBOOK_TAGS: Array<{ tag: string; count: number }> = [
+  { tag: "céu-profundo", count: 2 },
+  { tag: "observação", count: 2 },
+  { tag: "rotina", count: 2 },
+  { tag: "astronomia", count: 1 },
+  { tag: "balanço", count: 1 },
+  { tag: "domínio-público", count: 1 },
+  { tag: "florbela-espanca", count: 1 },
+  { tag: "jardinagem", count: 1 },
+  { tag: "leitura", count: 1 },
+  { tag: "machado-de-assis", count: 1 },
+  { tag: "poesia", count: 1 },
+  { tag: "romance", count: 1 },
+  { tag: "varanda", count: 1 },
+];
+
+/** Contagem por status de tarefa — nenhuma memoria do caderno e tarefa. */
+export const NOTEBOOK_TASKS: Array<{ status: string; count: number }> = [
+  { status: "pending", count: 0 },
+  { status: "in_progress", count: 0 },
+  { status: "completed", count: 0 },
+  { status: "cancelled", count: 0 },
+];
+
+/** Os pins do caderno, no periodo que abre selecionado ("Mes"). Os rotulos e os
+ *  valores saem do manifesto e das entradas reais; `pct` alimenta a barra do pin
+ *  com `format: "bar"` (Horas de sono, alvo 8h). */
+export const NOTEBOOK_PINS: Array<{ id: string; label: string; value: string; color: string; pct?: number }> = [
+  { id: "words", label: "Palavras", value: "101", color: "#8fb5ff" },
+  { id: "entries", label: "Entradas", value: "1", color: "#8fb5ff" },
+  { id: "sleep", label: "Horas de sono", value: "méd 7.8 h", color: "#6366f1", pct: 7.8 / 8 },
 ];
 
 /**
@@ -174,21 +280,32 @@ export const RECENT_RECORDS: Array<{ date: string; title: string; summary: strin
  *
  * Memorias nao lista pastas: ela lista **cadernos**, e o caderno aberto e que
  * tem registros. O app mostra esse caderno como um cartao com capa, nome e
- * descricao; aqui a capa e um gradiente do tema, porque usar uma foto de
- * terceiro no lugar da capa do caderno seria inventar imagem que o produto nao
- * tem.
+ * descricao — capa, aqui, e o acento do tema em gradiente, e nao a foto de
+ * outra pessoa fazendo papel de capa de um caderno que nao existe.
  */
 export const DEMO_JOURNAL = {
   name: "Memórias de leitura",
-  description: "Caderno de demonstração: céu, leitura e jardim.",
-  entries: 4,
+  description: "Caderno de demonstração: céu, horta e livros, com imagens e trackers.",
+  /** `journal.color` do manifesto: e ele que desenha o contorno do cartao ativo,
+   *  nao o acento do tema. */
+  color: "#7c3aed",
 };
+
+/** O corpo do registro como o app o entrega ao editor e a leitura: sem o
+ *  front-matter e sem repetir o `# titulo` (o titulo vem do front-matter, e as
+ *  cinco entradas reais do caderno comecam em `##`). E daqui que saem as linhas
+ *  do painel de codigo e a contagem de palavras. */
+export function recordToBodyLines(record: DemoRecord): string[] {
+  const lines = [record.lead];
+  for (const section of record.sections) {
+    lines.push("", `## ${section.heading}`);
+    for (const paragraph of section.paragraphs) lines.push("", paragraph);
+    if (section.bullets?.length) lines.push("", ...section.bullets.map((bullet) => `- ${bullet}`));
+  }
+  return lines;
+}
 
 /** Contagem de palavras do registro, como o aplicativo mostra na leitura. */
 export function recordWordCount(record: DemoRecord): number {
-  const parts = [
-    record.lead,
-    ...record.sections.flatMap((section) => [section.heading, ...section.paragraphs, ...(section.bullets ?? [])]),
-  ];
-  return parts.join(" ").split(/\s+/).filter(Boolean).length;
+  return recordToBodyLines(record).join(" ").split(/\s+/).filter(Boolean).length;
 }

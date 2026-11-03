@@ -117,7 +117,7 @@ const Themes = ({ locale }: ThemesProps) => {
   const active = ORDERED_THEMES.find((theme) => theme.id === selected) ?? ORDERED_THEMES[0];
 
   return (
-    <section id="temas" aria-labelledby="temas-titulo" className="scroll-mt-14 border-b border-rule bg-paper text-ink">
+    <section id="temas" aria-labelledby="temas-titulo" className="border-b border-rule bg-paper text-ink">
       <div className="measure border-l border-terracotta/30 px-6 py-20 lg:px-10 lg:py-28">
         <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-7">

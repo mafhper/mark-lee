@@ -118,6 +118,17 @@ async function assertHomeContract(page, baseUrl) {
     await image.scrollIntoViewIfNeeded();
     await page.waitForFunction((img) => img.complete && img.naturalWidth > 0, await image.elementHandle());
   }
+
+  /* O palco tem DUAS leituras. Uma terceira (o markdown cru) saiu: o Editor ja
+   * mostra o texto numerado por linha. Se alguem reintroduzir uma aba sem
+   * querer, este numero denuncia. */
+  const stageTabs = page.locator("#leituras [role='tab']");
+  const stageTabCount = await stageTabs.count();
+  if (stageTabCount !== 2) throw new Error(`Stage should expose 2 readings, found ${stageTabCount}.`);
+  const stageTabNames = await stageTabs.allInnerTexts();
+  if (stageTabNames.join("|") !== "Editor|Memórias") {
+    throw new Error(`Unexpected stage tabs: ${stageTabNames.join("|")}`);
+  }
 }
 
 async function assertAnchorNavigation(page, baseUrl) {
@@ -126,9 +137,11 @@ async function assertAnchorNavigation(page, baseUrl) {
   await page.locator("header nav").getByRole("link", { name: "Produto", exact: true }).click();
   await page.waitForURL(/\/pt-BR#leituras$/);
   await page.waitForTimeout(120);
+  /* O cabecalho deixou de ser `sticky`: o alvo do ancora encosta no topo da
+   * viewport, sem a folga de 56px que compensava a barra grudada. */
   const homeTargetTop = await page.locator("#leituras").evaluate((node) => node.getBoundingClientRect().top);
-  if (homeTargetTop < 45 || homeTargetTop > 80) {
-    throw new Error(`Home anchor did not align below the header: ${homeTargetTop}`);
+  if (homeTargetTop < -1 || homeTargetTop > 8) {
+    throw new Error(`Home anchor did not align at the top: ${homeTargetTop}`);
   }
 
   await page.goto(`${baseUrl}/pt-BR/faq`, { waitUntil: "networkidle" });
@@ -136,8 +149,8 @@ async function assertAnchorNavigation(page, baseUrl) {
   await page.waitForURL(/\/pt-BR#arquivo$/);
   await page.waitForTimeout(160);
   const secondaryTargetTop = await page.locator("#arquivo").evaluate((node) => node.getBoundingClientRect().top);
-  if (secondaryTargetTop < 45 || secondaryTargetTop > 80) {
-    throw new Error(`Secondary-route anchor did not align below the header: ${secondaryTargetTop}`);
+  if (secondaryTargetTop < -1 || secondaryTargetTop > 8) {
+    throw new Error(`Secondary-route anchor did not align at the top: ${secondaryTargetTop}`);
   }
 }
 

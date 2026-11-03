@@ -11,7 +11,7 @@ export type PageKey =
   | "downloads";
 
 export type DownloadPlatform = "windows" | "macos" | "linux";
-export type StageView = "editor" | "memories" | "source";
+export type StageView = "editor" | "memories";
 export type HomeSectionId = "leituras" | "arquivo" | "temas";
 
 export const HOME_SECTION_IDS: readonly HomeSectionId[] = ["leituras", "arquivo", "temas"];
@@ -94,7 +94,6 @@ export interface HomeCopy {
     title: string;
     intro: string;
     views: Array<{ id: StageView; name: string; caption: string }>;
-    note: string;
     chrome: {
       menus: string[];
       workspace: string;
@@ -103,21 +102,48 @@ export interface HomeCopy {
       /** O selo da barra de status quando a entrada aberta e um rascunho. */
       draft: string;
       properties: { record: string; schema: string; tags: string; file: string };
-      /** A lateral de Memorias: cadernos, e dentro do caderno as secoes. */
+      /** A lateral de Memorias: acordeoes do caderno aberto. */
       nav: {
         newEntry: string;
+        /** "Cadernos" — o acordeao do cartao de capa. */
         journal: string;
-        journalEntries: string;
         sections: {
           entries: string;
+          today: string;
           favorites: string;
-          calendar: string;
-          places: string;
-          gallery: string;
           tags: string;
+          tasks: string;
           pins: string;
         };
       };
+      /** O seletor de vistas do painel do meio. */
+      views: {
+        list: string;
+        calendar: string;
+        gallery: string;
+        places: string;
+      };
+      /** O placeholder do campo de busca da lista de registros. */
+      listSearch: string;
+      tasks: {
+        pending: string;
+        inProgress: string;
+        completed: string;
+        cancelled: string;
+        empty: string;
+      };
+      pins: {
+        day: string;
+        week: string;
+        month: string;
+        all: string;
+        /** "Pins" como sufixo do chip de contagem ("3 Pins"). */
+        count: string;
+      };
+      /** O botao que abre as linhas escondidas de tags. */
+      more: string;
+      /** O sufixo da contagem de fotos ("1 foto"). */
+      photos: string;
       /** A faixa de acoes do topo, que muda com a leitura. */
       actions: {
         formatting: string;

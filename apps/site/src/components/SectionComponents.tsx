@@ -24,7 +24,7 @@ interface HeroSectionProps {
 export const HeroSection = ({ label, title, description, mockup }: HeroSectionProps) => (
   <section className="relative min-h-[calc(92svh-3.5rem)] overflow-x-clip overflow-y-visible bg-background pb-4 md:pb-8">
     <div className="legacy-hero-backdrop pointer-events-none absolute inset-0" aria-hidden="true" />
-    <div className="container relative flex min-h-[calc(92svh-3.5rem)] flex-col justify-center pb-0 pt-14 md:pt-20">
+    <div className="container relative flex min-h-[92svh] flex-col justify-center pb-0 pt-14 md:pt-20">
       <div className="mx-auto max-w-6xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

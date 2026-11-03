@@ -1,28 +1,48 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
+  Activity,
   BookOpen,
   CalendarDays,
   ChevronDown,
+  Copy,
+  Download,
+  FileText,
   FolderPlus,
   Heart,
+  Inbox,
+  Info,
   Image as ImageIcon,
+  ListTodo,
   LucideIcon,
   MapPin,
   Menu,
+  MoreHorizontal,
   PenLine,
-  Pin,
   Plus,
   RefreshCw,
   Save,
+  Search,
+  Settings2,
   Tag,
 } from "lucide-react";
 import SectionHead from "@/aurora/SectionHead";
 import { APP_METRICS, STAGE_APP_THEME } from "@/aurora/app-metrics";
 import { AppWindow, CodePane, WindowContext } from "@/aurora/app-window";
-import { Palette, Segment, paletteOf } from "@/aurora/app-window-tokens";
-import { DEMO_JOURNAL, RECENT_RECORDS, RECORD, RECORD_SOURCE_LINES, RECORD_TREE, recordWordCount } from "@/aurora/demo";
-import { formatRecordDate, formatRecordDay } from "@/aurora/record-format";
-import { alphaToken, fadeToken } from "@/aurora/theme-tokens";
+import { Palette, alpha, paletteOf, tokenize } from "@/aurora/app-window-tokens";
+import {
+  DEMO_JOURNAL,
+  MOOD_EMOJI,
+  NOTEBOOK_PINS,
+  NOTEBOOK_RECORDS,
+  NOTEBOOK_TAGS,
+  NOTEBOOK_TASKS,
+  RECORD,
+  RECORD_SOURCE_LINES,
+  RECORD_TREE,
+  recordToBodyLines,
+  recordWordCount,
+} from "@/aurora/demo";
+import cover from "@/assets/nebulosa-orion.webp";
 import logo from "@/assets/logo-tile.png";
 import { Locale, SiteCopy, StageView, getCopy } from "@/i18n";
 
@@ -31,6 +51,8 @@ type StageChrome = SiteCopy["pages"]["home"]["stage"]["chrome"];
 const M = APP_METRICS;
 const APP = STAGE_APP_THEME;
 const PALETTE = paletteOf(APP);
+const MEM = M.memories;
+const J = M.journal;
 
 /* ---------------------------------------------------------------------------
  * O documento que as tres leituras mostram
@@ -50,113 +72,151 @@ const DOC = {
 };
 
 const WORD_COUNT = recordWordCount(RECORD);
+/** As linhas que o painel de codigo mostra: o corpo, nao o arquivo inteiro. */
+const BODY_LINES = recordToBodyLines(RECORD);
 
-/** A leitura "Arquivo.md" mostra o texto como esta no disco: sem token, sem
- *  linha ativa. O que muda entre as leituras e o significado, nao a métrica. */
-const SOURCE_PLAIN: Segment[][] = RECORD_SOURCE_LINES.map((line) => [{ text: line, tone: "plain" as const }]);
+/** O corpo do registro em `preview`, como o app o renderiza: sem o `# titulo`
+ *  (o titulo vem do front-matter) e sem as marcas de Markdown. */
+const PREVIEW = {
+  lead: RECORD.lead,
+  sections: RECORD.sections.map((section) => ({
+    heading: section.heading,
+    paragraphs: section.paragraphs,
+    bullets: section.bullets ?? [],
+  })),
+};
 
 /* ---------------------------------------------------------------------------
- * Vista 2: Memorias
+ * Vista 2: Memorias, refeita a partir da tela real
  *
- * Memorias nao tem a arvore de pastas do editor. O conceito e outro: ela lista
- * **cadernos** e, dentro do caderno aberto, as secoes do diario — Registros,
- * Favoritos, Calendario, Lugares, Galeria, Tags e Pins. Sob Registros vem a
- * lista de registros por data. O cromo em volta (barra de titulo e barra de
- * status) e o mesmo componente das outras leituras; o que muda e o corpo, e a
- * faixa de acoes do topo, que vira a do diario.
+ * A recriacao anterior tinha duas colunas: lateral com uma lista de secoes
+ * soltas (Registros, Favoritos, Calendario, Lugares, Galeria, Tags, Pins) e a
+ * leitura ao lado. O aplicativo tem tres colunas e uma hierarquia diferente:
  *
- * As medidas saem da medicao do app na vista Memorias: cabecalho de 44, botao
- * principal de 36, botoes quadrados de 32, acordeao de 29 e item de 32.
+ *   lateral  240   quatro acordeoes (Cadernos, Registros, Tags, Tarefas) + Pins
+ *                  preso no rodape; os registros NAO moram aqui
+ *   lista    380   cabecalho do caderno, seletor de vistas, busca e os registros
+ *                  agrupados por mes, com dia, mes abreviado e miniatura
+ *   entrada  821   capa, cabecalho (sobrancelha, titulo, chips, contagem) e o
+ *                  corpo dividido: codigo | visualizacao com o bloco METADADOS
+ *
+ * Cada numero abaixo vem de `.dev/tmp/memorias-real/medidas.json`, medido no
+ * app rodando em 1440x900, tema Midnight, com este mesmo registro aberto.
  * ------------------------------------------------------------------------ */
 
-type MemorySection = keyof StageChrome["nav"]["sections"];
+const accordionStyle = (palette: Palette) => ({
+  width: "100%",
+  boxSizing: "border-box" as const,
+  display: "flex",
+  alignItems: "center",
+  gap: MEM.accordion.gap,
+  height: MEM.accordion.height,
+  margin: 0,
+  padding: `${MEM.accordion.paddingY}px ${MEM.accordion.paddingX}px`,
+  background: "transparent",
+  border: "none",
+  fontSize: MEM.accordion.fontSize,
+  fontWeight: 600,
+  lineHeight: `${MEM.accordion.lineHeight}px`,
+  letterSpacing: MEM.accordion.letterSpacing,
+  textTransform: "uppercase" as const,
+  color: alpha(palette.fg, MEM.accordion.colorAlpha),
+  fontFamily: "inherit",
+});
 
-const MEMORY_SECTIONS: Array<{ id: MemorySection; icon: LucideIcon }> = [
-  { id: "entries", icon: BookOpen },
-  { id: "favorites", icon: Heart },
-  { id: "calendar", icon: CalendarDays },
-  { id: "places", icon: MapPin },
-  { id: "gallery", icon: ImageIcon },
-  { id: "tags", icon: Tag },
-  { id: "pins", icon: Pin },
-];
-
-const JOURNAL_ACTIONS: Array<{ id: string; icon: LucideIcon }> = [
-  { id: "save", icon: Save },
-  { id: "newJournal", icon: Plus },
-  { id: "addJournal", icon: FolderPlus },
-  { id: "refresh", icon: RefreshCw },
-];
-
-/** Titulo de acordeao da lateral: 11px em caixa alta, com o chevron do app. */
-const NavHeading = ({ palette, children }: { palette: Palette; children: ReactNode }) => (
-  <p
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: M.memories.accordion.gap,
-      margin: 0,
-      height: M.memories.accordion.height,
-      boxSizing: "border-box",
-      padding: `${M.memories.accordion.paddingY}px ${M.memories.accordion.paddingX}px`,
-      fontSize: M.memories.accordion.fontSize,
-      fontWeight: 600,
-      lineHeight: `${M.memories.accordion.lineHeight}px`,
-      letterSpacing: M.memories.accordion.letterSpacing,
-      textTransform: "uppercase",
-      color: alphaToken(palette.fg, M.memories.accordion.opacity),
-    }}
-  >
-    <ChevronDown size={M.memories.accordion.chevron} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
-    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{children}</span>
-  </p>
+const Accordion = ({
+  palette,
+  title,
+  children,
+  bodyPadding = true,
+}: {
+  palette: Palette;
+  title: string;
+  children: ReactNode;
+  bodyPadding?: boolean;
+}) => (
+  <div>
+    <p data-stage-part="memory-accordion" style={accordionStyle(palette)}>
+      <ChevronDown size={MEM.accordion.chevron} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+    </p>
+    <div style={{ paddingBottom: bodyPadding ? 4 : 0 }}>{children}</div>
+  </div>
 );
 
-const NavDivider = ({ palette }: { palette: Palette }) => (
+const Divider = ({ palette }: { palette: Palette }) => (
   <div
     aria-hidden="true"
     style={{
       height: 1,
-      margin: `${M.memories.divider.marginY}px ${M.memories.divider.marginX}px`,
+      margin: `${MEM.divider.marginY}px ${MEM.divider.marginX}px`,
       background: palette.border,
     }}
   />
 );
 
-/** O cartao do caderno aberto: capa, nome e descricao — como o app o desenha. */
+/** O cartao do caderno aberto: capa, nome e descricao — e nada de contagem. */
 const JournalCard = ({ palette, chrome }: { palette: Palette; chrome: StageChrome }) => (
-  <div style={{ padding: `4px ${M.memories.card.marginX}px`, paddingBottom: M.memories.card.marginY }}>
+  <div style={{ padding: `${MEM.card.marginY}px ${MEM.card.marginX}px` }}>
+    {/* `inline-block`: no app o cartao e um `<button>` dentro de um bloco, e o
+     *  alinhamento pela linha base deixa 7px de folga embaixo — e essa folga
+     *  empurra todo o resto da lateral. Reproduzir o mecanismo vale mais do que
+     *  escrever 7 em algum lugar. */}
     <div
+      data-stage-part="memory-notebook-card"
       style={{
+        display: "inline-block",
+        width: "100%",
         position: "relative",
-        height: M.memories.card.height,
+        height: MEM.card.height,
         boxSizing: "border-box",
         overflow: "hidden",
-        borderRadius: M.memories.card.radius,
-        /* A capa no app e uma foto do caderno. Aqui ela e o acento do tema em
-         * gradiente: melhor uma capa assumidamente grafica do que a foto de
-         * outra pessoa fazendo papel de capa de um caderno que nao existe. */
-        backgroundImage: `linear-gradient(150deg, ${alphaToken(palette.accent, 0.92)}, ${palette.bg})`,
+        borderRadius: MEM.card.radius,
+        background: alpha(palette.accent, 0.35),
       }}
     >
+      <img
+        src={cover}
+        alt=""
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+      />
       <div
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0) 60%)",
+          background: `linear-gradient(180deg, transparent ${MEM.card.overlayStart}%, rgba(0,0,0,${MEM.card.overlayAlpha}) 100%)`,
         }}
       />
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: `0 ${M.memories.card.paddingX}px ${M.memories.card.paddingY}px` }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: MEM.card.radius,
+          pointerEvents: "none",
+          outline: `2px solid ${DEMO_JOURNAL.color}`,
+          outlineOffset: -2,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: `0 ${MEM.card.paddingX}px ${MEM.card.paddingY}px`,
+        }}
+      >
         <p
           style={{
             margin: 0,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            fontSize: M.memories.card.nameSize,
+            fontSize: MEM.card.nameSize,
             fontWeight: 600,
-            lineHeight: `${M.memories.card.nameLineHeight}px`,
+            lineHeight: `${MEM.card.nameLineHeight}px`,
             color: "#ffffff",
+            filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.05))",
           }}
         >
           {DEMO_JOURNAL.name}
@@ -167,281 +227,849 @@ const JournalCard = ({ palette, chrome }: { palette: Palette; chrome: StageChrom
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            fontSize: M.memories.card.descriptionSize,
-            lineHeight: `${M.memories.card.descriptionLineHeight}px`,
+            fontSize: MEM.card.descriptionSize,
+            lineHeight: `${MEM.card.descriptionLineHeight}px`,
             color: "rgba(255,255,255,0.72)",
           }}
         >
           {DEMO_JOURNAL.description}
-        </p>
-        <p
-          style={{
-            margin: 0,
-            marginTop: 2,
-            fontSize: M.memories.card.descriptionSize,
-            lineHeight: `${M.memories.card.descriptionLineHeight}px`,
-            color: "rgba(255,255,255,0.6)",
-          }}
-        >
-          {DEMO_JOURNAL.entries} {chrome.nav.journalEntries}
         </p>
       </div>
     </div>
   </div>
 );
 
+const NAV_ITEMS: Array<{ id: "entries" | "today" | "favorites"; icon: LucideIcon }> = [
+  { id: "entries", icon: BookOpen },
+  { id: "today", icon: CalendarDays },
+  { id: "favorites", icon: Heart },
+];
+
+const QUICK_ACTIONS: Array<{ id: string; icon: LucideIcon; size: number }> = [
+  { id: "save", icon: Save, size: 14 },
+  { id: "newJournal", icon: Plus, size: 14 },
+  { id: "addJournal", icon: FolderPlus, size: 15 },
+  { id: "refresh", icon: RefreshCw, size: 14 },
+];
+
+const TASK_IDS = ["pending", "inProgress", "completed", "cancelled"] as const;
+
 /**
- * A lateral de Memorias.
+ * A lateral de Memorias: acordeoes, e nao uma lista de secoes.
  *
- * Empilhada (janela estreita) ela ocupa a largura toda e a leitura sai: o que
- * interessa num telefone e navegar. No tamanho real do app ela tem os 240px
- * medidos e a leitura fica ao lado.
+ * A hierarquia e a do aplicativo: Cadernos (com o cartao de capa), Registros
+ * (com as tres vistas do diario), Tags (com a contagem por tag) e Tarefas (com
+ * a contagem por status). Pins fica preso no rodape, fora da area rolavel —
+ * por isso ele nao rola junto com o resto.
  */
-const MemoriesSidebar = ({ palette, chrome, locale, stacked }: { palette: Palette; chrome: StageChrome; locale: Locale; stacked: boolean }) => (
+const MemoriesSidebar = ({ palette, chrome }: { palette: Palette; chrome: StageChrome }) => (
   <nav
     aria-label={chrome.nav.journal}
+    data-stage-part="memory-sidebar"
     style={{
       boxSizing: "border-box",
-      width: stacked ? "100%" : M.memories.navWidth,
+      width: MEM.navWidth,
       flex: "0 0 auto",
       display: "flex",
       flexDirection: "column",
       minHeight: 0,
       overflow: "hidden",
-      background: alphaToken(palette.ui, 0.25),
+      background: alpha(palette.ui, 0.25),
       color: palette.fg,
-      borderRight: stacked ? "none" : `1px solid ${palette.border}`,
+      borderRight: `1px solid ${palette.border}`,
       fontFamily: "inherit",
     }}
   >
     <div
       style={{
-        height: M.memories.navHeaderHeight,
+        height: MEM.navHeader.height,
         boxSizing: "border-box",
         flex: "0 0 auto",
         display: "flex",
         alignItems: "center",
-        padding: `${M.memories.navHeaderPaddingY}px ${M.memories.navHeaderPaddingX}px`,
+        padding: `${MEM.navHeader.paddingY}px ${MEM.navHeader.paddingX}px`,
       }}
     >
       <span
         aria-hidden="true"
-        style={{ display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 4, color: alphaToken(palette.fg, 0.38) }}
+        style={{
+          display: "inline-flex",
+          width: MEM.navHeader.button,
+          height: MEM.navHeader.button,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: MEM.navHeader.buttonRadius,
+          color: alpha(palette.fg, MEM.navHeader.colorAlpha),
+        }}
       >
-        <Menu size={16} strokeWidth={1.9} />
+        <Menu size={MEM.navHeader.iconSize} strokeWidth={2} />
       </span>
     </div>
 
-    <div style={{ padding: `0 ${M.memories.navHeaderPaddingX}px 12px`, display: "grid", flex: "0 0 auto" }}>
+    <div style={{ padding: `0 ${MEM.ghost.paddingX}px ${MEM.primary.marginBottom + 4}px`, display: "grid", flex: "0 0 auto" }}>
       <span
         role="img"
         aria-label={chrome.nav.newEntry}
         style={{
-          height: M.memories.primary.height,
+          height: MEM.primary.height,
           boxSizing: "border-box",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: M.memories.primary.gap,
-          marginBottom: M.memories.primary.marginBottom,
-          padding: `${M.memories.primary.paddingY}px ${M.memories.primary.paddingX}px`,
-          borderRadius: M.memories.primary.radius,
+          gap: MEM.primary.gap,
+          marginBottom: MEM.primary.marginBottom,
+          padding: `${MEM.primary.paddingY}px ${MEM.primary.paddingX}px`,
+          borderRadius: MEM.primary.radius,
           background: palette.accent,
-          color: M.memories.primary.color,
-          fontSize: M.memories.primary.fontSize,
+          color: MEM.primary.color,
+          fontSize: MEM.primary.fontSize,
           fontWeight: 600,
-          lineHeight: `${M.memories.primary.lineHeight}px`,
+          lineHeight: `${MEM.primary.lineHeight}px`,
           whiteSpace: "nowrap",
         }}
       >
-        <PenLine size={M.memories.primary.iconSize} strokeWidth={1.9} aria-hidden="true" />
-        {chrome.nav.newEntry}
+        <PenLine size={MEM.primary.iconSize} strokeWidth={2} aria-hidden="true" />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{chrome.nav.newEntry}</span>
       </span>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${M.memories.ghost.columns}, 1fr)`, gap: M.memories.ghost.gap }}>
-        {JOURNAL_ACTIONS.map(({ id, icon: Icon }) => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${MEM.ghost.columns}, 1fr)`, gap: MEM.ghost.gap }}>
+        {QUICK_ACTIONS.map(({ id, icon: Icon, size }) => (
           <span
             key={id}
             aria-hidden="true"
             style={{
-              height: M.memories.ghost.height,
+              height: MEM.ghost.height,
               display: "grid",
               placeItems: "center",
-              borderRadius: M.memories.ghost.radius,
-              border: `1px solid ${palette.border}`,
-              background: alphaToken(palette.bg, 0.5),
-              color: alphaToken(palette.fg, 0.525),
+              borderRadius: MEM.ghost.radius,
+              border: `${MEM.ghost.borderWidth}px solid ${palette.border}`,
+              background: alpha(palette.bg, MEM.ghost.backgroundAlpha),
+              color: alpha(palette.fg, MEM.ghost.colorAlpha),
             }}
           >
-            <Icon size={M.memories.ghost.iconSize} strokeWidth={1.9} />
+            <Icon size={size} strokeWidth={2} />
           </span>
         ))}
       </div>
     </div>
 
     <div className="no-scrollbar" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
-      <NavHeading palette={palette}>{chrome.nav.journal}</NavHeading>
-      <JournalCard palette={palette} chrome={chrome} />
+      <Accordion palette={palette} title={chrome.nav.journal}>
+        <JournalCard palette={palette} chrome={chrome} />
+      </Accordion>
 
-      <NavDivider palette={palette} />
+      <Divider palette={palette} />
 
-      {MEMORY_SECTIONS.map(({ id, icon: Icon }) => {
-        const active = id === "entries";
-        return (
-          <div key={id}>
+      <Accordion palette={palette} title={chrome.nav.sections.entries}>
+        {NAV_ITEMS.map(({ id, icon: Icon }, index) => {
+          const active = index === 0;
+          return (
             <div
+              key={id}
               data-stage-part="memory-section"
               data-stage-active={active ? "true" : undefined}
               style={{
-                height: M.memories.item.height,
+                height: MEM.item.height,
                 boxSizing: "border-box",
                 display: "flex",
                 alignItems: "center",
-                gap: M.memories.item.gap,
-                padding: `${M.memories.item.paddingY}px ${M.memories.item.paddingX}px`,
-                background: active ? alphaToken(palette.fg, M.memories.item.activeAlpha) : "transparent",
-                color: active ? palette.fg : alphaToken(palette.fg, M.memories.item.inactiveOpacity),
-                fontSize: M.memories.item.fontSize,
-                lineHeight: `${M.memories.item.lineHeight}px`,
-                fontWeight: active ? 600 : 400,
+                gap: MEM.item.gap,
+                padding: `${MEM.item.paddingY}px ${MEM.item.paddingX}px`,
+                background: active ? alpha(palette.accent, MEM.item.activeAlpha) : "transparent",
+                color: active ? palette.accent : alpha(palette.fg, MEM.item.inactiveAlpha),
+                fontSize: MEM.item.fontSize,
+                lineHeight: `${MEM.item.lineHeight}px`,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
               }}
             >
-              <Icon size={M.memories.item.iconSize} strokeWidth={1.9} style={{ flex: "0 0 auto" }} aria-hidden="true" />
+              <Icon size={MEM.item.iconSize} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{chrome.nav.sections[id]}</span>
             </div>
+          );
+        })}
+      </Accordion>
 
-            {id === "entries" ? (
-              <div style={{ paddingBottom: 4 }}>
-                {RECENT_RECORDS.map((entry) => (
-                  <div
-                    key={entry.date}
-                    data-stage-part="memory-record"
-                    data-stage-active={entry.active ? "true" : undefined}
-                    style={{
-                      height: M.memories.record.height,
-                      boxSizing: "border-box",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: M.memories.record.gap,
-                      padding: `${M.memories.record.paddingY}px ${M.memories.record.paddingX}px`,
-                      paddingLeft: M.memories.record.paddingX + M.memories.record.indent,
-                      background: entry.active ? alphaToken(palette.fg, M.memories.record.activeAlpha) : "transparent",
-                      color: entry.active ? palette.fg : alphaToken(palette.fg, 0.72),
-                      fontSize: M.memories.record.fontSize,
-                      lineHeight: `${M.memories.record.lineHeight}px`,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                    }}
-                  >
+      <Divider palette={palette} />
+
+      <Accordion palette={palette} title={chrome.nav.sections.tags}>
+        <div style={{ padding: `${MEM.tags.paddingY}px ${MEM.tags.paddingX}px` }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: MEM.tags.gap,
+              maxHeight: MEM.tags.maxLines * MEM.tags.lineStep,
+              overflow: "hidden",
+            }}
+          >
+            {NOTEBOOK_TAGS.map(({ tag, count }) => (
+              <span
+                key={tag}
+                style={{
+                  height: MEM.tags.chip.height,
+                  boxSizing: "border-box",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: MEM.tags.chip.gap,
+                  padding: `${MEM.tags.chip.paddingY}px ${MEM.tags.chip.paddingX}px`,
+                  borderRadius: MEM.tags.chip.radius,
+                  border: "1px solid transparent",
+                  background: alpha(palette.accent, MEM.tags.chip.backgroundAlpha),
+                  color: alpha(palette.fg, MEM.tags.chip.colorAlpha),
+                  fontSize: MEM.tags.chip.fontSize,
+                  lineHeight: `${MEM.tags.chip.lineHeight}px`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {tag}
+                <span style={{ fontVariantNumeric: "tabular-nums", opacity: MEM.tags.chip.countAlpha }}>{count}</span>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", marginTop: MEM.tags.more.marginTop }}>
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: MEM.tags.chip.gap,
+                fontSize: MEM.tags.more.fontSize,
+                fontWeight: 500,
+                lineHeight: `${MEM.tags.more.lineHeight}px`,
+                color: alpha(palette.fg, MEM.tags.more.colorAlpha),
+              }}
+            >
+              {chrome.more}
+              <ChevronDown size={10} strokeWidth={2} />
+            </span>
+          </div>
+        </div>
+      </Accordion>
+
+      <Divider palette={palette} />
+
+      <Accordion palette={palette} title={chrome.nav.sections.tasks}>
+        <div style={{ padding: `${MEM.tasks.paddingY}px ${MEM.tasks.paddingX}px`, display: "grid", gap: MEM.tasks.gap }}>
+          {TASK_IDS.map((id) => {
+            const count = NOTEBOOK_TASKS.find((task) => task.status === (id === "inProgress" ? "in_progress" : id))?.count ?? 0;
+            return (
+              <span
+                key={id}
+                style={{
+                  height: MEM.tasks.row.height,
+                  boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: MEM.tasks.row.gap,
+                  padding: `${MEM.tasks.row.paddingY}px ${MEM.tasks.row.paddingX}px`,
+                  borderRadius: MEM.tasks.row.radius,
+                  color: alpha(palette.fg, MEM.tasks.row.colorAlpha),
+                  fontSize: MEM.tasks.row.fontSize,
+                  lineHeight: `${MEM.tasks.row.lineHeight}px`,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: MEM.tasks.row.dot,
+                    height: MEM.tasks.row.dot,
+                    borderRadius: 9999,
+                    background: palette.border,
+                  }}
+                />
+                <span style={{ flex: "1 1 0", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {chrome.tasks[id]}
+                </span>
+                <span style={{ fontVariantNumeric: "tabular-nums", color: alpha(palette.fg, MEM.tasks.row.countAlpha) }}>{count}</span>
+              </span>
+            );
+          })}
+          <p style={{ margin: 0, padding: "4px 8px", fontSize: MEM.tasks.emptyFontSize, lineHeight: "16.5px", color: alpha(palette.fg, 0.33) }}>
+            {chrome.tasks.empty}
+          </p>
+        </div>
+      </Accordion>
+    </div>
+
+    {/* Rodape: Pins fica fora da area rolavel, preso na base da lateral. */}
+    <div style={{ flex: "0 0 auto", borderTop: `1px solid ${palette.border}` }}>
+      <Accordion palette={palette} title={chrome.nav.sections.pins}>
+        <div style={{ margin: `${MEM.divider.marginY}px ${MEM.pins.panelPaddingX}px` }}>
+          <div style={{ height: 24, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <Settings2 size={13} strokeWidth={2} style={{ color: alpha(palette.fg, 0.33) }} aria-hidden="true" />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              boxSizing: "border-box",
+              padding: MEM.pins.switcher.padding,
+              marginBottom: 8,
+              borderRadius: MEM.pins.switcher.radius,
+              border: `1px solid ${palette.border}`,
+              background: alpha(palette.fg, 0.04),
+            }}
+          >
+            {[chrome.pins.day, chrome.pins.week, chrome.pins.month, chrome.pins.all].map((label, index) => (
+              <span
+                key={label}
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  padding: "4px 4px",
+                  borderRadius: 4,
+                  background: index === 2 ? alpha(palette.accent, 0.13) : "transparent",
+                  color: index === 2 ? palette.accent : alpha(palette.fg, 0.44),
+                  fontSize: MEM.pins.switcher.fontSize,
+                  fontWeight: 500,
+                  lineHeight: `${MEM.pins.switcher.lineHeight}px`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "grid", gap: 4 }}>
+            {NOTEBOOK_PINS.map(({ id, label, value, color, pct }) => {
+              const Icon = id === "words" ? PenLine : id === "entries" ? Inbox : Activity;
+              return (
+                <div key={id} style={{ borderRadius: 6, padding: "2px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 6px" }}>
+                    <span style={{ flex: "0 0 auto", color }} aria-hidden="true">
+                      <Icon size={13} strokeWidth={2} />
+                    </span>
                     <span
                       style={{
-                        width: M.memories.record.dayWidth,
-                        flex: "0 0 auto",
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        color: alphaToken(palette.fg, 0.55),
+                        flex: "1 1 0",
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontSize: MEM.pins.row.labelSize,
+                        lineHeight: `${MEM.pins.row.labelLineHeight}px`,
+                        color: alpha(palette.fg, 0.67),
                       }}
                     >
-                      {formatRecordDay(locale, entry.date)}
+                      {label}
                     </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", fontWeight: entry.active ? 600 : 400 }}>
-                      {entry.title}
+                    <span style={{ flex: "0 0 auto", fontSize: MEM.pins.row.valueSize, fontWeight: 500, lineHeight: `${MEM.pins.row.valueLineHeight}px`, color: palette.fg }}>
+                      {value}
                     </span>
                   </div>
-                ))}
-              </div>
-            ) : null}
+                  {pct === undefined ? null : (
+                    <div style={{ margin: "4px 6px 0", height: 2, overflow: "hidden", borderRadius: 9999, background: palette.border }}>
+                      <div style={{ height: "100%", width: `${Math.min(Math.max(pct, 0), 1) * 100}%`, borderRadius: 9999, background: color }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      </Accordion>
     </div>
   </nav>
 );
 
-/** A leitura do registro aberto: o que o caderno mostra a direita. */
-const MemoriesReading = ({ palette, chrome, locale }: { palette: Palette; chrome: StageChrome; locale: Locale }) => (
-  <article style={{ flex: "1 1 0", minWidth: 0, minHeight: 0, overflow: "hidden", background: palette.bg, color: palette.fg }}>
-    <div style={{ height: "100%", overflow: "hidden", padding: "16px 20px" }}>
-      <div style={{ maxWidth: "42rem", margin: "0 auto" }}>
+/* ---------------------------------------------------------------------------
+ * Painel do meio: cabecalho do caderno + vistas + busca + registros por mes
+ * ------------------------------------------------------------------------ */
+
+const monthLabel = (locale: Locale, iso: string) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { month: "long", year: "numeric" });
+
+const shortMonth = (locale: Locale, iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { month: "short" });
+
+const dayNumber = (iso: string) => Number(iso.slice(8, 10));
+
+/** Agrupa por ano-mes preservando a ordem (mais novo primeiro), como o app. */
+const groupByMonth = (records: typeof NOTEBOOK_RECORDS) => {
+  const groups: Array<{ key: string; records: typeof NOTEBOOK_RECORDS }> = [];
+  for (const record of records) {
+    const key = record.date.slice(0, 7);
+    const group = groups.find((entry) => entry.key === key);
+    if (group) group.records.push(record);
+    else groups.push({ key, records: [record] });
+  }
+  return groups;
+};
+
+const VIEW_IDS = ["list", "calendar", "gallery", "places"] as const;
+const VIEW_ICONS: Record<(typeof VIEW_IDS)[number], LucideIcon> = {
+  list: FileText,
+  calendar: CalendarDays,
+  gallery: ImageIcon,
+  places: MapPin,
+};
+
+const RecordListPanel = ({ palette, chrome, locale }: { palette: Palette; chrome: StageChrome; locale: Locale }) => (
+  <section
+    aria-label={chrome.nav.journal}
+    data-stage-part="memory-list"
+    style={{
+      boxSizing: "border-box",
+      width: J.panelWidth,
+      flex: "0 0 auto",
+      display: "flex",
+      flexDirection: "column",
+      minHeight: 0,
+      overflow: "hidden",
+      borderRight: `1px solid ${palette.border}`,
+      background: palette.bg,
+      color: palette.fg,
+    }}
+  >
+    <div
+      style={{
+        padding: `${J.header.paddingY}px ${J.header.paddingX}px`,
+        borderBottom: `1px solid ${palette.border}`,
+        display: "grid",
+        gap: J.header.gap,
+        background: palette.bg,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: J.header.iconBox,
+              height: J.header.iconBox,
+              flex: "0 0 auto",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: J.header.iconRadius,
+              background: alpha(palette.accent, J.header.iconBackgroundAlpha),
+              color: palette.accent,
+            }}
+          >
+            <BookOpen size={J.header.iconSize} strokeWidth={2} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: J.header.nameSize,
+                fontWeight: 600,
+                lineHeight: `${J.header.nameLineHeight}px`,
+              }}
+            >
+              {DEMO_JOURNAL.name}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: J.header.descriptionSize,
+                lineHeight: `${J.header.descriptionLineHeight}px`,
+                color: alpha(palette.fg, J.header.descriptionAlpha),
+              }}
+            >
+              {DEMO_JOURNAL.description}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+          {[Download, FileText].map((Icon, index) => (
+            <span
+              key={index}
+              aria-hidden="true"
+              style={{
+                width: J.header.actionButton,
+                height: J.header.actionButton,
+                display: "grid",
+                placeItems: "center",
+                borderRadius: 4,
+                color: alpha(palette.fg, J.header.actionAlpha),
+              }}
+            >
+              <Icon size={J.header.actionIcon} strokeWidth={2} />
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label={chrome.views.list}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: J.switcher.gap,
+          padding: J.switcher.padding,
+          borderRadius: J.switcher.radius,
+          background: palette.ui,
+        }}
+      >
+        {VIEW_IDS.map((id, index) => {
+          const Icon = VIEW_ICONS[id];
+          const active = index === 0;
+          return (
+            <span
+              key={id}
+              role="tab"
+              aria-selected={active}
+              style={{
+                flex: "1 1 0",
+                minWidth: 0,
+                height: J.switcher.height - J.switcher.padding * 2,
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: J.switcher.itemGap,
+                padding: `${J.switcher.itemPaddingY}px ${J.switcher.itemPaddingX}px`,
+                borderRadius: J.switcher.itemRadius,
+                background: active ? palette.bg : "transparent",
+                color: active ? palette.accent : alpha(palette.fg, J.switcher.inactiveAlpha),
+                boxShadow: active ? J.switcher.activeShadow : "none",
+                fontSize: J.switcher.itemFontSize,
+                fontWeight: 500,
+                lineHeight: `${J.switcher.itemLineHeight}px`,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+              }}
+            >
+              <Icon size={J.switcher.iconSize} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{chrome.views[id]}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+
+    <div style={{ padding: `${J.search.paddingY}px ${J.search.paddingX}px`, borderBottom: `1px solid ${palette.border}` }}>
+      <div
+        style={{
+          height: J.search.height,
+          boxSizing: "border-box",
+          display: "flex",
+          alignItems: "center",
+          gap: J.search.gap,
+          padding: `${J.search.fieldPaddingY}px ${J.search.fieldPaddingX}px`,
+          borderRadius: J.search.radius,
+          background: palette.ui,
+          color: alpha(palette.fg, J.search.colorAlpha),
+        }}
+      >
+        <Search size={J.search.iconSize} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
+        <span style={{ flex: "1 1 0", minWidth: 0, fontSize: J.search.fontSize, lineHeight: `${J.search.lineHeight}px`, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {chrome.listSearch}
+        </span>
+        <span
+          aria-hidden="true"
+          style={{ width: J.search.actionBox, height: J.search.actionBox, display: "grid", placeItems: "center", flex: "0 0 auto" }}
+        >
+          <Download size={J.search.iconSize} strokeWidth={2} />
+        </span>
+      </div>
+    </div>
+
+    <div className="no-scrollbar" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ height: J.list.filterRowHeight, boxSizing: "border-box", borderBottom: `1px solid ${palette.border}`, background: palette.ui }} />
+        {groupByMonth(NOTEBOOK_RECORDS).map((group) => (
+          <div key={group.key}>
+            <p
+              data-stage-part="memory-month"
+              style={{
+                margin: 0,
+                height: J.list.monthHeight,
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: `${J.list.monthPaddingY}px ${J.list.monthPaddingX}px`,
+                borderBottom: `1px solid ${palette.border}`,
+                background: palette.ui,
+                color: alpha(palette.fg, J.list.monthAlpha),
+                fontSize: J.list.monthFontSize,
+                fontWeight: 600,
+                lineHeight: `${J.list.monthLineHeight}px`,
+                letterSpacing: J.list.tracking,
+                textTransform: "uppercase",
+              }}
+            >
+              <ChevronDown size={J.list.chevron} strokeWidth={2} style={{ flex: "0 0 auto" }} aria-hidden="true" />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {monthLabel(locale, group.records[0].date)}
+              </span>
+              <span style={{ marginLeft: "auto", fontSize: J.list.countSize, fontWeight: 400, opacity: J.list.countAlpha }}>
+                {group.records.length}
+              </span>
+            </p>
+            {group.records.map((record) => (
+              <div
+                key={record.date}
+                data-stage-part="memory-record"
+                data-stage-active={record.active ? "true" : undefined}
+                style={{
+                  height: J.list.rowHeight,
+                  boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: J.list.rowGap,
+                  padding: `${J.list.rowPaddingY}px ${J.list.rowPaddingX}px`,
+                  borderBottom: `1px solid ${palette.border}`,
+                  background: record.active ? alpha(palette.accent, J.list.selectedAlpha) : "transparent",
+                }}
+              >
+                <div
+                  style={{
+                    width: J.list.dateWidth,
+                    flex: "0 0 auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    paddingTop: 2,
+                  }}
+                >
+                  <span style={{ fontSize: J.list.daySize, fontWeight: 700, lineHeight: `${J.list.dayLineHeight}px` }}>
+                    {dayNumber(record.date)}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: J.list.monthSize,
+                      fontWeight: 500,
+                      lineHeight: `${J.list.shortMonthLineHeight}px`,
+                      textTransform: "uppercase",
+                      color: alpha(palette.fg, J.list.shortMonthAlpha),
+                    }}
+                  >
+                    {shortMonth(locale, record.date)}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: "1 1 0" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    {record.mood ? <span style={{ fontSize: 14, lineHeight: "20px", flex: "0 0 auto" }}>{MOOD_EMOJI[record.mood]}</span> : null}
+                    <span
+                      style={{
+                        fontSize: J.list.titleSize,
+                        fontWeight: 500,
+                        lineHeight: `${J.list.titleLineHeight}px`,
+                        color: record.active ? palette.accent : palette.fg,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {record.title}
+                    </span>
+                  </span>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: J.list.summarySize,
+                      lineHeight: `${J.list.summaryLineHeight}px`,
+                      color: alpha(palette.fg, J.list.summaryAlpha),
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {record.summary}
+                  </p>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 10,
+                      lineHeight: "14px",
+                      color: alpha(palette.fg, 0.25),
+                    }}
+                  >
+                    {record.hasImage ? <ImageIcon size={10} strokeWidth={2} aria-hidden="true" /> : null}
+                    <span>{record.words}w</span>
+                  </span>
+                </div>
+                {record.hasImage ? (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: J.list.thumb,
+                      height: J.list.thumb,
+                      flex: "0 0 auto",
+                      marginTop: 2,
+                      borderRadius: 4,
+                      overflow: "hidden",
+                      background: alpha(palette.accent, 0.1),
+                    }}
+                  >
+                    {record.active ? (
+                      <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : null}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+/* ---------------------------------------------------------------------------
+ * Painel da entrada: capa, cabecalho e o corpo dividido (codigo | visualizacao)
+ * ------------------------------------------------------------------------ */
+
+const MetaChip = ({
+  palette,
+  icon,
+  label,
+  active,
+}: {
+  palette: Palette;
+  icon: ReactNode;
+  label: string;
+  active?: boolean;
+}) => (
+  <span
+    style={{
+      height: J.entry.chipHeight,
+      boxSizing: "border-box",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: J.entry.chipGap,
+      padding: `${J.entry.chipPaddingY}px ${J.entry.chipPaddingX}px`,
+      borderRadius: J.entry.chipRadius,
+      border: "1px solid transparent",
+      background: active ? alpha(palette.accent, J.entry.chipActiveAlpha) : palette.ui,
+      color: active ? palette.accent : alpha(palette.fg, J.entry.chipIdleAlpha),
+      fontSize: J.entry.chipFontSize,
+      fontWeight: 500,
+      lineHeight: `${J.entry.chipLineHeight}px`,
+      whiteSpace: "nowrap",
+    }}
+  >
+    {icon}
+    <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+  </span>
+);
+
+
+/** A coluna de leitura do corpo: o bloco METADADOS e o texto do registro. */
+const PreviewPane = ({ palette, chrome }: { palette: Palette; chrome: StageChrome }) => (
+  <div data-stage-part="memory-preview" style={{ flex: "1 1 0", minWidth: 0, minHeight: 0, overflow: "hidden", background: palette.bg, padding: J.split.previewPadding }}>
+    <div
+      style={{
+        boxSizing: "border-box",
+        overflow: "hidden",
+        padding: J.split.surfacePadding,
+        border: `${J.split.surfaceBorder}px solid ${alpha(palette.fg, 0.16)}`,
+        borderRadius: J.split.surfaceRadius,
+        background: palette.editorBg,
+        color: palette.editorFg,
+        boxShadow: "0 8px 18px rgba(2,6,23,0.06), inset 0 1px 0 rgba(255,255,255,0.18)",
+      }}
+    >
+      <div
+        data-stage-part="memory-metadata"
+        style={{
+          padding: J.split.metadata.padding,
+          marginBottom: J.split.metadata.marginBottom,
+          borderRadius: J.split.metadata.radius,
+          border: `1px solid ${alpha(palette.fg, 0.18)}`,
+          background: alpha(palette.fg, 0.06),
+          color: alpha(palette.fg, 0.72),
+        }}
+      >
         <p
           style={{
             margin: 0,
-            fontSize: 11,
-            letterSpacing: "0.08em",
+            fontSize: J.split.metadata.titleSize,
+            fontWeight: J.split.metadata.titleWeight,
+            lineHeight: `${J.split.metadata.titleLineHeight}px`,
+            letterSpacing: J.split.metadata.titleTracking,
             textTransform: "uppercase",
-            color: fadeToken(palette.fg, palette.bg, 58),
           }}
         >
-          {chrome.nav.sections.entries} · {formatRecordDate(locale, RECORD.date, "short")}
+          {chrome.metadata}
         </p>
-        <h3 style={{ margin: "4px 0 0", fontSize: 20, lineHeight: 1.25, fontWeight: 600 }}>{RECORD.title}</h3>
-
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 8 }}>
-          {RECORD.tags.map((tag) => (
-            <span
-              key={tag}
-              style={{
-                padding: "2px 8px",
-                borderRadius: 9999,
-                border: `1px solid ${palette.border}`,
-                fontSize: 11,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
-          <span style={{ marginLeft: "auto", flex: "0 0 auto", fontSize: 10, color: fadeToken(palette.fg, palette.bg, 58) }}>
-            {WORD_COUNT} {chrome.words}
-          </span>
-        </div>
-
-        <div
+        <dl
           style={{
-            marginTop: 12,
-            padding: "6px 10px",
-            borderRadius: 4,
-            border: `1px solid ${palette.border}`,
-            background: alphaToken(palette.fg, 0.05),
+            margin: 0,
+            marginTop: 8,
+            display: "grid",
+            gridTemplateColumns: "auto 1fr",
+            columnGap: J.split.metadata.rowGapX,
+            rowGap: 4,
           }}
         >
-          <p style={{ margin: 0, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: fadeToken(palette.fg, palette.bg, 58) }}>
-            {chrome.metadata}
-          </p>
-          <p style={{ margin: "2px 0 0", fontSize: 11 }}>
-            {chrome.properties.record}: {RECORD.title}
-          </p>
-        </div>
+          <dt
+            style={{
+              fontSize: J.split.metadata.rowSize,
+              fontWeight: 600,
+              lineHeight: `${J.split.metadata.rowLineHeight}px`,
+              textTransform: "capitalize",
+            }}
+          >
+            title
+          </dt>
+          <dd style={{ margin: 0, fontSize: J.split.metadata.rowSize, lineHeight: `${J.split.metadata.rowLineHeight}px`, color: palette.fg }}>
+            {RECORD.title}
+          </dd>
+        </dl>
+      </div>
 
-        {RECORD.sections.map((section) => (
-          <section key={section.heading} style={{ marginTop: 16 }}>
-            <h4
+      <div style={{ fontSize: J.split.prose.pSize, lineHeight: `${J.split.prose.pLineHeight}px`, fontWeight: J.split.prose.pWeight }}>
+        {PREVIEW.lead ? <p style={{ margin: 0, marginBottom: J.split.prose.pMarginBottom }}>{PREVIEW.lead}</p> : null}
+        {PREVIEW.sections.map((section) => (
+          <section key={section.heading} style={{ marginTop: J.split.prose.h2MarginTop }}>
+            <h2
               style={{
                 margin: 0,
-                paddingBottom: 4,
-                borderBottom: `1px solid ${alphaToken(palette.fg, 0.26)}`,
-                fontSize: 17,
-                lineHeight: 1.2,
-                fontWeight: 600,
-                fontFamily: "var(--font-serif)",
+                marginBottom: J.split.prose.h2MarginBottom,
+                fontSize: J.split.prose.h2Size,
+                fontWeight: J.split.prose.h2Weight,
+                lineHeight: `${J.split.prose.h2LineHeight}px`,
+                letterSpacing: J.split.prose.h2Tracking,
+                /* Uma palavra longa ("Observação" a 37px) nao quebra sozinha: em
+                 * painel estreito ela vazava para fora. `anywhere` deixa quebrar
+                 * em vez de sair da caixa. */
+                overflowWrap: "anywhere",
               }}
             >
-              {section.heading}
-            </h4>
+              <a
+                href={`#${section.heading.toLowerCase()}`}
+                style={{
+                  color: palette.accent,
+                  fontWeight: J.split.prose.linkWeight,
+                  textDecorationLine: "underline",
+                  textDecorationThickness: J.split.prose.linkUnderline,
+                  textUnderlineOffset: "0.18em",
+                }}
+              >
+                {section.heading}
+              </a>
+            </h2>
             {section.paragraphs.map((paragraph) => (
-              <p key={paragraph} style={{ margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, color: fadeToken(palette.fg, palette.bg, 84) }}>
+              <p key={paragraph} style={{ margin: 0, marginBottom: J.split.prose.pMarginBottom }}>
                 {paragraph}
               </p>
             ))}
-            {section.bullets ? (
-              <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 4 }}>
+            {section.bullets.length > 0 ? (
+              <ul
+                style={{
+                  margin: 0,
+                  marginBottom: 22,
+                  paddingLeft: J.split.prose.listIndent,
+                  fontSize: J.split.prose.pSize,
+                  fontWeight: J.split.prose.listWeight,
+                  lineHeight: `${J.split.prose.listLineHeight}px`,
+                }}
+              >
                 {section.bullets.map((bullet) => (
-                  <li key={bullet} style={{ display: "flex", gap: 8, fontSize: 12, lineHeight: 1.6, color: fadeToken(palette.fg, palette.bg, 84) }}>
-                    <span aria-hidden="true" style={{ color: palette.accent }}>
-                      –
-                    </span>
-                    <span>{bullet}</span>
+                  <li key={bullet} style={{ marginTop: 8 }}>
+                    {bullet}
                   </li>
                 ))}
               </ul>
@@ -450,12 +1078,183 @@ const MemoriesReading = ({ palette, chrome, locale }: { palette: Palette; chrome
         ))}
       </div>
     </div>
-  </article>
+  </div>
 );
+
+const EntryPane = ({ palette, chrome, locale, compact }: { palette: Palette; chrome: StageChrome; locale: Locale; compact: boolean }) => {
+  const chips = [
+    { id: "tags", icon: <Tag size={J.entry.chipIcon} strokeWidth={2} />, label: RECORD.tags.slice(0, 2).join(", "), active: true },
+    { id: "mood", icon: <span style={{ fontSize: 14, lineHeight: "14px" }}>{MOOD_EMOJI.excited}</span>, label: "excited", active: true },
+    { id: "tasks", icon: <ListTodo size={J.entry.chipIcon} strokeWidth={2} />, label: chrome.nav.sections.tasks },
+    { id: "places", icon: <MapPin size={J.entry.chipIcon} strokeWidth={2} />, label: chrome.views.places },
+    { id: "fields", icon: <Copy size={J.entry.chipIcon} strokeWidth={2} />, label: "Campos" },
+    { id: "pins", icon: <Activity size={J.entry.chipIcon} strokeWidth={2} />, label: `3 ${chrome.pins.count}`, active: true },
+  ];
+
+  return (
+    <div style={{ flex: "1 1 0", minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", background: palette.bg }} data-stage-part="memory-entry">
+      <div style={{ position: "relative", width: "100%", height: J.entry.coverHeight, flex: "0 0 auto", overflow: "hidden", background: palette.bg }}>
+        <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+
+      <div
+        data-stage-part="memory-entry-header"
+        style={{
+          padding: `${J.entry.paddingY}px ${J.entry.paddingX}px`,
+          borderBottom: `1px solid ${palette.border}`,
+          display: "grid",
+          gap: J.entry.chipsMarginTop,
+          flex: "0 0 auto",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "grid", gap: 4, minWidth: 0, flex: "1 1 0" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: J.entry.eyebrowSize,
+                fontWeight: 500,
+                lineHeight: `${J.entry.eyebrowLineHeight}px`,
+                letterSpacing: J.entry.tracking,
+                textTransform: "uppercase",
+                color: alpha(palette.fg, J.entry.eyebrowAlpha),
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {DEMO_JOURNAL.name} · {new Date(`${RECORD.date}T12:00:00`).toLocaleDateString(locale)}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: J.entry.titleSize,
+                fontWeight: J.entry.titleWeight,
+                lineHeight: `${J.entry.titleLineHeight}px`,
+                letterSpacing: J.entry.titleTracking,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {RECORD.title}
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: J.entry.actionGap, flex: "0 0 auto" }}>
+            {[Heart, Info, MoreHorizontal].map((Icon, index) => (
+              <span
+                key={index}
+                aria-hidden="true"
+                style={{
+                  width: J.entry.actionButton,
+                  height: J.entry.actionButton,
+                  display: "grid",
+                  placeItems: "center",
+                  borderRadius: 4,
+                  color: alpha(palette.fg, J.entry.chipIdleAlpha),
+                }}
+              >
+                <Icon size={15} strokeWidth={2} />
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: J.entry.chipGap, flexWrap: "wrap" }}>
+          {chips.map((chip) => (
+            <MetaChip key={chip.id} palette={palette} icon={chip.icon} label={chip.label} active={chip.active} />
+          ))}
+          <span style={{ flex: "1 1 0" }} />
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: J.entry.chipFontSize, lineHeight: `${J.entry.chipLineHeight}px`, color: alpha(palette.fg, J.entry.chipIdleAlpha) }}>
+            <ImageIcon size={J.entry.chipIcon} strokeWidth={2} aria-hidden="true" />1
+          </span>
+          <span style={{ fontSize: J.entry.chipFontSize, lineHeight: `${J.entry.chipLineHeight}px`, color: alpha(palette.fg, J.entry.wordsAlpha) }}>
+            {WORD_COUNT} {chrome.words}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ flex: "1 1 0", minHeight: 0, display: "flex" }}>
+        <div data-stage-part="memory-code" style={{ width: compact ? "100%" : "50%", minWidth: 0, display: "flex", borderRight: compact ? "none" : `1px solid ${palette.border}` }}>
+          <CodePane palette={palette} segments={tokenize(BODY_LINES)} activeLine gutter />
+        </div>
+        {compact ? null : <PreviewPane palette={palette} chrome={chrome} />}
+      </div>
+    </div>
+  );
+};
 
 /* ---------------------------------------------------------------------------
  * O palco
  * ------------------------------------------------------------------------ */
+
+/** A medida real da janela do aplicativo: 1440x900 (16:10). */
+const STAGE_WIDTH = 1440;
+const STAGE_HEIGHT = 900;
+/** Abaixo disto a escala deixaria o texto abaixo de ~10px. */
+const STAGE_MIN_SCALED = 920;
+
+/**
+ * A moldura do palco: um container que ocupa 100% do `measure` e um desenho de
+ * 1440x900 escalado por `transform`.
+ *
+ * Escala e nao reflow, de proposito: reflowar para 1088 mudaria as quebras de
+ * linha e as colunas do aplicativo (240/380 viram 57% da largura), que e
+ * exatamente o que a recriacao precisa preservar. Com `scale` o desenho e o
+ * mesmo de 1440 — mesmas colunas, mesmas linhas, mesmas alturas — so que
+ * proporcional ao container.
+ *
+ * `useLayoutEffect` para medir antes da primeira pintura: sem isso a janela
+ * apareceria um frame no tamanho errado.
+ */
+const StageFrame = ({
+  panelId,
+  children,
+}: {
+  panelId: string;
+  children: ReactNode;
+}) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const update = () => setWidth(node.clientWidth);
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const scaled = width >= STAGE_MIN_SCALED;
+  const scale = scaled ? width / STAGE_WIDTH : 1;
+  const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : 736;
+
+  return (
+    <div
+      ref={ref}
+      data-stage-part="window-frame"
+      style={{ width: "100%", height, overflow: "hidden", borderRadius: APP_METRICS.windowRadius }}
+      className="shadow-[0_20px_50px_-30px_rgba(0,0,0,0.55)]"
+    >
+      <div
+        id={panelId}
+        role="tabpanel"
+        data-stage-part="window-scaler"
+        style={{
+          width: scaled ? STAGE_WIDTH : width || "100%",
+          height: scaled ? STAGE_HEIGHT : 736,
+          transform: scaled ? `scale(${scale})` : undefined,
+          transformOrigin: "top left",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
 
 interface StageProps {
   locale: Locale;
@@ -464,14 +1263,13 @@ interface StageProps {
 /**
  * Palco: o mesmo registro em tres leituras sobre a janela real do aplicativo.
  *
- * A janela e a mesma nas tres abas — barra de titulo, faixa de abas e barra de
+ * A janela e a mesma nas tres abas — barra de titulo, faixa de acoes e barra de
  * status saem de um componente so, com as medidas do DOM do aplicativo
- * (`app-metrics.ts`, medido em `.dev/tmp/stage-medidas/`). Trocar de leitura
- * troca o corpo, nao o cromo.
+ * (`app-metrics.ts`). Trocar de leitura troca o corpo, nao o cromo.
  *
  * A caixa tem altura fixa de proposito: trocar de aba nao desloca nada abaixo.
- * O corpo rola por dentro (sem barra visivel, com degrade na base), como o
- * aplicativo faz na janela estreita.
+ * O corpo rola por dentro (sem barra visivel), como o aplicativo faz na janela
+ * estreita.
  */
 const Stage = ({ locale }: StageProps) => {
   const stage = getCopy(locale).pages.home.stage;
@@ -494,36 +1292,49 @@ const Stage = ({ locale }: StageProps) => {
   };
 
   /**
-   * O que muda entre as tres leituras e o **corpo** e a **faixa de acoes**, nao
-   * a moldura: barra de titulo, faixa de abas e barra de status sao as mesmas
-   * nas tres. Em "Arquivo.md" troca-se so o painel (texto cru, sem realce e sem
-   * linha ativa); em Memorias troca-se o corpo inteiro, porque o aplicativo
-   * tambem nao mostra faixa de abas no modo Memorias — e a faixa de cima vira a
-   * do diario.
+   * O que muda entre as duas leituras e o **corpo**, nao a moldura: barra de
+   * titulo, faixa de acoes e barra de status sao as mesmas nas duas. Em
+   * Memorias troca-se o corpo inteiro e a faixa de abas sai, porque o
+   * aplicativo tambem nao a mostra no modo Memorias.
+   *
+   * Uma terceira leitura existiu e saiu: o Editor ja mostra o markdown numerado
+   * por linha, entao ela era a mesma coisa sem o realce.
    */
-  const sourcePane = <CodePane palette={PALETTE} segments={SOURCE_PLAIN} activeLine={false} gutter />;
-  const memoriesBody = ({ narrow }: WindowContext) => (
-    <>
-      <MemoriesSidebar palette={PALETTE} chrome={chrome} locale={locale} stacked={narrow} />
-      {narrow ? null : <MemoriesReading palette={PALETTE} chrome={chrome} locale={locale} />}
-    </>
-  );
+  /**
+   * Duas condicoes mandam empilhar:
+   *
+   * 1. a do aplicativo — abaixo de 820px de janela (`compactLayout`, medido);
+   * 2. a do desenho — abaixo de 1240px, porque a lateral (240) e a lista (380)
+   *    sao fixas e a entrada precisa de DOIS paineis legiveis. Com 1040 a
+   *    entrada ficava com 420 (dois paineis de 210) e a leitura virava uma
+   *    coluna de cinco palavras por linha. Ali o app real tambem espreme, mas
+   *    espremer no palco nao e fidelidade: e um print que ninguem consegue ler.
+   */
+  const memoriesBody = ({ width }: WindowContext) => {
+    const stacked = width > 0 && width < 1240;
+    return (
+      <>
+        {stacked ? null : <MemoriesSidebar palette={PALETTE} chrome={chrome} />}
+        {stacked ? null : <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} />}
+        <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={stacked} />
+      </>
+    );
+  };
 
   return (
     <section
       id="leituras"
       aria-labelledby="leituras-titulo"
-      className="margins-stage relative scroll-mt-14 overflow-hidden border-b border-stage-rule bg-stage text-stage-foreground"
+      className="margins-stage relative border-b border-stage-rule bg-stage text-stage-foreground"
     >
-      {/* A grade de tres colunas existe para a janela poder sair da coluna de
-       *  leitura sem `100vw` — que traz a barra de rolagem junto e estoura a
-       *  pagina. O texto fica na coluna do meio, de 68rem; a janela atravessa as
-       *  tres e ganha a largura da tela. E o que devolve o tamanho real ao app:
-       *  em 1440 ele aparece com 1377px, em px reais, em vez dos 1005px de antes
-       *  — era essa diferenca que fazia o texto parecer maior que no aplicativo,
-       *  com os mesmos 12px de cromo e 16px de editor. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_min(100%,68rem)_minmax(0,1fr)]">
-        <div className="col-start-2 border-l border-stage-accent/30 px-6 pt-20 lg:px-10 lg:pt-28">
+      {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
+       *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
+       *  `border-l`: a regua virava tres segmentos com emendas — e o bloco da
+       *  janela, que tinha container proprio, era o que aparecia por cima dela.
+       *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
+       *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
+      <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
+        <div className="pt-20 lg:pt-28">
           <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
               <SectionHead id="leituras" index={stage.index} label={stage.label} title={stage.title} tone="stage" />
@@ -565,27 +1376,31 @@ const Stage = ({ locale }: StageProps) => {
           </div>
         </div>
 
-        <div className="col-span-3 col-start-1 mt-6 px-4 md:px-6">
-          <div className="mx-auto w-full max-w-[90rem]">
-            <div
-              id={`painel-${view}`}
-              role="tabpanel"
-              aria-labelledby={`aba-${view}`}
-              className="h-[34rem] overflow-hidden border border-stage-rule shadow-[0_30px_70px_-40px_rgba(0,0,0,0.9)] md:h-[38rem] lg:h-[46rem]"
+        {/* A JANELA VIVE DENTRO DA COLUNA DE CONTEUDO — sem container proprio e
+         *  sem `border-l`: a regua e do `measure` acima e corre continua ao lado.
+         *
+         *  O desenho do aplicativo e 1440x900 (a medida real). Como 1007 nao
+         *  comporta tres colunas em tamanho natural, o desenho e ESCALADO — nao
+         *  reflowado: `transform: scale(medida/1440)` mantem exatamente as mesmas
+         *  quebras de linha, as mesmas colunas (240/380/820) e as mesmas alturas,
+         *  so que proporcionais ao container. Abaixo de 920 a escala ficaria
+         *  ilegivel, e ali o palco volta ao tamanho natural com o layout compacto
+         *  do app (uma coluna, 16px), que e o que o aplicativo faz no telefone. */}
+        <div className="mt-6">
+          <StageFrame panelId={`painel-${view}`}>
+            <AppWindow
+              {...windowProps}
+              mode={view === "memories" ? "memories" : "editor"}
+              draft={view === "memories" ? chrome.draft : undefined}
+              statusView={view === "memories" ? "split" : "edit"}
+              statusFile={view === "memories" ? "Untitled.md" : undefined}
             >
-              <AppWindow
-                {...windowProps}
-                mode={view === "memories" ? "memories" : "editor"}
-                draft={view === "memories" ? chrome.draft : undefined}
-                pane={view === "source" ? sourcePane : undefined}
-              >
-                {view === "memories" ? memoriesBody : undefined}
-              </AppWindow>
-            </div>
-          </div>
+              {view === "memories" ? memoriesBody : undefined}
+            </AppWindow>
+          </StageFrame>
         </div>
 
-        <div className="col-start-2 border-l border-stage-accent/30 px-6 pb-20 lg:px-10 lg:pb-28">
+        <div className="pb-20 lg:pb-28">
           <div className="mt-4 grid">
             {stage.views.map((item) => (
               <p
@@ -599,10 +1414,6 @@ const Stage = ({ locale }: StageProps) => {
               </p>
             ))}
           </div>
-
-          <p className="mt-8 border-t border-stage-rule pt-4 font-mono text-[0.6875rem] text-stage-muted">
-            {stage.note}
-          </p>
         </div>
       </div>
     </section>

@@ -170,19 +170,11 @@ const TOOLBAR_ACTIONS: Array<{ id: string; icon: LucideIcon }> = [
 ];
 
 /**
- * As acoes do diario, na faixa de cima.
- *
- * Trocar Editor/Memorias troca **a barra de acoes**, nao so o corpo: no Editor
- * a faixa e de edicao (busca, formatacao, exportar); em Memorias ela e do
- * diario. "Novo registro" vem primeiro porque e a acao primaria do app — la ele
- * e um botao de acento no topo da lateral, aqui ele abre a mesma fila.
+ * As acoes da faixa de cima sao **as mesmas nas tres leituras**: medido no app
+ * em Memorias, a barra de titulo traz os sete botoes de formatacao do Editor.
+ * Havia aqui uma faixa do diario (Novo registro, Calendario, Galeria, Lugares)
+ * que o aplicativo nao tem — ela saiu com a medicao que a desmentiu.
  */
-const MEMORIES_ACTIONS: Array<{ id: string; icon: LucideIcon; primary?: boolean }> = [
-  { id: "newEntry", icon: PenLine, primary: true },
-  { id: "calendar", icon: CalendarDays },
-  { id: "gallery", icon: ImageIcon },
-  { id: "places", icon: MapPin },
-];
 
 /** Em janela estreita a faixa de edicao cede: sobram busca, um ou dois formatos
  *  e exportar. A ordem se mantem — e a mesma faixa, com menos botoes. */
@@ -219,7 +211,10 @@ const EditorActions = ({
   narrow: boolean;
   veryNarrow: boolean;
 }) => {
-  const formatting = veryNarrow ? TINY_FORMATTING : narrow ? NARROW_FORMATTING : TOOLBAR_ACTIONS;
+  /* Em janela estreita o app nao mostra dois botoes de formatacao: mostra o
+   * primeiro e um selo com o que sobrou ("+6"). Medido na captura de 390. */
+  const formatting = narrow ? TINY_FORMATTING : TOOLBAR_ACTIONS;
+  const hidden = TOOLBAR_ACTIONS.length - formatting.length;
   return (
     /* A caixa de formatacao tem a largura que o app calculou (278) — e ela que
      * fica centrada na faixa. Em janela estreita a caixa perde o respiro que so
@@ -260,32 +255,26 @@ const EditorActions = ({
               <DuoIcon icon={icon} size={M.chrome.toolbar.iconSize} palette={palette} />
             </ChromeButton>
           ))}
+          {hidden > 0 ? (
+            <span
+              data-stage-part="toolbar-overflow"
+              style={{
+                height: M.chrome.toolbar.button,
+                display: "inline-flex",
+                alignItems: "center",
+                padding: `0 ${M.chrome.menu.paddingX}px`,
+                fontSize: M.chrome.menu.fontSize,
+                lineHeight: `${M.chrome.toolbar.height}px`,
+              }}
+            >
+              +{hidden}
+            </span>
+          ) : null}
         </span>
       </div>
     </div>
   );
 };
-
-const MemoriesActions = ({ palette, labels }: { palette: Palette; labels: ActionLabels }) => (
-  <div
-    data-stage-part="memories-actions"
-    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: M.chrome.toolbar.itemGap }}
-  >
-    {MEMORIES_ACTIONS.map(({ id, icon, primary }) => (
-      <ChromeButton
-        key={id}
-        part="action-button"
-        label={labels[id as keyof ActionLabels]}
-        size={M.chrome.toolbar.button}
-        height={M.chrome.toolbar.button}
-        radius={M.chrome.toolbar.buttonRadius}
-        fill={primary ? alpha(palette.accent, 0.18) : undefined}
-      >
-        <DuoIcon icon={icon} size={M.chrome.toolbar.iconSize} palette={palette} />
-      </ChromeButton>
-    ))}
-  </div>
-);
 
 const WindowControls = ({ palette }: { palette: Palette }) => (
   <div
@@ -349,7 +338,7 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = fal
       lineHeight: `${M.chrome.lineHeight}px`,
     }}
   >
-    <div style={{ display: "flex", alignItems: "center", gap: M.chrome.brand.gap, minWidth: 0, flexShrink: 0 }}>
+    <div style={{ display: narrow ? "none" : "flex", alignItems: "center", gap: M.chrome.brand.gap, minWidth: 0, flexShrink: 0 }}>
       <img
         data-stage-part="brand-tile"
         src={brand}
@@ -421,11 +410,12 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = fal
         overflow: "hidden",
       }}
     >
-      {mode === "memories" ? (
-        <MemoriesActions palette={palette} labels={labels} />
-      ) : (
-        <EditorActions palette={palette} labels={labels} narrow={narrow} veryNarrow={veryNarrow} />
-      )}
+      {/* A faixa de acoes NAO muda com a leitura. Medido no app em Memorias: a
+       *  barra de titulo traz os mesmos sete botoes de formatacao do Editor —
+       *  nao existe uma "faixa do diario" com Novo registro/Calendario/Galeria/
+       *  Lugares. Aquela faixa era invencao da recriacao e saiu junto com a
+       *  medicao que a desmentiu. */}
+      <EditorActions palette={palette} labels={labels} narrow={narrow} veryNarrow={veryNarrow} />
     </div>
 
     <div
@@ -470,12 +460,8 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = fal
       })}
     </div>
 
-    {narrow ? null : (
-      <>
-        <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />
-        <WindowControls palette={palette} />
-      </>
-    )}
+    <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />
+    <WindowControls palette={palette} />
   </div>
 );
 
@@ -793,115 +779,113 @@ const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
     /* Corte seco, como o app: a ultima linha visivel termina na borda do painel,
      * sem degrade. O degrade de continuidade existia aqui e foi removido por
      * decisao: um painel que imita o aplicativo nao pode inventar um efeito que
-     * o aplicativo nao tem — ele mede 0,05% de diferenca de pixel contra a
-     * captura real justamente porque nada e desenhado por cima do texto. O
-     * `overflow: hidden` tambem evita a armadilha de rolagem: a roda sobre a
-     * janela rola a pagina, nao um documento falso. */
+     * o aplicativo nao tem.
+     *
+     * O QUE MUDOU (defeito real, medido): o painel usava `white-space: pre` e
+     * cortava a linha longa na borda — em 1440 a primeira linha do documento
+     * perdia 93px ("...alta o bast" e o resto sumia), em 768 perdia 505px. Agora
+     * cada linha e uma LINHA de layout (numero | dobra | texto) e o texto quebra
+     * dentro da coluna: `pre-wrap` + `overflow-wrap: anywhere` + `word-break:
+     * break-word`. O corte horizontal deixou de existir; o vertical fica porque
+     * o documento e mais longo que a janela, e ali o app tambem corta.
+     *
+     * A linha virou linha de layout (em vez de tres colunas) porque com quebra
+     * de texto o numero precisa acompanhar a PRIMEIRA linha visual do paragrafo
+     * — em colunas separadas a calha desanda na primeira linha que ocupa tres. */
     <div
       data-stage-part="editor-pane"
       style={{
         flex: "1 1 0",
         minWidth: 0,
         minHeight: 0,
-        overflow: "hidden",
+        overflowX: "clip",
+        overflowY: "hidden",
         position: "relative",
         background: palette.editorBg,
         color: palette.editorFg,
         fontFamily: MONO_FONT,
         fontSize: M.editor.fontSize,
-        lineHeight: "24px",
+        lineHeight: `${M.editor.lineHeight}px`,
+        padding: `${M.editor.contentPaddingY}px 0`,
+        boxSizing: "border-box",
       }}
     >
-      <div style={{ height: "100%", overflow: "hidden" }}>
-        <div style={{ padding: `${M.editor.contentPaddingY}px 0`, display: "flex", alignItems: "flex-start", minHeight: "100%" }}>
-        {gutter ? (
-          /* Duas colunas, como no app: o numero (25,5938) e a dobra (18,3906). A
-           * dobra e uma coluna propria e existe mesmo vazia — sem ela o texto
-           * comecaria 18,39px a esquerda do que comeca no aplicativo. */
-          <div style={{ width: M.editor.gutterWidth, flex: "0 0 auto", display: "flex", alignItems: "flex-start" }}>
-            <div style={{ width: M.editor.numberWidth, flex: "0 0 auto", display: "flex", flexDirection: "column" }}>
-              {segments.map((_, index) => (
-                <div
-                  key={index}
-                  data-stage-part="gutter-number"
-                  style={{
-                    boxSizing: "border-box",
-                    width: "100%",
-                    height: M.editor.lineHeight,
-                    lineHeight: `${M.editor.gutterLineHeight}px`,
-                    paddingLeft: M.editor.numberPaddingLeft,
-                    paddingRight: M.editor.numberPaddingRight,
-                    textAlign: "right",
-                    borderRadius: index === 0 && activeLine ? M.editor.activeGutterRadius : 0,
-                    background:
-                      index === 0 && activeLine
-                        ? alpha(palette.editorFg, palette.light ? M.editor.activeGutterAlphaGolden : M.editor.activeGutterAlpha)
-                        : "transparent",
-                    color:
-                      index === 0 && activeLine
-                        ? palette.editorFg
-                        : alpha(palette.editorFg, M.editor.numberAlpha),
-                  }}
-                >
-                  {index + 1}
-                </div>
-              ))}
-            </div>
-            <div style={{ width: M.editor.foldWidth, flex: "0 0 auto", display: "flex", flexDirection: "column" }}>
-              {segments.map((_, index) => (
-                <div
-                  key={index}
-                  data-stage-part="gutter-fold"
-                  data-stage-fold={folds[index] ? "true" : undefined}
-                  style={{
-                    boxSizing: "border-box",
-                    width: "100%",
-                    height: M.editor.lineHeight,
-                    lineHeight: `${M.editor.gutterLineHeight}px`,
-                    padding: `0 ${M.editor.foldPaddingX}px`,
-                    textAlign: "center",
-                    /* A cor da coluna de dobra no app e a do gutter do tema
-                     * escuro (`#7d8799`), e nao a do texto — o `color` de
-                     * `.cm-gutters` perde para o tema do CodeMirror. */
-                    color: tokens.quote,
-                  }}
-                >
-                  {folds[index] ? FOLD_OPEN : ""}
-                </div>
-              ))}
-            </div>
+      {segments.map((line, index) => (
+        <div
+          key={index}
+          data-stage-part="line"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            background:
+              index === 0 && activeLine
+                ? alpha(palette.editorFg, palette.light ? M.editor.activeLineAlphaGolden : M.editor.activeLineAlpha)
+                : "transparent",
+          }}
+        >
+          {gutter ? (
+            <>
+              {/* O numero (25,5938) e a dobra (18,3906) sao colunas do app: sem a
+               * dobra o texto comecaria 18,39px a esquerda do que comeca la. */}
+              <span
+                data-stage-part="gutter-number"
+                style={{
+                  boxSizing: "border-box",
+                  width: M.editor.numberWidth,
+                  flex: "0 0 auto",
+                  paddingLeft: M.editor.numberPaddingLeft,
+                  paddingRight: M.editor.numberPaddingRight,
+                  textAlign: "right",
+                  lineHeight: `${M.editor.gutterLineHeight}px`,
+                  color: index === 0 && activeLine ? palette.editorFg : alpha(palette.editorFg, M.editor.numberAlpha),
+                }}
+              >
+                {index + 1}
+              </span>
+              <span
+                data-stage-part="gutter-fold"
+                data-stage-fold={folds[index] ? "true" : undefined}
+                style={{
+                  boxSizing: "border-box",
+                  width: M.editor.foldWidth,
+                  flex: "0 0 auto",
+                  padding: `0 ${M.editor.foldPaddingX}px`,
+                  textAlign: "center",
+                  lineHeight: `${M.editor.gutterLineHeight}px`,
+                  /* A cor da coluna de dobra no app e a do gutter do tema escuro
+                   * (`#7d8799`), e nao a do texto — o `color` de `.cm-gutters`
+                   * perde para o tema do CodeMirror. */
+                  color: tokens.quote,
+                }}
+              >
+                {folds[index] ? FOLD_OPEN : ""}
+              </span>
+            </>
+          ) : null}
+          <div
+            style={{
+              flex: "1 1 0",
+              minWidth: 0,
+              /* `minHeight` e nao `height`: linha vazia nao tem texto e encolheria
+               * para a altura da calha (22,4), fazendo o texto descer 3,2px a cada
+               * linha vazia. */
+              minHeight: M.editor.lineHeight,
+              boxSizing: "border-box",
+              paddingLeft: M.editor.linePaddingLeft,
+              paddingRight: M.editor.linePaddingRight + M.editor.contentRightReserve,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
+            }}
+          >
+            {line.map((segment, segmentIndex) => (
+              <span key={segmentIndex} style={segmentStyle(segment.tone, tokens)}>
+                {segment.text}
+              </span>
+            ))}
           </div>
-        ) : null}
-
-        <div style={{ flex: "1 1 0", minWidth: 0, paddingRight: M.editor.contentRightReserve }}>
-          {segments.map((line, index) => (
-            <div
-              key={index}
-              data-stage-part="line"
-              style={{
-                height: M.editor.lineHeight,
-                boxSizing: "border-box",
-                paddingLeft: M.editor.linePaddingLeft,
-                paddingRight: M.editor.linePaddingRight,
-                whiteSpace: "pre",
-                overflow: "hidden",
-                lineHeight: `${M.editor.lineHeight}px`,
-                background:
-                  index === 0 && activeLine
-                    ? alpha(palette.editorFg, palette.light ? M.editor.activeLineAlphaGolden : M.editor.activeLineAlpha)
-                    : "transparent",
-              }}
-            >
-              {line.map((segment, segmentIndex) => (
-                <span key={segmentIndex} style={segmentStyle(segment.tone, tokens)}>
-                  {segment.text}
-                </span>
-              ))}
-            </div>
-          ))}
         </div>
-      </div>
-      </div>
+      ))}
     </div>
   );
 };
@@ -917,9 +901,11 @@ interface StatusBarProps {
   draft?: string;
   /** Janela estreita: o relogio sai para o nome do arquivo respirar. */
   narrow?: boolean;
+  /** A vista em vigor, no canto direito. Em Memorias o app escreve "split". */
+  view?: string;
 }
 
-const StatusBar = ({ palette, fileName, saved, draft, narrow = false }: StatusBarProps) => (
+const StatusBar = ({ palette, fileName, saved, draft, narrow = false, view = "edit" }: StatusBarProps) => (
   <div
     data-stage-part="status"
     style={{
@@ -985,11 +971,11 @@ const StatusBar = ({ palette, fileName, saved, draft, narrow = false }: StatusBa
       >
         <Timer size={M.status.clock.iconSize} strokeWidth={1.9} />
       </span>
-      {/* Na janela estreita o contador de abas sai: com 358px de largura ele
-       *  encosta no selo do arquivo e a barra vira uma pilha sem respiro. */}
-      {narrow ? null : <span>1 tabs</span>}
-      <span>editor</span>
-      <span>edit</span>
+      {/* Na janela estreita o contador de abas FICA e o rotulo "editor" sai —
+       *  e o que a captura de 390 mostra ("1 tabs" + "edit"). */}
+      <span>1 tabs</span>
+      {narrow ? null : <span>editor</span>}
+      <span>{view}</span>
     </div>
   </div>
 );
@@ -1046,8 +1032,15 @@ interface AppWindowProps {
   labels: ActionLabels;
   /** O selo da barra de status: "Salvo" no editor, "Rascunho" na entrada aberta. */
   draft?: string;
-  /** Substitui so o painel de codigo; a lateral e a faixa de abas continuam. */
-  pane?: ReactNode;
+  /** A vista em vigor na barra de status ("edit" no editor, "split" em Memorias). */
+  statusView?: string;
+  /**
+   * O nome que a barra de status mostra. Em Memorias o aplicativo reporta a aba
+   * do editor — `Untitled.md`, com o selo `Rascunho` —, e nao o registro aberto.
+   * E o que a captura de 02/11/2026 mostra; aqui a recriacao repete o app em vez
+   * de corrigir o app por conta propria.
+   */
+  statusFile?: string;
   /**
    * Substitui o corpo inteiro. Memorias usa isto: ela nao tem faixa de abas, e
    * as colunas dela dependem da largura da janela — por isso a funcao.
@@ -1080,7 +1073,8 @@ export const AppWindow = ({
   closeLabel,
   labels,
   draft,
-  pane,
+  statusView,
+  statusFile,
   children,
 }: AppWindowProps) => {
   const palette = paletteOf(theme);
@@ -1136,12 +1130,12 @@ export const AppWindow = ({
             )}
             <div style={{ flex: "1 1 0", minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
               <TabStrip palette={palette} fileName={doc.fileName} closeLabel={closeLabel} />
-              {pane ?? <CodePane palette={palette} segments={segments} activeLine gutter />}
+              <CodePane palette={palette} segments={segments} activeLine gutter />
             </div>
           </>
         )}
       </div>
-      <StatusBar palette={palette} fileName={doc.fileName} saved={saved} draft={draft} narrow={narrow} />
+      <StatusBar palette={palette} fileName={statusFile ?? doc.fileName} saved={saved} draft={draft} view={compact ? "edit" : statusView} narrow={narrow} />
     </div>
   );
 };

@@ -56,7 +56,13 @@ const Hero = ({ locale }: HeroProps) => {
             </div>
           </div>
 
-          <dl className="border-t border-rule text-sm lg:col-span-5">
+          {/* A tabela de especificacao ganha superficie propria. Antes ela era
+           *  transparente sobre a pauta do papel, e as linhas da pauta cruzavam
+           *  as linhas da tabela — duas grades sobrepostas. O bloco agora e
+           *  solido (`paper-2`), e a pauta retoma fora dele. O `-mx-3` + `px-3`
+           *  mantem o texto exatamente na mesma coluna: o bloco cresce para os
+           *  lados, nao o conteudo. */}
+          <dl className="-mx-3 border-t border-rule bg-paper-2 px-3 pb-1 text-sm lg:col-span-5">
             {hero.facts.map(([key, value]) => (
               <div key={key} className="flex justify-between gap-4 border-b border-rule py-2">
                 <dt className="label-mono pt-0.5 text-ink-soft">{key}</dt>

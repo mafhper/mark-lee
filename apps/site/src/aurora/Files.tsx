@@ -21,7 +21,7 @@ const Files = ({ locale }: FilesProps) => {
   const files = getCopy(locale).pages.home.files;
 
   return (
-    <section id="arquivo" aria-labelledby="arquivo-titulo" className="scroll-mt-14 border-b border-rule bg-paper text-ink">
+    <section id="arquivo" aria-labelledby="arquivo-titulo" className="border-b border-rule bg-paper text-ink">
       <div className="measure border-l border-terracotta/30 px-6 py-20 lg:px-10 lg:py-28">
         <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
           <div className="lg:col-span-7">

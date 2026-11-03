@@ -33,7 +33,17 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-[80] h-14 border-b border-rule bg-paper/95 text-ink backdrop-blur-[14px]">
+    /* Cabecalho ESTATICO, no fluxo normal. Ele era `sticky top-0` com
+     * `backdrop-blur` e `bg-paper/95`: grudado no topo, aparecia flutuando no
+     * meio da pagina em captura de pagina inteira (o `position: sticky` do
+     * Chromium desenha a barra na posicao do scroll, nao no topo do documento).
+     * Pagina de marketing nao precisa de nav grudada; o artefato some junto.
+     *
+     * `relative z-[80]` NAO e resquicio de sticky: e o que mantem o menu movel
+     * (que abre DENTRO do header, em fluxo) por cima do conteudo seguinte. Sem
+     * isso o `<main>` pinta depois no DOM e intercepta o clique nos links do
+     * menu — foi o que o smoke pegou. */
+    <header className="relative z-[80] h-14 border-b border-rule bg-paper text-ink">
       <div className="measure flex h-14 items-center gap-5 px-6 lg:px-10">
         <Link
           to={pathFor(locale, "home")}
