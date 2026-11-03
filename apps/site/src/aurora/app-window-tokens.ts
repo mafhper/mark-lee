@@ -51,9 +51,14 @@ export const paletteOf = (theme: RecordTheme): Palette => {
  * do CodeMirror, que tem uma variante clara e uma escura, escolhidas pelo tema.
  * Os valores foram lidos de `getComputedStyle` de cada `span` tokenizado nas duas
  * variantes (Golden => clara, Midnight => escura), nao copiados de documentacao.
- * O que nao e mensuravel — o `key: value` do front-matter, que o documento de
- * referencia do aplicativo nao tem — reusa a cor de pontuacao da propria
- * variante, em vez de inventar um terceiro tom.
+ *
+ * O front-matter NAO e excecao, e nao e inferido: o aplicativo nao tem realce de
+ * YAML — o `---` de abertura e o de fechamento, a chave e o valor saem todos na
+ * cor do texto, peso 400, sem decoracao. Medido no app rodando, com uma entrada
+ * de Memorias aberta como documento (o unico documento do demo que tem
+ * front-matter de verdade): no tema Midnight as tres sintaxes respondem
+ * `rgb(238, 242, 255)` = `editorFg`. O unico trecho pintado dentro do bloco e o
+ * `-` das listas, que o parser le como marcador de lista e pinta de verde.
  * ------------------------------------------------------------------------ */
 
 export interface TokenPalette {
@@ -95,9 +100,13 @@ export const segmentStyle = (tone: Tone, tokens: TokenPalette): CSSProperties =>
 export const tokenize = (lines: string[]): Segment[][] => {
   let frontMatterDone = false;
   return lines.map((line, index) => {
+    /* O bloco `---` e neutro: o aplicativo nao realca YAML, entao o delimitador
+     * e a chave ficam na cor do texto. Verde aqui era invencao — e mentia duas
+     * vezes, porque pintava de marcador o que o app le como texto e porque
+     * fazia a chave parecer um campo de destaque que o app nao tem. */
     if (line === "---") {
       if (index > 0) frontMatterDone = true;
-      return [{ text: line, tone: "marker" }];
+      return [{ text: line, tone: "plain" }];
     }
     const heading = /^(#{1,6})(\s+.*)?$/.exec(line);
     if (heading) {
@@ -107,13 +116,8 @@ export const tokenize = (lines: string[]): Segment[][] => {
       ];
     }
     if (!frontMatterDone) {
-      const pair = /^([\w.-]+:)(.*)$/.exec(line);
-      if (pair) {
-        return [
-          { text: pair[1], tone: "marker" },
-          { text: pair[2], tone: "plain" },
-        ];
-      }
+      /* Dentro do front-matter a unica coisa pintada e o `-` da lista: o parser
+       * do app le `  - poesia` como item de lista e colore so o marcador. */
       const bullet = /^(\s*-\s+)(.*)$/.exec(line);
       if (bullet) {
         return [

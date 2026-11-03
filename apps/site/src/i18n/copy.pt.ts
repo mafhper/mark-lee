@@ -127,9 +127,7 @@ export const ptBRCopy: SiteCopy = {
             },
           },
           actions: {
-            find: "Buscar no arquivo",
             formatting: "Formatação",
-            export: "Exportar",
             newEntry: "Novo registro",
             calendar: "Calendário",
             gallery: "Galeria",

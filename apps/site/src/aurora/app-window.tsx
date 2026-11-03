@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Code,
   Columns2,
-  Download,
   FilePlus2,
   FolderOpen,
   FolderPlus,
@@ -190,15 +189,24 @@ const NARROW_FORMATTING = TOOLBAR_ACTIONS.slice(0, 2);
 const TINY_FORMATTING = TOOLBAR_ACTIONS.slice(0, 1);
 
 export interface ActionLabels {
-  find: string;
   formatting: string;
-  export: string;
   newEntry: string;
   calendar: string;
   gallery: string;
   places: string;
 }
 
+/**
+ * A faixa de edicao do app: **um** grupo de sete botoes, e nada mais.
+ *
+ * Havia aqui uma lupa a esquerda e um "exportar" a direita, em volta da caixa
+ * de formatacao. Nao existem: medido no app em 1440, a faixa de acoes tem
+ * exatamente uma secao (`editing`), de 278px, centrada na regiao entre o menu e
+ * o seletor de modo — e zero separadores verticais. Os dois botoes inventados
+ * eram a maior divergencia do cromo, e uma lupa entre "Exibir" e "Negrito" ainda
+ * mentia sobre a vizinhanca: busca mora na faixa de abas, exportar mora no menu
+ * Arquivo e no cabecalho da lateral.
+ */
 const EditorActions = ({
   palette,
   labels,
@@ -212,21 +220,9 @@ const EditorActions = ({
 }) => {
   const formatting = veryNarrow ? TINY_FORMATTING : narrow ? NARROW_FORMATTING : TOOLBAR_ACTIONS;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-    <ChromeButton
-      part="action-button"
-      label={labels.find}
-      size={M.chrome.toolbar.button}
-      height={M.chrome.toolbar.button}
-      radius={M.chrome.toolbar.buttonRadius}
-    >
-      <DuoIcon icon={Search} size={M.chrome.toolbar.iconSize} palette={palette} />
-    </ChromeButton>
-
-    {/* A caixa de formatacao tem a largura que o app calculou (278): e ela que
-     *  fica centrada na barra, com busca e exportar **fora** dela, um de cada
-     *  lado — assim os sete botoes medidos nao saem do lugar. Em janela estreita
-     *  a caixa perde o respiro que so faz sentido no tamanho real. */}
+    /* A caixa de formatacao tem a largura que o app calculou (278) — e ela que
+     * fica centrada na faixa. Em janela estreita a caixa perde o respiro que so
+     * faz sentido no tamanho real. */
     <div
       data-stage-part="toolbar"
       aria-label={labels.formatting}
@@ -247,6 +243,9 @@ const EditorActions = ({
           padding: narrow ? 0 : `0 ${M.chrome.toolbar.paddingX}px`,
         }}
       >
+        {/* A coluna do rotulo da secao existe sempre no app, com largura zero.
+         *  Ela nao e enfeite: os 14px que separam a borda da caixa do primeiro
+         *  botao sao 6 de padding + estes 0 + 8 de gap. */}
         {narrow ? null : <span style={{ width: 0, flex: "0 0 auto" }} />}
         <span style={{ display: "flex", alignItems: "center", gap: M.chrome.toolbar.itemGap }}>
           {formatting.map(({ id, icon }) => (
@@ -263,17 +262,6 @@ const EditorActions = ({
         </span>
       </div>
     </div>
-
-    <ChromeButton
-      part="action-button"
-      label={labels.export}
-      size={M.chrome.toolbar.button}
-      height={M.chrome.toolbar.button}
-      radius={M.chrome.toolbar.buttonRadius}
-    >
-      <DuoIcon icon={Download} size={M.chrome.toolbar.iconSize} palette={palette} />
-    </ChromeButton>
-  </div>
   );
 };
 
@@ -781,10 +769,20 @@ interface CodePaneProps {
 
 const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
   const tokens = tokenPalette(palette);
+  /* `--fade-to` e a unica propriedade que `CSSProperties` nao conhece: e o token
+   * que o utilitario `fade-bottom` le para saber em que cor o degrade termina. */
+  const fadeTo = { "--fade-to": palette.editorBg } as CSSProperties;
   return (
+    /* `fade-bottom` e o mesmo degrade de continuidade que os paineis da secao de
+     * arquivos usam: o documento sempre passa da altura do painel, e sem ele a
+     * ultima linha visivel termina cortada ao meio, sem dizer que continua. O
+     * `--fade-to` e o fundo do editor do tema, e nao o do site: o degrade tem de
+     * sumir dentro do painel, senao vira uma faixa clara atravessada nele. */
     <div
       data-stage-part="editor-pane"
+      className="fade-bottom"
       style={{
+        ...fadeTo,
         flex: "1 1 0",
         minWidth: 0,
         minHeight: 0,

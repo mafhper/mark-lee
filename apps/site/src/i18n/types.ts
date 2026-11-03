@@ -120,9 +120,7 @@ export interface HomeCopy {
       };
       /** A faixa de acoes do topo, que muda com a leitura. */
       actions: {
-        find: string;
         formatting: string;
-        export: string;
         newEntry: string;
         calendar: string;
         gallery: string;

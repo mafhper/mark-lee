@@ -127,9 +127,7 @@ export const enUSCopy: SiteCopy = {
             },
           },
           actions: {
-            find: "Find in file",
             formatting: "Formatting",
-            export: "Export",
             newEntry: "New entry",
             calendar: "Calendar",
             gallery: "Gallery",
