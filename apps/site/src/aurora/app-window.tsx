@@ -33,6 +33,7 @@ import {
   Segment,
   alpha,
   between,
+  foldableLines,
   paletteOf,
   segmentStyle,
   tokenPalette,
@@ -671,9 +672,24 @@ const WorkspaceSidebar = ({ palette, rows, workspace, search }: SidebarProps) =>
           background: alpha("#000000", M.sidebar.search.backgroundAlpha),
         }}
       >
-        <Search size={M.sidebar.search.iconSize} strokeWidth={1.9} color={alpha(palette.fg, 0.5)} />
+        {/* O icone do app e um `<Search size={14}>` encolhido pelo flex ate 12,72:
+         *  a lupa fica com a cor cheia do texto, e nao com o meio-tom do
+         *  placeholder — medido no app, o traco chega a rgb(230, 234, 248) sobre
+         *  um fundo de rgb(10, 17, 30). */}
+        <Search
+          size={M.sidebar.search.iconSize}
+          strokeWidth={1.9}
+          color={palette.fg}
+          style={{ flex: "0 1 auto", minWidth: 0 }}
+        />
         <span
           style={{
+            /* `w-full` no input do app: a base e a largura do container, e o
+             *  flex encolhe os dois itens na proporcao do tamanho — e o que poe o
+             *  texto em x=36,72, nao em 37. */
+            width: "100%",
+            minWidth: 0,
+            flex: "0 1 auto",
             fontSize: M.sidebar.search.fontSize,
             lineHeight: `${M.sidebar.search.lineHeight}px`,
             color: alpha(palette.fg, 0.5),
@@ -760,6 +776,9 @@ const WorkspaceSidebar = ({ palette, rows, workspace, search }: SidebarProps) =>
  * Painel de codigo
  * ------------------------------------------------------------------------ */
 
+/** O glifo que o CodeMirror desenha na coluna de dobra (U+2304). */
+const FOLD_OPEN = "\u2304";
+
 interface CodePaneProps {
   palette: Palette;
   segments: Segment[][];
@@ -769,6 +788,7 @@ interface CodePaneProps {
 
 const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
   const tokens = tokenPalette(palette);
+  const folds = foldableLines(segments.map((line) => line.map((segment) => segment.text).join("")));
   /* `--fade-to` e a unica propriedade que `CSSProperties` nao conhece: e o token
    * que o utilitario `fade-bottom` le para saber em que cor o degrade termina. */
   const fadeTo = { "--fade-to": palette.editorBg } as CSSProperties;
@@ -801,33 +821,61 @@ const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
       >
         <div style={{ padding: `${M.editor.contentPaddingY}px 0`, display: "flex", alignItems: "flex-start", minHeight: "100%" }}>
         {gutter ? (
-          <div style={{ width: M.editor.gutterWidth, flex: "0 0 auto", display: "flex", flexDirection: "column" }}>
-            {segments.map((_, index) => (
-              <div
-                key={index}
-                data-stage-part="gutter-number"
-                style={{
-                  boxSizing: "border-box",
-                  width: M.editor.gutterWidth - 18.39,
-                  height: M.editor.lineHeight,
-                  lineHeight: `${M.editor.gutterLineHeight}px`,
-                  paddingLeft: M.editor.numberPaddingLeft,
-                  paddingRight: M.editor.numberPaddingRight,
-                  textAlign: "right",
-                  borderRadius: index === 0 && activeLine ? M.editor.activeGutterRadius : 0,
-                  background:
-                    index === 0 && activeLine
-                      ? alpha(palette.editorFg, palette.light ? M.editor.activeGutterAlphaGolden : M.editor.activeGutterAlpha)
-                      : "transparent",
-                  color:
-                    index === 0 && activeLine
-                      ? palette.editorFg
-                      : alpha(palette.editorFg, M.editor.numberAlpha),
-                }}
-              >
-                {index + 1}
-              </div>
-            ))}
+          /* Duas colunas, como no app: o numero (25,5938) e a dobra (18,3906). A
+           * dobra e uma coluna propria e existe mesmo vazia — sem ela o texto
+           * comecaria 18,39px a esquerda do que comeca no aplicativo. */
+          <div style={{ width: M.editor.gutterWidth, flex: "0 0 auto", display: "flex", alignItems: "flex-start" }}>
+            <div style={{ width: M.editor.numberWidth, flex: "0 0 auto", display: "flex", flexDirection: "column" }}>
+              {segments.map((_, index) => (
+                <div
+                  key={index}
+                  data-stage-part="gutter-number"
+                  style={{
+                    boxSizing: "border-box",
+                    width: "100%",
+                    height: M.editor.lineHeight,
+                    lineHeight: `${M.editor.gutterLineHeight}px`,
+                    paddingLeft: M.editor.numberPaddingLeft,
+                    paddingRight: M.editor.numberPaddingRight,
+                    textAlign: "right",
+                    borderRadius: index === 0 && activeLine ? M.editor.activeGutterRadius : 0,
+                    background:
+                      index === 0 && activeLine
+                        ? alpha(palette.editorFg, palette.light ? M.editor.activeGutterAlphaGolden : M.editor.activeGutterAlpha)
+                        : "transparent",
+                    color:
+                      index === 0 && activeLine
+                        ? palette.editorFg
+                        : alpha(palette.editorFg, M.editor.numberAlpha),
+                  }}
+                >
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+            <div style={{ width: M.editor.foldWidth, flex: "0 0 auto", display: "flex", flexDirection: "column" }}>
+              {segments.map((_, index) => (
+                <div
+                  key={index}
+                  data-stage-part="gutter-fold"
+                  data-stage-fold={folds[index] ? "true" : undefined}
+                  style={{
+                    boxSizing: "border-box",
+                    width: "100%",
+                    height: M.editor.lineHeight,
+                    lineHeight: `${M.editor.gutterLineHeight}px`,
+                    padding: `0 ${M.editor.foldPaddingX}px`,
+                    textAlign: "center",
+                    /* A cor da coluna de dobra no app e a do gutter do tema
+                     * escuro (`#7d8799`), e nao a do texto — o `color` de
+                     * `.cm-gutters` perde para o tema do CodeMirror. */
+                    color: tokens.quote,
+                  }}
+                >
+                  {folds[index] ? FOLD_OPEN : ""}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 

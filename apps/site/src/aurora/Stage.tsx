@@ -247,7 +247,7 @@ const MemoriesSidebar = ({ palette, chrome, locale, stacked }: { palette: Palett
           padding: `${M.memories.primary.paddingY}px ${M.memories.primary.paddingX}px`,
           borderRadius: M.memories.primary.radius,
           background: palette.accent,
-          color: palette.bg,
+          color: M.memories.primary.color,
           fontSize: M.memories.primary.fontSize,
           fontWeight: 600,
           lineHeight: `${M.memories.primary.lineHeight}px`,

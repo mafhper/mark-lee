@@ -126,7 +126,10 @@ export const APP_METRICS = {
       paddingY: 6,
       paddingX: 8,
       gap: 8,
-      iconSize: 13,
+      /* O `<Search size={14}>` do app e encolhido pelo flex para 12,72 (o input
+       * ao lado tem `w-full`); a recriacao reproduz o mecanismo, nao o resultado:
+       * o icone sai com 14 de base e o flex o aperta igual. */
+      iconSize: 14,
       fontSize: 12,
       lineHeight: 16,
       /** `bg-black/5`, igual nos dois temas medidos. */
@@ -160,8 +163,12 @@ export const APP_METRICS = {
   },
 
   editor: {
-    /** 25,59 do numero + 18,39 da dobra. */
-    gutterWidth: 43.98,
+    /** 25,5938 do numero + 18,3906 da dobra. A soma e 43,9844, e nao 43,98: o
+     *  arredondamento de 2 casas deslocava o texto em 0,03px, o bastante para
+     *  trocar o antialias de cada glifo e virar diferenca no pixel-diff. */
+    gutterWidth: 43.9844,
+    /** `.cm-lineNumbers .cm-gutterElement` = `min-width: 2em` + `padding: 0 0.35rem`. */
+    numberWidth: 25.5938,
     /** Borda direita do numero: `gutterWidth - 21,39`. */
     numberRightInset: 21.39,
     contentPaddingY: 4,
@@ -171,6 +178,12 @@ export const APP_METRICS = {
     /** O numero da linha herda o `line-height` do `.cm-scroller` (1.4), nao o da
      *  linha: por isso ele fica no topo da faixa de 25,6px. */
     gutterLineHeight: 22.4,
+    /** A coluna de dobra ao lado dos numeros: `.cm-foldGutter .cm-gutterElement`
+     *  = `min-width: 1.15em` (18,4 em 16px) com `padding: 0 0.2rem`. Ela existe
+     *  mesmo sem dobra na linha, e e ela que empurra o texto para x=303,98. */
+    foldWidth: 18.3906,
+    foldPaddingX: 3.2,
+
     /** O `.cm-content` nao ocupa a largura toda: o scroller reserva ~10px para a
      *  barra de rolagem (`scrollbar-gutter`), e a linha ativa termina ali. */
     contentRightReserve: 10,
@@ -233,7 +246,10 @@ export const APP_METRICS = {
     navHeaderPaddingX: 12,
     navHeaderPaddingY: 8,
     primary: {
-      height: 36,
+      /* Sem altura fixa no app: `py-2` (8+8) sobre o `line-height` de 19,5 do
+       * texto de 13px da 35,5. Fixar 36 inflava o botao em meio pixel e o
+       * deslocava para baixo do que a medicao mostra. */
+      height: 35.5,
       radius: 6,
       paddingX: 12,
       paddingY: 8,
@@ -242,6 +258,9 @@ export const APP_METRICS = {
       lineHeight: 19.5,
       iconSize: 15,
       marginBottom: 8,
+      /** O app escreve `color: "#fff"` no botao de acento — branco puro, nao o
+       *  fundo do tema. */
+      color: "#ffffff",
     },
     ghost: {
       height: 32,
@@ -251,7 +270,9 @@ export const APP_METRICS = {
       columns: 4,
     },
     accordion: {
-      height: 29,
+      /* 6 + 16,5 + 6 = 28,5, como o app mede: a altura vem do `py-1.5` sobre o
+       * `line-height` de 16,5, nao de um valor fixo. */
+      height: 28.5,
       paddingX: 12,
       paddingY: 6,
       gap: 6,
