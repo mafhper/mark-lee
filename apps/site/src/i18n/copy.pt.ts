@@ -110,6 +110,7 @@ export const ptBRCopy: SiteCopy = {
           workspace: "Workspace",
           search: "Pesquisar no workspace",
           saved: "Salvo",
+          draft: "Rascunho",
           entries: "Registros recentes",
           properties: { record: "Registro", schema: "Esquema", tags: "Tags", file: "Arquivo" },
           nav: {

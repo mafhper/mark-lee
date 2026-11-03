@@ -189,3 +189,11 @@ export const ORDERED_THEMES: RecordTheme[] = THEME_ORDER.map((id) =>
 export function fadeToken(fgHex: string, bgHex: string, weight = 70): string {
   return `color-mix(in oklab, ${fgHex} ${weight}%, ${bgHex})`;
 }
+
+/**
+ * Um token do tema com alfa, que e como o aplicativo escreve os fundos de
+ * hover, de linha ativa e de aba ativa (`color-mix(in srgb, fg 14%, transparent)`).
+ */
+export function alphaToken(colorHex: string, value: number): string {
+  return `color-mix(in srgb, ${colorHex} ${value * 100}%, transparent)`;
+}

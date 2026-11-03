@@ -100,6 +100,8 @@ export interface HomeCopy {
       workspace: string;
       search: string;
       saved: string;
+      /** O selo da barra de status quando a entrada aberta e um rascunho. */
+      draft: string;
       entries: string;
       properties: { record: string; schema: string; tags: string; file: string };
       nav: {

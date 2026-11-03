@@ -110,6 +110,7 @@ export const enUSCopy: SiteCopy = {
           workspace: "Workspace",
           search: "Search workspace",
           saved: "Saved",
+          draft: "Draft",
           entries: "Recent entries",
           properties: { record: "Entry", schema: "Schema", tags: "Tags", file: "File" },
           nav: {

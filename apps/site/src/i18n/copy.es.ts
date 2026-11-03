@@ -110,6 +110,7 @@ export const esESCopy: SiteCopy = {
           workspace: "Workspace",
           search: "Buscar en el workspace",
           saved: "Guardado",
+          draft: "Borrador",
           entries: "Registros recientes",
           properties: { record: "Registro", schema: "Esquema", tags: "Etiquetas", file: "Archivo" },
           nav: {
