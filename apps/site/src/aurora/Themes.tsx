@@ -52,7 +52,15 @@ const ThemePreview = ({ theme, locale, chrome }: { theme: RecordTheme; locale: L
           </span>
           <span className="flex gap-1.5">
             <dt style={{ color: mutedBody }}>{chrome.properties.tags}</dt>
-            <dd style={{ color: theme.accentHex }}>{RECORD.tags.map((tag) => `#${tag}`).join(" ")}</dd>
+            {/* Uma tag por span, com `gap`: o separador do texto corrido
+             *  (`join(" ")`) encosta as duas no tamanho em que este bloco e
+             *  desenhado — 0,64rem em monospace — e o espaco some na
+             *  rasterizacao. Distancia entre caixas nao some. */}
+            <dd className="flex flex-wrap gap-x-2 gap-y-0.5" style={{ color: theme.accentHex }}>
+              {RECORD.tags.map((tag) => (
+                <span key={tag}>#{tag}</span>
+              ))}
+            </dd>
           </span>
         </dl>
 

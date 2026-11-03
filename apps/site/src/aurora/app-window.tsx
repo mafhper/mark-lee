@@ -2,10 +2,12 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   Bold,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   Code,
   Columns2,
+  Download,
   FilePlus2,
   FolderOpen,
   FolderPlus,
@@ -14,8 +16,10 @@ import {
   Link2,
   List,
   LucideIcon,
+  MapPin,
   Minus,
   PanelLeft,
+  PenLine,
   Plus,
   Save,
   Search,
@@ -114,16 +118,25 @@ const ChromeButton = ({
   height,
   radius,
   part,
+  label,
+  fill,
 }: {
   children: ReactNode;
   size: number;
   height: number;
   radius: number;
   part: string;
+  /** Nome acessivel. Sem ele o botao e decorativo (`aria-hidden`). */
+  label?: string;
+  /** Fundo do botao — o "Novo registro" e o unico com acento. */
+  fill?: string;
 }) => (
   <span
     data-stage-part={part}
-    aria-hidden="true"
+    role={label ? "img" : undefined}
+    aria-label={label}
+    aria-hidden={label ? undefined : "true"}
+    title={label}
     style={{
       boxSizing: "border-box",
       display: "inline-flex",
@@ -134,6 +147,7 @@ const ChromeButton = ({
       flex: "0 0 auto",
       border: "1px solid transparent",
       borderRadius: radius,
+      background: fill ?? "transparent",
       fontWeight: 500,
     }}
   >
@@ -154,6 +168,135 @@ const TOOLBAR_ACTIONS: Array<{ id: string; icon: LucideIcon }> = [
   { id: "table", icon: Table },
   { id: "lists", icon: List },
 ];
+
+/**
+ * As acoes do diario, na faixa de cima.
+ *
+ * Trocar Editor/Memorias troca **a barra de acoes**, nao so o corpo: no Editor
+ * a faixa e de edicao (busca, formatacao, exportar); em Memorias ela e do
+ * diario. "Novo registro" vem primeiro porque e a acao primaria do app — la ele
+ * e um botao de acento no topo da lateral, aqui ele abre a mesma fila.
+ */
+const MEMORIES_ACTIONS: Array<{ id: string; icon: LucideIcon; primary?: boolean }> = [
+  { id: "newEntry", icon: PenLine, primary: true },
+  { id: "calendar", icon: CalendarDays },
+  { id: "gallery", icon: ImageIcon },
+  { id: "places", icon: MapPin },
+];
+
+/** Em janela estreita a faixa de edicao cede: sobram busca, um ou dois formatos
+ *  e exportar. A ordem se mantem — e a mesma faixa, com menos botoes. */
+const NARROW_FORMATTING = TOOLBAR_ACTIONS.slice(0, 2);
+const TINY_FORMATTING = TOOLBAR_ACTIONS.slice(0, 1);
+
+export interface ActionLabels {
+  find: string;
+  formatting: string;
+  export: string;
+  newEntry: string;
+  calendar: string;
+  gallery: string;
+  places: string;
+}
+
+const EditorActions = ({
+  palette,
+  labels,
+  narrow,
+  veryNarrow,
+}: {
+  palette: Palette;
+  labels: ActionLabels;
+  narrow: boolean;
+  veryNarrow: boolean;
+}) => {
+  const formatting = veryNarrow ? TINY_FORMATTING : narrow ? NARROW_FORMATTING : TOOLBAR_ACTIONS;
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <ChromeButton
+      part="action-button"
+      label={labels.find}
+      size={M.chrome.toolbar.button}
+      height={M.chrome.toolbar.button}
+      radius={M.chrome.toolbar.buttonRadius}
+    >
+      <DuoIcon icon={Search} size={M.chrome.toolbar.iconSize} palette={palette} />
+    </ChromeButton>
+
+    {/* A caixa de formatacao tem a largura que o app calculou (278): e ela que
+     *  fica centrada na barra, com busca e exportar **fora** dela, um de cada
+     *  lado — assim os sete botoes medidos nao saem do lugar. Em janela estreita
+     *  a caixa perde o respiro que so faz sentido no tamanho real. */}
+    <div
+      data-stage-part="toolbar"
+      aria-label={labels.formatting}
+      role="group"
+      style={{
+        width: narrow ? undefined : M.chrome.toolbar.width,
+        height: M.chrome.toolbar.height,
+        flex: "0 0 auto",
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          boxSizing: "border-box",
+          display: "flex",
+          alignItems: "center",
+          gap: narrow ? 0 : M.chrome.toolbar.gap,
+          padding: narrow ? 0 : `0 ${M.chrome.toolbar.paddingX}px`,
+        }}
+      >
+        {narrow ? null : <span style={{ width: 0, flex: "0 0 auto" }} />}
+        <span style={{ display: "flex", alignItems: "center", gap: M.chrome.toolbar.itemGap }}>
+          {formatting.map(({ id, icon }) => (
+            <ChromeButton
+              key={id}
+              part="toolbar-button"
+              size={M.chrome.toolbar.button}
+              height={M.chrome.toolbar.button}
+              radius={M.chrome.toolbar.buttonRadius}
+            >
+              <DuoIcon icon={icon} size={M.chrome.toolbar.iconSize} palette={palette} />
+            </ChromeButton>
+          ))}
+        </span>
+      </div>
+    </div>
+
+    <ChromeButton
+      part="action-button"
+      label={labels.export}
+      size={M.chrome.toolbar.button}
+      height={M.chrome.toolbar.button}
+      radius={M.chrome.toolbar.buttonRadius}
+    >
+      <DuoIcon icon={Download} size={M.chrome.toolbar.iconSize} palette={palette} />
+    </ChromeButton>
+  </div>
+  );
+};
+
+const MemoriesActions = ({ palette, labels }: { palette: Palette; labels: ActionLabels }) => (
+  <div
+    data-stage-part="memories-actions"
+    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: M.chrome.toolbar.itemGap }}
+  >
+    {MEMORIES_ACTIONS.map(({ id, icon, primary }) => (
+      <ChromeButton
+        key={id}
+        part="action-button"
+        label={labels[id as keyof ActionLabels]}
+        size={M.chrome.toolbar.button}
+        height={M.chrome.toolbar.button}
+        radius={M.chrome.toolbar.buttonRadius}
+        fill={primary ? alpha(palette.accent, 0.18) : undefined}
+      >
+        <DuoIcon icon={icon} size={M.chrome.toolbar.iconSize} palette={palette} />
+      </ChromeButton>
+    ))}
+  </div>
+);
 
 const WindowControls = ({ palette }: { palette: Palette }) => (
   <div
@@ -189,11 +332,15 @@ interface TitleBarProps {
   modeNames: [string, string];
   mode: StageMode;
   brand: string;
-  /** Janela estreita: a faixa de formatacao sai, o resto encolhe. */
-  hideToolbar?: boolean;
+  labels: ActionLabels;
+  /** Janela estreita: menus, nome do produto e controles saem; as acoes ficam. */
+  narrow?: boolean;
+  /** Abaixo de 420px o seletor de modo sai: os rotulos nao cabem, e a leitura ja
+   *  esta nomeada nas abas do proprio site. */
+  veryNarrow?: boolean;
 }
 
-const TitleBar = ({ palette, menus, modeNames, mode, brand, hideToolbar = false }: TitleBarProps) => (
+const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = false, veryNarrow = false }: TitleBarProps) => (
   <div
     data-stage-part="titlebar"
     style={{
@@ -232,6 +379,7 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, hideToolbar = false 
       <span
         data-stage-part="brand-name"
         style={{
+          display: narrow ? "none" : "inline",
           fontSize: M.chrome.brand.nameSize,
           fontWeight: M.chrome.brand.nameWeight,
           lineHeight: `${M.chrome.brand.nameLineHeight}px`,
@@ -243,7 +391,13 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, hideToolbar = false 
       </span>
     </div>
 
-    <div role="menubar" aria-label={menus[0]} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+    {/* O menu so existe no Editor: em Memorias, como no app, ele nao tem item
+     *  — e um menu quase vazio e pior do que nenhum. */}
+    <div
+      role="menubar"
+      aria-label={menus[0]}
+      style={{ display: narrow || mode === "memories" ? "none" : "flex", alignItems: "center", flexShrink: 0 }}
+    >
       {menus.map((menu) => (
         <span
           key={menu}
@@ -267,50 +421,22 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, hideToolbar = false 
     </div>
 
     <div
+      data-stage-part="action-bar"
       style={{
         flex: "1 1 0",
         minWidth: 0,
         height: M.chrome.toolbar.height,
-        display: hideToolbar ? "none" : "flex",
+        display: "flex",
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
       }}
     >
-      <div
-        data-stage-part="toolbar"
-        style={{
-          width: M.chrome.toolbar.width,
-          height: M.chrome.toolbar.height,
-          flex: "0 0 auto",
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            boxSizing: "border-box",
-            display: "flex",
-            alignItems: "center",
-            gap: M.chrome.toolbar.gap,
-            padding: `0 ${M.chrome.toolbar.paddingX}px`,
-          }}
-        >
-          <span style={{ width: 0, flex: "0 0 auto" }} />
-          <span style={{ display: "flex", alignItems: "center", gap: M.chrome.toolbar.itemGap }}>
-            {TOOLBAR_ACTIONS.map(({ id, icon }) => (
-              <ChromeButton
-                key={id}
-                part="toolbar-button"
-                size={M.chrome.toolbar.button}
-                height={M.chrome.toolbar.button}
-                radius={M.chrome.toolbar.buttonRadius}
-              >
-                <DuoIcon icon={icon} size={M.chrome.toolbar.iconSize} palette={palette} />
-              </ChromeButton>
-            ))}
-          </span>
-        </div>
-      </div>
+      {mode === "memories" ? (
+        <MemoriesActions palette={palette} labels={labels} />
+      ) : (
+        <EditorActions palette={palette} labels={labels} narrow={narrow} veryNarrow={veryNarrow} />
+      )}
     </div>
 
     <div
@@ -355,8 +481,12 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, hideToolbar = false 
       })}
     </div>
 
-    <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />
-    <WindowControls palette={palette} />
+    {narrow ? null : (
+      <>
+        <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />
+        <WindowControls palette={palette} />
+      </>
+    )}
   </div>
 );
 
@@ -815,7 +945,9 @@ const StatusBar = ({ palette, fileName, saved, draft, narrow = false }: StatusBa
       >
         <Timer size={M.status.clock.iconSize} strokeWidth={1.9} />
       </span>
-      <span>1 tabs</span>
+      {/* Na janela estreita o contador de abas sai: com 358px de largura ele
+       *  encosta no selo do arquivo e a barra vira uma pilha sem respiro. */}
+      {narrow ? null : <span>1 tabs</span>}
       <span>editor</span>
       <span>edit</span>
     </div>
@@ -852,6 +984,13 @@ export interface StageDocument {
   tree: StageTreeRow[];
 }
 
+/** O que a janela ja sabe sobre o proprio tamanho, para o corpo se adaptar. */
+export interface WindowContext {
+  width: number;
+  compact: boolean;
+  narrow: boolean;
+}
+
 interface AppWindowProps {
   theme: RecordTheme;
   mode: StageMode;
@@ -863,12 +1002,17 @@ interface AppWindowProps {
   saved: string;
   brand: string;
   closeLabel: string;
+  /** Nomes das acoes da faixa de cima — ela muda com a leitura. */
+  labels: ActionLabels;
   /** O selo da barra de status: "Salvo" no editor, "Rascunho" na entrada aberta. */
   draft?: string;
   /** Substitui so o painel de codigo; a lateral e a faixa de abas continuam. */
   pane?: ReactNode;
-  /** Substitui o corpo inteiro. Memorias usa isto: ela nao tem faixa de abas. */
-  children?: ReactNode;
+  /**
+   * Substitui o corpo inteiro. Memorias usa isto: ela nao tem faixa de abas, e
+   * as colunas dela dependem da largura da janela — por isso a funcao.
+   */
+  children?: ReactNode | ((context: WindowContext) => ReactNode);
 }
 
 /**
@@ -881,7 +1025,7 @@ interface AppWindowProps {
  * baixo e a janela deixa de ser a do aplicativo.
  *
  * `children` substitui o corpo inteiro — e por ali que Memorias entra com as
- * tres colunas dela (sem faixa de abas, como no app).
+ * colunas dela (sem faixa de abas, como no app).
  */
 export const AppWindow = ({
   theme,
@@ -894,6 +1038,7 @@ export const AppWindow = ({
   saved,
   brand,
   closeLabel,
+  labels,
   draft,
   pane,
   children,
@@ -901,12 +1046,15 @@ export const AppWindow = ({
   const palette = paletteOf(theme);
   const segments = tokenize(doc.lines);
   const { ref, width } = useWindowWidth();
-  /* A janela e medida em 1440px, mas o site a mostra em 1005px no desktop e em
-   * ~330px no celular. Abaixo de 720px a lateral sai (como no app, que a colapsa)
-   * e abaixo de 640px saem os menus e a faixa de formatacao — sem isso o cromo
-   * fica cortado em vez de encolher, que e o defeito que a captura em 390 pega. */
+  /* A janela e medida em 1440px e o site a mostra em tamanho real no desktop.
+   * Abaixo de 720px a lateral do editor sai (como no app, que a colapsa) e
+   * abaixo de 640px saem os menus, o nome do produto e os controles de janela —
+   * sem isso o cromo fica cortado em vez de encolher, que e o defeito que a
+   * captura em 390 pega. */
   const compact = width > 0 && width < 720;
   const narrow = width > 0 && width < 640;
+  const veryNarrow = width > 0 && width < 330;
+  const body = typeof children === "function" ? children({ width, compact, narrow }) : children;
 
   return (
     <div
@@ -930,9 +1078,18 @@ export const AppWindow = ({
         lineHeight: "24px",
       }}
     >
-      <TitleBar palette={palette} menus={narrow ? [] : menus} modeNames={modeNames} mode={mode} brand={brand} hideToolbar={narrow} />
+      <TitleBar
+        palette={palette}
+        menus={menus}
+        modeNames={modeNames}
+        mode={mode}
+        brand={brand}
+        labels={labels}
+        narrow={narrow}
+        veryNarrow={veryNarrow}
+      />
       <div style={{ flex: "1 1 0", minHeight: 0, display: "flex" }}>
-        {children ?? (
+        {body ?? (
           <>
             {compact ? null : (
               <WorkspaceSidebar palette={palette} rows={doc.tree} workspace={workspace} search={search} />

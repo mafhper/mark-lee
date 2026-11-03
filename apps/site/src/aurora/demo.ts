@@ -169,6 +169,21 @@ export const RECENT_RECORDS: Array<{ date: string; title: string; summary: strin
   { date: "2026-10-12", title: "Maré baixa", summary: "As pedras do costão ficaram expostas por duas horas." },
 ];
 
+/**
+ * O caderno de demonstracao.
+ *
+ * Memorias nao lista pastas: ela lista **cadernos**, e o caderno aberto e que
+ * tem registros. O app mostra esse caderno como um cartao com capa, nome e
+ * descricao; aqui a capa e um gradiente do tema, porque usar uma foto de
+ * terceiro no lugar da capa do caderno seria inventar imagem que o produto nao
+ * tem.
+ */
+export const DEMO_JOURNAL = {
+  name: "Memórias de leitura",
+  description: "Caderno de demonstração: céu, leitura e jardim.",
+  entries: 4,
+};
+
 /** Contagem de palavras do registro, como o aplicativo mostra na leitura. */
 export function recordWordCount(record: DemoRecord): number {
   const parts = [

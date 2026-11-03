@@ -102,17 +102,32 @@ export interface HomeCopy {
       saved: string;
       /** O selo da barra de status quando a entrada aberta e um rascunho. */
       draft: string;
-      entries: string;
       properties: { record: string; schema: string; tags: string; file: string };
+      /** A lateral de Memorias: cadernos, e dentro do caderno as secoes. */
       nav: {
         newEntry: string;
-        registry: string;
-        byDay: string;
-        favorites: string;
-        tags: string;
-        ranges: string[];
+        journal: string;
+        journalEntries: string;
+        sections: {
+          entries: string;
+          favorites: string;
+          calendar: string;
+          places: string;
+          gallery: string;
+          tags: string;
+          pins: string;
+        };
       };
-      listViews: string[];
+      /** A faixa de acoes do topo, que muda com a leitura. */
+      actions: {
+        find: string;
+        formatting: string;
+        export: string;
+        newEntry: string;
+        calendar: string;
+        gallery: string;
+        places: string;
+      };
       metadata: string;
       words: string;
     };

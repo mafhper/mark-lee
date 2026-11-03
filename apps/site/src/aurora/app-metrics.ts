@@ -220,12 +220,85 @@ export const APP_METRICS = {
     chipBorder: "#e5e7eb",
   },
 
+  /**
+   * A lateral de Memorias tem outro desenho, e nao e a arvore do editor: ela
+   * lista cadernos, depois as secoes do caderno ativo e, sob Registros, os
+   * registros por data. As medidas saem da mesma medicao do app, na vista
+   * Memorias (`.dev/tmp/stage-medidas/probe-memories.txt`): cabecalho de 44,
+   * botao principal de 36, botoes quadrados de 32, acordeao de 29 e item de 32.
+   */
   memories: {
     navWidth: 240,
-    listWidth: 380,
     navHeaderHeight: 44,
     navHeaderPaddingX: 12,
     navHeaderPaddingY: 8,
+    primary: {
+      height: 36,
+      radius: 6,
+      paddingX: 12,
+      paddingY: 8,
+      gap: 8,
+      fontSize: 13,
+      lineHeight: 19.5,
+      iconSize: 15,
+      marginBottom: 8,
+    },
+    ghost: {
+      height: 32,
+      gap: 6,
+      radius: 6,
+      iconSize: 14,
+      columns: 4,
+    },
+    accordion: {
+      height: 29,
+      paddingX: 12,
+      paddingY: 6,
+      gap: 6,
+      fontSize: 11,
+      lineHeight: 16.5,
+      letterSpacing: "0.05em",
+      chevron: 12,
+      opacity: 0.44,
+    },
+    card: {
+      height: 72,
+      radius: 8,
+      paddingX: 8,
+      paddingY: 6,
+      nameSize: 12,
+      nameLineHeight: 15,
+      descriptionSize: 10,
+      descriptionLineHeight: 12.5,
+      marginX: 8,
+      marginY: 4,
+    },
+    item: {
+      height: 32,
+      paddingX: 12,
+      paddingY: 6,
+      gap: 10,
+      fontSize: 13,
+      lineHeight: 19.5,
+      iconSize: 15,
+      activeAlpha: 0.07,
+      inactiveOpacity: 0.8,
+    },
+    record: {
+      height: 28,
+      paddingX: 12,
+      paddingY: 4,
+      gap: 8,
+      fontSize: 12,
+      lineHeight: 16,
+      dayWidth: 26,
+      indent: 34,
+      activeAlpha: 0.09,
+    },
+    divider: {
+      marginX: 12,
+      marginY: 8,
+    },
   },
 } as const;
 
