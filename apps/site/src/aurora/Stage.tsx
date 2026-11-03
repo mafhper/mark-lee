@@ -67,7 +67,7 @@ const Stage = ({ locale }: StageProps) => {
           })}
         </div>
 
-        <div className="mt-6 border border-stage-rule bg-stage-2 p-2 md:p-3">
+        <div className="mt-6 -mx-6 border-y border-stage-rule bg-stage-2 p-2 md:mx-0 md:border md:p-3">
           {view === "source" ? (
             <pre
               id="painel-source"
@@ -88,15 +88,21 @@ const Stage = ({ locale }: StageProps) => {
               </code>
             </pre>
           ) : (
-            <div id={`painel-${view}`} role="tabpanel" aria-labelledby={`aba-${view}`} tabIndex={0}>
+            <div
+              id={`painel-${view}`}
+              role="tabpanel"
+              aria-labelledby={`aba-${view}`}
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain border border-ink/15 bg-paper-2 p-2 shadow-[0_28px_64px_-28px_rgba(0,0,0,0.75)] [scrollbar-color:color-mix(in_oklab,var(--color-ink)_35%,transparent)_transparent] [scrollbar-width:thin] md:p-3 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-ink/30 [&::-webkit-scrollbar-track]:bg-transparent"
+            >
               <img
                 src={view === "editor" ? editorShot : memoriesShot}
                 width={1440}
                 height={900}
                 alt={view === "editor" ? stage.editorAlt : stage.memoriesAlt}
-                className="block h-auto w-full"
+                className="block h-auto w-full min-w-[34rem] border border-ink/10 contrast-[1.04] saturate-[1.02] md:min-w-0"
                 loading="eager"
-                decoding="async"
+                decoding="sync"
               />
             </div>
           )}

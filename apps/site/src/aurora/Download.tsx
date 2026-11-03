@@ -1,5 +1,4 @@
 import logoPlate from "@/assets/logo-paper-tile.svg";
-import Wordmark from "@/aurora/Wordmark";
 import { Locale, RELEASES_URL, REPO_URL, getCopy } from "@/i18n";
 
 interface DownloadProps {
@@ -13,8 +12,9 @@ const PLATFORMS = [
 ] as const;
 
 /**
- * Encerramento: download sem persuasao. A placa (V2) e a variante que
- * sobrevive fora do paper; aqui ela ancora a assinatura do rodape.
+ * Encerramento: download sem persuasao. A assinatura e o wordmark gigante em
+ * caixa baixa (o desenho do mockup), e a placa V2 fica pequena no fim da
+ * mesma linha quando ha largura para ela.
  */
 const Download = ({ locale }: DownloadProps) => {
   const download = getCopy(locale).pages.home.download;
@@ -24,11 +24,18 @@ const Download = ({ locale }: DownloadProps) => {
       <div className="measure border-l border-terracotta/30 px-6 pb-10 pt-20 lg:px-10 lg:pt-28">
         <p className="label-mono text-ink-soft">{download.label}</p>
 
-        <h2 id="download-titulo" className="font-display-tight mt-4 text-[clamp(3rem,10vw,8rem)]">
-          <span className="inline-flex items-center gap-4 sm:gap-6">
-            <img src={logoPlate} alt="" className="h-[0.72em] w-[0.72em]" />
-            <Wordmark />
+        <h2 id="download-titulo" className="mt-6 flex items-end justify-between gap-6">
+          <span className="font-display-tight block text-[clamp(3.5rem,14vw,11.5rem)] lowercase leading-[0.78] tracking-[-0.055em]">
+            Mark-Lee
+            <span aria-hidden="true" className="text-terracotta">
+              .
+            </span>
           </span>
+          <img
+            src={logoPlate}
+            alt=""
+            className="mb-1 h-7 w-7 shrink-0 rounded-[4px] sm:mb-3 sm:h-9 sm:w-9"
+          />
         </h2>
 
         <ul className="mt-12 border-t border-ink">

@@ -12,18 +12,18 @@ const Files = ({ locale }: FilesProps) => {
   return (
     <section id="arquivo" aria-labelledby="arquivo-titulo" className="scroll-mt-14 border-b border-rule bg-paper text-ink">
       <div className="measure grid gap-12 border-l border-terracotta/30 px-6 py-20 lg:grid-cols-12 lg:px-10 lg:py-28">
-        <div className="lg:col-span-4">
+        <div className="min-w-0 lg:col-span-4">
           <SectionHead id="arquivo" index={files.index} label={files.label} title={files.title} />
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="min-w-0 lg:col-span-8">
           <p className="max-w-2xl text-lg leading-relaxed md:text-xl">{files.text}</p>
           <p className="mt-6 max-w-2xl border-l-2 border-terracotta pl-4 text-sm text-ink-soft">
             {files.caveat}
           </p>
 
-          <div className="mt-12 grid border border-rule bg-paper-2 md:grid-cols-[15rem_1fr]">
-            <div className="border-b border-rule p-4 md:border-b-0 md:border-r">
+          <div className="mt-12 grid border border-rule bg-paper-2 md:grid-cols-[15rem_minmax(0,1fr)]">
+            <div className="min-w-0 border-b border-rule p-4 md:border-b-0 md:border-r">
               <p className="label-mono mb-3 text-ink-soft">{files.folderLabel}</p>
               <ul className="font-mono text-xs leading-7">
                 {DEMO_TREE.map((node) => (

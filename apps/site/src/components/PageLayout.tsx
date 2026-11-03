@@ -32,12 +32,12 @@ const PageLayout = ({ children, locale, footer = true }: PageLayoutProps) => {
   }, [locale, location.pathname]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="relative flex min-h-screen flex-col">
       <a className="skip-link" href="#main-content">
         {skipLabels[locale]}
       </a>
       <Header />
-      <main id="main-content" className="flex-1 pt-14" tabIndex={-1}>
+      <main id="main-content" className="flex-1" tabIndex={-1}>
         {children}
       </main>
       {footer && <Footer />}

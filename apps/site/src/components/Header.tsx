@@ -33,7 +33,7 @@ const Header = () => {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-[80] h-14 border-b border-rule bg-paper/95 text-ink backdrop-blur-[14px]">
+    <header className="sticky top-0 z-[80] h-14 border-b border-rule bg-paper/95 text-ink backdrop-blur-[14px]">
       <div className="measure flex h-14 items-center gap-5 px-6 lg:px-10">
         <Link
           to={pathFor(locale, "home")}
