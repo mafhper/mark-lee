@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Menu, X } from "lucide-react";
-import logo from "@/assets/logo-light.svg";
+import Wordmark from "@/aurora/Wordmark";
+import "@/aurora/aurora.css";
 import {
   DEFAULT_LOCALE,
   PRIMARY_HOME_SECTIONS,
@@ -22,9 +23,9 @@ const Header = () => {
   const copy = getCopy(locale);
   const mobileOpen = mobileState.locationKey === location.key && mobileState.open;
   const sectionLabels = {
-    editor: copy.nav.editor,
-    memorias: copy.nav.memories,
-    local: copy.nav.localFirst,
+    leituras: copy.nav.product,
+    arquivo: copy.nav.files,
+    temas: copy.nav.customization,
   } as const;
 
   const closeMobileMenu = () => {
@@ -32,46 +33,50 @@ const Header = () => {
   };
 
   return (
-    <header className="site-header">
-      <div className="container site-header__inner">
+    <header className="fixed inset-x-0 top-0 z-[80] h-14 border-b border-rule bg-paper/95 text-ink backdrop-blur-[14px]">
+      <div className="measure flex h-14 items-center gap-5 px-6 lg:px-10">
         <Link
           to={pathFor(locale, "home")}
           onClick={closeMobileMenu}
-          className="site-brand"
+          className="inline-flex items-center gap-2.5 text-[0.95rem] font-bold tracking-[-0.03em] text-ink"
           aria-label="Mark-Lee"
         >
-          <img src={logo} alt="" className="site-brand__mark" />
-          <span>Mark-Lee</span>
+          <Wordmark withMark />
         </Link>
 
-        <nav className="site-nav" aria-label={copy.nav.primaryAriaLabel}>
+        <nav aria-label={copy.nav.primaryAriaLabel} className="hidden items-center gap-1 lg:flex">
           {PRIMARY_HOME_SECTIONS.map((section) => (
-            <Link key={section} to={homeSectionPath(locale, section)} className="site-nav__link">
+            <Link
+              key={section}
+              to={homeSectionPath(locale, section)}
+              className="px-2.5 py-2 text-[0.78rem] font-semibold text-ink-soft transition-colors hover:text-ink"
+            >
               {sectionLabels[section]}
             </Link>
           ))}
-        </nav>
-
-        <div className="site-header__actions">
-          <Link to={pathFor(locale, "downloads")} className="site-button site-button--small">
-            {copy.downloadLabel}
-          </Link>
           <a
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="site-header__github"
+            className="px-2.5 py-2 text-[0.78rem] font-semibold text-ink-soft transition-colors hover:text-ink"
           >
-            {copy.githubLabel}
+            {copy.pages.home.download.source}
           </a>
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            to={pathFor(locale, "downloads")}
+            className="inline-flex min-h-[34px] items-center justify-center bg-ink px-3.5 text-[0.76rem] font-semibold text-paper-2 transition-colors hover:bg-terracotta-deep"
+          >
+            {copy.downloadLabel}
+          </Link>
         </div>
 
         <button
           type="button"
-          className="site-menu-button"
-          onClick={() =>
-            setMobileState({ locationKey: location.key, open: !mobileOpen })
-          }
+          className="inline-flex h-9 w-9 items-center justify-center text-ink lg:hidden"
+          onClick={() => setMobileState({ locationKey: location.key, open: !mobileOpen })}
           aria-expanded={mobileOpen}
           aria-controls="mobile-main-nav"
           aria-label={mobileOpen ? copy.closeMenuAria : copy.openMenuAria}
@@ -81,14 +86,14 @@ const Header = () => {
       </div>
 
       {mobileOpen && (
-        <div id="mobile-main-nav" className="site-mobile-nav">
-          <nav className="container site-mobile-nav__inner" aria-label={copy.nav.mobileAriaLabel}>
+        <div id="mobile-main-nav" className="border-b border-rule bg-paper-2">
+          <nav aria-label={copy.nav.mobileAriaLabel} className="measure grid gap-1 px-6 pb-4 pt-3">
             {PRIMARY_HOME_SECTIONS.map((section) => (
               <Link
                 key={section}
                 to={homeSectionPath(locale, section)}
                 onClick={closeMobileMenu}
-                className="site-mobile-nav__link"
+                className="flex min-h-[44px] items-center px-2.5 text-[0.9rem] font-semibold text-ink-soft hover:text-ink"
               >
                 {sectionLabels[section]}
               </Link>
@@ -96,7 +101,7 @@ const Header = () => {
             <Link
               to={pathFor(locale, "downloads")}
               onClick={closeMobileMenu}
-              className="site-button site-mobile-nav__download"
+              className="mt-1 flex min-h-[44px] items-center justify-center bg-ink px-3.5 text-sm font-semibold text-paper-2"
             >
               {copy.downloadLabel}
             </Link>
@@ -104,7 +109,7 @@ const Header = () => {
               href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="site-mobile-nav__link"
+              className="flex min-h-[44px] items-center px-2.5 text-[0.9rem] font-semibold text-ink-soft hover:text-ink"
             >
               {copy.githubLabel}
             </a>

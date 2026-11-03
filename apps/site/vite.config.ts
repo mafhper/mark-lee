@@ -1,7 +1,33 @@
 import path from "node:path";
+import tailwindV4 from "@tailwindcss/postcss";
 import react from "@vitejs/plugin-react-swc";
+import postcss from "postcss";
 import { defineConfig } from "vite";
+import type { Plugin } from "vite";
 import { assertPortFree } from "../../scripts/sonda-porta";
+
+const AURORA_CSS = /[\\/]src[\\/]aurora[\\/]aurora\.css$/;
+
+/**
+ * O shell novo (header + abertura) e o unico arquivo do site compilado pelo
+ * Tailwind v4; todo o resto continua no v3, pela `postcss.config.js`.
+ *
+ * Compilar aqui, antes da pipeline de CSS do Vite, e o que mantem as duas
+ * versoes separadas: o `postcss-import` do Vite inlineria os imports do v4 e
+ * entregaria um arquivo sem as diretivas que ele precisa ver.
+ */
+const auroraTailwindV4 = (): Plugin => ({
+  name: "aurora-tailwind-v4",
+  enforce: "pre",
+  async transform(code, id) {
+    const file = id.split("?")[0];
+    if (!AURORA_CSS.test(file)) return null;
+
+    const result = await postcss([tailwindV4()]).process(code, { from: file, map: null });
+    for (const warning of result.warnings()) this.warn(warning.toString());
+    return { code: result.css, map: null };
+  },
+});
 
 const base = process.env.SITE_BASE ?? "/";
 // Porta nomeada: 5281 (a app do desktop usa 5280). Fora das faixas do Vite
@@ -33,7 +59,7 @@ export default defineConfig(async ({ command }) => {
         overlay: false,
       },
     },
-    plugins: [react()],
+    plugins: [react(), auroraTailwindV4()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

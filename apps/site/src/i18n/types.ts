@@ -11,16 +11,12 @@ export type PageKey =
   | "downloads";
 
 export type DownloadPlatform = "windows" | "macos" | "linux";
-export type HomeSectionId = "dois-contextos" | "editor" | "memorias" | "local";
+export type StageView = "editor" | "memories" | "source";
+export type HomeSectionId = "leituras" | "arquivo" | "temas";
 
-export const HOME_SECTION_IDS: readonly HomeSectionId[] = [
-  "dois-contextos",
-  "editor",
-  "memorias",
-  "local",
-];
+export const HOME_SECTION_IDS: readonly HomeSectionId[] = ["leituras", "arquivo", "temas"];
 
-export const PRIMARY_HOME_SECTIONS = ["editor", "memorias", "local"] as const;
+export const PRIMARY_HOME_SECTIONS = ["leituras", "arquivo", "temas"] as const;
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
@@ -85,44 +81,61 @@ export interface CtaCopy {
 export interface HomeCopy {
   hero: {
     label: string;
-    title: string;
+    titleLines: string[];
+    accentLine: number;
     description: string;
     primaryCta: string;
     secondaryCta: string;
+    facts: Array<[string, string]>;
+  };
+  stage: {
+    index: string;
+    label: string;
+    title: string;
+    intro: string;
+    views: Array<{ id: StageView; name: string; caption: string }>;
+    note: string;
+    editorAlt: string;
+    memoriesAlt: string;
+  };
+  files: {
+    index: string;
+    label: string;
+    title: string;
+    text: string;
+    caveat: string;
+    folderLabel: string;
     note: string;
   };
-  continuity: {
+  tools: {
     label: string;
     title: string;
-    description: string;
-    editorLabel: string;
-    memoriesLabel: string;
+    rows: Array<{ n: string; name: string; text: string }>;
   };
-  editor: {
+  themes: {
+    index: string;
     label: string;
     title: string;
-    description: string;
-    highlights: string[];
+    text: string;
+    note: string;
+    sampleLabel: string;
+    previewTitle: string;
+    previewText: string;
   };
-  memories: {
+  code: {
+    index: string;
     label: string;
     title: string;
-    description: string;
-    highlights: string[];
+    text: string;
+    stack: Array<[string, string]>;
+    cta: string;
   };
-  localProof: {
+  download: {
     label: string;
-    title: string;
-    description: string;
-    folderLabel: string;
-    files: string[];
-    principles: Array<{ title: string; description: string }>;
-  };
-  closingCta: {
-    title: string;
-    description: string;
-    primaryCta: string;
-    secondaryCta: string;
+    cta: string;
+    formats: Record<DownloadPlatform, string>;
+    license: string;
+    source: string;
   };
 }
 
@@ -306,6 +319,9 @@ export interface SiteCopy {
     editor: string;
     memories: string;
     localFirst: string;
+    product: string;
+    files: string;
+    customization: string;
     primaryAriaLabel: string;
     mobileAriaLabel: string;
   };

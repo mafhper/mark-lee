@@ -12,6 +12,9 @@ export const enUSCopy: SiteCopy = {
     editor: "Editor",
     memories: "Memories",
     localFirst: "Local-first",
+    product: "Product",
+    files: "Files",
+    customization: "Customization",
     primaryAriaLabel: "Primary navigation",
     mobileAriaLabel: "Mobile menu",
   },
@@ -24,11 +27,11 @@ export const enUSCopy: SiteCopy = {
     copyright: "© 2026 · Open source · MIT License",
     groups: [
       {
-        title: "Product",
+        title: "Sections",
         links: [
-          { label: "Editor", section: "editor" },
-          { label: "Memories", section: "memorias" },
-          { label: "Local-first", section: "local" },
+          { label: "Product", section: "leituras" },
+          { label: "Files", section: "arquivo" },
+          { label: "Customization", section: "temas" },
         ],
       },
       {
@@ -64,66 +67,124 @@ export const enUSCopy: SiteCopy = {
   pages: {
     home: {
       hero: {
-        label: "Editor + Memories, on your computer",
-        title: "Write what you need. Keep what matters.",
+        label: "Mark-Lee / Desktop application",
+        titleLines: ["Editor.", "Memories.", "Markdown."],
+        accentLine: 1,
         description:
-          "Mark-Lee brings together a complete Markdown editor and a Memories space over the same local files — with no account, closed format, or required server.",
+          "A Markdown editor and a memory journal for desktop. Two ways of working with the same local files.",
         primaryCta: "Download Mark-Lee",
-        secondaryCta: "See both contexts",
-        note: "Windows, macOS, and Linux · Open source · MIT License",
-      },
-      continuity: {
-        label: "One file, two rhythms",
-        title: "One file. Two contexts.",
-        description:
-          "Work with precision in Editor and revisit the same content in Memories. Nothing is converted, duplicated, or locked into a proprietary format.",
-        editorLabel: "Edit with precision",
-        memoriesLabel: "Revisit with context",
-      },
-      editor: {
-        label: "Editor",
-        title: "Precision for the work.",
-        description:
-          "Open a folder, keep documents in context, and move from writing to publishing without changing tools.",
-        highlights: [
-          "Workspace, tabs, and search that preserve context",
-          "Markdown and side-by-side preview",
-          "Commands, snippets, themes, and export",
+        secondaryCta: "See the application",
+        facts: [
+          ["Systems", "Windows · macOS · Linux"],
+          ["Format", "Markdown files on disk"],
+          ["License", "MIT"],
+          ["Account", "No sign-up required"],
         ],
       },
-      memories: {
-        label: "Memories",
-        title: "Context to find it again.",
-        description:
-          "Turn local folders into living notebooks, with entries organized by time, place, images, and whatever you choose to track.",
-        highlights: [
-          "Notebooks, entries, and templates",
-          "Calendar, Places, map, and gallery",
-          "Configurable Pins and an editorial reading view",
+      stage: {
+        index: "01",
+        label: "One file · different readings",
+        title: "One file, different readings.",
+        intro:
+          "Editor and Memories open the same file. Changing the reading changes the presentation, not the document.",
+        views: [
+          {
+            id: "editor",
+            name: "Editor",
+            caption: "The document open inside its folder, with Markdown editing and preview.",
+          },
+          {
+            id: "memories",
+            name: "Memories",
+            caption: "The same file recognized as an entry and browsed by date.",
+          },
+          {
+            id: "source",
+            name: "File .md",
+            caption: "The text as it sits on disk. The YAML front matter is what Memories reads.",
+          },
+        ],
+        note: "Captures of the application. Editor and Memories show the same demo entry.",
+        editorAlt:
+          "Mark-Lee Editor window: the workspace file tree on the left and nebula-de-orion.md open in the Markdown editor.",
+        memoriesAlt:
+          "Mark-Lee Memories window: the field entry open in reading mode, with the file metadata beside it.",
+      },
+      files: {
+        index: "02",
+        label: "Storage",
+        title: "The file comes first.",
+        text:
+          "Mark-Lee works with local folders and Markdown files. The Editor opens documents; Memories recognizes entries that carry metadata and lets you browse them by date and other attributes. The files stay readable outside the application.",
+        caveat:
+          "Memories only lists files with front matter in the marklee-entry schema. A plain .md file stays available in the Editor.",
+        folderLabel: "Folder",
+        note: "Illustrative example. Fictional content in the marklee-entry schema.",
+      },
+      tools: {
+        label: "Features",
+        title: "Writing tools.",
+        rows: [
+          {
+            n: "01",
+            name: "Editor",
+            text: "Folders, tabs, search, preview, commands, and Zen mode.",
+          },
+          {
+            n: "02",
+            name: "Memories",
+            text: "Dated entries, calendar, reading, gallery, and map when there is a location.",
+          },
+          {
+            n: "03",
+            name: "Export",
+            text: "Output formats available in the published version.",
+          },
+          {
+            n: "04",
+            name: "Control",
+            text: "Saving, themes, and keyboard navigation.",
+          },
         ],
       },
-      localProof: {
-        label: "Local by principle",
-        title: "Your files remain yours.",
-        description:
-          "Mark-Lee works with readable folders and files on your computer. You decide where to store, sync, or publish them.",
-        folderLabel: "my-workspace",
-        files: ["projects/roadmap.md", "memories/acoustic-session.md", "assets/sunset.jpg"],
-        principles: [
-          { title: "Open Markdown", description: "Portable files you can edit outside the app." },
-          { title: "No account", description: "Start with a folder, without required registration." },
-          { title: "Offline", description: "Essential writing and organization work without a network." },
-          { title: "Open source", description: "Transparent MIT-licensed code, with no black box." },
+      themes: {
+        index: "03",
+        label: "Customization",
+        title: "The interface changes. The files do not.",
+        text:
+          "Choosing a theme changes colors and reading inside the application. The file content stays the same.",
+        note: "Four approximate samples. The application ships 12 themes.",
+        sampleLabel: "Reading sample",
+        previewTitle: "Field entry",
+        previewText:
+          "Seedlings transplanted the week before. Watering in the morning; soil damp at 15h. Come back in two weeks and compare with today's photographs.",
+      },
+      code: {
+        index: "04",
+        label: "Code and license",
+        title: "Open code. Open format.",
+        text:
+          "Mark-Lee is distributed under the MIT license. Its code can be inspected, modified, and compiled.",
+        stack: [
+          ["Application", "Tauri 2"],
+          ["Core", "Rust"],
+          ["Interface", "React · TypeScript"],
+          ["License", "MIT"],
         ],
+        cta: "Source code",
       },
-      closingCta: {
-        title: "Start with a folder.",
-        description: "Download Mark-Lee and choose what deserves to be written — or remembered.",
-        primaryCta: "Download Mark-Lee",
-        secondaryCta: "View source on GitHub",
+      download: {
+        label: "Download · stable release",
+        cta: "See download options",
+        formats: {
+          windows: ".exe / .msi installers, as published in the release",
+          macos: ".app.tar.gz package, as published in the release",
+          linux: ".deb · .AppImage · .rpm, as published in the release",
+        },
+        license: "Mark-Lee · MIT license",
+        source: "Source code",
       },
-    },
-    gallery: {
+    },    gallery: {
       hero: {
         label: "Real visual experience",
         title: "Theme, preview, and focus.",

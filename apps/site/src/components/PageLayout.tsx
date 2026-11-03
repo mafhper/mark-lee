@@ -13,9 +13,11 @@ const skipLabels: Record<Locale, string> = {
 interface PageLayoutProps {
   children: ReactNode;
   locale: Locale;
+  /** A home monta o proprio encerramento (bloco de download), sem o rodape do site. */
+  footer?: boolean;
 }
 
-const PageLayout = ({ children, locale }: PageLayoutProps) => {
+const PageLayout = ({ children, locale, footer = true }: PageLayoutProps) => {
   const location = useLocation();
 
   useEffect(() => {
@@ -38,7 +40,7 @@ const PageLayout = ({ children, locale }: PageLayoutProps) => {
       <main id="main-content" className="flex-1 pt-14" tabIndex={-1}>
         {children}
       </main>
-      <Footer />
+      {footer && <Footer />}
     </div>
   );
 };
