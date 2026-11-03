@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   Bold,
@@ -789,20 +789,17 @@ interface CodePaneProps {
 const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
   const tokens = tokenPalette(palette);
   const folds = foldableLines(segments.map((line) => line.map((segment) => segment.text).join("")));
-  /* `--fade-to` e a unica propriedade que `CSSProperties` nao conhece: e o token
-   * que o utilitario `fade-bottom` le para saber em que cor o degrade termina. */
-  const fadeTo = { "--fade-to": palette.editorBg } as CSSProperties;
   return (
-    /* `fade-bottom` e o mesmo degrade de continuidade que os paineis da secao de
-     * arquivos usam: o documento sempre passa da altura do painel, e sem ele a
-     * ultima linha visivel termina cortada ao meio, sem dizer que continua. O
-     * `--fade-to` e o fundo do editor do tema, e nao o do site: o degrade tem de
-     * sumir dentro do painel, senao vira uma faixa clara atravessada nele. */
+    /* Corte seco, como o app: a ultima linha visivel termina na borda do painel,
+     * sem degrade. O degrade de continuidade existia aqui e foi removido por
+     * decisao: um painel que imita o aplicativo nao pode inventar um efeito que
+     * o aplicativo nao tem — ele mede 0,05% de diferenca de pixel contra a
+     * captura real justamente porque nada e desenhado por cima do texto. O
+     * `overflow: hidden` tambem evita a armadilha de rolagem: a roda sobre a
+     * janela rola a pagina, nao um documento falso. */
     <div
       data-stage-part="editor-pane"
-      className="fade-bottom"
       style={{
-        ...fadeTo,
         flex: "1 1 0",
         minWidth: 0,
         minHeight: 0,
@@ -815,10 +812,7 @@ const CodePane = ({ palette, segments, activeLine, gutter }: CodePaneProps) => {
         lineHeight: "24px",
       }}
     >
-      <div
-        className="no-scrollbar"
-        style={{ height: "100%", overflowY: "auto", overflowX: "hidden" }}
-      >
+      <div style={{ height: "100%", overflow: "hidden" }}>
         <div style={{ padding: `${M.editor.contentPaddingY}px 0`, display: "flex", alignItems: "flex-start", minHeight: "100%" }}>
         {gutter ? (
           /* Duas colunas, como no app: o numero (25,5938) e a dobra (18,3906). A

@@ -91,12 +91,13 @@
 }
 
 /*
- * Paineis do palco e da secao de arquivos: rolam, mas nao desenham trilho.
+ * Paineis que rolam sem desenhar trilho: a lateral de Memorias e os paineis da
+ * secao de arquivos. `scrollbar-width: none` cobre Firefox,
+ * `::-webkit-scrollbar` cobre Chromium e Safari: uma barra de 8px dentro de uma
+ * janela simulada entrega o truque na hora.
  *
- * `scrollbar-width: none` cobre Firefox, `::-webkit-scrollbar` cobre Chromium e
- * Safari. A continuidade e mostrada pelo degradê de `fade-bottom`, nao por uma
- * barra: uma barra de 8px dentro de uma janela simulada entrega o truque na
- * hora.
+ * Nao vale para o painel de codigo: ele e a janela do aplicativo, e ali o app
+ * corta a ultima linha na borda, sem degradê e sem rolagem interna.
  */
 @utility no-scrollbar {
   scrollbar-width: none;
