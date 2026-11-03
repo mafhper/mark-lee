@@ -95,8 +95,25 @@ export interface HomeCopy {
     intro: string;
     views: Array<{ id: StageView; name: string; caption: string }>;
     note: string;
-    editorAlt: string;
-    memoriesAlt: string;
+    chrome: {
+      menus: string[];
+      workspace: string;
+      search: string;
+      saved: string;
+      entries: string;
+      properties: { record: string; schema: string; tags: string; file: string };
+      nav: {
+        newEntry: string;
+        registry: string;
+        byDay: string;
+        favorites: string;
+        tags: string;
+        ranges: string[];
+      };
+      listViews: string[];
+      metadata: string;
+      words: string;
+    };
   };
   files: {
     index: string;
@@ -119,8 +136,6 @@ export interface HomeCopy {
     text: string;
     note: string;
     sampleLabel: string;
-    previewTitle: string;
-    previewText: string;
   };
   code: {
     index: string;

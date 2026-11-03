@@ -39,6 +39,7 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
 
   /* Paper = superficie editorial; ink = texto; terracotta = acento raro. */
   --color-paper: oklch(0.932 0.008 106.6);
@@ -86,6 +87,58 @@
   width: 100%;
   max-width: 68rem;
   margin-inline: auto;
+}
+
+/*
+ * Paineis do palco e da secao de arquivos: rolam, mas nao desenham trilho.
+ *
+ * `scrollbar-width: none` cobre Firefox, `::-webkit-scrollbar` cobre Chromium e
+ * Safari. A continuidade e mostrada pelo degradê de `fade-bottom`, nao por uma
+ * barra: uma barra de 8px dentro de uma janela simulada entrega o truque na
+ * hora.
+ */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+@utility fade-bottom {
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 1;
+    height: 3.5rem;
+    pointer-events: none;
+    background-image: linear-gradient(to bottom, transparent, var(--fade-to, var(--color-stage)));
+  }
+}
+
+/* Gutter do painel de codigo: contador de CSS, nao texto no documento. */
+@utility stage-code {
+  counter-reset: stage-line;
+}
+
+@utility stage-line {
+  counter-increment: stage-line;
+  position: relative;
+  min-height: 1lh;
+  padding-left: 2.1rem;
+  &::before {
+    content: counter(stage-line);
+    position: absolute;
+    inset-block-start: 0;
+    left: 0;
+    width: 1.5rem;
+    text-align: right;
+    color: var(--stage-gutter, var(--color-stage-rule));
+  }
 }
 
 @utility label-mono {

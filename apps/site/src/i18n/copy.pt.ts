@@ -91,12 +91,12 @@ export const ptBRCopy: SiteCopy = {
           {
             id: "editor",
             name: "Editor",
-            caption: "O documento aberto na pasta, com edição Markdown e pré-visualização.",
+            caption: "O documento aberto na pasta: abas, árvore de arquivos e o Markdown numerado por linha.",
           },
           {
             id: "memories",
             name: "Memórias",
-            caption: "O mesmo arquivo reconhecido como registro e consultado por data.",
+            caption: "O mesmo arquivo reconhecido como registro: propriedades, título e seções, em leitura.",
           },
           {
             id: "source",
@@ -104,11 +104,26 @@ export const ptBRCopy: SiteCopy = {
             caption: "O texto como está no disco. O front-matter YAML é o que Memórias reconhece.",
           },
         ],
-        note: "Capturas do aplicativo. Editor e Memórias usam o mesmo registro de demonstração.",
-        editorAlt:
-          "Janela do Mark-Lee no Editor: árvore de arquivos do workspace à esquerda e o arquivo nebula-de-orion.md aberto no editor Markdown.",
-        memoriesAlt:
-          "Janela do Mark-Lee em Memórias: o registro de campo aberto em modo de leitura, com metadados do arquivo.",
+        note: "Recriação em código, não captura de tela: o texto é selecionável e editável nas três leituras.",
+        chrome: {
+          menus: ["Arquivo", "Ações", "Exibir"],
+          workspace: "Workspace",
+          search: "Pesquisar no workspace",
+          saved: "Salvo",
+          entries: "Registros recentes",
+          properties: { record: "Registro", schema: "Esquema", tags: "Tags", file: "Arquivo" },
+          nav: {
+            newEntry: "Novo registro",
+            registry: "Registros",
+            byDay: "Neste dia",
+            favorites: "Favoritos",
+            tags: "Tags",
+            ranges: ["Dia", "Semana", "Mês", "Todos"],
+          },
+          listViews: ["Lista", "Calendário", "Galeria", "Lugares"],
+          metadata: "Metadados",
+          words: "palavras",
+        },
       },
       files: {
         index: "02",
@@ -153,11 +168,8 @@ export const ptBRCopy: SiteCopy = {
         title: "A interface muda. Os arquivos não.",
         text:
           "Escolher um tema altera cores e leitura dentro do aplicativo. O conteúdo do arquivo permanece igual.",
-        note: "Quatro amostras aproximadas. O aplicativo inclui 12 temas.",
-        sampleLabel: "Amostra de leitura",
-        previewTitle: "Registro de campo",
-        previewText:
-          "Mudas transplantadas na semana anterior. Irrigação pela manhã; solo úmido às 15h. Voltar em duas semanas e comparar com as fotografias de hoje.",
+        note: "Os doze temas incluídos no aplicativo, com as cores declaradas no código.",
+        sampleLabel: "O mesmo registro em cada tema",
       },
       code: {
         index: "04",

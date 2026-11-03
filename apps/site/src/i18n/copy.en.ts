@@ -91,12 +91,12 @@ export const enUSCopy: SiteCopy = {
           {
             id: "editor",
             name: "Editor",
-            caption: "The document open inside its folder, with Markdown editing and preview.",
+            caption: "The document open inside its folder: tabs, file tree, and Markdown numbered by line.",
           },
           {
             id: "memories",
             name: "Memories",
-            caption: "The same file recognized as an entry and browsed by date.",
+            caption: "The same file recognized as an entry: properties, title, and sections, in reading mode.",
           },
           {
             id: "source",
@@ -104,11 +104,26 @@ export const enUSCopy: SiteCopy = {
             caption: "The text as it sits on disk. The YAML front matter is what Memories reads.",
           },
         ],
-        note: "Captures of the application. Editor and Memories show the same demo entry.",
-        editorAlt:
-          "Mark-Lee Editor window: the workspace file tree on the left and nebula-de-orion.md open in the Markdown editor.",
-        memoriesAlt:
-          "Mark-Lee Memories window: the field entry open in reading mode, with the file metadata beside it.",
+        note: "Recreated in code, not a screen capture: the text is selectable and editable in all three readings.",
+        chrome: {
+          menus: ["File", "Actions", "View"],
+          workspace: "Workspace",
+          search: "Search workspace",
+          saved: "Saved",
+          entries: "Recent entries",
+          properties: { record: "Entry", schema: "Schema", tags: "Tags", file: "File" },
+          nav: {
+            newEntry: "New entry",
+            registry: "Entries",
+            byDay: "On this day",
+            favorites: "Favorites",
+            tags: "Tags",
+            ranges: ["Day", "Week", "Month", "All"],
+          },
+          listViews: ["List", "Calendar", "Gallery", "Places"],
+          metadata: "Metadata",
+          words: "words",
+        },
       },
       files: {
         index: "02",
@@ -153,11 +168,8 @@ export const enUSCopy: SiteCopy = {
         title: "The interface changes. The files do not.",
         text:
           "Choosing a theme changes colors and reading inside the application. The file content stays the same.",
-        note: "Four approximate samples. The application ships 12 themes.",
-        sampleLabel: "Reading sample",
-        previewTitle: "Field entry",
-        previewText:
-          "Seedlings transplanted the week before. Watering in the morning; soil damp at 15h. Come back in two weeks and compare with today's photographs.",
+        note: "The twelve themes shipped with the application, using the colors declared in the code.",
+        sampleLabel: "The same entry in every theme",
       },
       code: {
         index: "04",

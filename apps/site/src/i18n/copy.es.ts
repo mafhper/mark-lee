@@ -91,12 +91,12 @@ export const esESCopy: SiteCopy = {
           {
             id: "editor",
             name: "Editor",
-            caption: "El documento abierto en su carpeta, con edición Markdown y vista previa.",
+            caption: "El documento abierto en su carpeta: pestañas, árbol de archivos y el Markdown numerado por línea.",
           },
           {
             id: "memories",
             name: "Memorias",
-            caption: "El mismo archivo reconocido como registro y consultado por fecha.",
+            caption: "El mismo archivo reconocido como registro: propiedades, título y secciones, en lectura.",
           },
           {
             id: "source",
@@ -104,11 +104,26 @@ export const esESCopy: SiteCopy = {
             caption: "El texto tal como está en el disco. El front-matter YAML es lo que Memorias reconoce.",
           },
         ],
-        note: "Capturas de la aplicación. Editor y Memorias usan el mismo registro de demostración.",
-        editorAlt:
-          "Ventana de Mark-Lee en el Editor: árbol de archivos del workspace a la izquierda y el archivo nebula-de-orion.md abierto en el editor Markdown.",
-        memoriesAlt:
-          "Ventana de Mark-Lee en Memorias: el registro de campo abierto en modo lectura, con los metadatos del archivo.",
+        note: "Recreación en código, no una captura de pantalla: el texto se puede seleccionar y editar en las tres lecturas.",
+        chrome: {
+          menus: ["Archivo", "Acciones", "Ver"],
+          workspace: "Workspace",
+          search: "Buscar en el workspace",
+          saved: "Guardado",
+          entries: "Registros recientes",
+          properties: { record: "Registro", schema: "Esquema", tags: "Etiquetas", file: "Archivo" },
+          nav: {
+            newEntry: "Nuevo registro",
+            registry: "Registros",
+            byDay: "En este día",
+            favorites: "Favoritos",
+            tags: "Etiquetas",
+            ranges: ["Día", "Semana", "Mes", "Todos"],
+          },
+          listViews: ["Lista", "Calendario", "Galería", "Lugares"],
+          metadata: "Metadatos",
+          words: "palabras",
+        },
       },
       files: {
         index: "02",
@@ -153,11 +168,8 @@ export const esESCopy: SiteCopy = {
         title: "La interfaz cambia. Los archivos no.",
         text:
           "Elegir un tema cambia colores y lectura dentro de la aplicación. El contenido del archivo sigue igual.",
-        note: "Cuatro muestras aproximadas. La aplicación incluye 12 temas.",
-        sampleLabel: "Muestra de lectura",
-        previewTitle: "Registro de campo",
-        previewText:
-          "Plantones trasplantados la semana anterior. Riego por la mañana; suelo húmedo a las 15h. Volver en dos semanas y comparar con las fotografías de hoy.",
+        note: "Los doce temas incluidos en la aplicación, con los colores declarados en el código.",
+        sampleLabel: "El mismo registro en cada tema",
       },
       code: {
         index: "04",

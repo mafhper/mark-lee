@@ -194,12 +194,14 @@ async function assertPerformanceBudgets(page, baseUrl) {
     if (/\.css(\?|$)/.test(url)) cssGzip += bytes;
   }
 
-  // Orcamento recalibrado quando a home passou a ser a pagina editorial
-  // completa (abertura, palco, arquivos, recursos, temas, codigo, download):
-  // a versao anterior da home media 101.515 B de JS gzip e a nova mede
-  // 103.522 B. O teto sobe para 120 KiB para nao transformar qualquer ajuste
-  // de uma linha em falha de build.
-  if (jsGzip > 120 * 1024) throw new Error(`Initial JS exceeds 120 KiB gzip: ${jsGzip} bytes.`);
+  // Orcamento de JS recalibrado por decisao do dono (2026-11-03): o teto e
+  // FOLGA DE SEGURANCA, nao meta. A meta de qualidade do site e Lighthouse 100
+  // e otimizacao continua; um teto apertado transformava qualquer linha nova em
+  // falha de build e empurrava o esforco para o lugar errado. Se este numero
+  // comecar a incomodar, o sinal e a medicao do Lighthouse — nao o teto.
+  if (jsGzip > 150 * 1024) {
+    throw new Error(`Initial JS exceeds the 150 KiB safety ceiling: ${jsGzip} bytes.`);
+  }
   if (cssGzip > 18_000) throw new Error(`Initial CSS exceeds 18 KB gzip: ${cssGzip} bytes.`);
 
   const heroResponse = await fetch(`${baseUrl}/assets/product/editor.png`);
