@@ -262,21 +262,33 @@ const TASK_IDS = ["pending", "inProgress", "completed", "cancelled"] as const;
  * a contagem por status). Pins fica preso no rodape, fora da area rolavel —
  * por isso ele nao rola junto com o resto.
  */
-const MemoriesSidebar = ({ palette, chrome }: { palette: Palette; chrome: StageChrome }) => (
+const MemoriesSidebar = ({
+  palette,
+  chrome,
+  stacked = false,
+}: {
+  palette: Palette;
+  chrome: StageChrome;
+  /** Corpo empilhado: a lateral ocupa a largura toda, ganha altura propria e
+   *  passa a fechar em baixo em vez de em cima da lista. */
+  stacked?: boolean;
+}) => (
   <nav
     aria-label={chrome.nav.journal}
     data-stage-part="memory-sidebar"
     style={{
       boxSizing: "border-box",
-      width: MEM.navWidth,
+      width: stacked ? "100%" : MEM.navWidth,
       flex: "0 0 auto",
       display: "flex",
       flexDirection: "column",
       minHeight: 0,
+      height: stacked ? STACK_SIDEBAR : undefined,
       overflow: "hidden",
       background: alpha(palette.ui, 0.25),
       color: palette.fg,
-      borderRight: `1px solid ${palette.border}`,
+      borderRight: stacked ? "none" : `1px solid ${palette.border}`,
+      borderBottom: stacked ? `1px solid ${palette.border}` : "none",
       fontFamily: "inherit",
     }}
   >
@@ -317,6 +329,9 @@ const MemoriesSidebar = ({ palette, chrome }: { palette: Palette; chrome: StageC
           alignItems: "center",
           justifyContent: "center",
           gap: MEM.primary.gap,
+          /* Empilhado a lateral tem a largura da janela; sem teto o botao vira
+           *  uma barra de 800px. O teto e o dobro da largura real da lateral. */
+          maxWidth: stacked ? 360 : undefined,
           marginBottom: MEM.primary.marginBottom,
           padding: `${MEM.primary.paddingY}px ${MEM.primary.paddingX}px`,
           borderRadius: MEM.primary.radius,
@@ -332,7 +347,15 @@ const MemoriesSidebar = ({ palette, chrome }: { palette: Palette; chrome: StageC
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{chrome.nav.newEntry}</span>
       </span>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${MEM.ghost.columns}, 1fr)`, gap: MEM.ghost.gap }}>
+      <div
+        style={{
+          display: "grid",
+          /* Empilhado, quatro botoes de icone esticados ate a largura da janela
+           *  viram quatro barras vazias. Ali eles mantem o passo do app. */
+          gridTemplateColumns: stacked ? "repeat(4, minmax(0, 56px))" : `repeat(${MEM.ghost.columns}, 1fr)`,
+          gap: MEM.ghost.gap,
+        }}
+      >
         {QUICK_ACTIONS.map(({ id, icon: Icon, size }) => (
           <span
             key={id}
@@ -604,19 +627,31 @@ const VIEW_ICONS: Record<(typeof VIEW_IDS)[number], LucideIcon> = {
   places: MapPin,
 };
 
-const RecordListPanel = ({ palette, chrome, locale }: { palette: Palette; chrome: StageChrome; locale: Locale }) => (
+const RecordListPanel = ({
+  palette,
+  chrome,
+  locale,
+  stacked = false,
+}: {
+  palette: Palette;
+  chrome: StageChrome;
+  locale: Locale;
+  stacked?: boolean;
+}) => (
   <section
     aria-label={chrome.nav.journal}
     data-stage-part="memory-list"
     style={{
       boxSizing: "border-box",
-      width: J.panelWidth,
+      width: stacked ? "100%" : J.panelWidth,
       flex: "0 0 auto",
       display: "flex",
       flexDirection: "column",
       minHeight: 0,
+      height: stacked ? STACK_LIST : undefined,
       overflow: "hidden",
-      borderRight: `1px solid ${palette.border}`,
+      borderRight: stacked ? "none" : `1px solid ${palette.border}`,
+      borderBottom: stacked ? `1px solid ${palette.border}` : "none",
       background: palette.bg,
       color: palette.fg,
     }}
@@ -1118,9 +1153,14 @@ const EntryPane = ({ palette, chrome, locale, compact }: { palette: Palette; chr
                 letterSpacing: J.entry.tracking,
                 textTransform: "uppercase",
                 color: alpha(palette.fg, J.entry.eyebrowAlpha),
+                /* Na leitura empilhada a caixa tem a largura do telefone: ali o
+                 *  texto quebra em vez de terminar em reticencias — o registro
+                 *  aberto e o conteudo essencial do palco, e um titulo cortado
+                 *  em "Nebul..." nao diz qual registro esta aberto. */
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                textOverflow: compact ? "clip" : "ellipsis",
+                whiteSpace: compact ? "normal" : "nowrap",
+                overflowWrap: "break-word",
               }}
             >
               {DEMO_JOURNAL.name} · {new Date(`${RECORD.date}T12:00:00`).toLocaleDateString(locale)}
@@ -1128,13 +1168,17 @@ const EntryPane = ({ palette, chrome, locale, compact }: { palette: Palette; chr
             <p
               style={{
                 margin: 0,
-                fontSize: J.entry.titleSize,
+                /* Na leitura empilhada a caixa tem a largura do telefone: ali o
+                 *  corpo desce um degrau (24 -> 20) para "Nebulosa" caber numa
+                 *  linha em vez de quebrar no meio da palavra. */
+                fontSize: compact ? 20 : J.entry.titleSize,
                 fontWeight: J.entry.titleWeight,
                 lineHeight: `${J.entry.titleLineHeight}px`,
                 letterSpacing: J.entry.titleTracking,
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                textOverflow: compact ? "clip" : "ellipsis",
+                whiteSpace: compact ? "normal" : "nowrap",
+                overflowWrap: "break-word",
               }}
             >
               {RECORD.title}
@@ -1195,8 +1239,31 @@ const STAGE_HEIGHT = 900;
 const STAGE_MIN_SCALED = 920;
 
 /**
+ * Altura da janela quando o desenho NAO cabe em escala (moldura estreita).
+ *
+ * Ali as colunas de Memorias nao tem 1240 para existir lado a lado, e o palco
+ * deixa de ser um desenho reduzido para ser a janela no tamanho natural com o
+ * corpo EMPILHADO — lateral, lista, leitura, a ordem do aplicativo. A caixa
+ * precisa de altura para as tres; o editor nao, e por isso as duas alturas sao
+ * diferentes: empilhar tres paineis e mais alto do que um painel de codigo.
+ */
+const STAGE_STACK_EDITOR = 736;
+const STAGE_STACK_MEMORIES = 1560;
+/** Reparte do corpo empilhado: a lateral e a lista tem altura propria e a
+ *  leitura fica com o resto (o app tambem da a ela o espaco que sobra).
+ *
+ *  As duas alturas sao escolhidas para o corte cair num limite de conteudo, e
+ *  nao no meio de uma linha: a lateral termina depois do segundo item de
+ *  Registros (44 + 88 + 221 + 203) e a lista depois do segundo registro de
+ *  Outubro (cabecalho + busca + 17 + 33,5 + 76 + 33,5 + 76). Assim o painel
+ *  empilhado le como painel, nao como recorte. */
+const STACK_SIDEBAR = 556;
+const STACK_LIST = 383;
+
+/**
  * A moldura do palco: um container que ocupa 100% do `measure` e um desenho de
- * 1440x900 escalado por `transform`.
+ * 1440x900 escalado por `transform` — ou, quando nao ha largura para a escala
+ * ser legivel, a janela no tamanho natural com o corpo empilhado.
  *
  * Escala e nao reflow, de proposito: reflowar para 1088 mudaria as quebras de
  * linha e as colunas do aplicativo (240/380 viram 57% da largura), que e
@@ -1209,9 +1276,12 @@ const STAGE_MIN_SCALED = 920;
  */
 const StageFrame = ({
   panelId,
+  stackedHeight,
   children,
 }: {
   panelId: string;
+  /** Altura da caixa quando o desenho vai no tamanho natural (empilhado). */
+  stackedHeight: number;
   children: ReactNode;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -1230,7 +1300,7 @@ const StageFrame = ({
 
   const scaled = width >= STAGE_MIN_SCALED;
   const scale = scaled ? width / STAGE_WIDTH : 1;
-  const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : 736;
+  const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : stackedHeight;
 
   return (
     <div
@@ -1245,7 +1315,7 @@ const StageFrame = ({
         data-stage-part="window-scaler"
         style={{
           width: scaled ? STAGE_WIDTH : width || "100%",
-          height: scaled ? STAGE_HEIGHT : 736,
+          height: scaled ? STAGE_HEIGHT : stackedHeight,
           transform: scaled ? `scale(${scale})` : undefined,
           transformOrigin: "top left",
         }}
@@ -1309,15 +1379,37 @@ const Stage = ({ locale }: StageProps) => {
    *    entrada ficava com 420 (dois paineis de 210) e a leitura virava uma
    *    coluna de cinco palavras por linha. Ali o app real tambem espreme, mas
    *    espremer no palco nao e fidelidade: e um print que ninguem consegue ler.
+   *
+   * Empilhar NAO e jogar coluna fora. A versao anterior mostrava so a entrada e
+   * sumia com a lateral e a lista — a hierarquia do aplicativo (lateral, lista,
+   * leitura) desaparecia justamente onde ela precisa ser lida de cima para
+   * baixo. Agora as tres descem na ordem do app, cada uma na largura toda, com
+   * altura propria (`STACK_SIDEBAR`, `STACK_LIST`) e a leitura com o resto.
    */
   const memoriesBody = ({ width }: WindowContext) => {
     const stacked = width > 0 && width < 1240;
+
+    if (!stacked) {
+      return (
+        <>
+          <MemoriesSidebar palette={PALETTE} chrome={chrome} />
+          <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} />
+          <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={false} />
+        </>
+      );
+    }
+
     return (
-      <>
-        {stacked ? null : <MemoriesSidebar palette={PALETTE} chrome={chrome} />}
-        {stacked ? null : <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} />}
-        <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={stacked} />
-      </>
+      <div
+        data-stage-part="memory-stack"
+        style={{ display: "flex", flexDirection: "column", width: "100%", minWidth: 0, minHeight: 0 }}
+      >
+        <MemoriesSidebar palette={PALETTE} chrome={chrome} stacked />
+        <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} stacked />
+        {/* A leitura so vira coluna unica quando nao ha largura para os dois
+         *  paineis dela; acima de 700 o par codigo|previa continua. */}
+        <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={width < 700} />
+      </div>
     );
   };
 
@@ -1383,11 +1475,15 @@ const Stage = ({ locale }: StageProps) => {
          *  comporta tres colunas em tamanho natural, o desenho e ESCALADO — nao
          *  reflowado: `transform: scale(medida/1440)` mantem exatamente as mesmas
          *  quebras de linha, as mesmas colunas (240/380/820) e as mesmas alturas,
-         *  so que proporcionais ao container. Abaixo de 920 a escala ficaria
-         *  ilegivel, e ali o palco volta ao tamanho natural com o layout compacto
-         *  do app (uma coluna, 16px), que e o que o aplicativo faz no telefone. */}
+         *  so que proporcionais ao container. Abaixo de 920 a escala deixaria o
+         *  cromo em ~7px, e ali o palco volta ao tamanho natural com o layout
+         *  compacto do app (uma coluna, 16px) — com as colunas de Memorias
+         *  EMPILHADAS, nunca descartadas. */}
         <div className="mt-6">
-          <StageFrame panelId={`painel-${view}`}>
+          <StageFrame
+            panelId={`painel-${view}`}
+            stackedHeight={view === "memories" ? STAGE_STACK_MEMORIES : STAGE_STACK_EDITOR}
+          >
             <AppWindow
               {...windowProps}
               mode={view === "memories" ? "memories" : "editor"}

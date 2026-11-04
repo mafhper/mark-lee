@@ -423,7 +423,11 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = fal
       style={{
         height: M.chrome.switcher.height,
         boxSizing: "border-box",
-        display: "flex",
+        /* Abaixo de 420px de janela o seletor de modo sai: os dois rotulos nao
+         *  cabem ao lado das acoes, e a leitura ja esta nomeada nas abas do
+         *  proprio site. Era o que este comentario dizia desde a medicao — e o
+         *  que o codigo nao fazia, cortando o seletor pela metade em 300px. */
+        display: veryNarrow ? "none" : "flex",
         alignItems: "center",
         flexShrink: 0,
         border: `${M.chrome.switcher.border}px solid ${palette.border}`,
@@ -460,8 +464,12 @@ const TitleBar = ({ palette, menus, modeNames, mode, brand, labels, narrow = fal
       })}
     </div>
 
-    <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />
-    <WindowControls palette={palette} />
+    {/* Em janela estreita os controles de janela saem — com eles ia embora a
+     *  reserva de 144px, que era o que empurrava a faixa de acoes para fora da
+     *  janela em 300px. O comentario do `TitleBar` ja dizia "controles saem";
+     *  agora o desenho concorda com ele. */}
+    {narrow ? null : <div style={{ width: M.chrome.windowControls.width, flexShrink: 0 }} aria-hidden="true" />}
+    {narrow ? null : <WindowControls palette={palette} />}
   </div>
 );
 
@@ -473,9 +481,12 @@ interface TabStripProps {
   palette: Palette;
   fileName: string;
   closeLabel: string;
+  /** Janela muito estreita: as acoes de criar e dividir saem para o nome do
+   *  arquivo nao virar "n...". */
+  veryNarrow?: boolean;
 }
 
-const TabStrip = ({ palette, fileName, closeLabel }: TabStripProps) => (
+const TabStrip = ({ palette, fileName, closeLabel, veryNarrow = false }: TabStripProps) => (
   <div
     data-stage-part="tab-strip"
     style={{
@@ -538,17 +549,21 @@ const TabStrip = ({ palette, fileName, closeLabel }: TabStripProps) => (
       </div>
     </div>
 
-    <div
-      aria-hidden="true"
-      style={{ width: 1, height: M.tabs.button, flex: "0 0 auto", margin: `0 ${M.tabs.paddingX}px`, background: palette.border }}
-    />
-    <ChromeButton part="tab-button-new" size={M.tabs.button} height={M.tabs.button} radius={M.tabs.buttonRadius}>
-      <Plus size={M.tabs.iconSize} strokeWidth={1.7} color={palette.fg} />
-    </ChromeButton>
-    <span style={{ width: M.tabs.gap, flex: "0 0 auto" }} />
-    <ChromeButton part="tab-button-split" size={M.tabs.button} height={M.tabs.button} radius={M.tabs.buttonRadius}>
-      <Columns2 size={M.tabs.iconSize} strokeWidth={1.7} color={palette.fg} />
-    </ChromeButton>
+    {veryNarrow ? null : (
+      <>
+        <div
+          aria-hidden="true"
+          style={{ width: 1, height: M.tabs.button, flex: "0 0 auto", margin: `0 ${M.tabs.paddingX}px`, background: palette.border }}
+        />
+        <ChromeButton part="tab-button-new" size={M.tabs.button} height={M.tabs.button} radius={M.tabs.buttonRadius}>
+          <Plus size={M.tabs.iconSize} strokeWidth={1.7} color={palette.fg} />
+        </ChromeButton>
+        <span style={{ width: M.tabs.gap, flex: "0 0 auto" }} />
+        <ChromeButton part="tab-button-split" size={M.tabs.button} height={M.tabs.button} radius={M.tabs.buttonRadius}>
+          <Columns2 size={M.tabs.iconSize} strokeWidth={1.7} color={palette.fg} />
+        </ChromeButton>
+      </>
+    )}
   </div>
 );
 
@@ -915,6 +930,9 @@ const StatusBar = ({ palette, fileName, saved, draft, narrow = false, view = "ed
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
+      /* O vao entre os dois grupos e o que impede "Salvo" de encostar em
+       *  "1 tabs" na janela estreita: `space-between` sozinho cola os dois. */
+      gap: M.status.gap,
       padding: `0 ${M.status.paddingX}px`,
       background: palette.ui,
       color: palette.fg,
@@ -924,7 +942,7 @@ const StatusBar = ({ palette, fileName, saved, draft, narrow = false, view = "ed
       lineHeight: `${M.status.lineHeight}px`,
     }}
   >
-    <div style={{ display: "flex", alignItems: "center", gap: M.status.gap, minWidth: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: M.status.gap, minWidth: 0, overflow: "hidden" }}>
       <span data-stage-part="status-file" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName}</span>
       <span
         data-stage-part="status-chip"
@@ -1084,10 +1102,10 @@ export const AppWindow = ({
    * Abaixo de 720px a lateral do editor sai (como no app, que a colapsa) e
    * abaixo de 640px saem os menus, o nome do produto e os controles de janela —
    * sem isso o cromo fica cortado em vez de encolher, que e o defeito que a
-   * captura em 390 pega. */
+   * captura em 390 pega. Abaixo de 420px sai tambem o seletor de modo. */
   const compact = width > 0 && width < 720;
   const narrow = width > 0 && width < 640;
-  const veryNarrow = width > 0 && width < 330;
+  const veryNarrow = width > 0 && width < 420;
   const body = typeof children === "function" ? children({ width, compact, narrow }) : children;
 
   return (
@@ -1129,7 +1147,7 @@ export const AppWindow = ({
               <WorkspaceSidebar palette={palette} rows={doc.tree} workspace={workspace} search={search} />
             )}
             <div style={{ flex: "1 1 0", minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
-              <TabStrip palette={palette} fileName={doc.fileName} closeLabel={closeLabel} />
+              <TabStrip palette={palette} fileName={doc.fileName} closeLabel={closeLabel} veryNarrow={veryNarrow} />
               <CodePane palette={palette} segments={segments} activeLine gutter />
             </div>
           </>
