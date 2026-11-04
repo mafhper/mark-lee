@@ -1276,10 +1276,13 @@ const STACK_LIST = 383;
  */
 const StageFrame = ({
   panelId,
+  tabId,
   stackedHeight,
   children,
 }: {
   panelId: string;
+  /** Aba que nomeia o painel — `aria-controls` da aba aponta para `panelId`. */
+  tabId: string;
   /** Altura da caixa quando o desenho vai no tamanho natural (empilhado). */
   stackedHeight: number;
   children: ReactNode;
@@ -1303,24 +1306,52 @@ const StageFrame = ({
   const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : stackedHeight;
 
   return (
+    /* Tres camadas com papeis distintos, e a separacao e o desenho:
+     *  `stage-focus` recorta (o halo sangra 48px e morre no gutter, sem cruzar a
+     *  regua), `stage-focus__zoom` escala (nunca o `window-scaler`, que ja gasta
+     *  o `transform` na reducao de 1440) e `window-frame` e a janela.
+     *  `data-stage-scaled` publica a decisao de empilhamento para o CSS: a janela
+     *  empilhada nao cresce. */
     <div
-      ref={ref}
-      data-stage-part="window-frame"
-      style={{ width: "100%", height, overflow: "hidden", borderRadius: APP_METRICS.windowRadius }}
-      className="shadow-[0_20px_50px_-30px_rgba(0,0,0,0.55)]"
+      className="stage-focus"
+      data-stage-part="stage-focus"
+      data-stage-scaled={scaled ? "true" : "false"}
     >
-      <div
-        id={panelId}
-        role="tabpanel"
-        data-stage-part="window-scaler"
-        style={{
-          width: scaled ? STAGE_WIDTH : width || "100%",
-          height: scaled ? STAGE_HEIGHT : stackedHeight,
-          transform: scaled ? `scale(${scale})` : undefined,
-          transformOrigin: "top left",
-        }}
-      >
-        {children}
+      <div className="stage-focus__zoom">
+        <span className="stage-focus__halo" aria-hidden="true" />
+        <span
+          className="stage-focus__shade"
+          aria-hidden="true"
+          /* O raio da camada de sombra e o raio da janela: mesma fonte, para a
+           *  sombra nunca "descolar" no canto. */
+          style={{ borderRadius: APP_METRICS.windowRadius }}
+        />
+        <div
+          ref={ref}
+          data-stage-part="window-frame"
+          style={{ width: "100%", height, overflow: "hidden", borderRadius: APP_METRICS.windowRadius }}
+          className="stage-focus__frame shadow-[0_20px_50px_-30px_rgba(0,0,0,0.55)]"
+        >
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={tabId}
+            /* O painel nao tem elemento focavel dentro — a pratica WAI-ARIA manda
+             *  dar `tabindex="0"` a ele. E o que da paridade de teclado ao efeito
+             *  de concentracao: `:focus-within` so existe se algo la dentro puder
+             *  receber o foco. */
+            tabIndex={0}
+            data-stage-part="window-scaler"
+            style={{
+              width: scaled ? STAGE_WIDTH : width || "100%",
+              height: scaled ? STAGE_HEIGHT : stackedHeight,
+              transform: scaled ? `scale(${scale})` : undefined,
+              transformOrigin: "top left",
+            }}
+          >
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1482,6 +1513,7 @@ const Stage = ({ locale }: StageProps) => {
         <div className="mt-6">
           <StageFrame
             panelId={`painel-${view}`}
+            tabId={`aba-${view}`}
             stackedHeight={view === "memories" ? STAGE_STACK_MEMORIES : STAGE_STACK_EDITOR}
           >
             <AppWindow

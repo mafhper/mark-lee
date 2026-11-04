@@ -59,6 +59,11 @@
   --color-stage-muted: oklch(0.69 0.014 159.7);
   --color-stage-rule: oklch(0.36 0.012 180);
   --color-stage-accent: oklch(0.7 0.115 42);
+
+  /* Easing do modo de concentracao do palco: acelera e para longo no fim, para
+   * o crescimento assentar sem "socar". Token proprio — nao e o `ease` global,
+   * e troca-lo muda so este efeito. */
+  --ease-stage-focus: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /*
@@ -165,4 +170,122 @@
   letter-spacing: -0.03em;
   line-height: 1;
   text-wrap: balance;
+}
+
+/*
+ * Modo de concentracao do palco.
+ *
+ * Apontar para a janela (ou chegar nela de teclado) concentra: a janela cresce
+ * 1,8%, ganha halo de acento atras e uma sombra propria; sair devolve tudo.
+ *
+ * As cinco regras que o desenho impoe, e que explicam cada linha abaixo:
+ *
+ *  1. A escala vive no INVOLUCRO EXTERNO. O `window-scaler` ja carrega o
+ *     `transform: scale()` que reduz o desenho de 1440 ao container; somar outra
+ *     escala nele quebraria a origem `top left` e a medida que decide empilhar.
+ *  2. Janela empilhada (moldura estreita) NAO escala: ali o desenho esta no
+ *     tamanho natural e crescer 1,8% levaria a janela para dentro do gutter.
+ *     Halo e sombra continuam — o estado de concentracao nao some, so nao incha.
+ *  3. So `transform` e `opacity` animam. Sombra mora em camada propria e aparece
+ *     por opacidade: interpolar `box-shadow` repinta a caixa a cada quadro.
+ *  4. O halo sangra 48px e morre no `overflow: clip` do grupo. A folga lateral e
+ *     o gutter do `measure` (24/40), entao a sangria encosta na regua e nunca a
+ *     cruza. A folga de baixo e maior porque a sombra alcanca 64px.
+ *  5. `will-change` so existe durante o efeito: promocao permanente de uma peca
+ *     de 1000x900 custa memoria de GPU por nada.
+ */
+.stage-focus {
+  /* Folga do recorte, medida no palco: 24 acima (o `mt-6` da secao), 64 abaixo
+   * (alcance da sombra de concentracao) e o gutter do `measure` nas laterais. */
+  --stage-focus-top: 24px;
+  --stage-focus-side: 24px;
+  --stage-focus-bottom: 64px;
+  --stage-focus-bleed: 48px;
+
+  position: relative;
+  /* Contexto de empilhamento proprio: halo e sombra ficam abaixo da janela e,
+   * por consequencia, abaixo do titulo e das legendas que vem depois. */
+  z-index: 0;
+  padding: var(--stage-focus-top) var(--stage-focus-side) var(--stage-focus-bottom);
+  margin: calc(-1 * var(--stage-focus-top)) calc(-1 * var(--stage-focus-side))
+    calc(-1 * var(--stage-focus-bottom));
+  overflow: clip;
+  /* A folga existe para o halo, nao para o ponteiro: so a janela e alvo. */
+  pointer-events: none;
+}
+
+/* `lg:px-10` do `measure`: a folga lateral acompanha o gutter real. */
+@media (min-width: 64rem) {
+  .stage-focus {
+    --stage-focus-side: 40px;
+  }
+}
+
+/* O invólucro que escala. Ele NAO e o recorte de proposito: escalado, o recorte
+ *  andaria ~10px para fora e o halo passaria a cruzar a regua. Separado, o
+ *  recorte fica parado no gutter e a janela cresce dentro dele. */
+.stage-focus__zoom {
+  position: relative;
+  /* Saida: 240ms sem espera. Reverter tarde parece travamento. */
+  transition: transform 240ms var(--ease-stage-focus);
+}
+
+.stage-focus__halo,
+.stage-focus__shade {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 240ms var(--ease-stage-focus);
+}
+
+/* Halo radial atras da janela, com os 48px de sangria. */
+.stage-focus__halo {
+  inset: calc(-1 * var(--stage-focus-bleed));
+  background: radial-gradient(
+    60% 55% at 50% 42%,
+    color-mix(in oklab, var(--color-stage-accent) 16%, transparent),
+    transparent 70%
+  );
+}
+
+/* Sombra de concentracao: camada da janela, mesmo raio, so opacidade animada. */
+.stage-focus__shade {
+  inset: 0;
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.4), 0 24px 48px -16px rgba(2, 6, 23, 0.5),
+    0 48px 96px -32px rgba(2, 6, 23, 0.38);
+}
+
+.stage-focus__frame {
+  position: relative;
+  pointer-events: auto;
+}
+
+/* Anel de foco de teclado na moldura: o `outline` do painel focado nasce dentro
+ * do `overflow: hidden` da janela e nao aparece. O estado de concentracao
+ * mostra que algo mudou; o anel mostra POR QUE mudou. */
+.stage-focus:has(:focus-visible) .stage-focus__frame {
+  outline: 2px solid var(--color-stage-accent);
+  outline-offset: 3px;
+}
+
+/* Toque e `prefers-reduced-motion` ficam estaticos: sem hover, sem escala, sem
+ * halo, sem transicao — as regras de estado simplesmente nao existem ali. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .stage-focus:is(:hover, :focus-within) .stage-focus__zoom {
+    /* Entrada: 60ms de dwell para atravessar a janela de passagem nao
+     * concentrar, e 220ms para chegar. */
+    transition: transform 220ms var(--ease-stage-focus) 60ms;
+  }
+
+  .stage-focus[data-stage-scaled="true"]:is(:hover, :focus-within) .stage-focus__zoom {
+    transform: scale(1.018);
+    will-change: transform;
+  }
+
+  .stage-focus:is(:hover, :focus-within) .stage-focus__halo,
+  .stage-focus:is(:hover, :focus-within) .stage-focus__shade {
+    opacity: 1;
+    transition: opacity 220ms var(--ease-stage-focus) 60ms;
+    will-change: opacity;
+  }
 }
