@@ -47,6 +47,14 @@ or locked into a proprietary format.
 - **12 themes** — light, dark, midnight, sepia, nord, synthwave, neomatrix, forest,
   coffee, golden, firenight, terminal
 - **Auto-save** — configurable interval, with unsaved changes marked per tab
+- **Updates in place** — the app checks the release feed, shows the version and its
+  notes, and downloads or installs only when you ask; artifacts are signed, and an
+  invalid signature is refused; before restarting, it asks you to save, discard, or
+  cancel documents with pending work
+- **Safe closing and recovery** — closing a tab with pending work offers Save, Discard,
+  and Cancel, and Cancel keeps everything; a change made outside the app offers Reload,
+  Compare, Save copy, and Cancel, and nothing is overwritten silently; unsaved drafts
+  are kept on disk and come back on the next launch
 - **pt-BR · en-US · es-ES** — the interface ships in three languages
 
 ## Memórias
@@ -59,7 +67,8 @@ A local-first journaling mode over plain Markdown with YAML front-matter.
   numeric/boolean/text trackers, summarized by day, week, or month
 - **Reading view** — a blog-style layout with prev/next paging, respecting the theme
 - **Pomodoro** — a floating timer with an optional read-only break lock
-- **Resilient** — atomic writes, backups, CRLF-tolerant import, and an asset path guard
+- **Resilient** — the same safe write path serves the Editor and Memórias, with atomic
+  writes, backups, CRLF-tolerant import, and an asset path guard
 - **Quick actions** — right-click any entry to open, favorite, duplicate, edit, or delete
 
 ## Download
