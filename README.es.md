@@ -43,13 +43,21 @@ atrapado en un formato propietario.
   busqueda y snippets mantienen el contexto a mano
 - **Dividido** — edita y lee el documento renderizado a la vez, con desplazamiento
   sincronizado
-- **Modo Zen** — la interfaz desaparece dejas de mover el raton
+- **Modo Zen** — la interfaz desaparece cuando dejas de mover el raton
 - **Paleta de comandos** — toda accion alcanzable con el teclado
 - **Exportacion a PDF** — disposicion A4 con tipografia limpia
 - **12 temas** — light, dark, midnight, sepia, nord, synthwave, neomatrix, forest,
   coffee, golden, firenight, terminal
 - **Guardado automatico** — intervalo configurable, con los cambios sin guardar marcados
   en cada pestana
+- **Actualizacion integrada** — la aplicacion consulta el feed de releases, muestra la
+  version y las notas, y solo descarga o instala cuando tu lo pides; los artefactos
+  estan firmados, y una firma invalida se rechaza; antes de reiniciar, pide guardar,
+  descartar o cancelar los documentos con trabajo pendiente
+- **Cierre seguro y recuperacion** — cerrar una pestana con trabajo pendiente ofrece
+  Guardar, Descartar y Cancelar, y Cancelar lo conserva todo; un cambio hecho fuera de la
+  aplicacion ofrece Recargar, Comparar, Guardar copia y Cancelar, y nada se sobrescribe
+  en silencio; los borradores sin guardar quedan en el disco y vuelven al abrir de nuevo
 - **pt-BR · en-US · es-ES** — la interfaz viene en tres idiomas
 
 ## Memorias
@@ -64,8 +72,9 @@ Un modo local-first de diario sobre Markdown plano con front-matter YAML.
 - **Vista de lectura** — disposicion de blog con navegacion anterior/siguiente, respetando
   el tema
 - **Pomodoro** — temporizador flotante con un bloqueo opcional de descanso
-- **Resiliente** — escrituras atomicas, copias de seguridad, importacion tolerante a CRLF
-  y proteccion de la ruta de recursos
+- **Resiliente** — la misma ruta de escritura segura sirve al Editor y a Memorias, con
+  escrituras atomicas, copias de seguridad, importacion tolerante a CRLF y proteccion de
+  la ruta de recursos
 - **Acciones rapidas** — clic derecho en cualquier entrada para abrir, marcar como
   favorita, duplicar, editar o eliminar
 
