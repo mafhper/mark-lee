@@ -1,0 +1,19 @@
+/*
+ * Cal Sans Text UI — a fonte da interface do aplicativo, a mesma que a janela
+ * recriada no palco tem de usar.
+ *
+ * O aplicativo a empacota em `public/fonts/` e a declara em `src/index.css` com
+ * o eixo `wght` fixado no corte de Text UI. Aqui os bytes sao os mesmos
+ * (copiados, nao aproximados): sem o arquivo, a recriacao cairia em Segoe UI, e
+ * a diferenca de metrica apareceria nas larguras de menu, aba e rotulo — que e
+ * exatamente o que a medicao usa para provar fidelidade.
+ *
+ * Licenca SIL OFL 1.1 em `./assets/fonts/OFL.txt`.
+ */
+@font-face {
+  font-family: "Cal Sans Text UI";
+  src: url("../assets/fonts/CalSansTextUI-var.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

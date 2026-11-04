@@ -11,16 +11,12 @@ export type PageKey =
   | "downloads";
 
 export type DownloadPlatform = "windows" | "macos" | "linux";
-export type HomeSectionId = "dois-contextos" | "editor" | "memorias" | "local";
+export type StageView = "editor" | "memories";
+export type HomeSectionId = "leituras" | "arquivo" | "temas";
 
-export const HOME_SECTION_IDS: readonly HomeSectionId[] = [
-  "dois-contextos",
-  "editor",
-  "memorias",
-  "local",
-];
+export const HOME_SECTION_IDS: readonly HomeSectionId[] = ["leituras", "arquivo", "temas"];
 
-export const PRIMARY_HOME_SECTIONS = ["editor", "memorias", "local"] as const;
+export const PRIMARY_HOME_SECTIONS = ["leituras", "arquivo", "temas"] as const;
 
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
@@ -85,44 +81,117 @@ export interface CtaCopy {
 export interface HomeCopy {
   hero: {
     label: string;
-    title: string;
+    titleLines: string[];
+    accentLine: number;
     description: string;
     primaryCta: string;
     secondaryCta: string;
+    facts: Array<[string, string]>;
+  };
+  stage: {
+    index: string;
+    label: string;
+    title: string;
+    intro: string;
+    views: Array<{ id: StageView; name: string; caption: string }>;
+    chrome: {
+      menus: string[];
+      workspace: string;
+      search: string;
+      saved: string;
+      /** O selo da barra de status quando a entrada aberta e um rascunho. */
+      draft: string;
+      properties: { record: string; schema: string; tags: string; file: string };
+      /** A lateral de Memorias: acordeoes do caderno aberto. */
+      nav: {
+        newEntry: string;
+        /** "Cadernos" — o acordeao do cartao de capa. */
+        journal: string;
+        sections: {
+          entries: string;
+          today: string;
+          favorites: string;
+          tags: string;
+          tasks: string;
+          pins: string;
+        };
+      };
+      /** O seletor de vistas do painel do meio. */
+      views: {
+        list: string;
+        calendar: string;
+        gallery: string;
+        places: string;
+      };
+      /** O placeholder do campo de busca da lista de registros. */
+      listSearch: string;
+      tasks: {
+        pending: string;
+        inProgress: string;
+        completed: string;
+        cancelled: string;
+        empty: string;
+      };
+      pins: {
+        day: string;
+        week: string;
+        month: string;
+        all: string;
+        /** "Pins" como sufixo do chip de contagem ("3 Pins"). */
+        count: string;
+      };
+      /** O botao que abre as linhas escondidas de tags. */
+      more: string;
+      /** O sufixo da contagem de fotos ("1 foto"). */
+      photos: string;
+      /** A faixa de acoes do topo, que muda com a leitura. */
+      actions: {
+        formatting: string;
+        newEntry: string;
+        calendar: string;
+        gallery: string;
+        places: string;
+      };
+      metadata: string;
+      words: string;
+    };
+  };
+  files: {
+    index: string;
+    label: string;
+    title: string;
+    text: string;
+    caveat: string;
+    folderLabel: string;
     note: string;
   };
-  continuity: {
+  tools: {
     label: string;
     title: string;
-    description: string;
-    editorLabel: string;
-    memoriesLabel: string;
+    rows: Array<{ n: string; name: string; text: string }>;
   };
-  editor: {
+  themes: {
+    index: string;
     label: string;
     title: string;
-    description: string;
-    highlights: string[];
+    text: string;
+    note: string;
+    sampleLabel: string;
   };
-  memories: {
+  code: {
+    index: string;
     label: string;
     title: string;
-    description: string;
-    highlights: string[];
+    text: string;
+    stack: Array<[string, string]>;
+    cta: string;
   };
-  localProof: {
+  download: {
     label: string;
-    title: string;
-    description: string;
-    folderLabel: string;
-    files: string[];
-    principles: Array<{ title: string; description: string }>;
-  };
-  closingCta: {
-    title: string;
-    description: string;
-    primaryCta: string;
-    secondaryCta: string;
+    cta: string;
+    formats: Record<DownloadPlatform, string>;
+    license: string;
+    source: string;
   };
 }
 
@@ -306,6 +375,9 @@ export interface SiteCopy {
     editor: string;
     memories: string;
     localFirst: string;
+    product: string;
+    files: string;
+    customization: string;
     primaryAriaLabel: string;
     mobileAriaLabel: string;
   };

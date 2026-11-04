@@ -20,11 +20,12 @@ describe("promo-site contract", () => {
       });
       expect(copy.pages.home).toMatchObject({
         hero: expect.any(Object),
-        continuity: expect.any(Object),
-        editor: expect.any(Object),
-        memories: expect.any(Object),
-        localProof: expect.any(Object),
-        closingCta: expect.any(Object),
+        stage: expect.any(Object),
+        files: expect.any(Object),
+        tools: expect.any(Object),
+        themes: expect.any(Object),
+        code: expect.any(Object),
+        download: expect.any(Object),
       });
     }
   });
@@ -42,7 +43,7 @@ describe("promo-site contract", () => {
     ).getPageMeta;
 
     expect(typeof homeSectionPath).toBe("function");
-    expect(homeSectionPath("pt-BR", "memorias")).toBe("/pt-BR#memorias");
+    expect(homeSectionPath("pt-BR", "temas")).toBe("/pt-BR#temas");
     expect(getPageMeta("en-US", "home")).toMatchObject({
       title: expect.stringContaining("Mark-Lee"),
       description: expect.stringContaining("Memories"),

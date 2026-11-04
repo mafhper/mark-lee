@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import logo from "@/assets/logo-light.svg";
+import logo from "@/assets/logo-paper-tile.svg";
 import {
   DEFAULT_LOCALE,
   getCopy,
@@ -14,6 +14,8 @@ const Footer = () => {
   const copy = getCopy(locale);
 
   return (
+    // A placa (V2) e a variante que sobrevive no escuro: o glifo fica em 15:1
+    // e a placa se dissolve. A marca solta (V1) vai no header, sobre paper.
     <footer className="border-t border-border/50 bg-background">
       <div className="container py-16">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-6">
