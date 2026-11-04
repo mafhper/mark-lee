@@ -67,8 +67,9 @@
 }
 
 /*
- * Margens: a pauta do papel e a regua da margem. A superficie estatica e o
- * unico estado desta versao — sem canvas, sem WebGL.
+ * Margens: a pauta do papel e a regua da margem. A superficie e estatica; a
+ * unica coisa que se move neste arquivo e o veu do modo de concentracao, e ele
+ * e canvas 2D — nada de WebGL.
  */
 @utility margins-paper {
   background-image: repeating-linear-gradient(
@@ -176,9 +177,10 @@
  * Modo de concentracao do palco.
  *
  * Apontar para a janela (ou chegar nela de teclado) concentra: a janela cresce
- * 1,8% e ganha uma sombra em camadas; sair devolve tudo.
+ * 1,8%, ganha uma sombra em camadas — e um VEU cobre a viewport inteira, com o
+ * campo de glifos, os brilhos e as ondas que o `StageVeil` desenha.
  *
- * As quatro regras que o desenho impoe, e que explicam cada linha abaixo:
+ * As cinco regras que o desenho impoe, e que explicam cada linha abaixo:
  *
  *  1. A escala vive no INVOLUCRO EXTERNO. O `window-scaler` ja carrega o
  *     `transform: scale()` que reduz o desenho de 1440 ao container; somar outra
@@ -190,20 +192,29 @@
  *     por opacidade: interpolar `box-shadow` repinta a caixa a cada quadro.
  *  4. `will-change` so existe durante o efeito: promocao permanente de uma peca
  *     de 1000x900 custa memoria de GPU por nada.
+ *  5. O veu mora DENTRO do `stage-focus` porque e ele quem decide o
+ *     empilhamento — e o `z-index` dele e FIXO, nao ligado ao hover. Se o
+ *     contexto descesse junto com o ponteiro, as secoes seguintes voltariam na
+ *     frente do veu durante os 280ms do fade de saida, e o efeito morreria com
+ *     um corte. Acima de 60 so o cabecalho (80) e o skip-link (100), que vivem
+ *     no topo do documento, fora da area do palco.
  */
 .stage-focus {
   /* Container comum: sem padding, margem negativa nem `overflow: clip` — a
    *  folga que existia aqui era para a sangria do halo e so servia para cortar
    *  a sombra da janela. O efeito que resta e o zoom de 1,018, a sombra em
-   *  camada propria e o anel de foco de teclado. */
+   *  camada propria, o veu de viewport inteira e o anel de foco de teclado. */
   position: relative;
-  z-index: 0;
+  z-index: 60;
 }
 
 /* O involucro que escala. Ele NAO e o recorte de proposito: um recorte escalado
- *  andaria ~10px para fora do lugar e levaria a sombra junto. */
+ *  andaria ~10px para fora do lugar e levaria a sombra junto. O `z-index` o poe
+ *  acima do veu: a janela continua nitida, centralizada e na frente do que a
+ *  cobre. */
 .stage-focus__zoom {
   position: relative;
+  z-index: 1;
   /* Saida: 240ms sem espera. Reverter tarde parece travamento. */
   transition: transform 240ms var(--ease-stage-focus);
 }
@@ -225,6 +236,46 @@
 .stage-focus__frame {
   position: relative;
   pointer-events: auto;
+}
+
+/*
+ * O veu. `position: fixed; inset: 0` = viewport inteira, acima e abaixo do
+ * palco; `pointer-events: none` = ele cobre e nao captura, entao o ponteiro
+ * nunca "entra" nele — quem segura o estado e a janela, e sair dela desliga
+ * tudo. Um veu que captura o ponteiro se auto-sustentaria para sempre.
+ *
+ * O fundo e um gradiente, nao um `backdrop-filter`: embacar o que esta atras
+ * custa ler a tela inteira a cada quadro, e aqui o que se quer e escurecer.
+ */
+.stage-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  /*
+   * O veu escurece de verdade, inclusive o proprio palco: um degrade escuro
+   * (mais fundo nas bordas) sobre o que esta atras. A 74% no centro e 94% na
+   * borda, o hero claro vira silhueta e a secao escura fica mais funda ainda —
+   * e o que faz o "isolamento" ser visivel acima E abaixo da janela, e nao so
+   * um tom ligeiramente diferente.
+   */
+  background: radial-gradient(
+    120% 90% at 50% 38%,
+    oklch(0.19 0.012 186 / 0.74),
+    oklch(0.13 0.01 184 / 0.88) 58%,
+    oklch(0.1 0.008 184 / 0.94)
+  );
+  /* Saida: 280ms sem espera — reverter tarde parece travamento. */
+  transition: opacity 280ms var(--ease-stage-focus);
+}
+
+.stage-veil__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* Anel de foco de teclado na moldura: o `outline` do painel focado nasce dentro
@@ -253,5 +304,36 @@
     opacity: 1;
     transition: opacity 220ms var(--ease-stage-focus) 60ms;
     will-change: opacity;
+  }
+
+  .stage-focus:is(:hover, :focus-within) .stage-veil {
+    opacity: 1;
+    transition: opacity 320ms var(--ease-stage-focus) 60ms;
+  }
+}
+
+/*
+ * Movimento reduzido: o veu EXISTE e continua isolando a view, mas sem
+ * movimento — os glifos ficam na posicao base e as ondas nao acontecem (o
+ * `StageVeil` desenha um quadro so e nao abre laco). A decisao e nao abrir mao
+ * do isolamento: o que o modo reduzido pede e ausencia de movimento, nao
+ * ausencia da funcao.
+ */
+@media (hover: hover) and (prefers-reduced-motion: reduce) {
+  .stage-veil {
+    /* Sem transicao nos dois sentidos: o modo reduzido nao anima nem a saida. */
+    transition: none;
+  }
+
+  .stage-focus:is(:hover, :focus-within) .stage-veil {
+    opacity: 1;
+  }
+}
+
+/* Toque: sem efeito. O CSS esconde o veu e o `StageVeil` nem registra os
+ * listeners — celular nao paga por um efeito que nao existe ali. */
+@media (hover: none) {
+  .stage-veil {
+    display: none;
   }
 }

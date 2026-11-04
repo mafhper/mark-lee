@@ -26,6 +26,7 @@ import {
   Tag,
 } from "lucide-react";
 import SectionHead from "@/aurora/SectionHead";
+import StageVeil from "@/aurora/StageVeil";
 import { APP_METRICS, STAGE_APP_THEME } from "@/aurora/app-metrics";
 import { AppWindow, CodePane, WindowContext } from "@/aurora/app-window";
 import { Palette, alpha, paletteOf, tokenize } from "@/aurora/app-window-tokens";
@@ -1304,7 +1305,8 @@ const StageFrame = ({
   const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : stackedHeight;
 
   return (
-    /* Duas camadas com papeis distintos, e a separacao e o desenho:
+    /* Tres camadas com papeis distintos, e a separacao e o desenho:
+     *  `stage-veil` cobre a viewport inteira (o modo de concentracao),
      *  `stage-focus__zoom` escala (nunca o `window-scaler`, que ja gasta o
      *  `transform` na reducao de 1440) e `window-frame` e a janela.
      *  `data-stage-scaled` publica a decisao de empilhamento para o CSS: a janela
@@ -1314,6 +1316,7 @@ const StageFrame = ({
       data-stage-part="stage-focus"
       data-stage-scaled={scaled ? "true" : "false"}
     >
+      <StageVeil frameRef={ref} />
       <div className="stage-focus__zoom">
         <span
           className="stage-focus__shade"
