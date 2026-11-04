@@ -1,6 +1,7 @@
 mod commands;
 pub mod documents;
 mod watcher;
+mod window_bounds;
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -33,6 +34,13 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        /* A guarda **precisa** vir depois do `window-state`: os hooks
+           `on_window_ready` rodam na ordem de registro, e o ajuste só faz
+           sentido sobre a geometria que o restore já aplicou. Sozinho, o plugin
+           reabre a janela com a altura salva sem olhar a área de trabalho — uma
+           janela encaixada com Aero Snap volta com a base sob a barra de
+           tarefas. */
+        .plugin(window_bounds::plugin())
         /* Updater assinado (ML-H06). O plugin NÃO oferece `on_before_exit`
            registrável daqui: `tauri_plugin_updater::Builder` só tem target,
            pubkey, installer_args, headers e version comparator. O hook existe em
