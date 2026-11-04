@@ -129,6 +129,43 @@ async function assertHomeContract(page, baseUrl) {
   if (stageTabNames.join("|") !== "Editor|Memórias") {
     throw new Error(`Unexpected stage tabs: ${stageTabNames.join("|")}`);
   }
+
+  await assertHeaderBaseline(page);
+}
+
+async function assertHeaderBaseline(page) {
+  /* Uma linha de base só para os quatro grupos do cabeçalho. O flex centraliza
+   * caixas, e com tamanhos de letra diferentes isso vira três linhas: os
+   * deslocamentos que corrigem moram no `Header`, e este check existe para eles
+   * não envelhecerem em silêncio. */
+  const baselines = await page.evaluate(() => {
+    const baselineOf = (element) => {
+      const probe = document.createElement("span");
+      probe.style.cssText =
+        "display:inline-block;width:0;height:0;line-height:0;font-size:0;vertical-align:baseline";
+      element.appendChild(probe);
+      const at = probe.getBoundingClientRect().top;
+      probe.remove();
+      return at;
+    };
+
+    const header = document.querySelector("header");
+    const wordmark = header.querySelector('a[aria-label="Mark-Lee"]');
+    return [
+      baselineOf(wordmark.querySelector("span > span")),
+      ...[...header.querySelectorAll("nav a")].map((link) => baselineOf(link)),
+      baselineOf(header.querySelector("div.ml-auto a > span")),
+    ];
+  });
+
+  const spread = Math.max(...baselines) - Math.min(...baselines);
+  if (spread > 0.5) {
+    throw new Error(
+      `Header baselines are not on one line: spread ${spread.toFixed(2)}px (${baselines
+        .map((value) => value.toFixed(2))
+        .join(", ")})`,
+    );
+  }
 }
 
 async function assertAnchorNavigation(page, baseUrl) {
