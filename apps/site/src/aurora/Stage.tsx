@@ -30,6 +30,8 @@ import StageVeil from "@/aurora/StageVeil";
 import { APP_METRICS, STAGE_APP_THEME } from "@/aurora/app-metrics";
 import { AppWindow, CodePane, WindowContext } from "@/aurora/app-window";
 import { Palette, alpha, paletteOf, tokenize } from "@/aurora/app-window-tokens";
+import { useStageTheme } from "@/aurora/stage-theme";
+import { RECORD_THEMES } from "@/aurora/theme-tokens";
 import {
   DEMO_JOURNAL,
   MOOD_EMOJI,
@@ -50,8 +52,6 @@ import { Locale, SiteCopy, StageView, getCopy } from "@/i18n";
 type StageChrome = SiteCopy["pages"]["home"]["stage"]["chrome"];
 
 const M = APP_METRICS;
-const APP = STAGE_APP_THEME;
-const PALETTE = paletteOf(APP);
 const MEM = M.memories;
 const J = M.journal;
 
@@ -1374,12 +1374,17 @@ interface StageProps {
 const Stage = ({ locale }: StageProps) => {
   const stage = getCopy(locale).pages.home.stage;
   const chrome = stage.chrome;
+  /* O tema do palco vem do mesmo lugar que o seletor da seção de temas: abrir a
+   * página num tema e trocar no seletor mudam a janela na hora. */
+  const themeId = useStageTheme();
+  const theme = RECORD_THEMES.find((item) => item.id === themeId) ?? STAGE_APP_THEME;
+  const palette = paletteOf(theme);
   const [view, setView] = useState<StageView>("editor");
   const activeIndex = stage.views.findIndex((item) => item.id === view);
   const modeNames: [string, string] = [stage.views[0].name, stage.views[1].name];
 
   const windowProps = {
-    theme: APP,
+    theme,
     doc: DOC,
     menus: chrome.menus,
     modeNames,
@@ -1422,9 +1427,9 @@ const Stage = ({ locale }: StageProps) => {
     if (!stacked) {
       return (
         <>
-          <MemoriesSidebar palette={PALETTE} chrome={chrome} />
-          <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} />
-          <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={false} />
+          <MemoriesSidebar palette={palette} chrome={chrome} />
+          <RecordListPanel palette={palette} chrome={chrome} locale={locale} />
+          <EntryPane palette={palette} chrome={chrome} locale={locale} compact={false} />
         </>
       );
     }
@@ -1434,11 +1439,11 @@ const Stage = ({ locale }: StageProps) => {
         data-stage-part="memory-stack"
         style={{ display: "flex", flexDirection: "column", width: "100%", minWidth: 0, minHeight: 0 }}
       >
-        <MemoriesSidebar palette={PALETTE} chrome={chrome} stacked />
-        <RecordListPanel palette={PALETTE} chrome={chrome} locale={locale} stacked />
+        <MemoriesSidebar palette={palette} chrome={chrome} stacked />
+        <RecordListPanel palette={palette} chrome={chrome} locale={locale} stacked />
         {/* A leitura so vira coluna unica quando nao ha largura para os dois
          *  paineis dela; acima de 700 o par codigo|previa continua. */}
-        <EntryPane palette={PALETTE} chrome={chrome} locale={locale} compact={width < 700} />
+        <EntryPane palette={palette} chrome={chrome} locale={locale} compact={width < 700} />
       </div>
     );
   };
@@ -1448,6 +1453,7 @@ const Stage = ({ locale }: StageProps) => {
       id="leituras"
       aria-labelledby="leituras-titulo"
       className="margins-stage relative border-b border-stage-rule bg-stage text-stage-foreground"
+      data-stage-theme={theme.id}
     >
       {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
        *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
@@ -1456,7 +1462,7 @@ const Stage = ({ locale }: StageProps) => {
        *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
        *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
       <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
-        <div className="pt-20 lg:pt-28">
+        <div className="pt-20 lg:pt-28" data-zen-chrome>
           <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
               <SectionHead id="leituras" index={stage.index} label={stage.label} title={stage.title} tone="stage" />
@@ -1527,7 +1533,7 @@ const Stage = ({ locale }: StageProps) => {
           </StageFrame>
         </div>
 
-        <div className="pb-20 lg:pb-28">
+        <div className="pb-20 lg:pb-28" data-zen-chrome>
           <div className="mt-4 grid">
             {stage.views.map((item) => (
               <p

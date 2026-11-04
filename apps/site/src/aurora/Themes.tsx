@@ -1,7 +1,7 @@
-import { useState } from "react";
 import SectionHead from "@/aurora/SectionHead";
 import { RECORD } from "@/aurora/demo";
 import { formatRecordDate } from "@/aurora/record-format";
+import { setStageTheme, useStageTheme } from "@/aurora/stage-theme";
 import { ORDERED_THEMES, RecordTheme, fadeToken } from "@/aurora/theme-tokens";
 import { Locale, SiteCopy, getCopy } from "@/i18n";
 
@@ -113,7 +113,9 @@ const Themes = ({ locale }: ThemesProps) => {
   const copy = getCopy(locale);
   const themes = copy.pages.home.themes;
   const chrome = copy.pages.home.stage.chrome;
-  const [selected, setSelected] = useState<string>("midnight");
+  /* O seletor abre marcando o tema do palco e troca os dois juntos: uma fonte
+   * só, sem estado paralelo para sair de sincronia. */
+  const selected = useStageTheme();
   const active = ORDERED_THEMES.find((theme) => theme.id === selected) ?? ORDERED_THEMES[0];
 
   return (
@@ -139,7 +141,7 @@ const Themes = ({ locale }: ThemesProps) => {
                 type="button"
                 role="radio"
                 aria-checked={checked}
-                onClick={() => setSelected(theme.id)}
+                onClick={() => setStageTheme(theme.id)}
                 className={`flex min-h-[44px] items-center gap-2.5 border px-3 py-2 text-left text-sm font-semibold transition-colors ${
                   checked
                     ? "border-ink bg-ink text-paper-2"

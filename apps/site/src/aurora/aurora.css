@@ -60,10 +60,6 @@
   --color-stage-rule: oklch(0.36 0.012 180);
   --color-stage-accent: oklch(0.7 0.115 42);
 
-  /* Easing do modo de concentracao do palco: acelera e para longo no fim, para
-   * o crescimento assentar sem "socar". Token proprio — nao e o `ease` global,
-   * e troca-lo muda so este efeito. */
-  --ease-stage-focus: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /*
@@ -174,36 +170,66 @@
 }
 
 /*
- * Modo de concentracao do palco.
+ * Modo zen do palco.
  *
- * Apontar para a janela (ou chegar nela de teclado) concentra: a janela cresce
- * 1,8%, ganha uma sombra em camadas — e um VEU cobre a viewport inteira, com o
- * campo de glifos, os brilhos e as ondas que o `StageVeil` desenha.
+ * A janela do aplicativo é o gatilho e o sujeito: apontar para ela (ou chegar
+ * de teclado) acende um véu que cobre a viewport inteira, escurece o resto da
+ * página e desenha um jardim de areia em volta da silhueta do modal.
  *
- * As cinco regras que o desenho impoe, e que explicam cada linha abaixo:
+ * Quem publica o estado é `body[data-zen]`, posto e tirado pelo gatilho nativo
+ * com espera de intenção (60ms na entrada, zero na saída). O React não
+ * participa: nenhum re-render acontece só porque o ponteiro passou por cima de
+ * uma árvore inteira de aplicativo simulado.
  *
- *  1. A escala vive no INVOLUCRO EXTERNO. O `window-scaler` ja carrega o
+ * As cinco regras que explicam cada linha:
+ *
+ *  1. A escala vive no INVOLUCRO EXTERNO. O `window-scaler` já carrega o
  *     `transform: scale()` que reduz o desenho de 1440 ao container; somar outra
  *     escala nele quebraria a origem `top left` e a medida que decide empilhar.
- *  2. Janela empilhada (moldura estreita) NAO escala: ali o desenho esta no
- *     tamanho natural e crescer 1,8% levaria a janela para dentro do gutter.
- *     A sombra continua — o estado de concentracao nao some, so nao incha.
- *  3. So `transform` e `opacity` animam. Sombra mora em camada propria e aparece
- *     por opacidade: interpolar `box-shadow` repinta a caixa a cada quadro.
- *  4. `will-change` so existe durante o efeito: promocao permanente de uma peca
- *     de 1000x900 custa memoria de GPU por nada.
- *  5. O veu mora DENTRO do `stage-focus` porque e ele quem decide o
- *     empilhamento — e o `z-index` dele e FIXO, nao ligado ao hover. Se o
- *     contexto descesse junto com o ponteiro, as secoes seguintes voltariam na
- *     frente do veu durante os 280ms do fade de saida, e o efeito morreria com
- *     um corte. Acima de 60 so o cabecalho (80) e o skip-link (100), que vivem
- *     no topo do documento, fora da area do palco.
+ *  2. Janela empilhada (moldura estreita) NÃO escala: ali o desenho está no
+ *     tamanho natural e crescer 1,2% levaria a janela para dentro do gutter.
+ *     A sombra continua — o estado zen não some, só não incha.
+ *  3. Só `transform`, `opacity` e `filter` animam. A sombra mora em camada
+ *     própria e aparece por opacidade: interpolar `box-shadow` repinta a caixa a
+ *     cada quadro, e a peça tem 1000x900.
+ *  4. `will-change` só existe durante o efeito: promoção permanente de uma peça
+ *     de 1000x900 custa memória de GPU por nada.
+ *  5. O véu mora DENTRO do `stage-focus` porque é ele quem decide o
+ *     empilhamento — e o `z-index` dele é FIXO, não ligado ao estado. Se o
+ *     contexto descesse junto com o ponteiro, as seções seguintes voltariam na
+ *     frente do véu durante o fade de saída, e o efeito morreria com um corte.
+ *     Acima de 60 só o cabeçalho (80) e o skip-link (100), que vivem no topo do
+ *     documento, fora da área do palco.
  */
+
+:root {
+  /*
+   * Tempo e curva do efeito: os mesmos números de `ZenMotionTokens`
+   * (`zen-tokens.ts`). O CSS não importa TypeScript, então o teste compara os
+   * dois — um token trocado de um lado só é divergência silenciosa.
+   *
+   * A espera de intenção não tem variável aqui de propósito: quem segura o
+   * estado é o gatilho em JS, e o atributo só aparece depois do dwell. Um
+   * `transition-delay` somaria outra espera em cima.
+   *
+   * A saída tem a MESMA duração da entrada, e uma curva simétrica: retração de
+   * 200ms lia como corte seco, e a curva da ficha acelerava justamente no fim.
+   */
+  --duration-zen-enter: 650ms;
+  --duration-zen-exit: 650ms;
+  --ease-zen-in: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-zen-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Atenuação do resto da página e elevação da janela. */
+  --zen-background-opacity: 0.15;
+  --zen-window-lift: -4px;
+  --zen-window-scale: 1.012;
+}
 .stage-focus {
   /* Container comum: sem padding, margem negativa nem `overflow: clip` — a
-   *  folga que existia aqui era para a sangria do halo e so servia para cortar
-   *  a sombra da janela. O efeito que resta e o zoom de 1,018, a sombra em
-   *  camada propria, o veu de viewport inteira e o anel de foco de teclado. */
+   *  folga que existia aqui era para a sangria do halo e só servia para cortar
+   *  a sombra da janela. O que resta é o zoom de 1,012, a sombra em camada
+   *  própria, o véu de viewport inteira e o anel de foco de teclado. */
   position: relative;
   z-index: 60;
 }
@@ -215,8 +241,10 @@
 .stage-focus__zoom {
   position: relative;
   z-index: 1;
-  /* Saida: 240ms sem espera. Reverter tarde parece travamento. */
-  transition: transform 240ms var(--ease-stage-focus);
+  /* Identidade declarada: a ida e a volta interpolam entre dois transforms. */
+  transform: translateY(0) scale(1);
+  /* Saida: 200ms, sem espera. Reverter tarde parece travamento. */
+  transition: transform var(--duration-zen-exit) var(--ease-zen-out);
 }
 
 /* Sombra da concentracao: camada propria, do tamanho da janela (o raio de canto
@@ -230,7 +258,7 @@
   opacity: 0;
   box-shadow: 0 1px 2px rgba(2, 6, 23, 0.4), 0 24px 48px -16px rgba(2, 6, 23, 0.5),
     0 48px 96px -32px rgba(2, 6, 23, 0.38);
-  transition: opacity 240ms var(--ease-stage-focus);
+  transition: opacity var(--duration-zen-exit) var(--ease-zen-out);
 }
 
 .stage-focus__frame {
@@ -238,39 +266,68 @@
   pointer-events: auto;
 }
 
+/* Troca de tema no palco: as cores da janela mudam juntas, na hora, com o mesmo
+ * peso de uma troca de aba. O aplicativo desenha quase tudo em `style` inline,
+ * então a transição precisa ser declarada nos descendentes — e são propriedades
+ * de pintura (`background-color`, `color`, `border-color`, `fill`, `stroke`),
+ * nenhuma delas mexe em layout. */
+.stage-focus__frame * {
+  transition: background-color 240ms var(--ease-zen-in), color 240ms var(--ease-zen-in),
+    border-color 240ms var(--ease-zen-in), fill 240ms var(--ease-zen-in), stroke 240ms var(--ease-zen-in);
+}
+
 /*
- * O veu. `position: fixed; inset: 0` = viewport inteira, acima e abaixo do
- * palco; `pointer-events: none` = ele cobre e nao captura, entao o ponteiro
- * nunca "entra" nele — quem segura o estado e a janela, e sair dela desliga
- * tudo. Um veu que captura o ponteiro se auto-sustentaria para sempre.
+ * O véu. `position: fixed; inset: 0` = viewport inteira, acima e abaixo do
+ * palco; `pointer-events: none` = ele cobre e não captura, então o ponteiro
+ * nunca "entra" nele — quem segura o estado é a janela, e sair dela desliga
+ * tudo. Um véu que captura o ponteiro se auto-sustentaria para sempre.
  *
- * O fundo e um gradiente, nao um `backdrop-filter`: embacar o que esta atras
- * custa ler a tela inteira a cada quadro, e aqui o que se quer e escurecer.
+ * São duas implementações e só uma está no ar por vez, e o `data-render` diz
+ * qual:
+ *
+ *  - **shader** (o caso normal): o canvas desenha o campo — areia clara, grão e
+ *    cristas — e ele mesmo faz a rampa. O container é só a caixa.
+ *  - **static** (sem WebGL): o `::before` entrega um gradiente claro parado, que
+ *    entra e sai por opacidade.
+ *
+ * O fundo é CLARO — papel washi, não breu. O jardim de areia é um campo claro e
+ * a janela é a pedra escura pousada nele: o contraste vem daí. Nada de
+ * `backdrop-filter`: embaçar o que está atrás custa ler a tela inteira a cada
+ * quadro.
  */
 .stage-veil {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0;
-  /*
-   * O veu escurece de verdade, inclusive o proprio palco: um degrade escuro
-   * (mais fundo nas bordas) sobre o que esta atras. A 74% no centro e 94% na
-   * borda, o hero claro vira silhueta e a secao escura fica mais funda ainda —
-   * e o que faz o "isolamento" ser visivel acima E abaixo da janela, e nao so
-   * um tom ligeiramente diferente.
-   */
-  background: radial-gradient(
-    120% 90% at 50% 38%,
-    oklch(0.19 0.012 186 / 0.74),
-    oklch(0.13 0.01 184 / 0.88) 58%,
-    oklch(0.1 0.008 184 / 0.94)
-  );
-  /* Saida: 280ms sem espera — reverter tarde parece travamento. */
-  transition: opacity 280ms var(--ease-stage-focus);
 }
 
-.stage-veil__canvas {
+.stage-veil::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  display: none;
+  opacity: 0;
+  background: radial-gradient(
+    120% 90% at 50% 38%,
+    oklch(0.93 0.02 90 / 0.42),
+    oklch(0.91 0.025 84 / 0.58) 58%,
+    oklch(0.88 0.03 78 / 0.7)
+  );
+  transition: opacity var(--duration-zen-exit) var(--ease-zen-out);
+}
+
+.stage-veil[data-render="static"]::before {
+  display: block;
+}
+
+body[data-zen] .stage-veil[data-render="static"]::before {
+  opacity: 1;
+  transition: opacity var(--duration-zen-enter) var(--ease-zen-in);
+}
+
+/* A camada que o motor desenha: cobre a viewport e não recebe ponteiro. */
+.stage-veil__wash {
   position: absolute;
   inset: 0;
   display: block;
@@ -286,54 +343,110 @@
   outline-offset: 3px;
 }
 
-/* Toque e `prefers-reduced-motion` ficam estaticos: sem hover, sem escala, sem
- * sombra, sem transicao — as regras de estado simplesmente nao existem ali. */
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .stage-focus:is(:hover, :focus-within) .stage-focus__zoom {
-    /* Entrada: 60ms de dwell para atravessar a janela de passagem nao
-     * concentrar, e 220ms para chegar. */
-    transition: transform 220ms var(--ease-stage-focus) 60ms;
-  }
+/* ---------------------------------------------------------------------------
+ * O estado zen. Uma fonte só: `body[data-zen]`, publicado pelo gatilho nativo.
+ * ------------------------------------------------------------------------ */
 
-  .stage-focus[data-stage-scaled="true"]:is(:hover, :focus-within) .stage-focus__zoom {
-    transform: scale(1.018);
-    will-change: transform;
-  }
+body[data-zen] .stage-focus[data-stage-scaled="true"] .stage-focus__zoom {
+  transform: translateY(var(--zen-window-lift)) scale(var(--zen-window-scale));
+  will-change: transform;
+}
 
-  .stage-focus:is(:hover, :focus-within) .stage-focus__shade {
-    opacity: 1;
-    transition: opacity 220ms var(--ease-stage-focus) 60ms;
-    will-change: opacity;
-  }
+body[data-zen] .stage-focus__shade {
+  opacity: 1;
+  transition: opacity var(--duration-zen-enter) var(--ease-zen-in);
+  will-change: opacity;
+}
 
-  .stage-focus:is(:hover, :focus-within) .stage-veil {
-    opacity: 1;
-    transition: opacity 320ms var(--ease-stage-focus) 60ms;
+/* O resto da página recua. Só `opacity`: é o que o compositor resolve sem
+ * repintar, e nenhuma dessas propriedades mexe em geometria de fluxo — o layout
+ * shift é zero. O desfoque que a ficha pedia ficou de fora de propósito: animar
+ * `filter: blur()` nas seções travava o renderer por ~300ms e, sob um véu claro
+ * e opaco, não se via nada. */
+:is(header, #main-content > :not(#leituras)) {
+  transition: opacity var(--duration-zen-exit) var(--ease-zen-out);
+}
+
+body[data-zen] :is(header, #main-content > :not(#leituras)) {
+  opacity: var(--zen-background-opacity);
+  transition: opacity var(--duration-zen-enter) var(--ease-zen-in);
+}
+
+/*
+ * O texto do palco sai de cena. Título, descrição, abas e legendas não disputam
+ * o campo com a janela: se ficassem, apareceriam lavados por baixo do wash —
+ * pior do que sumir. A saída acontece nos primeiros 40% da entrada; a volta, só
+ * nos últimos 40% da saída, depois que o wash recuou.
+ *
+ * `pointer-events: none` enquanto invisível: nada de alvo clicável fantasma.
+ */
+#leituras [data-zen-chrome] {
+  opacity: 1;
+  transition: opacity calc(var(--duration-zen-exit) * 0.4) var(--ease-zen-out)
+    calc(var(--duration-zen-exit) * 0.6);
+}
+
+body[data-zen] #leituras [data-zen-chrome] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(var(--duration-zen-enter) * 0.4) var(--ease-zen-in);
+}
+
+/* Toque: sem efeito. O CSS esconde o véu e o componente nem cria motor nem
+ * listeners — celular não paga por um efeito que não existe ali. */
+@media (hover: none) {
+  .stage-veil {
+    display: none;
   }
 }
 
 /*
- * Movimento reduzido: o veu EXISTE e continua isolando a view, mas sem
- * movimento — os glifos ficam na posicao base e as ondas nao acontecem (o
- * `StageVeil` desenha um quadro so e nao abre laco). A decisao e nao abrir mao
- * do isolamento: o que o modo reduzido pede e ausencia de movimento, nao
- * ausencia da funcao.
+ * Movimento reduzido: o véu EXISTE e continua isolando a view, mas sem
+ * movimento. O motor desenha um quadro só — campo completo, sem onda, sem
+ * pulso — e não abre laço; a janela não sobe nem cresce. O que resta é o
+ * crossfade do canvas e do texto.
  */
-@media (hover: hover) and (prefers-reduced-motion: reduce) {
-  .stage-veil {
-    /* Sem transicao nos dois sentidos: o modo reduzido nao anima nem a saida. */
+@media (prefers-reduced-motion: reduce) {
+  .stage-focus__zoom,
+  .stage-focus__shade {
     transition: none;
   }
 
-  .stage-focus:is(:hover, :focus-within) .stage-veil {
+  .stage-focus__frame * {
+    transition: none;
+  }
+
+  body[data-zen] .stage-focus[data-stage-scaled="true"] .stage-focus__zoom {
+    transform: none;
+    will-change: auto;
+  }
+
+  /* O canvas entra e sai por crossfade. Como o quadro é único, o motor não
+   * limpa na saída — quem dissolve é esta opacidade. */
+  .stage-veil__wash {
+    opacity: 0;
+    transition: opacity 200ms linear;
+  }
+
+  body[data-zen] .stage-veil__wash {
     opacity: 1;
   }
-}
 
-/* Toque: sem efeito. O CSS esconde o veu e o `StageVeil` nem registra os
- * listeners — celular nao paga por um efeito que nao existe ali. */
-@media (hover: none) {
-  .stage-veil {
-    display: none;
+  #leituras [data-zen-chrome] {
+    transition: opacity 200ms linear;
+  }
+
+  body[data-zen] #leituras [data-zen-chrome] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  :is(header, #main-content > :not(#leituras)),
+  body[data-zen] :is(header, #main-content > :not(#leituras)) {
+    transition: opacity 200ms linear;
+  }
+
+  body[data-zen] :is(header, #main-content > :not(#leituras)) {
+    opacity: 0.25;
   }
 }
