@@ -16,6 +16,7 @@ describe("zen trigger", () => {
   let element: HTMLDivElement;
   let child: HTMLSpanElement;
   let calls: boolean[];
+  let fastExits: number;
   let detach: () => void;
 
   const dispatch = (type: string, target: EventTarget = element, init?: EventInit & { relatedTarget?: Node | null }) => {
@@ -26,11 +27,17 @@ describe("zen trigger", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     calls = [];
+    fastExits = 0;
     element = document.createElement("div");
     child = document.createElement("span");
     element.appendChild(child);
     document.body.appendChild(element);
-    detach = attachZenTrigger(element, { setLit: (lit) => calls.push(lit) });
+    detach = attachZenTrigger(element, {
+      setLit: (lit) => calls.push(lit),
+      fastExit: () => {
+        fastExits += 1;
+      },
+    });
   });
 
   afterEach(() => {
@@ -121,6 +128,73 @@ describe("zen trigger", () => {
     dispatch("mouseenter");
     detach();
     vi.advanceTimersByTime(DWELL * 10);
+
+    expect(document.body.dataset.zen).toBeUndefined();
+    expect(calls).toEqual([]);
+  });
+
+  /* -------------------------------------------------------------------------
+   * Rolagem: o campo é fixo e a janela anda. Sair animando aqui é o defeito.
+   * ---------------------------------------------------------------------- */
+
+  it("aborts a lit effect into a fast fade when the page is scrolled", () => {
+    dispatch("mouseenter");
+    vi.advanceTimersByTime(DWELL);
+
+    document.dispatchEvent(new Event("wheel"));
+
+    /* O estado sai do `body` na hora e a dissolução é do motor: nada de
+     * `setLit(false)`, que começaria a saída cerimoniosa. */
+    expect(document.body.dataset.zen).toBeUndefined();
+    expect(calls).toEqual([true]);
+    expect(fastExits).toBe(1);
+  });
+
+  it("aborts on a scroll key too", () => {
+    dispatch("focusin");
+    vi.advanceTimersByTime(DWELL);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+
+    expect(document.body.dataset.zen).toBeUndefined();
+    expect(fastExits).toBe(1);
+  });
+
+  it("leaves a key that does not scroll alone", () => {
+    dispatch("focusin");
+    vi.advanceTimersByTime(DWELL);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+
+    expect(document.body.dataset.zen).toBe("true");
+    expect(fastExits).toBe(0);
+  });
+
+  it("asks for the fast fade on touch scrolling as well", () => {
+    dispatch("mouseenter");
+    vi.advanceTimersByTime(DWELL);
+
+    document.dispatchEvent(new Event("touchmove"));
+
+    expect(document.body.dataset.zen).toBeUndefined();
+    expect(fastExits).toBe(1);
+  });
+
+  it("still asks for the fast fade after the pointer left", () => {
+    dispatch("mouseenter");
+    vi.advanceTimersByTime(DWELL);
+    dispatch("mouseleave");
+
+    /* A rolagem que começa logo depois do `mouseleave` encontra a saída em
+     * curso: o motor é quem decide se ainda há campo para dissolver. */
+    document.dispatchEvent(new Event("wheel"));
+    expect(fastExits).toBe(1);
+  });
+
+  it("does not light on a scroll that happens before the dwell", () => {
+    dispatch("mouseenter");
+    document.dispatchEvent(new Event("wheel"));
+    vi.advanceTimersByTime(DWELL * 2);
 
     expect(document.body.dataset.zen).toBeUndefined();
     expect(calls).toEqual([]);

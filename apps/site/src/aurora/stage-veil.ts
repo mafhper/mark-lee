@@ -1,4 +1,5 @@
-import { createZenMotion, stepZenMotion, zenAtRest, zenExposure } from "@/aurora/zen-motion";
+import { createZenMotion, cubicBezierEase, stepZenMotion, zenAtRest, zenExposure, zenFade } from "@/aurora/zen-motion";
+import { blendWash, type StageWash } from "@/aurora/stage-wash";
 import { ZenFieldTokens, ZenMotionTokens } from "@/aurora/zen-tokens";
 
 /**
@@ -165,6 +166,19 @@ export interface ZenEngine {
   setLit(lit: boolean): void;
   /** Re-mede a janela (rolagem, resize) sem trocar o estado. */
   remeasure(): void;
+  /**
+   * Re-tinge o wash com o tema novo. A troca anda no mesmo compasso da troca de
+   * tema do palco — a janela e o campo mudam de cor juntos.
+   */
+  setWash(wash: StageWash): void;
+  /**
+   * Aborta a saída e dissolve o campo só por opacidade, sem rampa de spread.
+   *
+   * É a resposta à rolagem: o campo é fixo na viewport e a janela anda com a
+   * página, então uma saída cerimoniosa faria o jardim passear pela tela. Sem
+   * nada no ar, não faz nada.
+   */
+  fastExit(): void;
   destroy(): void;
 }
 
@@ -212,9 +226,13 @@ function createProgram(gl: WebGLRenderingContext): WebGLProgram | null {
  * Monta o motor. Devolve `null` quando não há WebGL — e aí o véu de reserva do
  * CSS fica sozinho, sem quebrar nada.
  */
-export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader): ZenEngine | null {
+export function createZenEngine(
+  canvas: HTMLCanvasElement,
+  readBox: ZenBoxReader,
+  initialWash: StageWash,
+): ZenEngine | null {
   const gl =
-    wash.getContext("webgl", {
+    canvas.getContext("webgl", {
       alpha: true,
       antialias: false,
       depth: false,
@@ -266,10 +284,32 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
   gl.disable(gl.BLEND);
   gl.clearColor(0, 0, 0, 0);
 
-  const [paperR, paperG, paperB] = ZenMotionTokens.colors.paperRgb;
-  const [sandR, sandG, sandB] = ZenMotionTokens.colors.sandRgb;
-
   const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /**
+   * O wash do tema, interpolado no compasso da troca de tema.
+   *
+   * `washStartedAt` em `-Infinity` significa "já assentado": é o estado de
+   * repouso e o de quem trocou de tema com o véu apagado (não há transição a
+   * animar embaixo de um canvas que ninguém está vendo).
+   */
+  let washFrom = initialWash;
+  let washTo = initialWash;
+  let washStartedAt = Number.NEGATIVE_INFINITY;
+
+  /** Fast-fade da saída: `fadeStartedAt` marca o começo; 0 é dissolvido. */
+  let fadeStartedAt = Number.NEGATIVE_INFINITY;
+  let fastExitRunning = false;
+
+  const washAt = (now: number): StageWash => {
+    const elapsed = now - washStartedAt;
+    if (!Number.isFinite(elapsed)) return washTo;
+    const duration = ZenMotionTokens.timings.themeMs;
+    if (elapsed >= duration) return washTo;
+    return blendWash(washFrom, washTo, cubicBezierEase(ZenMotionTokens.easings.enter, elapsed / duration));
+  };
+
+  const fadeAt = (now: number): number => zenFade(now - fadeStartedAt);
 
   let ratio = 1;
   let viewWidth = 0;
@@ -285,16 +325,16 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
 
   /** Ajusta o bitmap ao tamanho atual do véu. */
   const fit = (): boolean => {
-    const nextWidth = Math.round(wash.clientWidth);
-    const nextHeight = Math.round(wash.clientHeight);
+    const nextWidth = Math.round(canvas.clientWidth);
+    const nextHeight = Math.round(canvas.clientHeight);
     if (!nextWidth || !nextHeight) return false;
 
     ratio = Math.min(window.devicePixelRatio || 1, 2);
     const bitmapWidth = Math.round(nextWidth * ratio);
     const bitmapHeight = Math.round(nextHeight * ratio);
-    if (wash.width !== bitmapWidth || wash.height !== bitmapHeight) {
-      wash.width = bitmapWidth;
-      wash.height = bitmapHeight;
+    if (canvas.width !== bitmapWidth || canvas.height !== bitmapHeight) {
+      canvas.width = bitmapWidth;
+      canvas.height = bitmapHeight;
     }
     gl.viewport(0, 0, bitmapWidth, bitmapHeight);
 
@@ -321,16 +361,19 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
     gl.clear(gl.COLOR_BUFFER_BIT);
   };
 
-  const draw = (exposure: number, spread: number, elapsed: number) => {
+  const draw = (now: number) => {
     if (!box) {
       clear();
       return;
     }
 
+    const spread = state.progress;
+    const exposure = zenExposure(spread);
     const breath = Math.sin(state.breath) * ZenFieldTokens.breathPx;
+    const wash = washAt(now);
 
     gl.useProgram(program);
-    gl.uniform2f(uResolution, wash.width, wash.height);
+    gl.uniform2f(uResolution, canvas.width, canvas.height);
     gl.uniform1f(uDpr, ratio);
     gl.uniform4f(uWindow, box.cx, box.cy, box.halfWidth, box.halfHeight);
     gl.uniform1f(uRadius, box.radius);
@@ -339,29 +382,46 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
     gl.uniform1f(uReach, reach);
     gl.uniform1f(uFeather, ZenFieldTokens.spreadFeather);
     gl.uniform1f(uBreath, breath);
-    gl.uniform1f(uTime, elapsed);
+    gl.uniform1f(uTime, state.elapsed);
     gl.uniform1f(uSpacing, ZenFieldTokens.spacingPx);
     gl.uniform1f(uFade, ZenFieldTokens.fadePx);
     gl.uniform1f(uWash, ZenFieldTokens.washPx);
-    gl.uniform1f(uWashAlpha, ZenFieldTokens.washAlpha);
+    /* A saída rápida mexe só na opacidade do véu: o resto da conta do shader
+     *  fica exatamente onde estava, então o campo some sem rampa de spread. */
+    gl.uniform1f(uWashAlpha, ZenFieldTokens.washAlpha * fadeAt(now));
     gl.uniform1f(uRelief, ZenFieldTokens.ridgeRelief);
     gl.uniform1f(uTint, ZenFieldTokens.ridgeTint);
     gl.uniform1f(uGamma, ZenFieldTokens.profileGamma);
     gl.uniform1f(uGrainCell, ZenFieldTokens.grainPx);
     gl.uniform1f(uGrainAlpha, ZenFieldTokens.grainAlpha);
     gl.uniform1f(uGrainDrift, ZenFieldTokens.grainDriftPx);
-    gl.uniform3f(uInk, paperR / 255, paperG / 255, paperB / 255);
-    gl.uniform3f(uSand, sandR / 255, sandG / 255, sandB / 255);
+    gl.uniform3f(uInk, wash.ink[0] / 255, wash.ink[1] / 255, wash.ink[2] / 255);
+    gl.uniform3f(uSand, wash.sand[0] / 255, wash.sand[1] / 255, wash.sand[2] / 255);
 
     clear();
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
 
-  const paint = () => draw(zenExposure(state.progress), state.progress, state.elapsed);
+  const paint = (now: number = performance.now()) => draw(now);
 
   const tick = (now: number) => {
     frame = 0;
     if (destroyed) return;
+
+    /* Saída rápida: o spread fica congelado e só a opacidade cai. Um quadro por
+     *  vez (sem o passo de 30fps): são 150ms, e um degrau aqui apareceria. */
+    if (fastExitRunning) {
+      if (fadeAt(now) <= 0) {
+        fastExitRunning = false;
+        fadeStartedAt = Number.NEGATIVE_INFINITY;
+        state = createZenMotion();
+        clear();
+        return;
+      }
+      paint(now);
+      frame = window.requestAnimationFrame(tick);
+      return;
+    }
 
     const dt = last ? now - last : FRAME_INTERVAL;
     last = now;
@@ -377,7 +437,7 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
       return;
     }
     paintedAt = now;
-    paint();
+    paint(now);
     frame = window.requestAnimationFrame(tick);
   };
 
@@ -415,6 +475,11 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
       return;
     }
 
+    /* Reacender durante um fast-fade cancela a dissolução: o campo volta a
+     *  crescer de onde parou, com a cor que estiver valendo. */
+    fastExitRunning = false;
+    fadeStartedAt = Number.NEGATIVE_INFINITY;
+
     if (!fit()) {
       lit = false;
       return;
@@ -431,6 +496,65 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
     resume();
   };
 
+  const fastExit = () => {
+    if (destroyed) return;
+
+    /* Nada no ar: nem aceso, nem saindo. Não há o que dissolver. */
+    if (!lit && zenAtRest(state) && !fastExitRunning) return;
+
+    lit = false;
+
+    if (reduced()) {
+      /* Movimento reduzido: sem animação — o quadro é único, então some. */
+      state = createZenMotion();
+      fastExitRunning = false;
+      fadeStartedAt = Number.NEGATIVE_INFINITY;
+      clear();
+      return;
+    }
+
+    if (!fastExitRunning) {
+      fastExitRunning = true;
+      fadeStartedAt = performance.now();
+    }
+    resume();
+  };
+
+  const setWash = (next: StageWash) => {
+    if (destroyed) return;
+    if (
+      next.ink[0] === washTo.ink[0] &&
+      next.ink[1] === washTo.ink[1] &&
+      next.ink[2] === washTo.ink[2] &&
+      next.sand[0] === washTo.sand[0] &&
+      next.sand[1] === washTo.sand[1] &&
+      next.sand[2] === washTo.sand[2]
+    ) {
+      return;
+    }
+
+    const now = performance.now();
+    /* Troca no meio de outra troca: congela o valor corrente e parte dele. */
+    washFrom = washAt(now);
+    washTo = next;
+    washStartedAt = now;
+
+    if (!lit) {
+      /* Apagado, não há transição a animar: o próximo acendimento já sai com a
+       *  cor nova. */
+      washFrom = next;
+      washStartedAt = Number.NEGATIVE_INFINITY;
+      return;
+    }
+
+    if (reduced()) {
+      /* Movimento reduzido: um quadro, sem interpolação. */
+      washFrom = next;
+      washStartedAt = Number.NEGATIVE_INFINITY;
+      paint(now);
+    }
+  };
+
   const remeasure = () => {
     if (!lit || destroyed) return;
     if (!fit()) return;
@@ -441,16 +565,19 @@ export function createZenEngine(wash: HTMLCanvasElement, readBox: ZenBoxReader):
 
   const onVisibility = () => {
     if (document.hidden) hold();
-    else if (lit) resume();
+    else if (lit || fastExitRunning) resume();
   };
 
   document.addEventListener("visibilitychange", onVisibility);
 
   return {
     setLit,
+    setWash,
+    fastExit,
     remeasure,
     destroy: () => {
       destroyed = true;
+      fastExitRunning = false;
       hold();
       document.removeEventListener("visibilitychange", onVisibility);
       clear();

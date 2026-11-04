@@ -44,6 +44,12 @@ describe("zen tokens against the stylesheet", () => {
     expect(customProperty("zen-background-opacity")).toBe(`${ZenMotionTokens.attenuation.backgroundOpacity}`);
   });
 
+  it("declares the theme swap duration the wash also uses", () => {
+    /* A janela troca de tema pelo CSS e o wash re-tinge pelo motor: os dois
+     * leem o mesmo número, e é isso que faz a troca parecer uma coisa só. */
+    expect(customProperty("duration-theme-swap")).toBe(`${ZenMotionTokens.timings.themeMs}ms`);
+  });
+
   it("hides the stage text in the first 40% and brings it back in the last 40%", () => {
     /* O texto do palco não pode aparecer lavado por baixo do wash. A conta está
      * no CSS como fração da duração; se alguém trocar o fator, o texto volta a

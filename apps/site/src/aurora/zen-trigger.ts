@@ -22,12 +22,23 @@ import { ZenMotionTokens } from "@/aurora/zen-tokens";
 /** O que o gatilho precisa do motor gráfico. */
 export interface ZenLitTarget {
   setLit(lit: boolean): void;
+  /** Aborta a saída e dissolve o campo só por opacidade, sem rampa de spread. */
+  fastExit(): void;
 }
 
 export interface ZenTriggerOptions {
   /** Espera de intenção, em ms. O padrão é o token. */
   dwellMs?: number;
 }
+
+/**
+ * Teclas que rolam a página.
+ *
+ * O gatilho também acende por foco de teclado, então essas teclas com o véu no
+ * ar são rolagem — e rolagem é exatamente o caso em que o campo não pode
+ * animar: ele é fixo na viewport e a janela anda com a página.
+ */
+const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Spacebar"]);
 
 /**
  * Liga o gatilho a um elemento e devolve a função que desliga tudo.
@@ -103,10 +114,42 @@ export function attachZenTrigger(
     if (!wants()) douse();
   };
 
+  /**
+   * Rolagem com o efeito no ar: aborta e dissolve em opacidade.
+   *
+   * Sair do jeito cerimonioso enquanto o dedo rola faria o jardim passear pela
+   * tela, porque o centro do campo é a janela e a janela anda. O aviso ao motor
+   * é incondicional de propósito: uma rolagem que chega logo depois do
+   * `mouseleave` ainda encontra a saída em curso, e é o motor — não o gatilho —
+   * quem sabe se há campo para dissolver.
+   */
+  const abort = () => {
+    /* Rolagem também cancela uma entrada a caminho: quem rola não está
+     * apontando, e acender depois do scroll seria o pisca que o dwell evita. */
+    disarm();
+    const wasLit = lit;
+    lit = false;
+    if (wasLit && doc.body) delete doc.body.dataset.zen;
+    target.fastExit();
+  };
+
+  const onScrollInput = () => abort();
+
+  const onScrollKey = (event: KeyboardEvent) => {
+    if (SCROLL_KEYS.has(event.key)) abort();
+  };
+
   element.addEventListener("mouseenter", onEnter);
   element.addEventListener("mouseleave", onLeave);
   element.addEventListener("focusin", onFocusIn);
   element.addEventListener("focusout", onFocusOut);
+
+  /* Captura na fase de captura: o `wheel` de um painel interno não pode ser
+   *  engolido antes de chegar aqui. Todos passivos — o efeito lê a rolagem, não
+   *  a segura. */
+  doc.addEventListener("wheel", onScrollInput, { passive: true, capture: true });
+  doc.addEventListener("touchmove", onScrollInput, { passive: true, capture: true });
+  doc.addEventListener("keydown", onScrollKey, true);
 
   return () => {
     disarm();
@@ -117,5 +160,8 @@ export function attachZenTrigger(
     element.removeEventListener("mouseleave", onLeave);
     element.removeEventListener("focusin", onFocusIn);
     element.removeEventListener("focusout", onFocusOut);
+    doc.removeEventListener("wheel", onScrollInput, true);
+    doc.removeEventListener("touchmove", onScrollInput, true);
+    doc.removeEventListener("keydown", onScrollKey, true);
   };
 }

@@ -5,6 +5,7 @@ import {
   stepZenMotion,
   zenAtRest,
   zenExposure,
+  zenFade,
   type ZenMotionState,
 } from "@/aurora/zen-motion";
 import { ZenMotionTokens } from "@/aurora/zen-tokens";
@@ -108,5 +109,20 @@ describe("zen phase machine", () => {
   it("caps a long frame so the effect never teleports", () => {
     const state = stepZenMotion(createZenMotion(), { dtMs: 5000, lit: true });
     expect(state.progress).toBeLessThan(0.25);
+  });
+
+  it("fades the veil out linearly in the fast exit", () => {
+    /* A rolagem não pode esperar a cerimônia: 150ms e o campo sumiu. O valor
+     * sai da ficha (`fastExitMs`), e a rampa é linear de propósito — uma cauda
+     * aqui é véu na tela depois que a janela já saiu de baixo do ponteiro. */
+    const duration = ZenMotionTokens.timings.fastExitMs;
+    expect(duration).toBeGreaterThanOrEqual(120);
+    expect(duration).toBeLessThanOrEqual(180);
+
+    expect(zenFade(-10)).toBe(1);
+    expect(zenFade(0)).toBe(1);
+    expect(zenFade(duration / 2)).toBeCloseTo(0.5, 5);
+    expect(zenFade(duration)).toBe(0);
+    expect(zenFade(duration * 4)).toBe(0);
   });
 });

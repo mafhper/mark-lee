@@ -36,6 +36,21 @@ export const ZenMotionTokens = {
     exitMs: 650,
     /** Um ciclo completo de respiração das cristas (~0,11 Hz). */
     breathPeriodMs: 9000,
+    /**
+     * Troca de tema no palco: a mesma duração que o CSS usa
+     * (`--duration-theme-swap`). O wash re-tinge no mesmo compasso em que a
+     * janela troca de cor — dois tempos diferentes leriam como duas coisas.
+     */
+    themeMs: 240,
+    /**
+     * Saída por opacidade quando a página rola com o efeito no ar.
+     *
+     * O campo é fixo na viewport e a janela anda com a página: manter a saída
+     * cerimoniosa enquanto o dedo rola faz o jardim passear pela tela. Aqui o
+     * véu some direto, sem rampa de spread — rápido o bastante para não sobrar
+     * campo nenhum depois que a janela saiu de baixo do ponteiro.
+     */
+    fastExitMs: 150,
   },
   easings: {
     /** Desaceleração profunda e exponencial. */

@@ -13,6 +13,30 @@ import {
   pathFor,
 } from "@/i18n";
 
+/**
+ * Alinhamento óptico da barra.
+ *
+ * O flex do cabeçalho centraliza CAIXAS, não linhas de base: medido no DOM
+ * (1440px, Inter carregada), a base de "Mark-Lee." caía em 37,59px, a dos itens
+ * de navegação em 31,64px e a do rótulo de "Baixar" em 31,87px. O nome do
+ * produto ficava quase 6px abaixo da linha do resto da barra — é o que se vê
+ * como o M flutuando acima do texto.
+ *
+ * A barra tem UMA linha: a dos itens de navegação, que são a maioria, já
+ * coincidem com o rótulo do botão e ficam no centro ótico da altura. O wordmark
+ * sobe por `transform` (a pintura anda, a caixa e o `line-height` não), levando
+ * o símbolo junto — a base do glifo encosta na mesma linha. O botão leva só o
+ * arredondamento de métrica (0,23px) que separa o rótulo dele daquela linha.
+ *
+ * Os números são medidas, não estimativas: quem mexer em tamanho de fonte,
+ * `padding` ou altura da barra precisa medir de novo. `assertHeaderBaseline` no
+ * `smoke-site` denuncia a divergência antes do deploy.
+ */
+const HEADER_BASELINE_OFFSET = {
+  wordmark: -5.95,
+  download: -0.23,
+} as const;
+
 const Header = () => {
   const location = useLocation();
   const [mobileState, setMobileState] = useState({ locationKey: location.key, open: false });
@@ -49,6 +73,7 @@ const Header = () => {
           to={pathFor(locale, "home")}
           onClick={closeMobileMenu}
           className="inline-flex items-center gap-2.5 text-[0.95rem] font-bold tracking-[-0.03em] text-ink"
+          style={{ transform: `translateY(${HEADER_BASELINE_OFFSET.wordmark}px)` }}
           aria-label="Mark-Lee"
         >
           <Wordmark withMark />
@@ -79,7 +104,11 @@ const Header = () => {
             to={pathFor(locale, "downloads")}
             className="inline-flex min-h-[34px] items-center justify-center bg-ink px-3.5 text-[0.76rem] font-semibold text-paper-2 transition-colors hover:bg-terracotta-deep"
           >
-            {copy.downloadLabel}
+            {/* O `span` existe para o deslocamento sub-pixel do rótulo: mover a
+             *  caixa do botão tiraria o fundo do centro óptico da barra. */}
+            <span style={{ transform: `translateY(${HEADER_BASELINE_OFFSET.download}px)` }}>
+              {copy.downloadLabel}
+            </span>
           </Link>
         </div>
 

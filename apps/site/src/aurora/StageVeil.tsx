@@ -1,5 +1,6 @@
 import { RefObject, useEffect, useRef } from "react";
-import { createZenEngine, type ZenWindowBox } from "@/aurora/stage-veil";
+import { createZenEngine, type ZenEngine, type ZenWindowBox } from "@/aurora/stage-veil";
+import type { StageWash } from "@/aurora/stage-wash";
 import { attachZenTrigger } from "@/aurora/zen-trigger";
 
 /**
@@ -49,20 +50,31 @@ function readWindowBox(element: HTMLElement | null): ZenWindowBox | null {
 interface StageVeilProps {
   /** A janela do palco: ela é o gatilho E o centro do jardim. */
   frameRef: RefObject<HTMLElement | null>;
+  /** O wash já tingido pelo tema ativo — o jardim é da cor da visita. */
+  wash: StageWash;
 }
 
-const StageVeil = ({ frameRef }: StageVeilProps) => {
+const StageVeil = ({ frameRef, wash }: StageVeilProps) => {
   const veilRef = useRef<HTMLDivElement | null>(null);
-  const washRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const engineRef = useRef<ZenEngine | null>(null);
+  /* O motor nasce uma vez e recebe o tema por `setWash`: recriá-lo a cada troca
+   *  de tema perderia a transição — e o próprio jardim, por um quadro. */
+  const tintRef = useRef<StageWash>(wash);
+
+  useEffect(() => {
+    tintRef.current = wash;
+    engineRef.current?.setWash(wash);
+  }, [wash]);
 
   useEffect(() => {
     const veil = veilRef.current;
-    const wash = washRef.current;
+    const canvas = canvasRef.current;
     const frame = frameRef.current;
-    if (!veil || !wash || !frame) return;
+    if (!veil || !canvas || !frame) return;
     if (!window.matchMedia(HOVER_QUERY).matches) return;
 
-    const engine = createZenEngine(wash, () => readWindowBox(frame));
+    const engine = createZenEngine(canvas, () => readWindowBox(frame), tintRef.current);
     if (!engine) {
       /* Sem WebGL o jardim não existe, mas o isolamento sim: o `data-render`
        *  publica isso para o CSS, que liga o véu de reserva (gradiente). */
@@ -70,6 +82,7 @@ const StageVeil = ({ frameRef }: StageVeilProps) => {
       return;
     }
     veil.dataset.render = "shader";
+    engineRef.current = engine;
 
     const detach = attachZenTrigger(frame, engine);
 
@@ -87,6 +100,7 @@ const StageVeil = ({ frameRef }: StageVeilProps) => {
     window.addEventListener("scroll", remeasure, { passive: true });
 
     return () => {
+      engineRef.current = null;
       detach();
       if (pending) window.cancelAnimationFrame(pending);
       window.removeEventListener("resize", remeasure);
@@ -97,7 +111,7 @@ const StageVeil = ({ frameRef }: StageVeilProps) => {
 
   return (
     <div ref={veilRef} className="stage-veil" data-stage-part="stage-veil" aria-hidden="true">
-      <canvas ref={washRef} className="stage-veil__wash" />
+      <canvas ref={canvasRef} className="stage-veil__wash" />
     </div>
   );
 };

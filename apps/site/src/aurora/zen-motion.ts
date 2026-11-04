@@ -56,6 +56,22 @@ export function zenExposure(progress: number): number {
   return cubicBezierEase(ZenMotionTokens.easings.enter, progress);
 }
 
+/**
+ * Opacidade do véu na saída rápida: 1 no instante da rolagem, 0 em
+ * `fastExitMs`.
+ *
+ * Linear de propósito: a rampa de spread da saída normal não acontece aqui — o
+ * campo some por opacidade, e uma curva com cauda deixaria véu na tela depois
+ * que a janela já saiu de baixo do ponteiro.
+ */
+export function zenFade(elapsedMs: number): number {
+  if (!Number.isFinite(elapsedMs)) return 1;
+  const duration = ZenMotionTokens.timings.fastExitMs;
+  if (elapsedMs <= 0) return 1;
+  if (elapsedMs >= duration) return 0;
+  return 1 - elapsedMs / duration;
+}
+
 export interface ZenMotionState {
   /** Posição na transição: 0 apagado, 1 pleno. Avança em ritmo constante. */
   progress: number;

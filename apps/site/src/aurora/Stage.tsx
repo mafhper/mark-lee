@@ -1,4 +1,4 @@
-import { ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   BookOpen,
@@ -31,6 +31,7 @@ import { APP_METRICS, STAGE_APP_THEME } from "@/aurora/app-metrics";
 import { AppWindow, CodePane, WindowContext } from "@/aurora/app-window";
 import { Palette, alpha, paletteOf, tokenize } from "@/aurora/app-window-tokens";
 import { useStageTheme } from "@/aurora/stage-theme";
+import { stageWashOf, type StageWash } from "@/aurora/stage-wash";
 import { RECORD_THEMES } from "@/aurora/theme-tokens";
 import {
   DEMO_JOURNAL,
@@ -1277,6 +1278,7 @@ const StageFrame = ({
   panelId,
   tabId,
   stackedHeight,
+  wash,
   children,
 }: {
   panelId: string;
@@ -1284,6 +1286,8 @@ const StageFrame = ({
   tabId: string;
   /** Altura da caixa quando o desenho vai no tamanho natural (empilhado). */
   stackedHeight: number;
+  /** O wash do tema ativo: o jardim de areia é da cor da visita. */
+  wash: StageWash;
   children: ReactNode;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -1316,7 +1320,7 @@ const StageFrame = ({
       data-stage-part="stage-focus"
       data-stage-scaled={scaled ? "true" : "false"}
     >
-      <StageVeil frameRef={ref} />
+      <StageVeil frameRef={ref} wash={wash} />
       <div className="stage-focus__zoom">
         <span
           className="stage-focus__shade"
@@ -1379,6 +1383,9 @@ const Stage = ({ locale }: StageProps) => {
   const themeId = useStageTheme();
   const theme = RECORD_THEMES.find((item) => item.id === themeId) ?? STAGE_APP_THEME;
   const palette = paletteOf(theme);
+  /* O jardim de areia é tingido pelo mesmo tema que a janela: uma visita,
+   *  uma luz. `useMemo` porque o objeto é dependência de efeito no véu. */
+  const wash = useMemo(() => stageWashOf(theme), [theme]);
   const [view, setView] = useState<StageView>("editor");
   const activeIndex = stage.views.findIndex((item) => item.id === view);
   const modeNames: [string, string] = [stage.views[0].name, stage.views[1].name];
@@ -1520,6 +1527,7 @@ const Stage = ({ locale }: StageProps) => {
             panelId={`painel-${view}`}
             tabId={`aba-${view}`}
             stackedHeight={view === "memories" ? STAGE_STACK_MEMORIES : STAGE_STACK_EDITOR}
+            wash={wash}
           >
             <AppWindow
               {...windowProps}

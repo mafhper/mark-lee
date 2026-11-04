@@ -217,6 +217,10 @@
    */
   --duration-zen-enter: 650ms;
   --duration-zen-exit: 650ms;
+  /* Troca de tema do palco. O wash do véu re-tinge no mesmo compasso
+   *  (`ZenMotionTokens.timings.themeMs`): a janela e o jardim mudam de cor
+   *  juntos, senão a troca lê como duas coisas acontecendo. */
+  --duration-theme-swap: 240ms;
   --ease-zen-in: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-zen-out: cubic-bezier(0.65, 0, 0.35, 1);
 
@@ -272,8 +276,10 @@
  * de pintura (`background-color`, `color`, `border-color`, `fill`, `stroke`),
  * nenhuma delas mexe em layout. */
 .stage-focus__frame * {
-  transition: background-color 240ms var(--ease-zen-in), color 240ms var(--ease-zen-in),
-    border-color 240ms var(--ease-zen-in), fill 240ms var(--ease-zen-in), stroke 240ms var(--ease-zen-in);
+  transition: background-color var(--duration-theme-swap) var(--ease-zen-in),
+    color var(--duration-theme-swap) var(--ease-zen-in),
+    border-color var(--duration-theme-swap) var(--ease-zen-in),
+    fill var(--duration-theme-swap) var(--ease-zen-in), stroke var(--duration-theme-swap) var(--ease-zen-in);
 }
 
 /*
