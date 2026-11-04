@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import Header from "@/components/Header";
 
 describe("Header", () => {
-  it("links secondary routes back to the localized home sections", () => {
+  it("links the home chapters back to the localized sections", () => {
     render(
       <MemoryRouter initialEntries={["/pt-BR/faq"]}>
         <Header />
@@ -12,17 +12,17 @@ describe("Header", () => {
     );
 
     const primary = screen.getByRole("navigation", { name: "Navegação principal" });
-    expect(within(primary).getByRole("link", { name: "Editor" })).toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "Produto" })).toHaveAttribute(
       "href",
-      "/pt-BR#editor"
+      "/pt-BR#leituras"
     );
-    expect(within(primary).getByRole("link", { name: "Memórias" })).toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "Arquivos" })).toHaveAttribute(
       "href",
-      "/pt-BR#memorias"
+      "/pt-BR#arquivo"
     );
-    expect(within(primary).getByRole("link", { name: "Local-first" })).toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "Personalização" })).toHaveAttribute(
       "href",
-      "/pt-BR#local"
+      "/pt-BR#temas"
     );
   });
 
@@ -36,9 +36,9 @@ describe("Header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Abrir menu principal" }));
     const mobile = screen.getByRole("navigation", { name: "Menu móvel" });
 
-    expect(within(mobile).getByRole("link", { name: "Editor" })).toBeVisible();
-    expect(within(mobile).getByRole("link", { name: "Memórias" })).toBeVisible();
-    expect(within(mobile).getByRole("link", { name: "Local-first" })).toBeVisible();
+    expect(within(mobile).getByRole("link", { name: "Produto" })).toBeVisible();
+    expect(within(mobile).getByRole("link", { name: "Arquivos" })).toBeVisible();
+    expect(within(mobile).getByRole("link", { name: "Personalização" })).toBeVisible();
     expect(within(mobile).getByRole("link", { name: "Baixar" })).toBeVisible();
   });
 });

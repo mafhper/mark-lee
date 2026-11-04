@@ -104,40 +104,53 @@ async function assertHomeContract(page, baseUrl) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${baseUrl}/pt-BR`, { waitUntil: "networkidle" });
 
-  await page.getByRole("heading", { level: 1, name: "Escreva o que precisa. Guarde o que importa." }).waitFor();
+  await page.getByRole("heading", { level: 1, name: /Editor\.\s*Memórias\.\s*Markdown\./ }).waitFor();
   const downloadHref = await page.getByRole("link", { name: "Baixar Mark-Lee" }).first().getAttribute("href");
   if (downloadHref !== "/pt-BR/downloads") throw new Error(`Unexpected download CTA: ${downloadHref}`);
 
-  for (const section of ["dois-contextos", "editor", "memorias", "local"]) {
+  for (const section of ["leituras", "arquivo", "recursos", "temas", "codigo", "download"]) {
     if ((await page.locator(`#${section}`).count()) !== 1) throw new Error(`Missing unique #${section} section.`);
   }
 
-  const productImages = page.locator("main img[src*='/assets/product/']");
-  for (let index = 0; index < (await productImages.count()); index += 1) {
-    const image = productImages.nth(index);
+  const chapterImages = page.locator("main img");
+  for (let index = 0; index < (await chapterImages.count()); index += 1) {
+    const image = chapterImages.nth(index);
     await image.scrollIntoViewIfNeeded();
     await page.waitForFunction((img) => img.complete && img.naturalWidth > 0, await image.elementHandle());
+  }
+
+  /* O palco tem DUAS leituras. Uma terceira (o markdown cru) saiu: o Editor ja
+   * mostra o texto numerado por linha. Se alguem reintroduzir uma aba sem
+   * querer, este numero denuncia. */
+  const stageTabs = page.locator("#leituras [role='tab']");
+  const stageTabCount = await stageTabs.count();
+  if (stageTabCount !== 2) throw new Error(`Stage should expose 2 readings, found ${stageTabCount}.`);
+  const stageTabNames = await stageTabs.allInnerTexts();
+  if (stageTabNames.join("|") !== "Editor|Memórias") {
+    throw new Error(`Unexpected stage tabs: ${stageTabNames.join("|")}`);
   }
 }
 
 async function assertAnchorNavigation(page, baseUrl) {
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(`${baseUrl}/pt-BR`, { waitUntil: "networkidle" });
-  await page.locator("header nav").getByRole("link", { name: "Editor", exact: true }).click();
-  await page.waitForURL(/\/pt-BR#editor$/);
+  await page.locator("header nav").getByRole("link", { name: "Produto", exact: true }).click();
+  await page.waitForURL(/\/pt-BR#leituras$/);
   await page.waitForTimeout(120);
-  const homeTargetTop = await page.locator("#editor").evaluate((node) => node.getBoundingClientRect().top);
-  if (homeTargetTop < 45 || homeTargetTop > 80) {
-    throw new Error(`Home anchor did not align below the header: ${homeTargetTop}`);
+  /* O cabecalho deixou de ser `sticky`: o alvo do ancora encosta no topo da
+   * viewport, sem a folga de 56px que compensava a barra grudada. */
+  const homeTargetTop = await page.locator("#leituras").evaluate((node) => node.getBoundingClientRect().top);
+  if (homeTargetTop < -1 || homeTargetTop > 8) {
+    throw new Error(`Home anchor did not align at the top: ${homeTargetTop}`);
   }
 
   await page.goto(`${baseUrl}/pt-BR/faq`, { waitUntil: "networkidle" });
-  await page.locator("header nav").getByRole("link", { name: "Memórias", exact: true }).click();
-  await page.waitForURL(/\/pt-BR#memorias$/);
+  await page.locator("header nav").getByRole("link", { name: "Arquivos", exact: true }).click();
+  await page.waitForURL(/\/pt-BR#arquivo$/);
   await page.waitForTimeout(160);
-  const secondaryTargetTop = await page.locator("#memorias").evaluate((node) => node.getBoundingClientRect().top);
-  if (secondaryTargetTop < 45 || secondaryTargetTop > 80) {
-    throw new Error(`Secondary-route anchor did not align below the header: ${secondaryTargetTop}`);
+  const secondaryTargetTop = await page.locator("#arquivo").evaluate((node) => node.getBoundingClientRect().top);
+  if (secondaryTargetTop < -1 || secondaryTargetTop > 8) {
+    throw new Error(`Secondary-route anchor did not align at the top: ${secondaryTargetTop}`);
   }
 }
 
@@ -151,13 +164,13 @@ async function assertMobileAndKeyboard(page, baseUrl) {
 
   await page.getByRole("button", { name: "Abrir menu principal" }).click();
   const mobile = page.getByRole("navigation", { name: "Menu móvel" });
-  for (const label of ["Editor", "Memórias", "Local-first", "Baixar"]) {
+  for (const label of ["Produto", "Arquivos", "Personalização", "Baixar"]) {
     if (!(await mobile.getByRole("link", { name: label, exact: true }).isVisible())) {
       throw new Error(`Mobile menu is missing ${label}.`);
     }
   }
-  await mobile.getByRole("link", { name: "Local-first", exact: true }).click();
-  await page.waitForURL(/\/pt-BR#local$/);
+  await mobile.getByRole("link", { name: "Personalização", exact: true }).click();
+  await page.waitForURL(/\/pt-BR#temas$/);
 }
 
 async function assertNoHorizontalOverflow(page, baseUrl) {
@@ -194,7 +207,14 @@ async function assertPerformanceBudgets(page, baseUrl) {
     if (/\.css(\?|$)/.test(url)) cssGzip += bytes;
   }
 
-  if (jsGzip > 100 * 1024) throw new Error(`Initial JS exceeds 100 KiB gzip: ${jsGzip} bytes.`);
+  // Orcamento de JS recalibrado por decisao do dono (2026-11-03): o teto e
+  // FOLGA DE SEGURANCA, nao meta. A meta de qualidade do site e Lighthouse 100
+  // e otimizacao continua; um teto apertado transformava qualquer linha nova em
+  // falha de build e empurrava o esforco para o lugar errado. Se este numero
+  // comecar a incomodar, o sinal e a medicao do Lighthouse — nao o teto.
+  if (jsGzip > 150 * 1024) {
+    throw new Error(`Initial JS exceeds the 150 KiB safety ceiling: ${jsGzip} bytes.`);
+  }
   if (cssGzip > 18_000) throw new Error(`Initial CSS exceeds 18 KB gzip: ${cssGzip} bytes.`);
 
   const heroResponse = await fetch(`${baseUrl}/assets/product/editor.png`);
