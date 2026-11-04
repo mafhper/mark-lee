@@ -733,7 +733,6 @@ const WorkspaceSidebar = ({ palette, rows, workspace, search }: SidebarProps) =>
           <div
             key={`${row.depth}-${row.name}`}
             data-stage-part="tree-row"
-            data-stage-active={row.active ? "true" : undefined}
             style={{
               height: M.sidebar.tree.rowHeight,
               boxSizing: "border-box",

@@ -390,7 +390,6 @@ const MemoriesSidebar = ({
             <div
               key={id}
               data-stage-part="memory-section"
-              data-stage-active={active ? "true" : undefined}
               style={{
                 height: MEM.item.height,
                 boxSizing: "border-box",
@@ -844,7 +843,6 @@ const RecordListPanel = ({
               <div
                 key={record.date}
                 data-stage-part="memory-record"
-                data-stage-active={record.active ? "true" : undefined}
                 style={{
                   height: J.list.rowHeight,
                   boxSizing: "border-box",
@@ -1306,10 +1304,9 @@ const StageFrame = ({
   const height = scaled ? width / (STAGE_WIDTH / STAGE_HEIGHT) : stackedHeight;
 
   return (
-    /* Tres camadas com papeis distintos, e a separacao e o desenho:
-     *  `stage-focus` recorta (o halo sangra 48px e morre no gutter, sem cruzar a
-     *  regua), `stage-focus__zoom` escala (nunca o `window-scaler`, que ja gasta
-     *  o `transform` na reducao de 1440) e `window-frame` e a janela.
+    /* Duas camadas com papeis distintos, e a separacao e o desenho:
+     *  `stage-focus__zoom` escala (nunca o `window-scaler`, que ja gasta o
+     *  `transform` na reducao de 1440) e `window-frame` e a janela.
      *  `data-stage-scaled` publica a decisao de empilhamento para o CSS: a janela
      *  empilhada nao cresce. */
     <div
@@ -1318,17 +1315,13 @@ const StageFrame = ({
       data-stage-scaled={scaled ? "true" : "false"}
     >
       <div className="stage-focus__zoom">
-        {/* Tres aneis concentricos ao redor da moldura, como o ancinho na areia.
-         *  Cada um e um `<rect>` com `pathLength="1"`: o perimetro vira uma
-         *  unidade, entao `stroke-dasharray: 1` + `stroke-dashoffset: 1` deixam o
-         *  traco invisivel e `dashoffset: 0` o desenha inteiro — sem calcular
-         *  perimetro em JS e sem deformar o traco (as medidas sao px, nao
-         *  viewBox). Quem dispara e o mesmo `:hover`/`:focus-within` do wash. */}
-        {[1, 2, 3].map((ring) => (
-          <svg key={ring} className="stage-ring" data-ring={ring} aria-hidden="true">
-            <rect x="0" y="0" width="100%" height="100%" pathLength={1} />
-          </svg>
-        ))}
+        <span
+          className="stage-focus__shade"
+          aria-hidden="true"
+          /* O raio da camada de sombra e o raio da janela: mesma fonte, para a
+           *  sombra nunca "descolar" no canto. */
+          style={{ borderRadius: APP_METRICS.windowRadius }}
+        />
         <div
           ref={ref}
           data-stage-part="window-frame"
@@ -1451,25 +1444,15 @@ const Stage = ({ locale }: StageProps) => {
     <section
       id="leituras"
       aria-labelledby="leituras-titulo"
-      className="margins-stage relative isolate overflow-clip border-b border-stage-rule bg-stage text-stage-foreground"
+      className="margins-stage relative border-b border-stage-rule bg-stage text-stage-foreground"
     >
-      {/* A camada do wash cobre a SECAO inteira, atras de tudo. O conteudo sobe
-       *  para z-10: e o que mantem titulo, abas e legendas intactos enquanto a
-       *  textura atravessa — as zonas quietas do efeito. `pointer-events: none`
-       *  na camada para ela nao roubar o hover que a dispara; `aria-hidden`
-       *  porque nao ha informacao ali. */}
-      <div className="stage-wash" aria-hidden="true">
-        <div className="stage-wash__blob" />
-      </div>
-
-      <div className="relative z-10">
-        {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
-         *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
-         *  `border-l`: a regua virava tres segmentos com emendas — e o bloco da
-         *  janela, que tinha container proprio, era o que aparecia por cima dela.
-         *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
-         *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
-        <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
+      {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
+       *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
+       *  `border-l`: a regua virava tres segmentos com emendas — e o bloco da
+       *  janela, que tinha container proprio, era o que aparecia por cima dela.
+       *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
+       *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
+      <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
         <div className="pt-20 lg:pt-28">
           <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
@@ -1523,7 +1506,7 @@ const Stage = ({ locale }: StageProps) => {
          *  cromo em ~7px, e ali o palco volta ao tamanho natural com o layout
          *  compacto do app (uma coluna, 16px) — com as colunas de Memorias
          *  EMPILHADAS, nunca descartadas. */}
-        <div className="mt-14">
+        <div className="mt-6">
           <StageFrame
             panelId={`painel-${view}`}
             tabId={`aba-${view}`}
@@ -1541,7 +1524,7 @@ const Stage = ({ locale }: StageProps) => {
           </StageFrame>
         </div>
 
-        <div className="mt-14 pb-20 lg:pb-28">
+        <div className="pb-20 lg:pb-28">
           <div className="mt-4 grid">
             {stage.views.map((item) => (
               <p
@@ -1555,7 +1538,6 @@ const Stage = ({ locale }: StageProps) => {
               </p>
             ))}
           </div>
-        </div>
         </div>
       </div>
     </section>

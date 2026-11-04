@@ -114,206 +114,6 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
- * Wash do palco
- *
- * A textura que se ESPALHA da janela para a secao inteira no hover/focus dela.
- * Sem WebGL e sem loop: a borda irregular e um `feTurbulence` ESTATICO, rasterizado
- * uma vez dentro de um data-URI de mascara; a animacao mexe so em `opacity` e
- * `mask-size` (a segunda camada, de zonas quietas, fica parada em 100%).
- *
- * ZONAS QUIETAS. A mascara tem duas camadas compostas com `subtract`: a mancha
- * irregular e, por baixo, duas faixas opacas — o topo (titulo, descricao e abas)
- * e o rodape (legendas). Onde a faixa e opaca, a mancha e SUBTRAIDA: o texto
- * nunca recebe tinta, nem durante a travessia. As faixas sao percentuais do
- * palco (34% e 89%), medidos no layout de 1440; como a mancha e difusa, a
- * diferenca em outras larguras nao aparece.
- * ------------------------------------------------------------------------ */
-
-@layer components {
-  /* O PAI carrega so as zonas quietas: duas faixas opacas onde a tinta e
-   * SUBTRAIDA — o topo (titulo, descricao, abas) e o rodape (legendas). Ele nao
-   * anima, entao o texto fica protegido em qualquer quadro. As emendas caem nos
-   * vaos vazios (28,7-30,8% entre abas e janela; 86,6-88% entre janela e
-   * legendas), medidas no layout de 1440. */
-  .stage-wash {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0 28.2%,
-      #000 31% 84.9%,
-      transparent 88% 100%
-    );
-    mask-repeat: no-repeat;
-    mask-size: 100% 100%;
-  }
-
-  /* O FILHO carrega a mancha irregular e o gradiente, e e ele que anima:
-   * `transform: scale()` + `opacity`, que o compositor resolve. `mask-size`
-   * animado nao interpola de forma confiavel neste caso (o Chromium salta para
-   * o valor final), e escalar e mais barato de qualquer jeito.
-   *
-   * A borda irregular e `feTurbulence` ESTATICO dentro de um data-URI: rasteriza
-   * uma vez, nao roda loop. No meio da travessia a frente da mancha mostra o
-   * recorte irregular; na concentracao ela passa das bordas da secao. */
-  .stage-wash__blob {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-      140% 130% at 50% 56%,
-      color-mix(in oklab, color-mix(in oklab, var(--color-stage) 30%, black) 78%, transparent) 0%,
-      color-mix(in oklab, color-mix(in oklab, var(--color-stage) 40%, black) 46%, transparent) 58%,
-      transparent 100%
-    );
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='w' x='-20%25' y='-20%25' width='140%25' height='140%25'><feTurbulence type='fractalNoise' baseFrequency='0.035' numOctaves='3' seed='11' result='n'/><feDisplacementMap in='SourceGraphic' in2='n' scale='10' xChannelSelector='R' yChannelSelector='G'/></filter></defs><circle cx='50' cy='50' r='47' fill='%23fff' filter='url(%23w)'/></svg>");
-    mask-repeat: no-repeat;
-    mask-size: 150% 150%;
-    mask-position: 50% 56%;
-    transform: scale(0.04);
-    transform-origin: 50% 56%;
-    opacity: 0;
-    transition:
-      opacity 820ms var(--ease-stage-focus),
-      transform 820ms var(--ease-stage-focus);
-  }
-
-  /* A janela: cresce 1,018 e ganha sombra em camada. O `transform` aqui e do
-   * quadro; o desenho dentro dele ja vem escalado pelo StageFrame. */
-  .stage-window {
-    box-shadow: 0 20px 50px -30px rgba(0, 0, 0, 0.55);
-    transition:
-      transform 720ms var(--ease-stage-focus),
-      box-shadow 720ms var(--ease-stage-focus);
-  }
-
-  /* -------------------------------------------------------------------------
-   * Aneis concentricos: o desenho do ancinho
-   *
-   * Tres tracos de 1px em volta da moldura, espacados de 13px, que se DESENHAM
-   * em sequencia durante a travessia (0-300, 200-500, 400-820ms) e apagam na
-   * ordem inversa em 160ms — dentro da janela de saida de 240ms.
-   *
-   * `pathLength="1"` no `<rect>` normaliza o perimetro: `dasharray: 1` cobre a
-   * volta inteira e `dashoffset` vai de 1 (nada) a 0 (tudo). Sem JS e sem medir
-   * o perimetro, que muda com a largura.
-   *
-   * O espacamento para no anel 3 (36px) porque o gutter do `measure` e 40px em
-   * `lg`: o traco encosta na regua da margem e nunca a cruza.
-   * ---------------------------------------------------------------------- */
-  .stage-ring {
-    position: absolute;
-    pointer-events: none;
-    /* O traco e centrado na borda do SVG: metade dele cairia fora da caixa. */
-    overflow: visible;
-  }
-
-  .stage-ring rect {
-    fill: none;
-    stroke: color-mix(in oklab, var(--color-stage-accent) 42%, transparent);
-    stroke-width: 1;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    /* Saida: 160ms, ordem inversa, tudo dentro de 240ms. */
-    transition: stroke-dashoffset 160ms var(--ease-stage-focus);
-  }
-
-  /* Cada anel e do tamanho da JANELA mais a folga — nao do tamanho intrinseco do
-   * SVG (300x150, que e o que fazia os tres virarem retangulozinhos no canto).
-   * `left/top` negativos + `100% + 2*folga` mantem o centro no centro da janela;
-   * o `rx` acompanha o raio da moldura (6px) somado a folga, entao os cantos
-   * ficam concentricos e arredondados.
-   *
-   * A folga e uma variavel: no telefone o gutter e de 24px e uma sangria de 36
-   * sairia da secao (cortada pelo `overflow: clip`); la ela cai para 8/16/24. */
-  .stage-ring[data-ring="1"] {
-    --ring: 8px;
-    transition-delay: 60ms;
-  }
-  .stage-ring[data-ring="2"] {
-    --ring: 16px;
-    transition-delay: 30ms;
-  }
-  .stage-ring[data-ring="3"] {
-    --ring: 24px;
-    transition-delay: 0ms;
-  }
-
-  @media (min-width: 64rem) {
-    .stage-ring[data-ring="1"] {
-      --ring: 12px;
-    }
-    .stage-ring[data-ring="2"] {
-      --ring: 24px;
-    }
-    .stage-ring[data-ring="3"] {
-      --ring: 36px;
-    }
-  }
-
-  .stage-ring {
-    left: calc(-1 * var(--ring));
-    top: calc(-1 * var(--ring));
-    width: calc(100% + 2 * var(--ring));
-    height: calc(100% + 2 * var(--ring));
-  }
-
-  .stage-ring rect {
-    rx: calc(6px + var(--ring));
-  }
-
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    /* O estado tambem pode ser travado por atributo (`data-stage-active="true"`),
-     * para o teste medir o efeito no estado final sem depender de hover. */
-    #leituras:has([data-stage-part="window-frame"]:hover) .stage-wash__blob,
-    #leituras:has([data-stage-part="window-frame"]:focus-within) .stage-wash__blob,
-    #leituras[data-stage-active="true"] .stage-wash__blob {
-      opacity: 1;
-      transform: scale(1.3);
-    }
-
-    /* Entrada: cada anel comeca depois do anterior e todos terminam junto com a
-     * travessia do wash (820ms). */
-    #leituras:has([data-stage-part="window-frame"]:is(:hover, :focus-within)) .stage-ring[data-ring="1"] rect,
-    #leituras[data-stage-active="true"] .stage-ring[data-ring="1"] rect {
-      stroke-dashoffset: 0;
-      transition: stroke-dashoffset 300ms var(--ease-stage-focus) 0ms;
-    }
-
-    #leituras:has([data-stage-part="window-frame"]:is(:hover, :focus-within)) .stage-ring[data-ring="2"] rect,
-    #leituras[data-stage-active="true"] .stage-ring[data-ring="2"] rect {
-      stroke-dashoffset: 0;
-      transition: stroke-dashoffset 300ms var(--ease-stage-focus) 200ms;
-    }
-
-    #leituras:has([data-stage-part="window-frame"]:is(:hover, :focus-within)) .stage-ring[data-ring="3"] rect,
-    #leituras[data-stage-active="true"] .stage-ring[data-ring="3"] rect {
-      stroke-dashoffset: 0;
-      transition: stroke-dashoffset 420ms var(--ease-stage-focus) 400ms;
-    }
-
-    .stage-window:hover,
-    .stage-window:focus-within,
-    #leituras[data-stage-active="true"] .stage-window {
-      transform: scale(1.018);
-      box-shadow:
-        0 42px 90px -40px rgba(0, 0, 0, 0.78),
-        0 8px 26px -14px rgba(0, 0, 0, 0.6);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .stage-wash__blob,
-    .stage-window,
-    .stage-ring rect {
-      transition: none;
-    }
-  }
-}
-
-
 @utility fade-bottom {
   &::before {
     content: "";
@@ -376,43 +176,50 @@
  * Modo de concentracao do palco.
  *
  * Apontar para a janela (ou chegar nela de teclado) concentra: a janela cresce
- * 1,8%, ganha halo de acento atras e uma sombra propria; sair devolve tudo.
+ * 1,8% e ganha uma sombra em camadas; sair devolve tudo.
  *
- * As cinco regras que o desenho impoe, e que explicam cada linha abaixo:
+ * As quatro regras que o desenho impoe, e que explicam cada linha abaixo:
  *
  *  1. A escala vive no INVOLUCRO EXTERNO. O `window-scaler` ja carrega o
  *     `transform: scale()` que reduz o desenho de 1440 ao container; somar outra
  *     escala nele quebraria a origem `top left` e a medida que decide empilhar.
  *  2. Janela empilhada (moldura estreita) NAO escala: ali o desenho esta no
  *     tamanho natural e crescer 1,8% levaria a janela para dentro do gutter.
- *     Halo e sombra continuam — o estado de concentracao nao some, so nao incha.
+ *     A sombra continua — o estado de concentracao nao some, so nao incha.
  *  3. So `transform` e `opacity` animam. Sombra mora em camada propria e aparece
  *     por opacidade: interpolar `box-shadow` repinta a caixa a cada quadro.
- *  4. O halo sangra 48px e morre no `overflow: clip` do grupo. A folga lateral e
- *     o gutter do `measure` (24/40), entao a sangria encosta na regua e nunca a
- *     cruza. A folga de baixo e maior porque a sombra alcanca 64px.
- *  5. `will-change` so existe durante o efeito: promocao permanente de uma peca
+ *  4. `will-change` so existe durante o efeito: promocao permanente de uma peca
  *     de 1000x900 custa memoria de GPU por nada.
  */
 .stage-focus {
-  /* O halo de 48px saiu: o efeito de concentracao agora e o wash da SECAO
-   *  (`.stage-wash`), que cobre o palco inteiro. Sobrou o que ele nao fazia:
-   *  o zoom de 1,018 e o anel de foco de teclado.
-   *
-   *  Sem padding/margens negativas (elas existiam so para a sangria do halo) e
-   *  sem `overflow: clip` — que cortava a sombra da janela. O bloco volta a ser
-   *  um container comum. */
+  /* Container comum: sem padding, margem negativa nem `overflow: clip` — a
+   *  folga que existia aqui era para a sangria do halo e so servia para cortar
+   *  a sombra da janela. O efeito que resta e o zoom de 1,018, a sombra em
+   *  camada propria e o anel de foco de teclado. */
   position: relative;
   z-index: 0;
 }
 
-/* O invólucro que escala. Ele NAO e o recorte de proposito: escalado, o recorte
- *  andaria ~10px para fora e o halo passaria a cruzar a regua. Separado, o
- *  recorte fica parado no gutter e a janela cresce dentro dele. */
+/* O involucro que escala. Ele NAO e o recorte de proposito: um recorte escalado
+ *  andaria ~10px para fora do lugar e levaria a sombra junto. */
 .stage-focus__zoom {
   position: relative;
   /* Saida: 240ms sem espera. Reverter tarde parece travamento. */
   transition: transform 240ms var(--ease-stage-focus);
+}
+
+/* Sombra da concentracao: camada propria, do tamanho da janela (o raio de canto
+ *  vem do `style` do TSX, mesma fonte da moldura). Ela nasce parada e o que
+ *  anima e so `opacity` — `box-shadow` interpolado repintaria a caixa inteira a
+ *  cada quadro, e a peca tem 1000x900. */
+.stage-focus__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.4), 0 24px 48px -16px rgba(2, 6, 23, 0.5),
+    0 48px 96px -32px rgba(2, 6, 23, 0.38);
+  transition: opacity 240ms var(--ease-stage-focus);
 }
 
 .stage-focus__frame {
@@ -429,7 +236,7 @@
 }
 
 /* Toque e `prefers-reduced-motion` ficam estaticos: sem hover, sem escala, sem
- * halo, sem transicao — as regras de estado simplesmente nao existem ali. */
+ * sombra, sem transicao — as regras de estado simplesmente nao existem ali. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .stage-focus:is(:hover, :focus-within) .stage-focus__zoom {
     /* Entrada: 60ms de dwell para atravessar a janela de passagem nao
@@ -442,4 +249,9 @@
     will-change: transform;
   }
 
+  .stage-focus:is(:hover, :focus-within) .stage-focus__shade {
+    opacity: 1;
+    transition: opacity 220ms var(--ease-stage-focus) 60ms;
+    will-change: opacity;
+  }
 }
