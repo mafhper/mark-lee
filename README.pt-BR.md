@@ -49,6 +49,14 @@ prendido a um formato proprietário.
   coffee, golden, firenight, terminal
 - **Salvamento automático** — intervalo configurável, com alterações não salvas marcadas
   em cada aba
+- **Atualização integrada** — o app consulta o feed de releases, mostra a versão e as
+  notas, e só baixa ou instala quando você pede; os artefatos são assinados, e uma
+  assinatura inválida é recusada; antes de reiniciar, pede para salvar, descartar ou
+  cancelar os documentos com trabalho pendente
+- **Fechamento seguro e recuperação** — fechar uma aba com trabalho pendente oferece
+  Salvar, Descartar e Cancelar, e Cancelar mantém tudo; uma mudança feita fora do app
+  oferece Recarregar, Comparar, Salvar cópia e Cancelar, e nada é sobrescrito em
+  silêncio; rascunhos não salvos ficam no disco e voltam na abertura seguinte
 - **pt-BR · en-US · es-ES** — a interface vem em três idiomas
 
 ## Memórias
@@ -61,8 +69,9 @@ Um modo local-first de diário sobre Markdown puro com front-matter YAML.
   próprios marcadores numéricos/booleanos/texto, resumidos por dia, semana ou mês
 - **Visão de leitura** — layout de blog com navegação anterior/próxima, respeitando o tema
 - **Pomodoro** — timer flutuante com trava opcional de intervalo
-- **Resiliente** — escritas atômicas, backups, importação tolerante a CRLF e proteção do
-  caminho dos assets
+- **Resiliente** — o mesmo caminho de gravação segura serve ao Editor e às Memórias, com
+  escritas atômicas, backups, importação tolerante a CRLF e proteção do caminho dos
+  assets
 - **Ações rápidas** — botão direito em qualquer registro para abrir, favoritar,
   duplicar, editar ou excluir
 
@@ -77,7 +86,7 @@ Windows, macOS e Linux, na [página de releases](https://github.com/mafhper/mark
 Um shell nativo com um núcleo web moderno — binário pequeno, memória baixa, acesso real
 a arquivos.
 
-- **Tauri 2** (Rust) — janela, sistema de arquivos, diálogos nativos, observation de arquivos
+- **Tauri 2** (Rust) — janela, sistema de arquivos, diálogos nativos, observação de arquivos
 - **React 19** + **TypeScript** — interface e estado
 - **Vite 8** — servidor de desenvolvimento e build de produção
 - **Tailwind CSS 3** — estilos
