@@ -100,8 +100,8 @@ const PREVIEW = {
  *   entrada  821   capa, cabecalho (sobrancelha, titulo, chips, contagem) e o
  *                  corpo dividido: codigo | visualizacao com o bloco METADADOS
  *
- * Cada numero abaixo vem de `.dev/tmp/memorias-real/medidas.json`, medido no
- * app rodando em 1440x900, tema Midnight, com este mesmo registro aberto.
+ * Cada numero abaixo foi medido no app rodando em 1440x900, tema Midnight, com
+ * este mesmo registro aberto — nao vem de estimativa de olho.
  * ------------------------------------------------------------------------ */
 
 const accordionStyle = (palette: Palette) => ({
@@ -1318,14 +1318,17 @@ const StageFrame = ({
       data-stage-scaled={scaled ? "true" : "false"}
     >
       <div className="stage-focus__zoom">
-        <span className="stage-focus__halo" aria-hidden="true" />
-        <span
-          className="stage-focus__shade"
-          aria-hidden="true"
-          /* O raio da camada de sombra e o raio da janela: mesma fonte, para a
-           *  sombra nunca "descolar" no canto. */
-          style={{ borderRadius: APP_METRICS.windowRadius }}
-        />
+        {/* Tres aneis concentricos ao redor da moldura, como o ancinho na areia.
+         *  Cada um e um `<rect>` com `pathLength="1"`: o perimetro vira uma
+         *  unidade, entao `stroke-dasharray: 1` + `stroke-dashoffset: 1` deixam o
+         *  traco invisivel e `dashoffset: 0` o desenha inteiro — sem calcular
+         *  perimetro em JS e sem deformar o traco (as medidas sao px, nao
+         *  viewBox). Quem dispara e o mesmo `:hover`/`:focus-within` do wash. */}
+        {[1, 2, 3].map((ring) => (
+          <svg key={ring} className="stage-ring" data-ring={ring} aria-hidden="true">
+            <rect x="0" y="0" width="100%" height="100%" pathLength={1} />
+          </svg>
+        ))}
         <div
           ref={ref}
           data-stage-part="window-frame"
@@ -1448,15 +1451,25 @@ const Stage = ({ locale }: StageProps) => {
     <section
       id="leituras"
       aria-labelledby="leituras-titulo"
-      className="margins-stage relative border-b border-stage-rule bg-stage text-stage-foreground"
+      className="margins-stage relative isolate overflow-clip border-b border-stage-rule bg-stage text-stage-foreground"
     >
-      {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
-       *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
-       *  `border-l`: a regua virava tres segmentos com emendas — e o bloco da
-       *  janela, que tinha container proprio, era o que aparecia por cima dela.
-       *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
-       *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
-      <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
+      {/* A camada do wash cobre a SECAO inteira, atras de tudo. O conteudo sobe
+       *  para z-10: e o que mantem titulo, abas e legendas intactos enquanto a
+       *  textura atravessa — as zonas quietas do efeito. `pointer-events: none`
+       *  na camada para ela nao roubar o hover que a dispara; `aria-hidden`
+       *  porque nao ha informacao ali. */}
+      <div className="stage-wash" aria-hidden="true">
+        <div className="stage-wash__blob" />
+      </div>
+
+      <div className="relative z-10">
+        {/* UMA `.measure` para a secao inteira, com a REGUA no proprio container.
+         *  Antes cada bloco (cabecalho, janela, legendas) desenhava o seu
+         *  `border-l`: a regua virava tres segmentos com emendas — e o bloco da
+         *  janela, que tinha container proprio, era o que aparecia por cima dela.
+         *  Agora a regua e uma so, do topo ao rodape do palco, e todo o conteudo
+         *  (titulo, abas, janela, legendas) fica DENTRO do padding dela. */}
+        <div className="measure border-l border-stage-accent/30 px-6 lg:px-10">
         <div className="pt-20 lg:pt-28">
           <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
@@ -1510,7 +1523,7 @@ const Stage = ({ locale }: StageProps) => {
          *  cromo em ~7px, e ali o palco volta ao tamanho natural com o layout
          *  compacto do app (uma coluna, 16px) — com as colunas de Memorias
          *  EMPILHADAS, nunca descartadas. */}
-        <div className="mt-6">
+        <div className="mt-14">
           <StageFrame
             panelId={`painel-${view}`}
             tabId={`aba-${view}`}
@@ -1528,7 +1541,7 @@ const Stage = ({ locale }: StageProps) => {
           </StageFrame>
         </div>
 
-        <div className="pb-20 lg:pb-28">
+        <div className="mt-14 pb-20 lg:pb-28">
           <div className="mt-4 grid">
             {stage.views.map((item) => (
               <p
@@ -1542,6 +1555,7 @@ const Stage = ({ locale }: StageProps) => {
               </p>
             ))}
           </div>
+        </div>
         </div>
       </div>
     </section>

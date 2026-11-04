@@ -3,17 +3,17 @@ import { RECORD_THEMES, RecordTheme } from "@/aurora/theme-tokens";
 /**
  * Medidas da janela do aplicativo, agora tiradas do DOM do aplicativo rodando.
  *
- * A versao anterior deste arquivo era uma leitura de pixel das capturas
- * (`.dev/tmp/demo-shots/editor-sidebar.png`). Ela acertava as alturas e errava o
- * resto: a barra de titulo tem 32px de conteudo **mais** 1px de borda (33), o
- * passo do codigo e 25,6px (nao 26), a indentacao da arvore e 14px (nao 16) e o
- * texto mono avanca 8,8px por caractere — nao 9,9.
+ * A versao anterior deste arquivo era uma leitura de pixel de uma captura de
+ * tela do editor. Ela acertava as alturas e errava o resto: a barra de titulo
+ * tem 32px de conteudo **mais** 1px de borda (33), o passo do codigo e 25,6px
+ * (nao 26), a indentacao da arvore e 14px (nao 16) e o texto mono avanca 8,8px
+ * por caractere — nao 9,9.
  *
  * Cada numero abaixo vem de `getBoundingClientRect()` +
  * `getComputedStyle()` do aplicativo em 1440x900 (`Vite dev` + shim de IPC),
- * medido numa aba so, vista `edit`, tema Golden. O JSON completo, elemento por
- * elemento, esta em `.dev/tmp/stage-medidas/medidas.json`. A prova de que a
- * recriacao usa estes numeros e o pixel-diff em `.dev/tmp/stage-recriacao/`.
+ * medido numa aba so, vista `edit`, tema Golden, elemento por elemento. A prova
+ * de que a recriacao usa estes numeros e o pixel-diff contra a tela real: o
+ * numero que nao bate aparece como diferenca de imagem, nao como opiniao.
  *
  * Coordenada de referencia (1440x900, bordas inclusive):
  *

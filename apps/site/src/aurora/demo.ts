@@ -165,8 +165,8 @@ export const RECORD_TREE: DemoTreeNode[] = [
  * Os registros que o caderno demo tem no disco, na ordem em que a lista os
  * mostra: mais novo primeiro, agrupado por mes.
  *
- * Isto deixou de ser invencao: cada linha aqui sai do front-matter do arquivo
- * real (`.dev/tmp/memorias-real/dados.mjs` le e imprime). A contagem de
+ * Isto deixou de ser invencao: cada linha aqui sai do front-matter de um
+ * registro real, lido e impresso por um script descartavel. A contagem de
  * palavras usa a mesma regra do app — `body.trim().split(/\s+/).length` — e a
  * miniatura existe em toda entrada que tem `cover` ou `images`.
  */
